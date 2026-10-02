@@ -25,12 +25,19 @@ class CreateJob(Model):
     visibility: Literal["unlisted"] = "unlisted"
 
 
+class Evidence(Model):
+    timestamp: str = Field(pattern=r"^\d{2,}:[0-5]\d$")
+    observation: str = Field(min_length=1, max_length=1000)
+
+
 class BomItem(Model):
     line_id: str
     raw_name: Name
-    qty: Quantity = 1
+    qty: Quantity | None = 1
     qty_unit: Literal["pcs"] = "pcs"
     user_has_it: bool = False
+    evidence: list[Evidence] = Field(default_factory=list)
+    user_edited: bool = False
 
 
 class UpdateLine(Model):
@@ -85,7 +92,7 @@ class ReportLine(Model):
 
 
 class Report(Model):
-    demo: Literal[True] = True
+    demo: bool = True
     summary: str
     lines: list[ReportLine]
     total_inr: None = None
@@ -94,20 +101,22 @@ class Report(Model):
 class Job(Model):
     job_id: str
     status: Status = "queued"
-    demo: Literal[True] = True
+    demo: bool = True
     input: CreateJob
     created_at: datetime = Field(default_factory=now)
     updated_at: datetime = Field(default_factory=now)
     items: list[BomItem] = Field(default_factory=list)
     events: list[Event] = Field(default_factory=list)
     report: Report | None = None
+    error: "ErrorDetail | None" = None
+    extraction_model: str | None = None
 
 
 class CreatedJob(Model):
     job_id: str
     status: Literal["queued"] = "queued"
     cached: Literal[False] = False
-    demo: Literal[True] = True
+    demo: bool = True
     job_token: str
     watch: str
 
@@ -127,5 +136,5 @@ class ErrorResponse(Model):
 
 class Health(Model):
     status: Literal["ok"] = "ok"
-    mode: Literal["demo"] = "demo"
+    mode: Literal["demo", "live"] = "demo"
     storage: Literal["memory"] = "memory"

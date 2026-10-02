@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from bharat_sourcer.config import Settings
+from bharat_sourcer.extraction import Extractor, GeminiExtractor
 from bharat_sourcer.jobs import JobError, JobService
 from bharat_sourcer.schemas import (
     ConfirmationAccepted,
@@ -20,15 +21,14 @@ from bharat_sourcer.schemas import (
 JobToken = Annotated[str | None, Header(alias="X-Job-Token")]
 
 
-def create_app(settings: Settings | None = None) -> FastAPI:
+def create_app(settings: Settings | None = None, extractor: Extractor | None = None) -> FastAPI:
     settings = settings or Settings()
-    if not settings.demo_mode:
-        raise RuntimeError("Only demo mode is implemented. Set BS_DEMO_MODE=true.")
-    service = JobService()
+    live_extractor = None if settings.demo_mode else (extractor or GeminiExtractor(settings))
+    service = JobService(live_extractor, settings.gemini_model if live_extractor else None)
     app = FastAPI(
         title="Bharat Sourcer API",
-        version="0.1.0",
-        description="Local demo API. Sample data only; jobs are lost on process restart.",
+        version="0.2.0",
+        description="Demo or live YouTube extraction. In-memory jobs; sourcing not implemented.",
         responses={422: {"model": ErrorResponse}},
     )
     app.add_middleware(
@@ -56,13 +56,21 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @app.get("/healthz", response_model=Health, tags=["health"])
     def health():
-        return Health()
+        return Health(mode="demo" if settings.demo_mode else "live")
 
-    @app.post("/v1/jobs", status_code=202, response_model=CreatedJob, tags=["jobs"])
+    @app.post(
+        "/v1/jobs",
+        status_code=202,
+        response_model=CreatedJob,
+        tags=["jobs"],
+        responses={400: {"model": ErrorResponse}},
+    )
     def create_job(body: CreateJob, tasks: BackgroundTasks):
         job, token = service.create(body)
-        tasks.add_task(service.extract_demo, job.job_id)
-        return CreatedJob(job_id=job.job_id, job_token=token, watch=f"/v1/jobs/{job.job_id}")
+        tasks.add_task(service.extract, job.job_id)
+        return CreatedJob(
+            job_id=job.job_id, job_token=token, watch=f"/v1/jobs/{job.job_id}", demo=job.demo
+        )
 
     @app.get(
         "/v1/jobs/{job_id}",
@@ -84,7 +92,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         job_id: str, body: ConfirmJob, tasks: BackgroundTasks, x_job_token: JobToken = None
     ):
         service.confirm(job_id, x_job_token, body)
-        tasks.add_task(service.finish_demo, job_id)
+        tasks.add_task(service.finish, job_id)
         return ConfirmationAccepted()
 
     return app

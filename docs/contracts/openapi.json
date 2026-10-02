@@ -2,8 +2,8 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Bharat Sourcer API",
-    "description": "Local demo API. Sample data only; jobs are lost on process restart.",
-    "version": "0.1.0"
+    "description": "Demo or live YouTube extraction. In-memory jobs; sourcing not implemented.",
+    "version": "0.2.0"
   },
   "paths": {
     "/healthz": {
@@ -67,6 +67,16 @@
           },
           "422": {
             "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
             "content": {
               "application/json": {
                 "schema": {
@@ -279,9 +289,16 @@
             "title": "Raw Name"
           },
           "qty": {
-            "type": "integer",
-            "maximum": 10000.0,
-            "minimum": 1.0,
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 10000.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Qty",
             "default": 1
           },
@@ -294,6 +311,18 @@
           "user_has_it": {
             "type": "boolean",
             "title": "User Has It",
+            "default": false
+          },
+          "evidence": {
+            "items": {
+              "$ref": "#/components/schemas/Evidence"
+            },
+            "type": "array",
+            "title": "Evidence"
+          },
+          "user_edited": {
+            "type": "boolean",
+            "title": "User Edited",
             "default": false
           }
         },
@@ -430,7 +459,6 @@
           },
           "demo": {
             "type": "boolean",
-            "const": true,
             "title": "Demo",
             "default": true
           },
@@ -521,6 +549,28 @@
         ],
         "title": "Event"
       },
+      "Evidence": {
+        "properties": {
+          "timestamp": {
+            "type": "string",
+            "pattern": "^\\d{2,}:[0-5]\\d$",
+            "title": "Timestamp"
+          },
+          "observation": {
+            "type": "string",
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Observation"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "timestamp",
+          "observation"
+        ],
+        "title": "Evidence"
+      },
       "HaveLine": {
         "properties": {
           "op": {
@@ -556,7 +606,10 @@
           },
           "mode": {
             "type": "string",
-            "const": "demo",
+            "enum": [
+              "demo",
+              "live"
+            ],
             "title": "Mode",
             "default": "demo"
           },
@@ -592,7 +645,6 @@
           },
           "demo": {
             "type": "boolean",
-            "const": true,
             "title": "Demo",
             "default": true
           },
@@ -632,6 +684,27 @@
                 "type": "null"
               }
             ]
+          },
+          "error": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ErrorDetail"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "extraction_model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Extraction Model"
           }
         },
         "additionalProperties": false,
@@ -666,7 +739,6 @@
         "properties": {
           "demo": {
             "type": "boolean",
-            "const": true,
             "title": "Demo",
             "default": true
           },

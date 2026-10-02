@@ -1,4 +1,4 @@
-# Implemented API contract — v0.1
+# Implemented API contract — v0.2
 
 This directory is the handoff between backend and frontend. The architecture docs describe
 the target system; this contract describes the runnable local milestone.
@@ -21,7 +21,8 @@ Base URL: `http://127.0.0.1:8000` (no `/api` prefix locally).
    ```
 
    HTTP 202 returns `job_id`, `job_token`, `watch`, `status: "queued"`,
-   `cached: false`, and `demo: true`. `watch` is the relative GET path.
+   `cached: false`, and `demo` (true for fixtures, false for live extraction).
+   `watch` is the relative GET path.
 
 2. Save `job_token` for this job. Send it as `X-Job-Token` on subsequent GET/confirm calls.
    Missing or incorrect tokens return 404 to avoid revealing job existence.
@@ -45,10 +46,28 @@ Base URL: `http://127.0.0.1:8000` (no `/api` prefix locally).
    At `done`, render `report`. Intermediate states may finish between polls; `events`
    retain the transitions. Stop and offer a fresh run on 404 after a server restart.
 
-## Demo behavior and limits
+## Live extraction (v0.2 additions)
 
-- Every URL produces the same fixture, regardless of content. No upstream requests run.
-- Always show a demo label. `price_inr`, `grade`, and `total_inr` are null (unavailable).
+The server defaults to demo mode. `/healthz` reports `mode: "demo" | "live"`.
+Live mode accepts public YouTube video URLs only; unsupported sources return 400.
+The same routes and job-token flow apply in both modes.
+
+- `items[].qty` can now be **null**. Ask the user for a positive integer before confirming,
+  or let them remove the line. Confirmation rejects remaining unknown quantities.
+- `items[].evidence` contains `{timestamp: "01:12", observation: "..."}` entries reported
+  by the model. Display them for review; they are not independently verified.
+- `items[].user_edited` marks manually added or updated lines. Existing evidence describes
+  the original extraction, and may not support the user's replacement name or quantity.
+- Jobs include nullable `extraction_model` and `error: {code, message} | null`.
+- Failed extraction sets status `failed`, with no fixture fallback. Stop polling and show
+  the error. Retry by creating a new job.
+- `report.demo` reflects the mode. In either mode, sourcing is `not_run` or `already_owned`,
+  and prices, grades and totals remain null. A live report is extraction-only.
+
+## Demo behavior and common limits
+
+- In demo mode every URL produces the same fixture. No upstream requests run.
+- Show a demo label when `demo` is true. Prices, grades and totals are unavailable in both modes.
 - This version supports piece quantities as positive integers, four language codes
   (`en`, `hi`, `ta`, `ml`), and unlisted jobs. Text remains English in fixture mode.
 - Firestore listeners, caching, sourcing, conflict answers, exports, and plan/candidate
@@ -67,11 +86,17 @@ Implemented domain and request-validation errors use:
 
 | HTTP | Code | Meaning |
 |---|---|---|
+| 400 | `UNSUPPORTED_URL` | Live mode requires a supported YouTube video URL |
 | 404 | `JOB_NOT_FOUND` | Missing job or incorrect token |
 | 409 | `INVALID_STATE` | Confirmation attempted in the wrong state |
 | 422 | `VALIDATION_ERROR` | Invalid fields, types, URL, PIN or quantity |
 | 422 | `INVALID_EDIT` | Edit references a missing line |
 | 422 | `EMPTY_BOM` | Confirmation removes every line |
+| 422 | `UNKNOWN_QUANTITY` | A retained part still has null quantity |
+
+Background failures appear in the job snapshot (HTTP 200), with codes `UPSTREAM_QUOTA`,
+`UPSTREAM_ERROR`, `UPSTREAM_TIMEOUT`, `INVALID_EXTRACTION`, `NO_BOM`, or `EXTRACTION_FAILED`.
+No raw upstream errors or credentials are exposed.
 
 Framework errors such as an unknown route retain FastAPI's default `detail` response.
 

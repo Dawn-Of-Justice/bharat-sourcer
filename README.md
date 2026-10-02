@@ -6,7 +6,7 @@
 - **[Frontend](frontend/README.md):** reserved for the frontend teammate's app and tooling.
 - **[Shared API contract](docs/contracts/README.md):** implemented endpoints and generated OpenAPI for integration.
 
-The backend currently runs with sample data and needs no cloud credentials. See its README for startup commands. Architecture documents below describe the target product; live extraction, sourcing and cloud storage are still to be implemented.
+The backend defaults to sample data without cloud credentials, and supports optional live YouTube extraction with a Gemini API key. See its README for startup commands. Architecture documents below describe the target product; sourcing and cloud storage are still to be implemented.
 
 > **Watch it in America. Build it in India.**
 > Paste any maker video or blog link. Get back a parts list you can actually buy in India, priced in rupees, with a compatibility check and the exact wiring/code changes for every substitute.

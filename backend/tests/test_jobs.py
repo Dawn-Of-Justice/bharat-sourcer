@@ -149,5 +149,5 @@ def test_confirmation_race_has_one_winner():
 
 
 def test_live_mode_fails_explicitly():
-    with pytest.raises(RuntimeError, match="Only demo mode"):
-        create_app(Settings(_env_file=None, demo_mode=False))
+    with pytest.raises(RuntimeError, match="BS_GEMINI_API_KEY"):
+        create_app(Settings(_env_file=None, demo_mode=False, gemini_api_key=None))
