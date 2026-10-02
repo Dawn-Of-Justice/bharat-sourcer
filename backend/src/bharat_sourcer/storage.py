@@ -66,7 +66,7 @@ class MemoryJobStore:
             return [
                 key
                 for key, record in self._records.items()
-                if record.job.status in {"queued", "extracting", "resolving"}
+                if record.job.status in {"queued", "extracting", "resolving", "sourcing"}
             ]
 
 
@@ -112,6 +112,8 @@ class FirestoreJobStore:
         return [
             snapshot.id
             for snapshot in self.collection.where(
-                filter=FieldFilter("job.status", "in", ["queued", "extracting", "resolving"])
+                filter=FieldFilter(
+                    "job.status", "in", ["queued", "extracting", "resolving", "sourcing"]
+                )
             ).stream()
         ]

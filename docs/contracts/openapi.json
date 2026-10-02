@@ -3,7 +3,7 @@
   "info": {
     "title": "Bharat Sourcer API",
     "description": "Demo or live YouTube extraction with optional Firestore job persistence.",
-    "version": "0.3.0"
+    "version": "0.5.0"
   },
   "paths": {
     "/healthz": {
@@ -306,6 +306,9 @@
             "minimum": 1.0,
             "title": "Qty",
             "default": 1
+          },
+          "specs": {
+            "$ref": "#/components/schemas/PartSpecs"
           }
         },
         "additionalProperties": false,
@@ -364,6 +367,16 @@
             "type": "boolean",
             "title": "User Edited",
             "default": false
+          },
+          "specs": {
+            "$ref": "#/components/schemas/PartSpecs"
+          },
+          "clarifications": {
+            "items": {
+              "$ref": "#/components/schemas/Clarification"
+            },
+            "type": "array",
+            "title": "Clarifications"
           }
         },
         "additionalProperties": false,
@@ -373,6 +386,97 @@
           "raw_name"
         ],
         "title": "BomItem"
+      },
+      "Clarification": {
+        "properties": {
+          "field": {
+            "type": "string",
+            "title": "Field"
+          },
+          "question": {
+            "type": "string",
+            "title": "Question"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "field",
+          "question"
+        ],
+        "title": "Clarification"
+      },
+      "Compatibility": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "unknown",
+              "compatible",
+              "changes_required",
+              "incompatible"
+            ],
+            "title": "Status"
+          },
+          "grade": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "A",
+                  "B",
+                  "C",
+                  "D",
+                  "X"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Grade"
+          },
+          "scope": {
+            "type": "string",
+            "const": "declared_specs_only",
+            "title": "Scope",
+            "default": "declared_specs_only"
+          },
+          "reasons": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Reasons"
+          },
+          "missing_fields": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Missing Fields"
+          },
+          "changes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Changes"
+          },
+          "references": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "References"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "title": "Compatibility"
       },
       "ConfirmJob": {
         "properties": {
@@ -565,6 +669,7 @@
               "extracting",
               "awaiting_confirmation",
               "resolving",
+              "sourcing",
               "done",
               "failed"
             ],
@@ -680,6 +785,7 @@
               "extracting",
               "awaiting_confirmation",
               "resolving",
+              "sourcing",
               "done",
               "failed"
             ],
@@ -748,6 +854,11 @@
               }
             ],
             "title": "Extraction Model"
+          },
+          "sourcing_enabled": {
+            "type": "boolean",
+            "title": "Sourcing Enabled",
+            "default": false
           }
         },
         "additionalProperties": false,
@@ -757,6 +868,282 @@
           "input"
         ],
         "title": "Job"
+      },
+      "PartResolution": {
+        "properties": {
+          "query": {
+            "type": "string",
+            "title": "Query"
+          },
+          "missing_specs": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Missing Specs"
+          },
+          "compatibility_status": {
+            "type": "string",
+            "const": "not_checked",
+            "title": "Compatibility Status",
+            "default": "not_checked"
+          },
+          "specs": {
+            "$ref": "#/components/schemas/PartSpecs"
+          },
+          "evidence": {
+            "items": {
+              "$ref": "#/components/schemas/SpecEvidence"
+            },
+            "type": "array",
+            "title": "Evidence"
+          },
+          "clarifications": {
+            "items": {
+              "$ref": "#/components/schemas/Clarification"
+            },
+            "type": "array",
+            "title": "Clarifications"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "query"
+        ],
+        "title": "PartResolution"
+      },
+      "PartSpecs": {
+        "properties": {
+          "family": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "pro_micro",
+                  "oled",
+                  "ttp223",
+                  "usb_cable"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Family"
+          },
+          "controller": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "atmega32u4",
+                  "ssd1306",
+                  "sh1106",
+                  "ttp223"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Controller"
+          },
+          "logic_v": {
+            "anyOf": [
+              {
+                "type": "number",
+                "enum": [
+                  3.3,
+                  5.0
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Logic V"
+          },
+          "clock_mhz": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "enum": [
+                  8,
+                  16
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Clock Mhz"
+          },
+          "interface": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "i2c",
+                  "spi",
+                  "digital",
+                  "usb"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Interface"
+          },
+          "resolution": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "128x32",
+                  "128x64"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resolution"
+          },
+          "pinout": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pinout"
+          },
+          "supply_min_v": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 24.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Supply Min V"
+          },
+          "supply_max_v": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 24.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Supply Max V"
+          },
+          "i2c_address": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "0x3c",
+                  "0x3d"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "I2C Address"
+          },
+          "output_mode": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "momentary",
+                  "toggle"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Output Mode"
+          },
+          "active_level": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "high",
+                  "low"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Active Level"
+          },
+          "connector_a": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "usb_a",
+                  "usb_c",
+                  "micro_b",
+                  "mini_b"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Connector A"
+          },
+          "connector_b": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "usb_a",
+                  "usb_c",
+                  "micro_b",
+                  "mini_b"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Connector B"
+          },
+          "data_support": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Data Support"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "PartSpecs"
       },
       "RemoveLine": {
         "properties": {
@@ -818,9 +1205,49 @@
             "type": "string",
             "enum": [
               "not_run",
-              "already_owned"
+              "already_owned",
+              "offers_found",
+              "no_verified_offers",
+              "failed"
             ],
             "title": "Sourcing Status"
+          },
+          "resolution": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PartResolution"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "offers": {
+            "items": {
+              "$ref": "#/components/schemas/VerifiedOffer"
+            },
+            "type": "array",
+            "title": "Offers"
+          },
+          "attribution": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SearchAttribution"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "sourcing_error": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ErrorDetail"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "price_inr": {
             "type": "null",
@@ -838,6 +1265,73 @@
           "sourcing_status"
         ],
         "title": "ReportLine"
+      },
+      "SearchAttribution": {
+        "properties": {
+          "source_urls": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Source Urls"
+          },
+          "search_queries": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Search Queries"
+          },
+          "search_suggestions_html": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Search Suggestions Html"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "SearchAttribution"
+      },
+      "SpecEvidence": {
+        "properties": {
+          "field": {
+            "type": "string",
+            "title": "Field"
+          },
+          "value": {
+            "type": "string",
+            "title": "Value"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "part_name",
+              "user",
+              "seller_title",
+              "seller_property"
+            ],
+            "title": "Source"
+          },
+          "locator": {
+            "type": "string",
+            "title": "Locator"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "field",
+          "value",
+          "source",
+          "locator"
+        ],
+        "title": "SpecEvidence"
       },
       "UpdateLine": {
         "properties": {
@@ -875,6 +1369,16 @@
               }
             ],
             "title": "Qty"
+          },
+          "specs": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PartSpecs"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "additionalProperties": false,
@@ -884,6 +1388,113 @@
           "line_id"
         ],
         "title": "UpdateLine"
+      },
+      "VerifiedOffer": {
+        "properties": {
+          "url": {
+            "type": "string",
+            "maxLength": 2083,
+            "minLength": 1,
+            "format": "uri",
+            "title": "Url"
+          },
+          "seller": {
+            "type": "string",
+            "title": "Seller"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "price_inr": {
+            "type": "string",
+            "pattern": "^\\d+\\.\\d{2}$",
+            "title": "Price Inr"
+          },
+          "currency": {
+            "type": "string",
+            "const": "INR",
+            "title": "Currency",
+            "default": "INR"
+          },
+          "stock": {
+            "type": "string",
+            "enum": [
+              "in_stock",
+              "out_of_stock",
+              "preorder",
+              "unknown"
+            ],
+            "title": "Stock",
+            "default": "unknown"
+          },
+          "checked_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Checked At"
+          },
+          "verification": {
+            "type": "string",
+            "const": "seller_structured_data",
+            "title": "Verification",
+            "default": "seller_structured_data"
+          },
+          "seller_trust": {
+            "type": "string",
+            "const": "unverified",
+            "title": "Seller Trust",
+            "default": "unverified"
+          },
+          "tax_included": {
+            "type": "null",
+            "title": "Tax Included"
+          },
+          "shipping_inr": {
+            "type": "null",
+            "title": "Shipping Inr"
+          },
+          "compatibility_status": {
+            "type": "string",
+            "enum": [
+              "not_checked",
+              "unknown",
+              "compatible",
+              "changes_required",
+              "incompatible"
+            ],
+            "title": "Compatibility Status",
+            "default": "not_checked"
+          },
+          "specs": {
+            "$ref": "#/components/schemas/PartSpecs"
+          },
+          "spec_evidence": {
+            "items": {
+              "$ref": "#/components/schemas/SpecEvidence"
+            },
+            "type": "array",
+            "title": "Spec Evidence"
+          },
+          "compatibility": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Compatibility"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "url",
+          "seller",
+          "title",
+          "price_inr"
+        ],
+        "title": "VerifiedOffer"
       }
     }
   }

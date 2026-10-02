@@ -21,6 +21,7 @@ from bharat_sourcer.schemas import (
     Health,
     Job,
 )
+from bharat_sourcer.sourcing.service import GeminiDiscovery, SourcingService
 from bharat_sourcer.storage import FirestoreJobStore, JobStore, MemoryJobStore, StorageError
 
 JobToken = Annotated[str | None, Header(alias="X-Job-Token")]
@@ -46,6 +47,13 @@ def create_app(
         settings.gemini_model if live_extractor else None,
         store,
         settings.extraction_lease_s,
+        sourcing=(
+            SourcingService(GeminiDiscovery(settings))
+            if settings.sourcing_enabled and not settings.demo_mode
+            else None
+        ),
+        sourcing_max_parts=settings.sourcing_max_parts,
+        sourcing_lease_seconds=settings.sourcing_lease_s,
     )
 
     @asynccontextmanager
@@ -72,7 +80,7 @@ def create_app(
 
     app = FastAPI(
         title="Bharat Sourcer API",
-        version="0.3.0",
+        version="0.5.0",
         description="Demo or live YouTube extraction with optional Firestore job persistence.",
         lifespan=lifespan,
         responses={422: {"model": ErrorResponse}, 503: {"model": ErrorResponse}},

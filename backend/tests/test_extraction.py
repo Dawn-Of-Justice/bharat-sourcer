@@ -132,7 +132,8 @@ def test_timeout_is_sanitized():
 
 def test_live_api_requires_quantity_before_confirmation():
     app = create_app(
-        Settings(_env_file=None, demo_mode=False), provider(lambda request: result([PART]))
+        Settings(_env_file=None, demo_mode=False, sourcing_enabled=False),
+        provider(lambda request: result([PART])),
     )
     with TestClient(app) as client:
         assert client.get("/healthz").json()["mode"] == "live"
