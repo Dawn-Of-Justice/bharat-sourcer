@@ -68,9 +68,10 @@ the user to set a positive integer or remove the line. User edits retain the ori
 evidence and set `user_edited: true` so the UI can distinguish them.
 
 Errors transition the job to `failed` with a sanitized `error.code` and message. There
-are no automatic retries or demo fallbacks. Start a new job to retry. HTTP read timeout
+are bounded transient retries as described below, with no demo fallbacks. HTTP read timeout
 is configurable; output is limited to 8,192 tokens and validated to at most 100 parts.
-Compatibility is limited to declared-spec comparisons described below. Total costing remains unavailable.
+Compatibility is limited to declared-spec comparisons described below. Parts costing is available
+after offer selection; shipping, tax and the final payable total remain unknown.
 
 Automated tests use a mocked HTTP transport. A credentialed smoke test on 2 Oct 2026
 successfully extracted four parts from YouTube Short `qSRrq_VZ4Fw` and reached
@@ -88,8 +89,8 @@ in that mode. For persistence, follow [Firestore setup](infra/README.md) for pro
 events, parts, reports and token hashes in private snapshots. Existing API routes still
 work; the frontend does not need direct Firestore access.
 
-A startup/periodic sweep resumes queued work and report creation. Expired extraction
-is marked failed rather than automatically repeating a billed API request. Use this
+A startup/periodic sweep resumes queued work and report creation. Expired work gets one
+automatic recovery attempt per job, which can repeat a billed API request. Use this
 server locally until durable task dispatch, retention, rate limits and Firebase
 Auth/App Check are ready for public deployment. Firestore cloud access was verified on
 2 Oct 2026 against `hackathon-510415` in Mumbai. Other developer machines need Application
@@ -121,8 +122,39 @@ general knowledge graph or automatic datasheet resolver; other families stay unk
 Missing specifications do not prevent discovery and remain visible for review.
 
 Lines are checkpointed in Firestore as sourcing progresses. An expired sourcing lease
-marks the job failed with `SOURCING_INTERRUPTED` while retaining saved lines. No automatic
-paid retry occurs. Per-line search errors and the part limit are explicit in the report.
+queues unfinished work once, preserving completed lines and the sourcing limit. A second
+interruption fails with `SOURCING_INTERRUPTED`. Per-line errors remain explicit in the report.
+
+## Offer selection and costs
+
+`POST /v1/jobs/{job_id}/selections` accepts a batch of `{line_id, offer_url, accept_changes}`
+with the job token. Use null `offer_url` to clear a selection. Changes apply atomically.
+Only completed live reports support selection. Offers must be in stock, checked within
+24 hours, and graded A or B; B requires `accept_changes: true`. Nothing is purchased.
+Unknown compatibility cannot be selected. The current seller adapters often lack enough
+specifications for selection; this limitation remains visible rather than guessing.
+
+The line `price_inr` is the selected unit price; `subtotal_inr` multiplies it by quantity
+using decimal arithmetic. Owned items contribute zero. `selected_parts_subtotal_inr`
+contains the partial sum; `parts_subtotal_inr` is available only once all unowned lines
+have selections. `unselected_line_ids` identifies gaps. Shipping, tax and `total_inr`
+stay null. Costs are snapshots of seller quotes, not checkout totals or live guarantees.
+
+## Automatic recovery
+
+Gemini extraction and discovery retry timeouts, network errors and HTTP 429/500/502/503/504
+up to three total attempts, with exponential delays and jitter. Numeric Retry-After is
+honored up to ten seconds; longer or unsupported values stop retries. Authentication,
+invalid requests and malformed output are not retried. Retry counts are logged without
+request bodies or credentials. Repeated generation can incur additional charges.
+
+The job's persisted `recovery_attempts` limits interrupted-worker recovery to one per job.
+The periodic sweep requeues expired extraction or sourcing; a subsequent sweep claims it.
+Completed sourcing lines are reused, including failed lines, so only unfinished lines run.
+Worker IDs prevent late results from overwriting a recovered job. Extraction leases allow
+at least three configured request timeouts plus 60 seconds. Exhausted recovery becomes a
+visible failure; there is no automatic code editing, fabricated fallback, or infrastructure
+repair. Firestore is required to retain progress across process restarts.
 
 Run a targeted live check from `backend/` (uses paid search if your plan charges for it):
 
@@ -161,7 +193,7 @@ Grades have `scope: declared_specs_only`. They do not certify the complete circu
 physical fit, current draw, firmware, seller claims, clone quality or every used MCU pin
 function. `pinout` must identify the same ordered pin mapping; different strings block
 approval. Controller swaps and rewiring are blocked until safe adapters exist. C/D grades
-are reserved for future rules. Line-level selected grade and total remain null.
+are reserved for future rules. Line-level grades appear after selection; payable totals stay null.
 
 Rule references: [SparkFun Pro Micro guide](https://learn.sparkfun.com/tutorials/pro-micro--fio-v3-hookup-guide/all),
 [Adafruit OLED guide](https://learn.adafruit.com/monochrome-oled-breakouts?view=all),

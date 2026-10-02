@@ -3,7 +3,7 @@
   "info": {
     "title": "Bharat Sourcer API",
     "description": "Demo or live YouTube extraction with optional Firestore job persistence.",
-    "version": "0.5.0"
+    "version": "0.6.0"
   },
   "paths": {
     "/healthz": {
@@ -237,6 +237,104 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ConfirmationAccepted"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          }
+        }
+      }
+    },
+    "/v1/jobs/{job_id}/selections": {
+      "post": {
+        "tags": [
+          "jobs"
+        ],
+        "summary": "Select Offers",
+        "operationId": "select_offers_v1_jobs__job_id__selections_post",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Job Id"
+            }
+          },
+          {
+            "name": "X-Job-Token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Job-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SelectOffers"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Job"
                 }
               }
             }
@@ -859,6 +957,12 @@
             "type": "boolean",
             "title": "Sourcing Enabled",
             "default": false
+          },
+          "recovery_attempts": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Recovery Attempts",
+            "default": 0
           }
         },
         "additionalProperties": false,
@@ -1186,6 +1290,39 @@
           "total_inr": {
             "type": "null",
             "title": "Total Inr"
+          },
+          "parts_subtotal_inr": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^\\d+\\.\\d{2}$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parts Subtotal Inr"
+          },
+          "selected_parts_subtotal_inr": {
+            "type": "string",
+            "pattern": "^\\d+\\.\\d{2}$",
+            "title": "Selected Parts Subtotal Inr",
+            "default": "0.00"
+          },
+          "shipping_inr": {
+            "type": "null",
+            "title": "Shipping Inr"
+          },
+          "tax_inr": {
+            "type": "null",
+            "title": "Tax Inr"
+          },
+          "unselected_line_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Unselected Line Ids"
           }
         },
         "additionalProperties": false,
@@ -1249,13 +1386,63 @@
               }
             ]
           },
+          "selected_offer_url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2083,
+                "minLength": 1,
+                "format": "uri"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Selected Offer Url"
+          },
           "price_inr": {
-            "type": "null",
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^\\d+\\.\\d{2}$"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Price Inr"
           },
+          "subtotal_inr": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^\\d+\\.\\d{2}$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subtotal Inr"
+          },
           "grade": {
-            "type": "null",
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "A",
+                  "B"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Grade"
+          },
+          "changes_accepted": {
+            "type": "boolean",
+            "title": "Changes Accepted",
+            "default": false
           }
         },
         "additionalProperties": false,
@@ -1297,6 +1484,58 @@
         "additionalProperties": false,
         "type": "object",
         "title": "SearchAttribution"
+      },
+      "SelectOffer": {
+        "properties": {
+          "line_id": {
+            "type": "string",
+            "title": "Line Id"
+          },
+          "offer_url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2083,
+                "minLength": 1,
+                "format": "uri"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Offer Url"
+          },
+          "accept_changes": {
+            "type": "boolean",
+            "title": "Accept Changes",
+            "default": false
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "line_id"
+        ],
+        "title": "SelectOffer"
+      },
+      "SelectOffers": {
+        "properties": {
+          "selections": {
+            "items": {
+              "$ref": "#/components/schemas/SelectOffer"
+            },
+            "type": "array",
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "Selections"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "selections"
+        ],
+        "title": "SelectOffers"
       },
       "SpecEvidence": {
         "properties": {

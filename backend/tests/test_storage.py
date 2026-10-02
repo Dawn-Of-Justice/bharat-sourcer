@@ -94,6 +94,7 @@ def test_expired_extraction_is_failed_and_late_result_cannot_overwrite():
             assert second.get(job.job_id, token).status == "extracting"
 
             def expire(record: StoredJob):
+                record.job.recovery_attempts = 1
                 record.lease_until = now() - timedelta(seconds=1)
 
             store.mutate(job.job_id, expire)
@@ -119,3 +120,44 @@ def test_demo_worker_does_not_claim_live_job():
     demo = JobService(store=store)
     demo.recover()
     assert demo.get(job.job_id, token).status == "queued"
+
+
+def test_requeued_extraction_rejects_old_worker_and_recovers():
+    started, release = Event(), Event()
+
+    class Provider:
+        calls = 0
+
+        def extract(self, url):
+            self.calls += 1
+            if self.calls == 1:
+                started.set()
+                assert release.wait(5)
+                return [BomItem(line_id="L01", raw_name="Old result")]
+            return [BomItem(line_id="L01", raw_name="Recovered result")]
+
+    provider = Provider()
+    store = MemoryJobStore()
+    first = JobService(provider, store=store)
+    second = JobService(provider, store=store)
+    job, token = first.create(CreateJob(url="https://youtu.be/abcdefghijk"))
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        running = pool.submit(first.extract, job.job_id)
+        try:
+            assert started.wait(5)
+
+            def expire(record):
+                record.lease_until = now() - timedelta(seconds=1)
+
+            store.mutate(job.job_id, expire)
+            second.recover()
+            assert second.get(job.job_id, token).status == "queued"
+            second.recover()
+        finally:
+            release.set()
+        running.result(timeout=5)
+    result = second.get(job.job_id, token)
+    assert result.status == "awaiting_confirmation"
+    assert result.items[0].raw_name == "Recovered result"
+    assert result.recovery_attempts == 1
+    assert provider.calls == 2

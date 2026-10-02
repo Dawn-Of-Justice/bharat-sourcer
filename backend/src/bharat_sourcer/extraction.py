@@ -8,6 +8,7 @@ import httpx
 from pydantic import Field, ValidationError
 
 from bharat_sourcer.config import Settings
+from bharat_sourcer.resilience import post_with_retry
 from bharat_sourcer.schemas import BomItem, Evidence, Model, Name, Quantity
 
 
@@ -122,7 +123,8 @@ class GeminiExtractor:
                 transport=self.transport,
                 follow_redirects=False,
             ) as client:
-                response = client.post(
+                response = post_with_retry(
+                    client,
                     endpoint,
                     headers={"x-goog-api-key": self.settings.gemini_api_key.get_secret_value()},
                     json=payload,

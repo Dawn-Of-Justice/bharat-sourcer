@@ -15,6 +15,7 @@ class StoredJob(Model):
     token_hash: str
     run_id: str | None = None
     lease_until: datetime | None = None
+    sourcing_scope: list[str] | None = None
     schema_version: int = Field(default=1, ge=1, le=1)
 
 

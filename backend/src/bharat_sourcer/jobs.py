@@ -6,6 +6,7 @@ from hashlib import sha256
 from uuid import UUID, uuid4
 
 from bharat_sourcer.compat import resolve_part
+from bharat_sourcer.costing import update_costs
 from bharat_sourcer.extraction import ExtractionError, Extractor, youtube_url
 from bharat_sourcer.schemas import (
     AddLine,
@@ -17,9 +18,11 @@ from bharat_sourcer.schemas import (
     HaveLine,
     Job,
     PartSpecs,
+    RefreshOffers,
     RemoveLine,
     Report,
     ReportLine,
+    SelectOffers,
     Status,
     now,
 )
@@ -173,6 +176,16 @@ class JobService:
                         return
                     current.run_id = None
                     current.lease_until = None
+                    if current.job.recovery_attempts < 1:
+                        current.job.recovery_attempts += 1
+                        current.job.error = None
+                        target = "resolving" if current.job.status == "sourcing" else "queued"
+                        self._transition(
+                            current.job,
+                            target,
+                            "Interrupted work queued for one automatic recovery.",
+                        )
+                        return
                     current.job.error = ErrorDetail(
                         code=(
                             "SOURCING_INTERRUPTED"
@@ -184,6 +197,126 @@ class JobService:
                     self._transition(current.job, "failed", current.job.error.message)
 
                 self.store.mutate(job_id, expire)
+
+    def refresh_offers(self, job_id: str, token: str | None, request: RefreshOffers) -> None:
+        self._validate_id(job_id)
+
+        def change(record: StoredJob):
+            job = self._authorized(record, token)
+            interrupted = (
+                job.status == "failed" and job.error and job.error.code == "SOURCING_INTERRUPTED"
+            )
+            if (
+                (job.status != "done" and not interrupted)
+                or job.demo
+                or not job.sourcing_enabled
+                or job.report is None
+            ):
+                raise JobError(
+                    409, "INVALID_STATE", "Refresh requires a completed or interrupted live report"
+                )
+            if self.sourcing is None:
+                raise JobError(
+                    503, "SOURCING_UNAVAILABLE", "Sourcing is unavailable on this worker"
+                )
+            if job.refresh_count >= 2:
+                raise JobError(409, "REFRESH_LIMIT", "Two refresh batches have already been used")
+            wanted = set(request.line_ids)
+            items = {item.line_id: item for item in job.items}
+            if (
+                len(wanted) != len(request.line_ids)
+                or not wanted.issubset(items)
+                or any(items[key].user_has_it for key in wanted)
+                or len(wanted) > self.sourcing_max_parts
+            ):
+                raise JobError(
+                    422,
+                    "INVALID_REFRESH",
+                    "Choose distinct unowned lines within the sourcing limit",
+                )
+            previous = {line.item.line_id: line for line in job.report.lines}
+            lines = []
+            for item in job.items:
+                if item.line_id in wanted:
+                    lines.append(
+                        ReportLine(item=item.model_copy(deep=True), sourcing_status="not_run")
+                    )
+                elif item.line_id in previous:
+                    lines.append(previous[item.line_id])
+                else:
+                    lines.append(
+                        ReportLine(
+                            item=item.model_copy(deep=True),
+                            sourcing_status="already_owned" if item.user_has_it else "not_run",
+                            sourcing_error=None
+                            if item.user_has_it
+                            else ErrorDetail(
+                                code="SOURCING_INTERRUPTED",
+                                message="Not completed; select this line to refresh",
+                            ),
+                        )
+                    )
+            job.report.lines = lines
+            job.report.summary = (
+                "Refreshing selected parts; previous quotes for these parts were cleared."
+            )
+            update_costs(job.report)
+            job.error = None
+            job.refresh_count += 1
+            record.sourcing_scope = request.line_ids.copy()
+            record.run_id = None
+            record.lease_until = None
+            self._transition(
+                job, "resolving", "Offer refresh queued for " + ", ".join(request.line_ids)
+            )
+
+        if self.store.mutate(job_id, change) is None:
+            raise JobError(404, "JOB_NOT_FOUND", "Job not found or token invalid")
+
+    def select_offers(self, job_id: str, token: str | None, request: SelectOffers) -> Job:
+        self._validate_id(job_id)
+
+        def change(record: StoredJob):
+            job = self._authorized(record, token)
+            if job.status != "done" or job.report is None or job.demo:
+                raise JobError(409, "INVALID_STATE", "Select offers in a completed live report")
+            lines = {line.item.line_id: line for line in job.report.lines}
+            seen = set()
+            for selection in request.selections:
+                if selection.line_id not in lines or selection.line_id in seen:
+                    raise JobError(422, "INVALID_SELECTION", "Unknown or repeated line")
+                seen.add(selection.line_id)
+                line = lines[selection.line_id]
+                if line.item.user_has_it:
+                    raise JobError(422, "INVALID_SELECTION", "Owned parts do not need offers")
+                if selection.offer_url is None:
+                    line.selected_offer_url = None
+                    line.price_inr = line.grade = None
+                    line.changes_accepted = False
+                    continue
+                offer = next((o for o in line.offers if o.url == selection.offer_url), None)
+                if offer is None:
+                    raise JobError(422, "INVALID_SELECTION", "Offer is not in this report")
+                if offer.stock != "in_stock":
+                    raise JobError(422, "OFFER_UNAVAILABLE", "Offer must be reported in stock")
+                if offer.checked_at < now() - timedelta(hours=24):
+                    raise JobError(409, "OFFER_STALE", "Offer is over 24 hours old; source again")
+                compat = offer.compatibility
+                if compat is None or compat.grade not in {"A", "B"}:
+                    raise JobError(422, "COMPATIBILITY_UNRESOLVED", "Offer needs supported specs")
+                if compat.grade == "B" and not selection.accept_changes:
+                    raise JobError(422, "CHANGES_REQUIRED", "Acknowledge the listed changes")
+                line.selected_offer_url = offer.url
+                line.price_inr = offer.price_inr
+                line.grade = compat.grade
+                line.changes_accepted = compat.grade == "B"
+            update_costs(job.report)
+            job.updated_at = now()
+
+        record = self.store.mutate(job_id, change)
+        if record is None:
+            raise JobError(404, "JOB_NOT_FOUND", "Job not found or token invalid")
+        return record.job.model_copy(deep=True)
 
     def confirm(self, job_id: str, token: str | None, request: ConfirmJob) -> None:
         self._validate_id(job_id)
@@ -275,6 +408,7 @@ class JobService:
                     for item in job.items
                 ],
             )
+            update_costs(job.report)
             self._transition(job, "done", "Report ready. Prices and grades are unavailable.")
 
         self.store.mutate(job_id, change)
@@ -289,9 +423,12 @@ class JobService:
                 return
             record.run_id = run_id
             record.lease_until = now() + timedelta(seconds=self.sourcing_lease_seconds)
-            record.job.report = Report(
-                demo=False, summary="Sourcing in progress; compatibility is not checked.", lines=[]
-            )
+            if record.job.report is None:
+                record.job.report = Report(
+                    demo=False,
+                    summary="Sourcing in progress; compatibility is not checked.",
+                    lines=[],
+                )
             self._transition(
                 record.job, "sourcing", "Discovering and checking seller product pages."
             )
@@ -299,8 +436,20 @@ class JobService:
         claimed = self.store.mutate(job_id, claim)
         if claimed is None or claimed.run_id != run_id:
             return
-        searched = 0
+        scope = set(claimed.sourcing_scope) if claimed.sourcing_scope is not None else None
+        completed = {
+            line.item.line_id
+            for line in claimed.job.report.lines
+            if line.sourcing_status != "not_run" or line.sourcing_error is not None
+        }
+        searched = sum(
+            not line.item.user_has_it and line.sourcing_status != "not_run"
+            for line in claimed.job.report.lines
+            if scope is None or line.item.line_id in scope
+        )
         for item in claimed.job.items:
+            if item.line_id in completed or (scope is not None and item.line_id not in scope):
+                continue
             current = self.store.get(job_id)
             if current is None or current.run_id != run_id or current.job.status != "sourcing":
                 return
@@ -329,7 +478,12 @@ class JobService:
             def checkpoint(record: StoredJob, result=line):
                 if record.run_id != run_id or record.job.status != "sourcing":
                     return
-                record.job.report.lines.append(result)
+                lines = {line.item.line_id: line for line in record.job.report.lines}
+                lines[result.item.line_id] = result
+                record.job.report.lines = [
+                    lines[item.line_id] for item in record.job.items if item.line_id in lines
+                ]
+                update_costs(record.job.report)
                 record.lease_until = now() + timedelta(seconds=self.sourcing_lease_seconds)
                 self._transition(
                     record.job, "sourcing", f"Checked sourcing for {result.item.line_id}."
@@ -346,6 +500,7 @@ class JobService:
                 "Sourcing finished. Compatibility compares declared specs only; review evidence "
                 "and missing fields. Seller trust, tax and shipping remain unverified."
             )
+            update_costs(record.job.report)
             self._transition(record.job, "done", "Sourcing report ready for review.")
 
         self.store.mutate(job_id, complete)

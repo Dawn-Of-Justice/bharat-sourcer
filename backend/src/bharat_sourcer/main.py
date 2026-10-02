@@ -20,6 +20,8 @@ from bharat_sourcer.schemas import (
     ErrorResponse,
     Health,
     Job,
+    RefreshOffers,
+    SelectOffers,
 )
 from bharat_sourcer.sourcing.service import GeminiDiscovery, SourcingService
 from bharat_sourcer.storage import FirestoreJobStore, JobStore, MemoryJobStore, StorageError
@@ -46,7 +48,7 @@ def create_app(
         live_extractor,
         settings.gemini_model if live_extractor else None,
         store,
-        settings.extraction_lease_s,
+        max(settings.extraction_lease_s, int(3 * settings.extraction_timeout_s + 60)),
         sourcing=(
             SourcingService(GeminiDiscovery(settings))
             if settings.sourcing_enabled and not settings.demo_mode
@@ -80,7 +82,7 @@ def create_app(
 
     app = FastAPI(
         title="Bharat Sourcer API",
-        version="0.5.0",
+        version="0.7.0",
         description="Demo or live YouTube extraction with optional Firestore job persistence.",
         lifespan=lifespan,
         responses={422: {"model": ErrorResponse}, 503: {"model": ErrorResponse}},
@@ -158,6 +160,29 @@ def create_app(
         job_id: str, body: ConfirmJob, tasks: BackgroundTasks, x_job_token: JobToken = None
     ):
         service.confirm(job_id, x_job_token, body)
+        tasks.add_task(service.finish, job_id)
+        return ConfirmationAccepted()
+
+    @app.post(
+        "/v1/jobs/{job_id}/selections",
+        response_model=Job,
+        tags=["jobs"],
+        responses={404: {"model": ErrorResponse}, 409: {"model": ErrorResponse}},
+    )
+    def select_offers(job_id: str, body: SelectOffers, x_job_token: JobToken = None):
+        return service.select_offers(job_id, x_job_token, body)
+
+    @app.post(
+        "/v1/jobs/{job_id}/refresh",
+        status_code=202,
+        response_model=ConfirmationAccepted,
+        tags=["jobs"],
+        responses={404: {"model": ErrorResponse}, 409: {"model": ErrorResponse}},
+    )
+    def refresh_offers(
+        job_id: str, body: RefreshOffers, tasks: BackgroundTasks, x_job_token: JobToken = None
+    ):
+        service.refresh_offers(job_id, x_job_token, body)
         tasks.add_task(service.finish, job_id)
         return ConfirmationAccepted()
 

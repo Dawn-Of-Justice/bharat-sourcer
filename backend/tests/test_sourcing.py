@@ -9,7 +9,7 @@ import pytest
 
 from bharat_sourcer.config import Settings
 from bharat_sourcer.jobs import JobService
-from bharat_sourcer.schemas import BomItem, ConfirmJob, CreateJob, SearchAttribution, now
+from bharat_sourcer.schemas import BomItem, ConfirmJob, CreateJob, PartSpecs, SearchAttribution, now
 from bharat_sourcer.sourcing.fetch import (
     FetchError,
     Page,
@@ -189,6 +189,46 @@ def test_owned_parts_skip_network_and_verified_results_survive():
     result = service.source(BomItem(line_id="L01", raw_name="TTP223"))
     assert result.sourcing_status == "offers_found"
     assert len(result.offers) == 1
+    assert result.offers[0].compatibility_status == "unknown"
+    assert result.offers[0].compatibility.grade is None
+
+
+@pytest.mark.parametrize("mode, grade", [("momentary", "A"), ("toggle", "X")])
+def test_sourcing_assesses_seller_properties_and_preserves_evidence(mode, grade):
+    # Synthetic seller data exercises the pipeline; these are not verified module specs.
+    specs = PartSpecs(
+        family="ttp223",
+        controller="ttp223",
+        interface="digital",
+        logic_v=3.3,
+        supply_min_v=2.0,
+        supply_max_v=5.5,
+        pinout="GND,IO,VCC",
+        output_mode="momentary",
+        active_level="high",
+    )
+    seller_values = specs.model_dump(exclude_none=True) | {"output_mode": mode}
+    product = PRODUCT | {
+        "additionalProperty": [
+            {"@type": "PropertyValue", "name": field, "value": value}
+            for field, value in seller_values.items()
+        ]
+    }
+    with patch.object(Fetcher, "get", return_value=page(product)):
+        result = SourcingService(Discovery(), Fetcher()).source(
+            BomItem(line_id="L01", raw_name="TTP223", specs=specs)
+        )
+    offer = result.offers[0]
+    assert offer.compatibility.grade == grade
+    assert offer.compatibility_status == ("compatible" if grade == "A" else "incompatible")
+    assert URL in offer.compatibility.references
+    assert any(
+        evidence.field == "output_mode"
+        and evidence.source == "seller_property"
+        and evidence.locator == URL
+        for evidence in offer.spec_evidence
+    )
+    assert result.grade is None
 
 
 def test_job_sourcing_limit_checkpoints_and_recovery():
@@ -218,6 +258,7 @@ def test_job_sourcing_limit_checkpoints_and_recovery():
     assert discovery.calls == 1
 
     def interrupted(record):
+        record.job.recovery_attempts = 1
         record.job.status = "sourcing"
         record.run_id = "old"
         record.lease_until = now() - timedelta(seconds=1)
@@ -258,6 +299,7 @@ def test_sourcing_claim_and_expiry_reject_late_result():
             assert second.get(job.job_id, token).status == "sourcing"
 
             def expire(record):
+                record.job.recovery_attempts = 1
                 record.lease_until = now() - timedelta(seconds=1)
 
             store.mutate(job.job_id, expire)

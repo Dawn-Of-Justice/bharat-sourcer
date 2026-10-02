@@ -1,4 +1,4 @@
-# Implemented API contract — v0.5
+# Implemented API contract — v0.6
 
 This directory is the handoff between backend and frontend. The architecture docs describe
 the target system; this contract describes the runnable local milestone.
@@ -24,7 +24,7 @@ Base URL: `http://127.0.0.1:8000` (no `/api` prefix locally).
    `cached: false`, and `demo` (true for fixtures, false for live extraction).
    `watch` is the relative GET path.
 
-2. Save `job_token` for this job. Send it as `X-Job-Token` on subsequent GET/confirm calls.
+2. Save `job_token` for this job. Send it as `X-Job-Token` on GET, confirm and selection calls.
    Missing or incorrect tokens return 404 to avoid revealing job existence.
 3. Poll `GET /v1/jobs/{job_id}` about once per second until `awaiting_confirmation`.
    The snapshot includes `items` and ordered `events` with timestamps and sequence numbers.
@@ -100,8 +100,8 @@ hostname, product title, decimal-string `price_inr`, stock status, and `checked_
 `verification: seller_structured_data` means the seller's Product/Offer JSON-LD was read
 and title/currency/price checks passed. Label prices as seller-reported; tax and shipping
 are unknown. `seller_trust` remains `unverified`; review the per-offer compatibility result.
-The line-level selected price, grade and report total remain null. No offer selection
-endpoint exists yet.
+Line price and grade are populated after selection, described below. The final payable
+total remains null because shipping and tax are unknown.
 
 `attribution` retains Google's `source_urls`, `search_queries`, and optional
 `search_suggestions_html`. Render the Google-provided suggestions alongside search results
@@ -110,9 +110,40 @@ Use an isolated, sandboxed rendering surface for this external HTML; do not inje
 the main document or allow script execution. Source URLs may be Google redirect URLs;
 offer URLs point to fetched seller pages. All other strings should render as plain text.
 
-An interrupted sourcing lease sets `failed` / `SOURCING_INTERRUPTED` and preserves completed
-lines. Per-line codes include `DISCOVERY_FAILED`, `SOURCING_FAILED`, and `SOURCING_LIMIT`.
+An interrupted sourcing lease requeues unfinished work once per job and preserves completed
+lines. A second interruption sets `failed` / `SOURCING_INTERRUPTED`. Per-line codes include
+`DISCOVERY_FAILED`, `SOURCING_FAILED`, and `SOURCING_LIMIT`.
 Existing stored jobs without the new flag remain extraction-only.
+
+## Offer selection and costing (v0.6)
+
+`POST /v1/jobs/{job_id}/selections` requires `X-Job-Token` and returns the updated Job (200):
+
+```json
+{"selections":[{"line_id":"L01","offer_url":"https://seller.example/product",
+"accept_changes":false}]}
+```
+
+Use an actual `offers[].url` from the report; the URL above is illustrative. Null or omitted
+`offer_url` clears a selection. A batch must have 1–100 distinct existing unowned lines.
+Selection is allowed only for completed live reports. Offers must be reported in stock,
+checked within 24 hours, and graded A or B. B requires `accept_changes: true`; show its
+required changes before asking for that acknowledgement. Unknown and X cannot be selected.
+The batch is atomic; repeating the same request does not duplicate quantities or costs.
+
+- `lines[].selected_offer_url`, `price_inr` (unit price), `grade`, `changes_accepted`:
+  selected seller quote and compatibility result.
+- `lines[].subtotal_inr`: unit price times quantity, or zero for owned parts.
+- `selected_parts_subtotal_inr`: partial sum of selected lines, as a decimal string.
+- `unselected_line_ids`: unowned lines without selections.
+- `parts_subtotal_inr`: full parts sum once every unowned line is selected; otherwise null.
+- `shipping_inr`, `tax_inr`, `total_inr`: null. Never label the parts sum as a delivered total.
+
+Prices remain snapshots at the offer's `checked_at`; GET does not refresh seller data.
+Selection does not purchase anything or verify delivery, seller trust or final checkout cost.
+
+Selection errors: 409 `INVALID_STATE` / `OFFER_STALE`; 422 `INVALID_SELECTION`,
+`OFFER_UNAVAILABLE`, `COMPATIBILITY_UNRESOLVED`, or `CHANGES_REQUIRED`.
 
 ## Persistent storage
 
@@ -121,8 +152,10 @@ payloads and job tokens across restarts. Continue API polling; direct database l
 are not enabled. The database collection contains private token hashes and worker metadata.
 
 Queued jobs and confirmed jobs awaiting report creation are recovered automatically.
-Extraction interrupted past its lease becomes `failed` with `EXTRACTION_INTERRUPTED`;
-the user can create a new job to retry. A surviving client must retain `X-Job-Token`.
+Expired extraction is automatically requeued once per job; another interruption becomes
+`failed` with `EXTRACTION_INTERRUPTED`. `recovery_attempts` and events expose recovery.
+Gemini transient failures have at most three HTTP attempts per operation. Permanent errors
+and invalid output fail without retry. A surviving client must retain `X-Job-Token`.
 The health endpoint reports configuration, not database readiness.
 
 ## Live extraction (v0.2 additions)
@@ -149,8 +182,8 @@ The same routes and job-token flow apply in both modes.
 - Show a demo label when `demo` is true. Demo data has no offer grades; total costing remains unavailable.
 - This version supports piece quantities as positive integers, four language codes
   (`en`, `hi`, `ta`, `ml`), and unlisted jobs. Text remains English in fixture mode.
-- Firestore listeners, caching, conflict answers, exports, and plan/candidate
-  selection are not implemented. Unimplemented routes return 404.
+- Firestore listeners, caching, conflict answers, exports and automatic purchase plans
+  are not implemented. Unimplemented routes return 404.
 - Memory-mode jobs disappear when the backend reloads; Firestore jobs persist. Tokens are returned only
   once, on job creation. There is no public job listing or sharing flow yet.
 - Configurable CORS defaults to localhost/127.0.0.1 on port 5173.

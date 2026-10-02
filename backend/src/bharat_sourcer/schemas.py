@@ -14,6 +14,7 @@ class Model(BaseModel):
 
 Name = Annotated[str, Field(min_length=1, max_length=200)]
 Quantity = Annotated[int, Field(strict=True, ge=1, le=10000)]
+Money = Annotated[str, Field(pattern=r"^\d+\.\d{2}$")]
 Status = Literal[
     "queued", "extracting", "awaiting_confirmation", "resolving", "sourcing", "done", "failed"
 ]
@@ -144,6 +145,20 @@ class ConfirmJob(Model):
     edits: list[Edit] = Field(default_factory=list, max_length=100)
 
 
+class SelectOffer(Model):
+    line_id: str
+    offer_url: HttpUrl | None = None
+    accept_changes: bool = False
+
+
+class SelectOffers(Model):
+    selections: list[SelectOffer] = Field(min_length=1, max_length=100)
+
+
+class RefreshOffers(Model):
+    line_ids: list[str] = Field(min_length=1, max_length=30)
+
+
 class Event(Model):
     seq: int
     status: Status
@@ -195,8 +210,11 @@ class ReportLine(Model):
     offers: list[VerifiedOffer] = Field(default_factory=list)
     attribution: SearchAttribution | None = None
     sourcing_error: "ErrorDetail | None" = None
-    price_inr: None = None
-    grade: None = None
+    selected_offer_url: HttpUrl | None = None
+    price_inr: Money | None = None
+    subtotal_inr: Money | None = None
+    grade: Literal["A", "B"] | None = None
+    changes_accepted: bool = False
 
 
 class Report(Model):
@@ -204,6 +222,11 @@ class Report(Model):
     summary: str
     lines: list[ReportLine]
     total_inr: None = None
+    parts_subtotal_inr: Money | None = None
+    selected_parts_subtotal_inr: Money = "0.00"
+    shipping_inr: None = None
+    tax_inr: None = None
+    unselected_line_ids: list[str] = Field(default_factory=list)
 
 
 class Job(Model):
@@ -219,6 +242,8 @@ class Job(Model):
     error: "ErrorDetail | None" = None
     extraction_model: str | None = None
     sourcing_enabled: bool = False
+    recovery_attempts: int = Field(default=0, ge=0)
+    refresh_count: int = Field(default=0, ge=0)
 
 
 class CreatedJob(Model):
