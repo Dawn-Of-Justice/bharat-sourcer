@@ -22,7 +22,7 @@ gcloud services enable run.googleapis.com artifactregistry.googleapis.com cloudb
   firestore.googleapis.com storage.googleapis.com secretmanager.googleapis.com \
   logging.googleapis.com cloudtrace.googleapis.com iamcredentials.googleapis.com \
   youtube.googleapis.com firebase.googleapis.com firebasehosting.googleapis.com \
-  firebaseappcheck.googleapis.com cloudtasks.googleapis.com
+  firebaseappcheck.googleapis.com cloudtasks.googleapis.com webrisk.googleapis.com cloudscheduler.googleapis.com
 
 # Firestore (Native) in Mumbai
 gcloud firestore databases create --location=asia-south1
@@ -123,6 +123,19 @@ gcloud run jobs deploy bs-compile --image=asia-south1-docker.pkg.dev/bharat-sour
 ```
 
 The API runs the job with overrides: `gcloud run jobs execute bs-compile --args=gs://…/sketch.zip,esp32:esp32:esp32 --wait`, or the equivalent Admin API call from Python.
+
+## 5b. Seller-discovery job (Should-level)
+
+```bash
+gcloud run jobs deploy bs-discover --source=backend --command="python" --args="-m,jobs.discover" \
+  --region=asia-south1 --service-account=bs-api@… --task-timeout=1800 --cpu=1 --memory=1Gi
+gcloud scheduler jobs create http bs-discover-nightly --location=asia-south1 \
+  --schedule="30 2 * * *" --time-zone="Asia/Kolkata" \
+  --uri="https://run.googleapis.com/v2/projects/bharat-sourcer-2026/locations/asia-south1/jobs/bs-discover:run" \
+  --http-method=POST --oauth-service-account-email=bs-api@…
+```
+
+The job runs discovery queries for the top requested modules plus generic "new shop" queries, and onboards new domains (Web Risk, RDAP, probes, policy reader). It logs `new_sellers_discovered`.
 
 ## 6. Frontend and Firebase
 

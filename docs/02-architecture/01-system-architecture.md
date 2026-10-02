@@ -19,7 +19,9 @@ flowchart TB
   subgraph GCP["Google Cloud project (asia-south1)"]
     API["bs-api · Cloud Run service<br/>FastAPI + ADK 2.x Workflow<br/>instance-based billing · timeout 3600s"]
     COMPILE["bs-compile · Cloud Run job<br/>arduino-cli + cores (avr, esp32, esp8266, rp2040)"]
-    VERIFY["listing verifier<br/>(function node inside bs-api)"]
+    VERIFY["listing verifier + seller onboarding<br/>(function nodes inside bs-api)"]
+    DISC["bs-discover · Cloud Run job<br/>nightly open seller discovery<br/>(Cloud Scheduler)"]
+    WR["Web Risk API"]
     FS[("Firestore<br/>jobs · events · parts · listings<br/>kg_* · bom_library · vector index")]
     GCS[("Cloud Storage<br/>frames · datasheets · exports")]
     SM["Secret Manager"]
@@ -36,7 +38,9 @@ flowchart TB
   end
 
   subgraph External["External data sources"]
-    UCP["Shopify UCP/MCP<br/>(Robocraze, Quartz)"]
+    WEB["Open web: any Indian seller<br/>(via Search grounding)"]
+    SGC["Shopify Global Catalog MCP<br/>ships_to=IN"]
+    UCP["Per-store UCP/MCP<br/>(any merchant exposing /.well-known/ucp)"]
     STORE["Store JSON APIs<br/>(Shopify products.json, Woo Store API, Magento GraphQL)"]
     DIST["Distributor APIs<br/>(DigiKey v4, Mouser, element14, Nexar)"]
     YT["YouTube Data API<br/>(description only)"]
@@ -49,8 +53,13 @@ flowchart TB
   API --> SM
   API --> G38 & GFL & GPRO & EMB & TTS
   G38 --> TOOLS
-  API --> UCP & STORE & DIST & YT
+  API --> UCP & STORE & DIST & YT & SGC
+  TOOLS --> WEB
   API -- "run job + poll" --> COMPILE
+  API --> WR
+  DISC --> FS
+  DISC --> G38
+  DISC --> WR
   COMPILE --> GCS
   API --> LOG
 ```
@@ -65,6 +74,7 @@ flowchart TB
 | **Separate compile job** | The ESP32 core is large and compiles are CPU-heavy; isolating them keeps the API image small and the API responsive | Compiling in-process |
 | **`asia-south1` (Mumbai)** | Latency for Indian users; the "built for India" story. Gemini API is global either way | `us-central1` (default in docs) |
 | **Gemini Developer API key (billed Tier 1)** rather than Agent Platform (ex-Vertex) | New features (Interactions API, agentic video, File Search) land here first. Grounding needs billing anyway | Agent Platform: enterprise features we don't need; ADK can switch with `GOOGLE_GENAI_USE_ENTERPRISE=True` later |
+| **Open seller discovery** (no fixed store list) | New shops and deals appear automatically; generic platform adapters; trust labels instead of exclusion | Curated allow-list: misses new sellers, which is exactly the value users want |
 | **Firestore for everything stateful** | Free tier (1 GiB, 50k reads/day), real-time listeners, native vector search (≤ 2,048 dims) | Pinecone (not Google), Cloud SQL/AlloyDB (more ops) |
 
 ## 3. Request lifecycle
@@ -142,11 +152,13 @@ bharat-sourcer/
 │   │   ├── fuse.py  resolve.py  source.py  judge.py  code_impact.py  cost.py  report.py
 │   │   └── prompts/            # versioned prompt files (.md)
 │   ├── compat/                 # rules engine (pure Python, unit-tested)
-│   ├── sourcing/               # seller adapters: ucp.py, shopify.py, woo.py, magento.py, digikey.py, mouser.py, grounded.py
+│   ├── sourcing/               # discovery.py (open web), global_catalog.py, probe.py (platform detect), trust.py (Web Risk, RDAP, GSTIN),
+│   │                           # generic adapters: ucp.py, shopify.py, woo.py, magento.py, jsonld.py; distributors: digikey.py, mouser.py
 │   ├── schemas/                # Pydantic models = JSON schemas for structured output
 │   ├── tests/
 │   └── Dockerfile
 ├── compile-job/                # arduino-cli image + entrypoint
+├── discover-job/               # nightly seller discovery (bs-discover)
 ├── frontend/                   # Vite + React + TS
 ├── kg/                         # knowledge-graph seed JSON + loader
 ├── eval/                       # gold BOMs, adk evalsets, metrics scripts

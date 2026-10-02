@@ -27,9 +27,9 @@ Full detail and sources: [docs/01-overview/04-hackathon-strategy.md](docs/01-ove
 | **Problem** | Most maker projects online are built in the US/UK with parts (Adafruit, SparkFun, Pololu, US mains gear) that are unavailable, 5–15× more expensive, or unsafe in India. Adapting a project means hours of digging through Quora, forums and store sites, and a wrong guess costs money and weeks. |
 | **Users** | Indian students, hobbyists, Atal Tinkering Lab mentors, college robotics clubs, repair shops. |
 | **Input** | A YouTube link, a blog / Instructables / Hackster / Adafruit Learn page, a GitHub repo, or an audio file. |
-| **What the agents do** | Watch the video (Gemini *agentic video understanding*) → fuse evidence from video, description, code and linked pages into a BOM → resolve every part to chip + module + ecosystem → search Indian sellers (merchant APIs, distributor APIs, Google Search grounding) → grade each substitute A/B/C/D/X with deterministic electrical rules + Gemini reasoning → write the code diff and compile it → cost everything in INR incl. GST and compare to importing. |
+| **What the agents do** | Watch the video (Gemini *agentic video understanding*) → fuse evidence from video, description, code and linked pages into a BOM → resolve every part to chip + module + ecosystem → discover Indian sellers openly: no fixed store list, so new shops and deals surface automatically, trust-labelled (Google Search grounding, Shopify Global Catalog, UCP/MCP, distributor APIs, Web Risk) → grade each substitute A/B/C/D/X with deterministic electrical rules + Gemini reasoning → write the code diff and compile it → cost everything in INR incl. GST and compare to importing. |
 | **Output** | A **Desi BOM**: per-part Indian buy link, price, stock, compatibility grade, "what changes" note, video timestamp evidence, safety flags; totals vs import; optional explanation read aloud in Hindi / Tamil / Malayalam; nearby electronics markets. |
-| **Google stack** | Gemini 3.8 Flash, 3.5 Flash-Lite, 3.1 Pro (preview), Gemini Embedding 2, 3.8 Flash TTS, 3.5 Transcribe · Grounding with Google Search, URL context, Google Maps grounding, File Search · ADK 2.x graph workflow · Cloud Run (asia-south1) · Firebase Hosting, Firestore (+ vector search), Auth · Cloud Storage · Secret Manager · Cloud Logging/Trace. |
+| **Google stack** | Gemini 3.8 Flash, 3.5 Flash-Lite, 3.1 Pro (preview), Gemini Embedding 2, 3.8 Flash TTS, 3.5 Transcribe · Grounding with Google Search, URL context, Google Maps grounding, File Search · ADK 2.x graph workflow · Cloud Run (asia-south1) + Cloud Scheduler · Firebase Hosting, Firestore (+ vector search), Auth · Cloud Storage · Secret Manager · Web Risk · Cloud Logging/Trace. |
 | **Why it wins** | 65% of the score is technical merit + innovation. This is a visible multi-agent system on brand-new Gemini capabilities, with evidence and evals, solving a real Indian problem that scales to every JAPAC country. |
 
 ```mermaid
@@ -37,7 +37,7 @@ flowchart LR
   A[YouTube / blog / repo link] --> B[Extract BOM<br/>Gemini agentic video + URL context]
   B --> C[You confirm the parts]
   C --> D[Resolve specs<br/>Flash-Lite × N in parallel]
-  D --> E[Search Indian sellers<br/>UCP/MCP · store APIs · Search grounding]
+  D --> E[Discover Indian sellers, any shop<br/>web search · Shopify catalog · UCP · trust labels]
   E --> F[Compatibility judge<br/>rules + Gemini + datasheets]
   F --> G[Code diff + compile check]
   G --> H[Desi BOM in ₹<br/>with evidence, grades, savings]

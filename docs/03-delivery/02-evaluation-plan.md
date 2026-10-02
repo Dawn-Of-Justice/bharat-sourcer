@@ -72,6 +72,8 @@ The gold files are written by two team members independently. Differences are re
 | Extraction | Evidence validity | locator actually contains the quote (automatic for text, spot-check for timestamps) | ≥ 0.9 |
 | Resolution | Canonicalisation accuracy | raw → correct KG id | ≥ 0.9 |
 | Sourcing | India coverage | lines with ≥ 1 verified Indian listing / lines | report |
+| Sourcing | **Discovery breadth** | distinct seller domains with verified listings per project; % outside the seed list | report (deck: "found N sellers beyond our seed list") |
+| Sourcing | **New-seller safety** | Web Risk-flagged or blocklisted sellers shown | **0** |
 | Sourcing | **Link validity** | HTTP 200 + title match + INR price at eval time | ≥ 0.95 |
 | Sourcing | **Hallucinated URL rate** | URLs shown that aren't in `listings` | **0** |
 | Compatibility | Grade accuracy | exact / within one grade | ≥ 0.7 / ≥ 0.9 |

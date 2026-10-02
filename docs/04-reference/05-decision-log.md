@@ -33,7 +33,7 @@ Format: **D-nn · Title** · Status (Accepted / Proposed / Superseded) · Date.
 ### D-07 · Rules decide, LLM explains · Accepted
 - **Why:** PCEval, EmbedBench and IoT-SkillsBench evidence. It also makes safety and auditability defensible.
 
-### D-08 · Three-tier sourcing with UCP/MCP first · Accepted
+### D-08 · Three-tier sourcing with UCP/MCP first · **Superseded by D-16** (only the fixed-allow-list part; UCP/MCP use stays)
 - **Why:** Google has no offers API. UCP is a Google-co-created protocol that Indian Shopify merchants explicitly invite agents to use, and it's the compliant option. Grounded search covers the long tail.
 
 ### D-09 · Only verified listings reach users · Accepted
@@ -63,6 +63,25 @@ Format: **D-nn · Title** · Status (Accepted / Proposed / Superseded) · Date.
 - **Why:** the highest pain and the most checkable specs. 3D-printer hardware and fasteners are stretch.
 - **Open:** Anju to confirm.
 
+### D-16 · Open seller discovery (no fixed store list) · Accepted · 30 Sep 2026
+- **Context:** Anju asked that sourcing not be limited to N sellers. If a shop launched last week and offers a good deal, the system should find it.
+- **Decision:** there is no allow-list. The discovery channels are:
+  - open grounded web search
+  - Shopify Global Catalog (`ships_to=IN`)
+  - UCP/platform probing of every new domain
+  - a nightly discovery scan
+  - distributors
+
+  Known sellers are only a fast path. New sellers are auto-onboarded (platform detected, generic adapter) and **labelled** by trust (Google Web Risk, RDAP domain age, HTTPS, GSTIN, policies, price anomaly, votes), never hidden for being new.
+- **Alternatives rejected:**
+  - A curated allow-list: safe, but it misses the new sellers and deals users value most.
+  - Fully unfiltered results: scam risk.
+- **Consequences:**
+  - More grounded queries per part (cost levers in the cost doc).
+  - The trust layer becomes a must-have.
+  - A new eval metric (discovery breadth).
+  - A strong demo moment: "1 new seller discovered".
+
 ---
 
 ## Open questions
@@ -77,3 +96,4 @@ Format: **D-nn · Title** · Status (Accepted / Proposed / Superseded) · Date.
 | Q6 | Which two stretch features: Indic TTS, Maps markets, parts-bin scan, clip zoom? | Team | 13 Oct |
 | Q7 | Are Google Cloud credits available (ask on Discord)? | Anju | 2 Oct |
 | Q8 | Contact Robu / Robocraze / Quartz / Evelta for a data or affiliate blessing? | P | 7 Oct |
+| Q9 | Default for Unverified sellers: show inline with a label (current design), or behind a "show new/unverified sellers" toggle? | Anju | 7 Oct |

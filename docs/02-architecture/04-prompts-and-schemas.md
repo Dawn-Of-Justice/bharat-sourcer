@@ -112,7 +112,8 @@ class ResolvedPart(BaseModel):
 
 ```python
 class Offer(BaseModel):                  # what a sourcing adapter or grounded search returns
-    seller: str                          # "robocraze"
+    seller: str                          # "robocraze" or the domain for newly discovered sellers
+    seller_domain: str
     url: HttpUrl
     title: str
     price_value: Optional[float]
@@ -120,7 +121,7 @@ class Offer(BaseModel):                  # what a sourcing adapter or grounded s
     price_includes_gst: Optional[bool]
     in_stock: Optional[bool]
     module_guess: Optional[str]
-    source_tier: Literal["A_ucp", "A_store_api", "B_distributor", "C_grounded", "cache"]
+    source_channel: Literal["ucp_mcp", "shopify_global_catalog", "store_api", "distributor_api", "web_discovery", "cache"]
     evidence_snippet: Optional[str]
 
 class Listing(BaseModel):                # only verified offers become listings
@@ -134,8 +135,36 @@ class Listing(BaseModel):                # only verified offers become listings
     stock: Literal["in_stock", "out_of_stock", "unknown"]
     fetched_at: str
     http_status: int
-    source_tier: str
+    source_channel: str
     title_match_score: float
+    seller_id: str                       # domain
+    seller_trust: Literal["established", "verified_basics", "unverified"]
+    price_anomaly: bool = False          # < 40% of median verified price for this module
+
+class Seller(BaseModel):                 # registry entry; created by discovery or seeded
+    seller_id: str                       # registrable domain, e.g. "robocraze.com"
+    name: Optional[str]
+    origin: Literal["seed", "discovered", "community"]
+    first_seen: str
+    platform: Literal["ucp", "shopify", "woocommerce", "magento", "jsonld", "custom"]
+    ucp_endpoint: Optional[str] = None
+    crawl_delay_s: Optional[float] = None
+    robots_disallow: list[str] = []
+    web_risk: Literal["clean", "flagged", "unchecked"]
+    domain_created: Optional[str] = None # from RDAP
+    https_ok: bool
+    gstin: Optional[str] = None
+    gstin_checksum_ok: Optional[bool] = None
+    has_contact: bool = False
+    has_return_policy: bool = False
+    free_shipping_threshold_inr: Optional[float] = None
+    flat_shipping_inr: Optional[float] = None
+    cod_available: Optional[bool] = None
+    votes_up: int = 0
+    votes_down: int = 0
+    trust_score: float
+    trust: Literal["established", "verified_basics", "unverified", "blocked"]
+    checked_at: str
 ```
 
 ### 1.3 Compatibility report
@@ -281,14 +310,28 @@ Module-level values (e.g. breakout board with a regulator accepts 3–5 V) take 
 If the module variant is ambiguous (3.3 V-only vs 5 V-tolerant breakouts exist), set the field to null and add attributes.variant_ambiguity.
 ```
 
-### P4 Grounded seller search (Tier C)
+### P4 Open seller discovery (grounded search)
 
 ```text
-Task: Find where this part can be bought in India today.
-Part: {canonical} | key specs: {hard_specs} | acceptable substitutes: {candidate_modules}
-Search Indian sellers, prioritising: {allowlisted_domains}.
-Return Offer objects only for product pages (not category or search pages), with price as shown on the page and whether it includes GST if stated.
-Do not return marketplaces outside India. Do not guess prices. If a page shows "out of stock", set in_stock=false.
+Task: Find where this part can be bought in India today, from ANY seller — large or small, old or new.
+Part: {canonical} | aliases: {aliases} | key specs: {hard_specs} | acceptable substitutes: {candidate_modules}
+Run several searches (different names/aliases, "India", "₹", "buy online"). Do NOT limit yourself to well-known stores;
+small specialist shops and recently launched stores are valuable. Known sellers for context only: {seed_sellers_sample}.
+Return Offer objects only for single-product pages (not category, search, blog, forum or comparison pages),
+priced in INR or clearly shipping to India, with price as shown and whether it includes GST if stated.
+Exclude marketplaces that do not ship to India. Do not guess prices. If a page shows "out of stock", set in_stock=false.
+Also return seller_domain for every offer.
+```
+
+We use no domain allow-list. Trust is assessed afterwards by new-seller onboarding, never by the model ([06-sourcing-and-seller-data.md §4](06-sourcing-and-seller-data.md#4-new-seller-onboarding-and-trust-scoring)).
+
+### P4b Seller policy reader (new-seller onboarding, Flash-Lite)
+
+```text
+Task: From these pages of an online store (home footer, contact, shipping, returns, about), extract:
+gstin (verbatim, or null), legal_name, address, state, phone/email present (bool), return_policy (bool, days),
+shipping: free_shipping_threshold_inr, flat_fee_inr, dispatch_days, cod_available (bool).
+Only use text on the pages. Null if not stated.
 ```
 
 ### P5 Compatibility explainer

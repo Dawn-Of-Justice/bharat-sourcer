@@ -33,10 +33,10 @@ Roles: **BE** = agent/backend (Anju), **FE** = frontend/UX, **KG** = data/KG + s
 | 4 | Sat 3 Oct | PageExtractor (URL context) + CodeExtractor (regex + KG map) | Watching screen: player, checklist, status line from Firestore | 30 more modules; datasheets → GCS + File Search store | Persona + problem slide drafts |
 | 5 | Sun 4 Oct | **G0 check.** EvidenceFuser + conflicts; FastAPI `/v1/jobs`, Firestore sink | Confirm screen (edit/remove/have-it, conflict banner) | Shopify UCP/MCP adapter (Robocraze, Quartz) + products.json | Roster final ✔ |
 | 6 | Mon 5 Oct *(work day)* | Evening: HumanConfirm node; **G1 check** | Sourcing live cards | Woo (Zbotic) + Magento (Probots) adapters | Gold BOMs 6–10 |
-| 7 | Tue 6 Oct | PartResolver (KG → Flash-Lite), spec schemas | Desi BOM results layout (mobile cards) | Grounded SellerSearchAgent (Tier C) + allow-list | – |
+| 7 | Tue 6 Oct | PartResolver (KG → Flash-Lite), spec schemas | Desi BOM results layout (mobile cards) | Open SellerDiscoveryAgent (no allow-list) + Shopify Global Catalog + platform probe | – |
 | 8 | Wed 7 Oct | ListingVerifier + cache; rules engine v1 (8 global rules) + unit tests from 13 cases | Grade/confidence/evidence chips; YouTube `seekTo` | DigiKey v4 + Mouser adapters (Tier B) | Gold substitutions for 10 projects |
 | 9 | Thu 8 Oct *(work day)* | Evening: CompatibilityJudge (3.1 Pro + File Search) + ImpactReport | Row drawer: spec diff, wiring, citations | KG edges: footprint, lookalike, API_MAP | – |
-| 10 | Fri 9 Oct | CostOptimizer (plans, thresholds, import baseline) | Totals footer, INR formatting, plan toggle | Seller thresholds config; verify INR/GST parsing per store | Deck skeleton (12 slides) |
+| 10 | Fri 9 Oct | CostOptimizer (plans, thresholds, import baseline) | Totals footer, INR formatting, plan toggle | New-seller onboarding: Web Risk, RDAP, GSTIN checksum, policy reader, trust labels; verify INR/GST parsing | Deck skeleton (12 slides) |
 | 11 | Sat 10 Oct | **G2:** deploy bs-api + Hosting; end-to-end on 5 projects | PWA manifest + **share_target**; test on 2 Android phones | Remaining KG to ~150 modules | First run of eval (8 projects) |
 | 12 | Sun 11 Oct | CodeImpact + compile job (image build!) + repair loop | Code diff viewer, "✅ Compiles" badge | Judge checklist tuning with results | Record B-roll: phone share flow |
 | 13 | Mon 12 Oct *(work day)* | Evening: judge ×3 consensus, confidence calibration | Accessibility pass (aria-live, contrast, targets) | Fix eval failures (canonicalisation) | Gold BOMs 11–15 |
@@ -62,7 +62,7 @@ These facts change often or were not fully confirmed in research. Check each on 
 | # | Check | How | Affects |
 |---|---|---|---|
 | V1 | Current model IDs and prices: `gemini-3.8-flash`, `gemini-3.5-flash-lite`, `gemini-3.1-pro-preview`, `gemini-embedding-2`, `gemini-3.8-flash-tts` | [models](https://ai.google.dev/gemini-api/docs/models), [pricing](https://ai.google.dev/gemini-api/docs/pricing) | config, cost doc |
-| V2 | Search grounding works on our billed key; the free 5,000/month applies | Make one call; check the billing console | Tier C |
+| V2 | Search grounding works on our billed key; the free 5,000/month applies | Make one call; check the billing console | Open discovery |
 | V3 | Whether ADK passes `processing: "agentic"` through, or a direct `client.interactions.create` call is needed | 20-minute spike | N2a |
 | V4 | Whether setting `temperature` errors or is ignored | Test a call | all nodes |
 | V5 | ADK `google_search` alongside other tools on 3.8 Flash (limitation claimed for ≤ v1.15) | Test | N6 |
@@ -76,6 +76,8 @@ These facts change often or were not fully confirmed in research. Check each on 
 | V13 | IGST rate currently applied to personal imports (heading 9804) after GST rationalisation | CBIC / customs pages | import baseline |
 | V14 | Hackathon: roster lock date (4 vs 11 Oct), solo allowed?, submission time zone, credits | Discord / email | plan |
 | V15 | PWA share_target from the YouTube Android app: does the link arrive in `text` or `url`? | Real phone | FE |
+| V17 | Web Risk API enabled and `uris.search` works; RDAP for .in (`rdap.nixiregistry.in`) and gTLDs returns creation dates | API calls | trust scoring |
+| V18 | Open discovery surfaces small/new shops: test 5 niche parts and count domains outside the seed list | Test | M6 |
 | V16 | PlatformIO registry `header:` search reachable from Cloud Run | curl | N2c |
 
 ## 5. Definition of done (MVP)

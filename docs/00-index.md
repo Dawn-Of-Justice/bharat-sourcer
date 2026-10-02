@@ -33,7 +33,7 @@ Conventions used everywhere:
 | [03-agent-pipeline.md](02-architecture/03-agent-pipeline.md) | The ADK 2.x graph workflow node by node: inputs, outputs, model, tools, failure handling, events emitted. |
 | [04-prompts-and-schemas.md](02-architecture/04-prompts-and-schemas.md) | All structured-output JSON schemas (BomItem, PartSpec, Offer, ImpactReport…) and the system prompts for each agent. |
 | [05-compatibility-engine.md](02-architecture/05-compatibility-engine.md) | The core IP: knowledge graph, deterministic rules, A/B/C/D/X grades, matching algorithm, LLM judge, confidence, code-impact + compile loop. |
-| [06-sourcing-and-seller-data.md](02-architecture/06-sourcing-and-seller-data.md) | How we find Indian listings: Shopify UCP/MCP, store JSON APIs, distributor APIs, Search grounding; listing verification; caching; legal rules. |
+| [06-sourcing-and-seller-data.md](02-architecture/06-sourcing-and-seller-data.md) | **Open seller discovery** (no fixed store list): web search, Shopify Global Catalog, UCP probes, nightly scan; auto platform detection; trust scoring (Web Risk, RDAP, GSTIN); listing verification; caching; legal rules. |
 | [07-data-model.md](02-architecture/07-data-model.md) | Firestore collections, document shapes, indexes, vector index, Cloud Storage layout, TTLs, security rules. |
 | [08-api-spec.md](02-architecture/08-api-spec.md) | Backend REST endpoints, the job event stream, error codes, the optional MCP server. |
 | [09-frontend-and-ux.md](02-architecture/09-frontend-and-ux.md) | Screens, components, agent-trace UI, evidence strip, confidence chips, INR/GST display, PWA share target, low-bandwidth, accessibility. |

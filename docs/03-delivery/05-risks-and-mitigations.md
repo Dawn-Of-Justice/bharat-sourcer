@@ -15,17 +15,17 @@ Scoring: Likelihood (L) and Impact (I) are each rated 1–5.
 |---|---|---|---|---|---|---|---|
 | R1 | **Not eligible**: a member isn't JAPAC-based, no team, or the roster isn't locked by 4 Oct | 3 | 5 | Organiser reply; team not formed by 3 Oct | Email support+aibuildercup@hack2skill.com now; recruit JAPAC-based professionals; register early | Don't enter; keep building as a portfolio project | Anju |
 | R2 | A student or under-21 member slips in | 2 | 5 | – | Confirm each member's employment and age in writing | Replace the member before 4 Oct | Anju |
-| R3 | **Hallucinated product or URL** | 3 | 5 | Eval hallucinated-URL rate > 0 | Only `listing_id`s reach the UI; verifier gate; allow-listed domains | Show "search suggestion" chips instead of products | BE |
+| R3 | **Hallucinated product or URL** | 3 | 5 | Eval hallucinated-URL rate > 0 | Only `listing_id`s reach the UI; verifier gate for every seller (old or new); page-type and INR filters | Show "search suggestion" chips instead of products | BE |
 | R4 | **Wrong compatibility grade** on a demo part | 3 | 4 | Grade accuracy < 0.7 | Rules decide the grade floor; KG curation; judge ×3; demo projects hand-checked | Hide the grade for low-confidence rows ("Check manually") | BE/KG |
 | R5 | Agentic video misses parts or mislabels look-alikes | 3 | 4 | Recall < 0.8 on video-first projects | Multi-source fusion; look-alike list in prompt; human confirm; clip zoom (S4) | Static mode + description + page as the primary sources | BE |
 | R6 | ADK doesn't pass `processing: "agentic"` through | 3 | 2 | Day-1 spike | Call `client.interactions.create` in a function node | Static mode | BE |
-| R7 | **Grounding not available / quota exceeded** | 2 | 4 | 429s; billing console | Billed Tier 1 from day 1; cache; skip Tier C when A+B suffice; spend cap | `TIER_C_ENABLED=false` | BE |
+| R7 | **Grounding not available / quota exceeded** | 2 | 4 | 429s; billing console | Billed Tier 1 from day 1; cache; share discovery results across users for 12 h; ≤ 4 queries per part; spend cap | `OPEN_DISCOVERY=degraded` (registry sellers + Global Catalog + distributors only) | BE |
 | R8 | Gemini rate limits during judging | 2 | 4 | 429s | Concurrency limits from config; retries with backoff; pre-warmed library | Serve cached BOMs for the demo projects | BE |
 | R9 | `gemini-3.1-pro-preview` changes or is throttled | 3 | 2 | Errors | Flag + fallback to `gemini-3.8-flash` @ high | – | BE |
 | R10 | Firebase Hosting 60 s timeout breaks long calls | 4 | 3 | 504s | Async job + Firestore listener; only short calls via the rewrite | Call Cloud Run directly (CORS) | BE |
-| R11 | Seller endpoint changes, blocks us or goes down | 3 | 3 | Adapter error rate | Adapter isolation + kill switch; multiple tiers | Tier C grounding | KG |
+| R11 | Seller endpoint changes, blocks us or goes down | 3 | 3 | Adapter error rate | Generic platform adapters + kill switch; several discovery channels | Grounded web discovery | KG |
 | R12 | UCP/MCP profile or protocol details differ from our assumptions | 3 | 2 | Day-1 test | Test early; Shopify `/search/suggest.json` fallback | Store JSON endpoints | KG |
-| R13 | Legal/ToS complaint from a seller | 1 | 3 | Email | Sanctioned paths only; robots.txt; attribution; no image re-hosting | Remove the seller from the allow-list | Anju |
+| R13 | Legal/ToS complaint from a seller | 1 | 3 | Email | Sanctioned paths only; robots.txt; attribution; no image re-hosting | Add the seller to the blocklist / honour their opt-out | Anju |
 | R14 | **Scope creep** | 4 | 4 | Behind a gate | Gates G1–G3; no new Must after G3; one stretch at a time | Cut in the listed order | All |
 | R15 | Compile job image too big / slow | 3 | 2 | Build > 20 min | Build once, cache; only the needed cores | Show "diff (not compiled)" | BE |
 | R16 | PWA share target behaves differently on some phones | 3 | 2 | Test on 2–3 phones | Parse both `text` and `url`; paste fallback | Film on the phone that works | FE |
@@ -35,4 +35,6 @@ Scoring: Likelihood (L) and Impact (I) are each rated 1–5.
 | R20 | Mains-safety advice misread by a user | 1 | 5 | – | Templated banners; X grade for US mains products; "consult an electrician"; beginner nudge | – | BE |
 | R21 | Code-fresh rule challenged | 1 | 5 | – | New repo; frequent commits; no copied code | Commit history as evidence | All |
 | R22 | IP: organisers' right of first refusal | 1 | 2 | – | Understand the terms before any commercial plans | – | Anju |
+| R24 | **Scam or low-quality new seller** surfaced by open discovery | 3 | 4 | User reports; Web Risk hit; price anomaly | Web Risk gate, RDAP age, GSTIN checksum, policy checks, trust labels, "unusually cheap" flag, prefer-COD hint, report button → blocklist | Show only Established/Verified sellers when a user toggles "trusted sellers only" | KG |
+| R25 | New sellers not indexed by Google yet | 3 | 2 | Known new shop missing | Shopify Global Catalog (index-independent), UCP probes, nightly scan, community "add a shop" | – | KG |
 | R23 | Demo-day live failure (finale, 4 Dec) | 2 | 4 | – | Offline demo mode with recorded fixtures; pre-warmed library | Video playback | FE |

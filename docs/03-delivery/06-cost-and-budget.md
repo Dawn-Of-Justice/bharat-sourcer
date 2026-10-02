@@ -46,7 +46,7 @@ Source: [research/01 §8](../../research/01-google-stack.md).
 
 1. **Library cache by video id.** Repeat videos cost almost nothing.
 2. **Parts cache** (`part_offers`, 24 h). Common parts (ESP32, SG90, DHT22) never hit grounding twice a day.
-3. **Skip Tier C** when Tiers A + B already give ≥ 3 verified candidates.
+3. **Share open-discovery results across users** for the same module for 12 h, and cap at ≤ 4 grounded queries per part. We don't skip discovery, because finding new sellers is the point. Broad "find new sellers" queries move to the nightly Batch/Flex job. Web Risk lookups for new domains are free up to 100k/month.
 4. **One grounded call per part**, covering the original and its candidate substitutes together.
 5. **Flash-Lite** for fan-out; Pro only for the judge, in one batched call per job.
 6. **Implicit caching:** put the stable prompt prefix first.

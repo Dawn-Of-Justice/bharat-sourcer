@@ -27,12 +27,13 @@ Paste a link, get a **Desi BOM**.
 1. **Extract.** Gemini watches the video in *agentic* mode, reads the description, linked blog and GitHub code, and fuses them into a BOM. Every line carries evidence: a timestamp, a quote or a `file:line`.
 2. **Confirm.** The user checks and edits the list (human-in-the-loop).
 3. **Resolve.** Each part becomes *chip + module + ecosystem* with specs (Flash-Lite, run in parallel).
-4. **Source.** A parallel agent per part searches Indian sellers:
-   - Merchant-sanctioned **Shopify UCP/MCP** catalog endpoints (Robocraze, Quartz)
-   - Public store APIs (WooCommerce, Magento)
-   - Distributor APIs (DigiKey, Mouser)
-   - **Google Search grounding** for the long tail (Robu, Evelta, Thingbits, Amazon.in)
-   - Every listing is fetched and verified before it's shown.
+4. **Source (open discovery).** A parallel agent per part searches **all** Indian sellers; there's no fixed store list:
+   - open web discovery via **Google Search grounding**
+   - the **Shopify Global Catalog** (`ships_to=IN`)
+   - **UCP/MCP** and store APIs for sellers it already knows
+   - distributor APIs (DigiKey, Mouser)
+
+   A shop that launched last week can win on price. New sellers are auto-onboarded (their platform is detected so structured access is automatic) and **trust-labelled** using Google Web Risk, domain age, GSTIN and policy checks. Every listing is fetched and verified before it's shown.
 5. **Judge.** Deterministic rules (voltage, logic level, I2C clashes, mains, pin functions) plus a Gemini judge that reads datasheets. The result is a grade: **A drop-in · B config · C rewire · D functional alternative · X not recommended**.
 6. **Adapt.** Gemini writes the code diff (e.g. `Adafruit_SSD1306` → `Adafruit_SH110X`), and we **compile it** with `arduino-cli` in Cloud Run.
 7. **Cost and deliver.** INR totals incl. GST and shipping thresholds, compared with the landed import cost. Optional extras: spoken explanation in Indian languages, nearby electronics markets via Maps grounding, and share/export.

@@ -2,7 +2,9 @@
 
 > **In one minute.** This is the lookup table for the sourcing layer. For every Indian maker store and distributor API it lists the platform, endpoint, limits, shipping terms and brand authorisation, as observed on **30 Sep 2026**. The tables are copied from [research/02](../../research/02-india-parts-market.md), where every row has its evidence links. How we *use* this data is described in [../02-architecture/06-sourcing-and-seller-data.md](../02-architecture/06-sourcing-and-seller-data.md).
 
-Adapter status for the build:
+**These are seed sellers only.** Sourcing is open-world ([D-16](05-decision-log.md)): any Indian seller found by discovery is auto-onboarded and can appear in results. The table below is the fast path.
+
+Adapter status for the seed set:
 
 | Seller | Tier | Adapter | MVP? |
 |---|---|---|---|

@@ -141,24 +141,29 @@ Schemas are in [04-prompts-and-schemas.md](04-prompts-and-schemas.md).
 
 ### N6 SourcingAgent ×N (adapters + `gemini-3.8-flash` with `google_search` + `url_context`)
 
-For each part, in order and stopping early once there are ≥ 3 good candidates:
+Sourcing is **open-world**: there's no fixed seller list. Full design in [06-sourcing-and-seller-data.md](06-sourcing-and-seller-data.md). For each part, these run in parallel:
 
-1. **Cache:** `listings` where `module_id == X` and `fetched_at > now − 24h`.
-2. **Tier A (merchant-sanctioned, structured):**
-   - Shopify **UCP/MCP** `search_catalog` on Robocraze, Quartz, Silicon TechnoLabs, ThinkRobotics
-   - Shopify `/search/suggest.json`
-   - WooCommerce Store API (Zbotic)
-   - Magento GraphQL (Probots)
-3. **Tier B (distributors, chip-level):** DigiKey v4 KeywordSearch + **Substitutions**, Mouser Search, Nexar `similarParts` (Evaluation quota: save for demo), element14.
-4. **Tier C (long tail):** grounded search agent. The prompt lists the target part, key specs, "India", "INR" and an allow-listed domain set (robu.in, evelta.com, thingbits.in, amazon.in, electronicscomp.com, hubtronics.in, robokits.co.in, flyrobo.in…). Output is structured `Offer[]`. Citations are filtered to allow-listed domains.
-5. **Candidate generation for substitutes:**
+1. **Cache:** `listings` where `module_id == X` and `fetched_at > now − 24h`. Open discovery still re-runs at least daily per module, so new sellers can enter.
+2. **Open web discovery:** `SellerDiscoveryAgent` with grounded search.
+   - It runs 2–4 India-biased queries with **no domain allow-list** and returns structured `Offer[]`.
+   - Filters: single-product page, INR or ships to India, domain not blocklisted.
+3. **Shopify Global Catalog MCP** with `ships_to=IN`. This covers any Shopify store serving India, including brand-new ones.
+4. **Known-seller fast path:** structured adapters for sellers already in the `sellers` registry. Seeds and auto-discovered sellers are treated the same:
+   - UCP/MCP `search_catalog`
+   - Shopify JSON
+   - WooCommerce Store API
+   - Magento GraphQL
+   - JSON-LD pages
+5. **Distributors (chip-level):** DigiKey v4 KeywordSearch + **Substitutions**, Mouser Search, Nexar `similarParts` (Evaluation quota: save for demo), element14.
+6. **New-seller onboarding:** runs for any unknown domain in the results, in parallel with verification. It probes the platform (`/.well-known/ucp`, Shopify, Woo, Magento, JSON-LD), then runs the trust checks: Google Web Risk, RDAP domain age, HTTPS, GSTIN, policies. The seller is added to the registry with a trust label.
+7. **Candidate generation for substitutes:**
    - same chip, different module (KG)
    - footprint-compatible modules (KG)
    - family alternatives (KG)
    - DigiKey substitutions
    - embedding neighbours (S6)
 - **Output:** `candidates[line_id]`.
-- **Events per part:** "Robocraze (UCP): 2 matches", "Robu (search): 1 match", "DigiKey: 3 substitutes".
+- **Events per part:** "Robocraze (UCP): 2 matches", "Web search: 5 sellers found · 1 new seller (<new-shop>.in, GSTIN verified)", "DigiKey: 3 substitutes".
 
 ### N7 ListingVerifier (fn)
 

@@ -84,7 +84,13 @@ it = client.interactions.create(
 - Tool `{"type": "google_search"}`. The response carries the queries run, `search_suggestions` HTML (**must be displayed per the ToS**), and `url_citation` annotations.
 - **Gemini 3 bills per search query executed.** One prompt may run several.
 - Pricing: **5,000 free queries/month on the paid tier** (shared across 3.x), then **$14 per 1,000**. **Not available on the free tier.**
-- The API has no region or domain-filter parameters. We bias through the prompt (seller domain list, "price in INR", "ships in India") and **post-filter citations by an allow-listed domain set**.
+- The API has no region or domain-filter parameters, which suits **open seller discovery**: any Indian shop Google has indexed can appear, including new ones. We bias toward India through the prompt ("price in INR", "ships in India", aliases). Afterwards we filter by page type, currency and a **blocklist** only, with no allow-list. Trust comes from onboarding checks ([06-sourcing-and-seller-data.md](06-sourcing-and-seller-data.md)).
+
+### 3.2b Web Risk API (seller safety)
+- `uris.search` checks a URL against Google's malware, social-engineering and unwanted-software lists.
+- **Free up to 100,000 calls/month**, then $0.50 per 1,000 ([pricing](https://cloud.google.com/web-risk/pricing)).
+- Used once per newly discovered seller domain, re-checked weekly. Any hit blocks the seller.
+- It's a Google-native safety layer for open discovery.
 
 ### 3.3 URL context
 - Tool `{"type": "url_context"}`: up to **20 URLs/request**, 34 MB each. Reads HTML, PDF, images, JSON.
@@ -159,7 +165,8 @@ it = client.interactions.create(
 | **Artifact Registry** | Container images | `asia-south1-docker.pkg.dev/<project>/bs` |
 | **Cloud Build** / GitHub Actions | CI/CD | See [../03-delivery/01-deployment-and-devops.md](../03-delivery/01-deployment-and-devops.md) |
 | *(optional)* **Cloud Tasks** | Durable job execution | Upgrade path |
-| *(optional)* **Cloud Scheduler** | Nightly price refresh of library BOMs (Flex inference) | Could-level |
+| **Web Risk API** | Safety check for every newly discovered seller domain | Free ≤ 100k lookups/month |
+| **Cloud Scheduler** + Cloud Run job `bs-discover` | Nightly open seller-discovery scan (Batch/Flex grounding); price refresh of library BOMs | Should-level; the on-demand discovery path works without it |
 
 **Considered and skipped:**
 

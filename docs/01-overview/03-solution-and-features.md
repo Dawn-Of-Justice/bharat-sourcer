@@ -55,7 +55,8 @@ Effort: S ≤ 1 day, M 2–4 days, L 5+ days, assuming one developer. "Impact" i
 | M3 | **Evidence fusion + conflict flags** | Merges mentions across sources with weighted confidence. Flags disagreements (description says BMP280, code includes `Adafruit_BME280.h`) | Deterministic Python + Flash-Lite | M | 4 |
 | M4 | **Human confirmation step** | User edits the BOM before sourcing. This catches extraction errors cheaply | ADK 2.x human-input node | S | 4 |
 | M5 | **Part resolution** | raw name → canonical chip + module + ecosystem + specs, using the knowledge graph first and Gemini second | Flash-Lite in parallel; Firestore KG; Embedding 2 vector search | M | 4 |
-| M6 | **India sourcing (tiered)** | Tier A: Shopify UCP/MCP + store JSON APIs. Tier B: distributor APIs. Tier C: Search grounding + URL context. Results are normalised to INR incl. GST | Gemini `google_search`, `url_context`; custom function tools | M | 5 |
+| M6 | **Open seller discovery** | No fixed store list. For every part, discovery searches the whole Indian web (grounded search), the Shopify Global Catalog (`ships_to=IN`) and distributors. Any new shop with a good deal can appear. Known sellers are a fast path, not a limit. Results are normalised to INR incl. GST | Gemini `google_search`, `url_context`; Shopify Global Catalog MCP; distributor APIs | M | 5 |
+| M6b | **Auto-onboarding + trust labels** | Each unknown seller domain is probed for platform (UCP, Shopify, Woo, Magento, JSON-LD), so a new store gets structured access automatically. It's then vetted (Google Web Risk, domain age via RDAP, HTTPS, GSTIN, policies, price anomaly) and labelled *Established / Verified basics / Unverified*. Deals are labelled, never hidden | Web Risk API; Flash-Lite policy reader | M | 5 |
 | M7 | **Listing verification** | Only verified listings are shown: HTTP 200, title matches chip/module, INR price parsed, stock parsed, fetched < 24 h | Cloud Run function node | S | 4 |
 | M8 | **Compatibility engine** | Rules (voltage, logic level, I2C, mains, pin functions, measured quantities) + Gemini judge → grade A/B/C/D/X + ImpactReport | 3.1 Pro preview (fallback 3.8 Flash `high`); File Search over datasheets | M | 5 |
 | M9 | **Code impact + compile check** | Library swap, address change, pin remap, board target → unified diff → `arduino-cli compile` (2 repair tries) | Gemini 3.8 Flash; Cloud Run job with pre-baked cores | M | 5 |
@@ -96,12 +97,13 @@ Effort: S ≤ 1 day, M 2–4 days, L 5+ days, assuming one developer. "Impact" i
 | C6 | **Price-drop watch** | Cloud Scheduler + Flex inference. Fine later |
 | C7 | **Substitution knowledge graph as a public dataset** | Community curation over time |
 | C8 | **ATL lab-kit mode**: qty × N teams, GST invoice, safe-parts-only filter | Needs bulk-pricing data |
+| C9b | **Nightly seller-discovery scan** (if not built in the MVP) + community "add a shop" + seller self-registration via UCP | Grows the registry without users waiting |
 | C9 | **Any country**: Indonesia, Vietnam, Philippines sellers ("Build in JAPAC. Build for the world.") | The architecture already supports a `country` parameter. Only the seller adapters differ |
 
 ## 3. The four "wow" moments (what the video must show)
 
 1. **"It watched the video for me."** The BOM appears with ▶ 03:42 chips. Tapping one jumps the player to the exact moment. Say "agentic video understanding" by name. It launched on 1 Sep 2026, so few entries will use it.
-2. **"It's a team of agents."** The trace shows 14 part-agents fanning out in parallel: "Robocraze (UCP) ✓, Robu (Search) ✓, DigiKey (API) ✓…".
+2. **"It's a team of agents, and it explores."** The trace shows 14 part-agents fanning out in parallel: "Robocraze (UCP) ✓, DigiKey (API) ✓, web search: **1 new seller discovered** (GSTIN verified, launched 3 weeks ago) — cheapest in-stock option".
 3. **"It knows electronics."** The 1.3" OLED listing is really an SH1106, so the grade is **B**, with a 4-line code diff and ✅ compiled. The PowerSwitch Tail (US 120 V) gets a red **MAINS** banner and a safe 230 V alternative.
 4. **"It speaks Bharat."** Tap 🔊 Malayalam and hear the wiring change explained. "Pick up today: SP Road, 2.1 km."
 

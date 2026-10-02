@@ -53,7 +53,8 @@ Banners are **templated strings** (`backend/compat/banners.py`). The LLM cannot 
 
 | Risk | Control |
 |---|---|
-| Invented product or URL | The recommender references `listing_id` only, and the UI renders URLs from `listings`. Listings exist only after verification (HTTP 200, title match, INR price parsed) |
+| Invented product or URL | The recommender references `listing_id` only, and the UI renders URLs from `listings`. Listings exist only after verification (HTTP 200, title match, INR price parsed), for seed and newly discovered sellers alike |
+| Scam seller surfaced by open discovery | Web Risk gate, RDAP age, GSTIN checksum, policy checks, price anomaly, trust label, reports → blocklist |
 | Invented price or stock | Prices come from JSON-LD, the page or a structured API, with `fetched_at` shown ("checked 12 min ago") |
 | Invented specs | Every numeric spec needs a KG or datasheet citation. The judge strips uncited numbers. LLM-derived specs are marked "Likely" |
 | Wrong grade | The rules engine sets a grade floor and the LLM can't upgrade it. Judge ×3 majority. Eval grade accuracy is reported |
@@ -96,6 +97,25 @@ Robots.txt signals we honour:
 | Thingbits | `/api/` disallowed |
 | ElectronicsComp, FlyRobo | Search pages disallowed |
 | Probots | Explicitly allows AI bots |
+
+### 3.1b Open discovery: new and unknown sellers
+
+We discover sellers openly ([D-16](../04-reference/05-decision-log.md)), so trust has to be *earned* and shown rather than assumed:
+
+- **Hard gates** (seller never shown):
+  - Google **Web Risk** hit
+  - no HTTPS
+  - on our blocklist
+  - not selling to India
+  - no product page we can verify
+- **Labels:** *Established*, *Verified basics* ("New seller · GSTIN verified") or *Unverified* ("New & unverified seller — check before paying"). A seller is never hidden just for being new. This is the core promise.
+- **Scam heuristics:**
+  - "unusually cheap" flag when the price is < 40% of the verified median for the module
+  - very young domain (RDAP) with no GSTIN
+  - no contact or return policy
+- **User protection:** prefer-COD hint for Unverified sellers, a "Trusted sellers only" toggle, a report button, and 👍/👎 "order arrived" votes that feed trust.
+- **Same compliance rules for every seller:** robots.txt, crawl-delay, `agents.md`, no bot-protection bypass, no image re-hosting. The platform probe reads robots.txt *before* any other request.
+- **Seller opt-out:** any seller can ask to be excluded, and they go on the blocklist.
 
 ### 3.2 YouTube
 - We pass the **public URL** to Gemini. We never download, re-host or cut the video.

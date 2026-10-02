@@ -95,6 +95,19 @@ Keep the bundle under about 150 KB gzipped for the first route. Load the diff vi
 | Likely | ◐ Likely |
 | Check manually | ○ Check. Tapping it shows N-best alternatives |
 
+### 3.2b Seller trust badge (open discovery)
+
+| Trust | Badge | Extra UI |
+|---|---|---|
+| Established | seller name only | – |
+| Verified basics | "New seller · GSTIN verified" | Tap to open the seller card: domain age, GSTIN, policies, first seen by us |
+| Unverified | "New & unverified — check before paying" (amber) | Prefer-COD hint; report button |
+| Price anomaly | "Unusually cheap — check seller" | Shown alongside any badge |
+
+- Each row shows **"Best deal"** and **"Best from an established seller"** when they differ.
+- A global toggle, **"Trusted sellers only"**, is off by default.
+- A trace line celebrates discovery: "🆕 Found 2 sellers we hadn't seen before".
+
 ### 3.3 Evidence chip
 - ▶ 03:42 seeks the player and scrolls up.
 - 📄 opens the quote in a popover with a link.
@@ -152,7 +165,7 @@ Keep the bundle under about 150 KB gzipped for the first route. Load the diff vi
 
 ## 8. Component inventory
 
-`<PasteBox>`, `<ShareTargetHandler>`, `<YouTubePlayer>`, `<StageChecklist>`, `<StatusLine>`, `<ThinkingExpander>`, `<DraftPartRow>`, `<ConflictBanner>`, `<QuickQuestion>`, `<PartCard>`, `<GradeChip>`, `<ConfidenceChip>`, `<EvidenceChip>`, `<SellerLogo>`, `<SpecDiffTable>`, `<WiringChanges>`, `<CodeDiff>`, `<VerifyChecklist>`, `<SafetyBanner>`, `<TotalsFooter>`, `<PlanToggle>`, `<ImportComparison>`, `<NarrateButton>`, `<MarketsSheet>` (with Maps attribution), `<SourcesFooter>` (search_suggestions), `<ExportMenu>`, `<LibraryGallery>`, `<VoteButtons>`.
+`<PasteBox>`, `<ShareTargetHandler>`, `<YouTubePlayer>`, `<StageChecklist>`, `<StatusLine>`, `<ThinkingExpander>`, `<DraftPartRow>`, `<ConflictBanner>`, `<QuickQuestion>`, `<PartCard>`, `<GradeChip>`, `<ConfidenceChip>`, `<EvidenceChip>`, `<SellerLogo>`, `<SellerTrustBadge>`, `<SellerCard>`, `<TrustedOnlyToggle>`, `<ReportSellerButton>`, `<SpecDiffTable>`, `<WiringChanges>`, `<CodeDiff>`, `<VerifyChecklist>`, `<SafetyBanner>`, `<TotalsFooter>`, `<PlanToggle>`, `<ImportComparison>`, `<NarrateButton>`, `<MarketsSheet>` (with Maps attribution), `<SourcesFooter>` (search_suggestions), `<ExportMenu>`, `<LibraryGallery>`, `<VoteButtons>`.
 
 ## 9. Optional: generative UI (A2UI v0.9)
 

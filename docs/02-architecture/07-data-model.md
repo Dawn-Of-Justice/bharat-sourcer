@@ -17,8 +17,11 @@ jobs/{jobId}
   ├── events/{seq}
   ├── parts/{lineId}
   └── (fields: status, source, counters, costing, report_ref …)
+sellers/{domain}                (registry: seed + auto-discovered; trust, platform, policies)
+  └── reports/{uid}             (user "report seller" / order feedback)
 listings/{listingId}
 part_offers/{moduleId_country}
+blocklist/{domain}
 kg_chips/{chipId}
 kg_modules/{moduleId}          (+ vector field "embedding")
 kg_libraries/{libraryId}
@@ -75,6 +78,19 @@ See [03-agent-pipeline.md §5](03-agent-pipeline.md#5-trace-events-what-judges-s
 
 `Listing` schema ([04-prompts-and-schemas.md §1.2](04-prompts-and-schemas.md#12-offers-and-listings)) + `price_history: [{inr, at}]` (last 10).
 
+### `sellers/{domain}`
+
+See the `Seller` schema in [04-prompts-and-schemas.md §1.2](04-prompts-and-schemas.md#12-offers-and-listings). Example of a newly discovered seller:
+
+```json
+{"seller_id": "<new-shop>.in", "origin": "discovered", "first_seen": "2026-10-09",
+ "platform": "woocommerce", "ucp_endpoint": null, "crawl_delay_s": 1,
+ "web_risk": "clean", "domain_created": "2026-09-12", "https_ok": true,
+ "gstin": "29ABCDE1234F1Z5", "gstin_checksum_ok": true, "has_contact": true, "has_return_policy": true,
+ "free_shipping_threshold_inr": 799, "cod_available": true,
+ "votes_up": 0, "votes_down": 0, "trust_score": 0.62, "trust": "verified_basics", "checked_at": "2026-10-09T08:12:00Z"}
+```
+
 ### `kg_modules/{moduleId}`
 
 ```json
@@ -122,7 +138,9 @@ See [03-agent-pipeline.md §5](03-agent-pipeline.md#5-trace-events-what-judges-s
 |---|---|---|
 | `jobs/*/events` | `seq` asc | ordered trace |
 | `listings` | `module_id` asc, `fetched_at` desc | cache lookup |
-| `listings` | `seller` asc, `module_id` asc | seller split |
+| `listings` | `seller_id` asc, `module_id` asc | seller split |
+| `sellers` | `origin` asc, `first_seen` desc | "new sellers discovered" metric |
+| `sellers` | `trust` asc, `trust_score` desc | ranking and admin review |
 | `kg_modules` | **vector** on `embedding` (768, COSINE), prefilter `category` | canonicalisation and candidate search |
 | `bom_library` | `public` asc, `runs` desc | gallery |
 
@@ -165,7 +183,11 @@ service cloud.firestore {
         allow read: if true;
       }
     }
-    match /{document=**} { allow read, write: if false; }  // kg_*, listings, config: backend only
+    match /sellers/{d} {
+      allow read: if true;                  // public trust card per seller
+      match /reports/{uid} { allow create: if request.auth != null && uid == request.auth.uid; }
+    }
+    match /{document=**} { allow read, write: if false; }  // kg_*, listings, blocklist, config: backend only
   }
 }
 ```

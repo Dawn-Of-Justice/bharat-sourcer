@@ -39,7 +39,11 @@
 | **Silkscreen** | Printed text on a PCB, which we read verbatim from video frames |
 | **SMPS** | Switched-mode power supply |
 | **SSR** | Solid-state relay |
-| **Tier A / B / C** | Our sourcing tiers: merchant-sanctioned structured / distributor APIs / grounded search |
+| **Open discovery** | Our sourcing principle: no fixed seller list. Any Indian seller found by web search, the Shopify Global Catalog or protocol probes can appear, with a trust label |
+| **Seed sellers** | ~25 hand-checked stores that form the registry's starting point: a fast path, not a limit |
+| **Trust label** | Established / Verified basics / Unverified / Blocked, computed from Web Risk, domain age, HTTPS, GSTIN, policies, price anomaly and votes |
+| **RDAP** | Registration Data Access Protocol, the structured successor to WHOIS. Gives domain creation dates |
+| **Web Risk API** | Google Cloud API that checks URLs against malware and social-engineering lists |
 | **UCP** | Universal Commerce Protocol (Google + Shopify, Jan 2026). Merchants publish `/.well-known/ucp`, and Shopify stores expose MCP catalog tools |
 | **URL context** | A Gemini tool that fetches and reads up to 20 URLs per request |
 | **Vref** | Reference voltage that sets a stepper driver's current limit. The formula differs by driver |
