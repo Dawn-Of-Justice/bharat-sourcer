@@ -81,9 +81,18 @@ now sends an inline schema without bounds or string constraints, then applies th
 Pydantic validator locally. Invalid quantities, timestamps, oversized results and extra
 fields are still rejected. Public API schemas retain their validation constraints.
 
-Jobs live in process memory, disappear on reload/restart, and require **one worker**.
-Use this server locally; durable execution, retention limits, rate limiting, Firebase
-Auth/App Check and Firestore security rules are still needed before a public deployment.
+Jobs use memory storage by default, disappear on reload/restart, and require **one worker**
+in that mode. For persistence, follow [Firestore setup](infra/README.md) for project
+`hackathon-510415`, then select `BS_STORAGE_BACKEND=firestore`. Firestore stores jobs,
+events, parts, reports and token hashes in private snapshots. Existing API routes still
+work; the frontend does not need direct Firestore access.
+
+A startup/periodic sweep resumes queued work and report creation. Expired extraction
+is marked failed rather than automatically repeating a billed API request. Use this
+server locally until durable task dispatch, retention, rate limits and Firebase
+Auth/App Check are ready for public deployment. Firestore cloud access was verified on
+2 Oct 2026 against `hackathon-510415` in Mumbai. Other developer machines need Application
+Default Credentials; see the setup guide.
 Live mode fails startup if `BS_GEMINI_API_KEY` is missing or empty.
 
 ## Layout
@@ -94,6 +103,7 @@ backend/
     config.py       environment settings
     schemas.py      validated request/response models
     jobs.py         job state, atomic edits, fixture workflow
+    storage.py      memory and transactional Firestore stores
     extraction.py   Gemini adapter, YouTube normalization, structured extraction
     main.py         API routes, errors, CORS
   scripts/          OpenAPI export/check
@@ -122,6 +132,6 @@ After changing public routes or schemas, regenerate and commit the shared contra
 
 - Validate extraction against real videos and a labelled BOM evaluation set.
 - Add project page/code extraction and evidence fusion.
-- Introduce Firestore storage and durable execution, keeping job transitions explicit.
+- Complete credentialed Firestore verification, then add durable queue dispatch.
 - Implement seller verification, deterministic compatibility rules, and costing.
 - Extend the shared contract with the frontend teammate as those features become available.

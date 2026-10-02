@@ -1,9 +1,13 @@
+import asyncio
+import logging
+from contextlib import asynccontextmanager
 from typing import Annotated
 
 from fastapi import BackgroundTasks, FastAPI, Header, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from google.api_core.exceptions import GoogleAPICallError
 
 from bharat_sourcer.config import Settings
 from bharat_sourcer.extraction import Extractor, GeminiExtractor
@@ -17,20 +21,72 @@ from bharat_sourcer.schemas import (
     Health,
     Job,
 )
+from bharat_sourcer.storage import FirestoreJobStore, JobStore, MemoryJobStore, StorageError
 
 JobToken = Annotated[str | None, Header(alias="X-Job-Token")]
 
 
-def create_app(settings: Settings | None = None, extractor: Extractor | None = None) -> FastAPI:
+def create_app(
+    settings: Settings | None = None,
+    extractor: Extractor | None = None,
+    store: JobStore | None = None,
+) -> FastAPI:
     settings = settings or Settings()
     live_extractor = None if settings.demo_mode else (extractor or GeminiExtractor(settings))
-    service = JobService(live_extractor, settings.gemini_model if live_extractor else None)
+    if store is None:
+        store = (
+            FirestoreJobStore(
+                settings.gcp_project, settings.firestore_database, settings.firestore_collection
+            )
+            if settings.storage_backend == "firestore"
+            else MemoryJobStore()
+        )
+    service = JobService(
+        live_extractor,
+        settings.gemini_model if live_extractor else None,
+        store,
+        settings.extraction_lease_s,
+    )
+
+    @asynccontextmanager
+    async def lifespan(app: FastAPI):
+        stop = asyncio.Event()
+
+        async def recovery():
+            while not stop.is_set():
+                try:
+                    await asyncio.to_thread(service.recover)
+                except Exception as exc:
+                    logging.getLogger(__name__).error("Recovery failed: %s", type(exc).__name__)
+                try:
+                    await asyncio.wait_for(stop.wait(), settings.recovery_interval_s)
+                except TimeoutError:
+                    pass
+
+        task = asyncio.create_task(recovery())
+        try:
+            yield
+        finally:
+            stop.set()
+            await task
+
     app = FastAPI(
         title="Bharat Sourcer API",
-        version="0.2.0",
-        description="Demo or live YouTube extraction. In-memory jobs; sourcing not implemented.",
-        responses={422: {"model": ErrorResponse}},
+        version="0.3.0",
+        description="Demo or live YouTube extraction with optional Firestore job persistence.",
+        lifespan=lifespan,
+        responses={422: {"model": ErrorResponse}, 503: {"model": ErrorResponse}},
     )
+    app.state.job_service = service
+
+    @app.exception_handler(StorageError)
+    @app.exception_handler(GoogleAPICallError)
+    async def storage_error_handler(request: Request, exc: StorageError):
+        return JSONResponse(
+            status_code=503,
+            content={"error": {"code": "STORAGE_ERROR", "message": "Job storage operation failed"}},
+        )
+
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins,
@@ -56,7 +112,9 @@ def create_app(settings: Settings | None = None, extractor: Extractor | None = N
 
     @app.get("/healthz", response_model=Health, tags=["health"])
     def health():
-        return Health(mode="demo" if settings.demo_mode else "live")
+        return Health(
+            mode="demo" if settings.demo_mode else "live", storage=settings.storage_backend
+        )
 
     @app.post(
         "/v1/jobs",

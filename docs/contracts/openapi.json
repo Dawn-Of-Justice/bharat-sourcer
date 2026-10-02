@@ -2,8 +2,8 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Bharat Sourcer API",
-    "description": "Demo or live YouTube extraction. In-memory jobs; sourcing not implemented.",
-    "version": "0.2.0"
+    "description": "Demo or live YouTube extraction with optional Firestore job persistence.",
+    "version": "0.3.0"
   },
   "paths": {
     "/healthz": {
@@ -26,6 +26,16 @@
           },
           "422": {
             "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
             "content": {
               "application/json": {
                 "schema": {
@@ -67,6 +77,16 @@
           },
           "422": {
             "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
             "content": {
               "application/json": {
                 "schema": {
@@ -142,6 +162,16 @@
               }
             },
             "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
           },
           "404": {
             "content": {
@@ -220,6 +250,16 @@
               }
             },
             "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
           },
           "404": {
             "content": {
@@ -615,7 +655,10 @@
           },
           "storage": {
             "type": "string",
-            "const": "memory",
+            "enum": [
+              "memory",
+              "firestore"
+            ],
             "title": "Storage",
             "default": "memory"
           }

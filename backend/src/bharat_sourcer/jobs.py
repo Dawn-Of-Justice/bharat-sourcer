@@ -1,8 +1,9 @@
-"""Local job service. Replace storage and workflow when cloud integration lands."""
+"""Atomic job transitions. External I/O stays outside storage transactions."""
 
 import secrets
-from threading import RLock
-from uuid import uuid4
+from datetime import timedelta
+from hashlib import sha256
+from uuid import UUID, uuid4
 
 from bharat_sourcer.extraction import ExtractionError, Extractor, youtube_url
 from bharat_sourcer.schemas import (
@@ -20,6 +21,7 @@ from bharat_sourcer.schemas import (
     Status,
     now,
 )
+from bharat_sourcer.storage import JobStore, MemoryJobStore, StoredJob
 
 
 class JobError(Exception):
@@ -30,12 +32,17 @@ class JobError(Exception):
 
 
 class JobService:
-    def __init__(self, extractor: Extractor | None = None, model: str | None = None):
+    def __init__(
+        self,
+        extractor: Extractor | None = None,
+        model: str | None = None,
+        store: JobStore | None = None,
+        lease_seconds: int = 600,
+    ):
         self.extractor = extractor
         self.model = model
-        self._jobs: dict[str, Job] = {}
-        self._tokens: dict[str, str] = {}
-        self._lock = RLock()
+        self.store = store or MemoryJobStore()
+        self.lease_seconds = lease_seconds
 
     @staticmethod
     def _transition(job: Job, status: Status, message: str) -> None:
@@ -49,60 +56,70 @@ class JobService:
                 youtube_url(str(request.url))
             except ExtractionError as exc:
                 raise JobError(400, exc.code, exc.message) from exc
-        with self._lock:
-            job = Job(
-                job_id=str(uuid4()),
-                input=request,
-                demo=self.extractor is None,
-                extraction_model=self.model,
-            )
-            token = secrets.token_urlsafe(32)
-            message = (
-                "Demo job queued; the URL will not be fetched." if job.demo else "Video queued."
-            )
-            self._transition(job, "queued", message)
-            self._jobs[job.job_id] = job
-            self._tokens[job.job_id] = token
-            return job.model_copy(deep=True), token
+        job = Job(
+            job_id=str(uuid4()),
+            input=request,
+            demo=self.extractor is None,
+            extraction_model=self.model,
+        )
+        token = secrets.token_urlsafe(32)
+        message = "Demo job queued." if job.demo else "Video queued."
+        self._transition(job, "queued", message)
+        self.store.create(StoredJob(job=job, token_hash=self._hash(token)))
+        return job.model_copy(deep=True), token
 
-    def _authorized(self, job_id: str, token: str | None) -> Job:
-        expected = self._tokens.get(job_id)
-        if expected is None or not secrets.compare_digest(
-            expected.encode(), (token or "").encode()
-        ):
+    @staticmethod
+    def _hash(token: str | None) -> str:
+        return sha256((token or "").encode()).hexdigest()
+
+    def _authorized(self, record: StoredJob | None, token: str | None) -> Job:
+        if record is None or not secrets.compare_digest(record.token_hash, self._hash(token)):
             raise JobError(404, "JOB_NOT_FOUND", "Job not found or token invalid")
-        return self._jobs[job_id]
+        return record.job
 
     def get(self, job_id: str, token: str | None) -> Job:
-        with self._lock:
-            return self._authorized(job_id, token).model_copy(deep=True)
+        self._validate_id(job_id)
+        return self._authorized(self.store.get(job_id), token).model_copy(deep=True)
+
+    @staticmethod
+    def _validate_id(job_id: str) -> None:
+        try:
+            if str(UUID(job_id)) != job_id:
+                raise ValueError
+        except ValueError as exc:
+            raise JobError(404, "JOB_NOT_FOUND", "Job not found or token invalid") from exc
 
     def extract_demo(self, job_id: str) -> None:
-        with self._lock:
-            job = self._jobs[job_id]
-            if job.status != "queued":
-                return
-            self._transition(job, "extracting", "Loading the sample weather-station BOM.")
-            job.items = [
-                BomItem(line_id="L01", raw_name="ESP32 development board"),
-                BomItem(line_id="L02", raw_name="BME280 sensor module"),
-                BomItem(line_id="L03", raw_name="Jumper wire", qty=4),
-            ]
-            self._transition(job, "awaiting_confirmation", "Sample BOM ready for confirmation.")
+        self.extract(job_id)
 
     def extract(self, job_id: str) -> None:
-        if self.extractor is None:
-            self.extract_demo(job_id)
-            return
-        with self._lock:
-            job = self._jobs[job_id]
-            if job.status != "queued":
+        run_id = str(uuid4())
+
+        def claim(record: StoredJob):
+            if record.job.status != "queued":
                 return
-            self._transition(job, "extracting", "Extracting parts from the YouTube video.")
-            url = str(job.input.url)
-        # Never hold the store lock during external I/O: polling must remain responsive.
+            if not record.job.demo and self.extractor is None:
+                return
+            if not record.job.demo:
+                record.job.extraction_model = self.model
+            record.run_id = run_id
+            record.lease_until = now() + timedelta(seconds=self.lease_seconds)
+            self._transition(record.job, "extracting", "Extracting parts.")
+
+        claimed = self.store.mutate(job_id, claim)
+        if claimed is None or claimed.run_id != run_id:
+            return
+        error = None
+        items = []
         try:
-            items = self.extractor.extract(url)
+            if claimed.job.demo:
+                items = [
+                    BomItem(line_id="L01", raw_name="ESP32 development board"),
+                    BomItem(line_id="L02", raw_name="BME280 sensor module"),
+                    BomItem(line_id="L03", raw_name="Jumper wire", qty=4),
+                ]
+            else:
+                items = self.extractor.extract(str(claimed.job.input.url))
         except Exception as exc:
             error = (
                 exc
@@ -111,17 +128,52 @@ class JobService:
                     "EXTRACTION_FAILED", "Extraction failed; start a new job to retry"
                 )
             )
-            with self._lock:
-                job.error = ErrorDetail(code=error.code, message=error.message)
-                self._transition(job, "failed", error.message)
-            return
-        with self._lock:
-            job.items = items
-            self._transition(job, "awaiting_confirmation", "Review extracted parts and evidence.")
+
+        def complete(record: StoredJob):
+            if record.run_id != run_id or record.job.status != "extracting":
+                return
+            record.run_id = None
+            record.lease_until = None
+            if error:
+                record.job.error = ErrorDetail(code=error.code, message=error.message)
+                self._transition(record.job, "failed", error.message)
+            else:
+                record.job.items = items
+                self._transition(record.job, "awaiting_confirmation", "Review parts and evidence.")
+
+        self.store.mutate(job_id, complete)
+
+    def recover(self) -> None:
+        for job_id in self.store.pending():
+            record = self.store.get(job_id)
+            if record is None:
+                continue
+            if record.job.status == "queued":
+                self.extract(job_id)
+            elif record.job.status == "resolving":
+                self.finish(job_id)
+            elif record.job.status == "extracting":
+
+                def expire(current: StoredJob):
+                    if current.job.status != "extracting":
+                        return
+                    if current.lease_until and current.lease_until > now():
+                        return
+                    current.run_id = None
+                    current.lease_until = None
+                    current.job.error = ErrorDetail(
+                        code="EXTRACTION_INTERRUPTED",
+                        message="Extraction was interrupted or expired; create a new job to retry",
+                    )
+                    self._transition(current.job, "failed", current.job.error.message)
+
+                self.store.mutate(job_id, expire)
 
     def confirm(self, job_id: str, token: str | None, request: ConfirmJob) -> None:
-        with self._lock:
-            job = self._authorized(job_id, token)
+        self._validate_id(job_id)
+
+        def change(record: StoredJob):
+            job = self._authorized(record, token)
             if job.status != "awaiting_confirmation":
                 raise JobError(409, "INVALID_STATE", "Job is not awaiting confirmation")
             # Work on a copy so any invalid edit rolls back the entire confirmation.
@@ -149,14 +201,19 @@ class JobService:
                         items[edit.line_id].qty = edit.qty
             if not items:
                 raise JobError(422, "EMPTY_BOM", "Keep at least one BOM line")
+            if len(items) > 100:
+                raise JobError(422, "BOM_TOO_LARGE", "Keep at most 100 BOM lines")
             if any(item.qty is None for item in items.values()):
                 raise JobError(422, "UNKNOWN_QUANTITY", "Set a quantity for every retained part")
             job.items = list(items.values())
             self._transition(job, "resolving", "Confirmed edits; preparing the report.")
 
+        if self.store.mutate(job_id, change) is None:
+            raise JobError(404, "JOB_NOT_FOUND", "Job not found or token invalid")
+
     def finish(self, job_id: str) -> None:
-        with self._lock:
-            job = self._jobs[job_id]
+        def change(record: StoredJob):
+            job = record.job
             if job.status != "resolving":
                 return
             job.report = Report(
@@ -175,3 +232,5 @@ class JobService:
                 ],
             )
             self._transition(job, "done", "Report ready. Prices and grades are unavailable.")
+
+        self.store.mutate(job_id, change)

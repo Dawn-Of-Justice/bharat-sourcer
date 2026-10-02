@@ -1,4 +1,4 @@
-# Implemented API contract — v0.2
+# Implemented API contract — v0.3
 
 This directory is the handoff between backend and frontend. The architecture docs describe
 the target system; this contract describes the runnable local milestone.
@@ -44,7 +44,18 @@ Base URL: `http://127.0.0.1:8000` (no `/api` prefix locally).
    At least one line must remain. Repeated confirmation returns 409.
 5. Poll until `done` or `failed`, then stop. Pause polling while awaiting user confirmation.
    At `done`, render `report`. Intermediate states may finish between polls; `events`
-   retain the transitions. Stop and offer a fresh run on 404 after a server restart.
+   retain the transitions. Stop on 404 (memory-mode jobs disappear after a restart).
+
+## Persistence (v0.3)
+
+`/healthz.storage` is `memory` or `firestore`. Firestore mode preserves the same API
+payloads and job tokens across restarts. Continue API polling; direct database listeners
+are not enabled. The database collection contains private token hashes and worker metadata.
+
+Queued jobs and confirmed jobs awaiting report creation are recovered automatically.
+Extraction interrupted past its lease becomes `failed` with `EXTRACTION_INTERRUPTED`;
+the user can create a new job to retry. A surviving client must retain `X-Job-Token`.
+The health endpoint reports configuration, not database readiness.
 
 ## Live extraction (v0.2 additions)
 
@@ -72,7 +83,7 @@ The same routes and job-token flow apply in both modes.
   (`en`, `hi`, `ta`, `ml`), and unlisted jobs. Text remains English in fixture mode.
 - Firestore listeners, caching, sourcing, conflict answers, exports, and plan/candidate
   selection are not implemented. Unimplemented routes return 404.
-- Jobs are in memory and disappear when the backend reloads. Tokens are returned only
+- Memory-mode jobs disappear when the backend reloads; Firestore jobs persist. Tokens are returned only
   once, on job creation. There is no public job listing or sharing flow yet.
 - Configurable CORS defaults to localhost/127.0.0.1 on port 5173.
 
@@ -93,9 +104,12 @@ Implemented domain and request-validation errors use:
 | 422 | `INVALID_EDIT` | Edit references a missing line |
 | 422 | `EMPTY_BOM` | Confirmation removes every line |
 | 422 | `UNKNOWN_QUANTITY` | A retained part still has null quantity |
+| 422 | `BOM_TOO_LARGE` | More than 100 retained lines |
+| 503 | `STORAGE_ERROR` | Storage unavailable or snapshot too large |
 
 Background failures appear in the job snapshot (HTTP 200), with codes `UPSTREAM_QUOTA`,
-`UPSTREAM_ERROR`, `UPSTREAM_TIMEOUT`, `INVALID_EXTRACTION`, `NO_BOM`, or `EXTRACTION_FAILED`.
+`UPSTREAM_ERROR`, `UPSTREAM_TIMEOUT`, `INVALID_EXTRACTION`, `NO_BOM`, `EXTRACTION_FAILED`,
+or `EXTRACTION_INTERRUPTED`.
 No raw upstream errors or credentials are exposed.
 
 Framework errors such as an unknown route retain FastAPI's default `detail` response.

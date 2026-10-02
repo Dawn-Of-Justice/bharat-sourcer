@@ -1,0 +1,10 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Backend-only snapshots contain token hashes and execution metadata.
+    // The Python server uses IAM; web clients must use the authenticated API.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

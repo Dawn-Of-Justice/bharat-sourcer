@@ -137,4 +137,4 @@ class ErrorResponse(Model):
 class Health(Model):
     status: Literal["ok"] = "ok"
     mode: Literal["demo", "live"] = "demo"
-    storage: Literal["memory"] = "memory"
+    storage: Literal["memory", "firestore"] = "memory"
