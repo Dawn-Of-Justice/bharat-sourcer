@@ -1,5 +1,13 @@
 # Bharat Sourcer
 
+## Development workspaces
+
+- **[Backend](backend/README.md):** Python/FastAPI package, local demo job workflow, tests and backend configuration.
+- **[Frontend](frontend/README.md):** reserved for the frontend teammate's app and tooling.
+- **[Shared API contract](docs/contracts/README.md):** implemented endpoints and generated OpenAPI for integration.
+
+The backend currently runs with sample data and needs no cloud credentials. See its README for startup commands. Architecture documents below describe the target product; live extraction, sourcing and cloud storage are still to be implemented.
+
 > **Watch it in America. Build it in India.**
 > Paste any maker video or blog link. Get back a parts list you can actually buy in India, priced in rupees, with a compatibility check and the exact wiring/code changes for every substitute.
 
@@ -57,7 +65,7 @@ Full map with one line per file: **[docs/00-index.md](docs/00-index.md)**.
 
 ---
 
-## Repository layout (docs phase)
+## Product documentation layout
 
 ```
 bharat-sourcer/
@@ -71,7 +79,7 @@ bharat-sourcer/
 └── research/                     ← raw research reports (30 Sep 2026), fully cited
 ```
 
-Code will live beside `docs/` (`backend/`, `frontend/`, `kg/`, `eval/`, `infra/`) once the build starts — see [docs/02-architecture/01-system-architecture.md](docs/02-architecture/01-system-architecture.md#repository-layout-for-code).
+Application workspaces now live beside `docs/`: `backend/` contains the initial API and `frontend/` is reserved for frontend work. Future `kg/`, `eval/`, and `infra/` directories are described in [the target architecture](docs/02-architecture/01-system-architecture.md#repository-layout-for-code).
 
 ---
 

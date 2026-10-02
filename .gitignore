@@ -1,0 +1,25 @@
+# Python / backend
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+.coverage
+htmlcov/
+backend/.data/
+
+# Frontend
+node_modules/
+dist/
+.vite/
+coverage/
+
+# Local credentials and editor state
+.env
+.env.*
+!.env.example
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

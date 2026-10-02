@@ -1,0 +1,775 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Bharat Sourcer API",
+    "description": "Local demo API. Sample data only; jobs are lost on process restart.",
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/healthz": {
+      "get": {
+        "tags": [
+          "health"
+        ],
+        "summary": "Health",
+        "operationId": "health_healthz_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Health"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/jobs": {
+      "post": {
+        "tags": [
+          "jobs"
+        ],
+        "summary": "Create Job",
+        "operationId": "create_job_v1_jobs_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateJob"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreatedJob"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/jobs/{job_id}": {
+      "get": {
+        "tags": [
+          "jobs"
+        ],
+        "summary": "Get Job",
+        "operationId": "get_job_v1_jobs__job_id__get",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Job Id"
+            }
+          },
+          {
+            "name": "X-Job-Token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Job-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Job"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          }
+        }
+      }
+    },
+    "/v1/jobs/{job_id}/confirm": {
+      "post": {
+        "tags": [
+          "jobs"
+        ],
+        "summary": "Confirm Job",
+        "operationId": "confirm_job_v1_jobs__job_id__confirm_post",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Job Id"
+            }
+          },
+          {
+            "name": "X-Job-Token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Job-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfirmJob"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConfirmationAccepted"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AddLine": {
+        "properties": {
+          "op": {
+            "type": "string",
+            "const": "add",
+            "title": "Op"
+          },
+          "raw_name": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Raw Name"
+          },
+          "qty": {
+            "type": "integer",
+            "maximum": 10000.0,
+            "minimum": 1.0,
+            "title": "Qty",
+            "default": 1
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "op",
+          "raw_name"
+        ],
+        "title": "AddLine"
+      },
+      "BomItem": {
+        "properties": {
+          "line_id": {
+            "type": "string",
+            "title": "Line Id"
+          },
+          "raw_name": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Raw Name"
+          },
+          "qty": {
+            "type": "integer",
+            "maximum": 10000.0,
+            "minimum": 1.0,
+            "title": "Qty",
+            "default": 1
+          },
+          "qty_unit": {
+            "type": "string",
+            "const": "pcs",
+            "title": "Qty Unit",
+            "default": "pcs"
+          },
+          "user_has_it": {
+            "type": "boolean",
+            "title": "User Has It",
+            "default": false
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "line_id",
+          "raw_name"
+        ],
+        "title": "BomItem"
+      },
+      "ConfirmJob": {
+        "properties": {
+          "edits": {
+            "items": {
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/UpdateLine"
+                },
+                {
+                  "$ref": "#/components/schemas/RemoveLine"
+                },
+                {
+                  "$ref": "#/components/schemas/HaveLine"
+                },
+                {
+                  "$ref": "#/components/schemas/AddLine"
+                }
+              ],
+              "discriminator": {
+                "propertyName": "op",
+                "mapping": {
+                  "add": "#/components/schemas/AddLine",
+                  "have_it": "#/components/schemas/HaveLine",
+                  "remove": "#/components/schemas/RemoveLine",
+                  "update": "#/components/schemas/UpdateLine"
+                }
+              }
+            },
+            "type": "array",
+            "maxItems": 100,
+            "title": "Edits"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "ConfirmJob"
+      },
+      "ConfirmationAccepted": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "const": "resolving",
+            "title": "Status",
+            "default": "resolving"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "ConfirmationAccepted"
+      },
+      "CreateJob": {
+        "properties": {
+          "url": {
+            "type": "string",
+            "maxLength": 2083,
+            "minLength": 1,
+            "format": "uri",
+            "title": "Url"
+          },
+          "pin": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[1-9][0-9]{5}$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pin"
+          },
+          "lang": {
+            "type": "string",
+            "enum": [
+              "en",
+              "hi",
+              "ta",
+              "ml"
+            ],
+            "title": "Lang",
+            "default": "en"
+          },
+          "user_level": {
+            "type": "string",
+            "enum": [
+              "beginner",
+              "intermediate"
+            ],
+            "title": "User Level",
+            "default": "beginner"
+          },
+          "visibility": {
+            "type": "string",
+            "const": "unlisted",
+            "title": "Visibility",
+            "default": "unlisted"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "url"
+        ],
+        "title": "CreateJob"
+      },
+      "CreatedJob": {
+        "properties": {
+          "job_id": {
+            "type": "string",
+            "title": "Job Id"
+          },
+          "status": {
+            "type": "string",
+            "const": "queued",
+            "title": "Status",
+            "default": "queued"
+          },
+          "cached": {
+            "type": "boolean",
+            "const": false,
+            "title": "Cached",
+            "default": false
+          },
+          "demo": {
+            "type": "boolean",
+            "const": true,
+            "title": "Demo",
+            "default": true
+          },
+          "job_token": {
+            "type": "string",
+            "title": "Job Token"
+          },
+          "watch": {
+            "type": "string",
+            "title": "Watch"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "job_id",
+          "job_token",
+          "watch"
+        ],
+        "title": "CreatedJob"
+      },
+      "ErrorDetail": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "code",
+          "message"
+        ],
+        "title": "ErrorDetail"
+      },
+      "ErrorResponse": {
+        "properties": {
+          "error": {
+            "$ref": "#/components/schemas/ErrorDetail"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "error"
+        ],
+        "title": "ErrorResponse"
+      },
+      "Event": {
+        "properties": {
+          "seq": {
+            "type": "integer",
+            "title": "Seq"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "extracting",
+              "awaiting_confirmation",
+              "resolving",
+              "done",
+              "failed"
+            ],
+            "title": "Status"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Timestamp"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "seq",
+          "status",
+          "message"
+        ],
+        "title": "Event"
+      },
+      "HaveLine": {
+        "properties": {
+          "op": {
+            "type": "string",
+            "const": "have_it",
+            "title": "Op"
+          },
+          "line_id": {
+            "type": "string",
+            "title": "Line Id"
+          },
+          "user_has_it": {
+            "type": "boolean",
+            "title": "User Has It",
+            "default": true
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "op",
+          "line_id"
+        ],
+        "title": "HaveLine"
+      },
+      "Health": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "const": "ok",
+            "title": "Status",
+            "default": "ok"
+          },
+          "mode": {
+            "type": "string",
+            "const": "demo",
+            "title": "Mode",
+            "default": "demo"
+          },
+          "storage": {
+            "type": "string",
+            "const": "memory",
+            "title": "Storage",
+            "default": "memory"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "Health"
+      },
+      "Job": {
+        "properties": {
+          "job_id": {
+            "type": "string",
+            "title": "Job Id"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "extracting",
+              "awaiting_confirmation",
+              "resolving",
+              "done",
+              "failed"
+            ],
+            "title": "Status",
+            "default": "queued"
+          },
+          "demo": {
+            "type": "boolean",
+            "const": true,
+            "title": "Demo",
+            "default": true
+          },
+          "input": {
+            "$ref": "#/components/schemas/CreateJob"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/BomItem"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "events": {
+            "items": {
+              "$ref": "#/components/schemas/Event"
+            },
+            "type": "array",
+            "title": "Events"
+          },
+          "report": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Report"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "job_id",
+          "input"
+        ],
+        "title": "Job"
+      },
+      "RemoveLine": {
+        "properties": {
+          "op": {
+            "type": "string",
+            "const": "remove",
+            "title": "Op"
+          },
+          "line_id": {
+            "type": "string",
+            "title": "Line Id"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "op",
+          "line_id"
+        ],
+        "title": "RemoveLine"
+      },
+      "Report": {
+        "properties": {
+          "demo": {
+            "type": "boolean",
+            "const": true,
+            "title": "Demo",
+            "default": true
+          },
+          "summary": {
+            "type": "string",
+            "title": "Summary"
+          },
+          "lines": {
+            "items": {
+              "$ref": "#/components/schemas/ReportLine"
+            },
+            "type": "array",
+            "title": "Lines"
+          },
+          "total_inr": {
+            "type": "null",
+            "title": "Total Inr"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "summary",
+          "lines"
+        ],
+        "title": "Report"
+      },
+      "ReportLine": {
+        "properties": {
+          "item": {
+            "$ref": "#/components/schemas/BomItem"
+          },
+          "sourcing_status": {
+            "type": "string",
+            "enum": [
+              "not_run",
+              "already_owned"
+            ],
+            "title": "Sourcing Status"
+          },
+          "price_inr": {
+            "type": "null",
+            "title": "Price Inr"
+          },
+          "grade": {
+            "type": "null",
+            "title": "Grade"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "item",
+          "sourcing_status"
+        ],
+        "title": "ReportLine"
+      },
+      "UpdateLine": {
+        "properties": {
+          "op": {
+            "type": "string",
+            "const": "update",
+            "title": "Op"
+          },
+          "line_id": {
+            "type": "string",
+            "title": "Line Id"
+          },
+          "raw_name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Raw Name"
+          },
+          "qty": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 10000.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Qty"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "op",
+          "line_id"
+        ],
+        "title": "UpdateLine"
+      }
+    }
+  }
+}
