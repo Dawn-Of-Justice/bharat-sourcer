@@ -1,4 +1,4 @@
-# Implemented API contract — v0.6
+# Implemented API contract — v0.7
 
 This directory is the handoff between backend and frontend. The architecture docs describe
 the target system; this contract describes the runnable local milestone.
@@ -144,6 +144,37 @@ Selection does not purchase anything or verify delivery, seller trust or final c
 
 Selection errors: 409 `INVALID_STATE` / `OFFER_STALE`; 422 `INVALID_SELECTION`,
 `OFFER_UNAVAILABLE`, `COMPATIBILITY_UNRESOLVED`, or `CHANGES_REQUIRED`.
+
+## Targeted offer refresh (v0.7)
+
+`POST /v1/jobs/{job_id}/refresh` requires `X-Job-Token`:
+
+```json
+{"line_ids":["L01","L03"]}
+```
+
+Returns 202 `{"status":"resolving"}`. Resume polling the job until `done` or `failed`.
+Available for completed live sourcing reports and reports failed with `SOURCING_INTERRUPTED`.
+Select 1–30 distinct unowned lines, within the server's per-batch sourcing limit (default 10).
+Demo jobs, extraction-only jobs, and active jobs cannot be refreshed.
+
+The confirmed BOM, evidence, quantities and specs stay unchanged. Selected lines immediately
+lose old offers, attribution, errors and selections and become `not_run` while pending.
+Other lines and selections are preserved. Refresh searches and checks seller pages again;
+it does not extract the video again. New offers require explicit selection, even if the
+same URL returns. Subtotals exclude cleared selections immediately.
+
+`refresh_count` persists across restarts and limits the job to **two accepted batches**.
+Concurrent requests while a refresh is pending return 409. Sending the request again after
+completion starts another batch and consumes the limit; do not automatically replay POSTs
+after a lost response. Check job status, events and `refresh_count` first.
+Refresh can incur Gemini charges. The existing automatic recovery budget is not reset.
+Interrupted refresh resumes only unfinished requested lines. Unrequested unfinished lines
+in a partial failed report remain `not_run` with `SOURCING_INTERRUPTED`.
+
+Errors: 404 `JOB_NOT_FOUND`; 409 `INVALID_STATE` or `REFRESH_LIMIT`; 422 `INVALID_REFRESH`
+for unknown, repeated, owned or too many lines; 503 `SOURCING_UNAVAILABLE` if this worker
+has no sourcing adapter. Invalid requests do not consume the refresh budget.
 
 ## Persistent storage
 

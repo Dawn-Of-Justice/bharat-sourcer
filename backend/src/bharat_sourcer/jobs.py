@@ -483,7 +483,8 @@ class JobService:
                 record.job.report.lines = [
                     lines[item.line_id] for item in record.job.items if item.line_id in lines
                 ]
-                update_costs(record.job.report)
+                if scope is not None:
+                    update_costs(record.job.report)
                 record.lease_until = now() + timedelta(seconds=self.sourcing_lease_seconds)
                 self._transition(
                     record.job, "sourcing", f"Checked sourcing for {result.item.line_id}."

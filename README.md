@@ -6,7 +6,7 @@
 - **[Frontend](frontend/README.md):** reserved for the frontend teammate's app and tooling.
 - **[Shared API contract](docs/contracts/README.md):** implemented endpoints and generated OpenAPI for integration.
 
-The backend defaults to sample data without cloud credentials. It supports live YouTube extraction, grounded seller discovery, product-page verification, declared-spec compatibility checks and optional Firestore persistence. See its README for setup and current limitations. Total costing remains to be implemented.
+The backend defaults to sample data without cloud credentials. It supports live YouTube extraction, grounded seller discovery, product-page verification, declared-spec compatibility checks, offer selection, parts subtotals, targeted offer refresh and optional Firestore persistence. See its README for setup and current limitations. Shipping, tax and final payable totals remain unknown.
 
 > **Watch it in America. Build it in India.**
 > Paste any maker video or blog link. Get back a parts list you can actually buy in India, priced in rupees, with a compatibility check and the exact wiring/code changes for every substitute.

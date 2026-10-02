@@ -140,6 +140,21 @@ contains the partial sum; `parts_subtotal_inr` is available only once all unowne
 have selections. `unselected_line_ids` identifies gaps. Shipping, tax and `total_inr`
 stay null. Costs are snapshots of seller quotes, not checkout totals or live guarantees.
 
+## Refresh stale or failed offers
+
+Send `POST /v1/jobs/{job_id}/refresh` with the job token and `{"line_ids":["L01"]}`.
+The backend returns 202 and searches only those parts, without extracting the video again.
+Completed live sourcing reports and interrupted sourcing reports support refresh.
+Requested lines lose their old offers and selections immediately; other selections survive.
+New quotes must be selected again. Confirmed parts, specs and evidence remain unchanged.
+
+Each job supports two accepted refresh batches, each within the configured sourcing part
+limit. The counter and requested scope persist in Firestore. Invalid or concurrent requests
+do not consume the budget. A repeated POST after completion starts a new batch, so clients
+must check job status and `refresh_count` before retrying a lost response. Refresh can incur
+paid search calls. It does not reset the automatic recovery budget. Interrupted refresh
+reuses completed lines and resumes only unfinished requested lines.
+
 ## Automatic recovery
 
 Gemini extraction and discovery retry timeouts, network errors and HTTP 429/500/502/503/504
@@ -241,5 +256,5 @@ After changing public routes or schemas, regenerate and commit the shared contra
 - Validate extraction against real videos and a labelled BOM evaluation set.
 - Add project page/code extraction and evidence fusion.
 - Add durable queue dispatch and broaden seller format support.
-- Add seller trust checks, broader compatibility rules with module data, and costing.
+- Add seller trust checks, broader compatibility rules with module data, and shipping/tax costing.
 - Extend the shared contract with the frontend teammate as those features become available.
