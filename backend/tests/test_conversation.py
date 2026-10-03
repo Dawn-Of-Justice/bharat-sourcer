@@ -182,6 +182,18 @@ def test_gemini_adapter_validates_structured_reply_and_omits_secrets():
         payload = json.loads(request.content)
         assert token not in request.content.decode()
         assert "responseJsonSchema" in payload["generationConfig"]
+        if "allowed" in payload["generationConfig"]["responseJsonSchema"].get("properties", {}):
+            return httpx.Response(
+                200,
+                json={
+                    "candidates": [
+                        {
+                            "finishReason": "STOP",
+                            "content": {"parts": [{"text": '{"allowed":true}'}]},
+                        }
+                    ]
+                },
+            )
         return httpx.Response(
             200,
             json={

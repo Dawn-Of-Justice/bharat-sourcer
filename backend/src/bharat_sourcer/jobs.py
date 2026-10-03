@@ -1,6 +1,7 @@
 """Atomic job transitions. External I/O stays outside storage transactions."""
 
 import secrets
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import timedelta
 from hashlib import sha256
 from uuid import UUID, uuid4
@@ -48,6 +49,7 @@ class JobService:
         sourcing: SourcingService | None = None,
         sourcing_max_parts: int = 10,
         sourcing_lease_seconds: int = 1800,
+        sourcing_parallelism: int = 1,
     ):
         self.extractor = extractor
         self.model = model
@@ -56,6 +58,7 @@ class JobService:
         self.sourcing = sourcing
         self.sourcing_max_parts = sourcing_max_parts
         self.sourcing_lease_seconds = sourcing_lease_seconds
+        self.sourcing_parallelism = max(1, min(sourcing_parallelism, 4))
 
     @staticmethod
     def _transition(job: Job, status: Status, message: str) -> None:
@@ -560,65 +563,83 @@ class JobService:
             for line in claimed.job.report.lines
             if scope is None or line.item.line_id in scope
         )
-        for item in claimed.job.items:
-            if item.line_id in completed or (scope is not None and item.line_id not in scope):
-                continue
-            current = self.store.get(job_id)
-            if current is None or current.run_id != run_id or current.job.status != "sourcing":
-                return
-            if current.job.pause_requested:
+        pending = [
+            item
+            for item in claimed.job.items
+            if item.line_id not in completed and (scope is None or item.line_id in scope)
+        ]
 
-                def acknowledge(record: StoredJob):
-                    if record.run_id == run_id and record.job.status == "sourcing":
-                        self._pause_at_checkpoint(record)
-
-                self.store.mutate(job_id, acknowledge)
-                return
-            if not item.user_has_it and searched >= self.sourcing_max_parts:
-                line = ReportLine(
+        def source_item(item, limited):
+            if limited:
+                return ReportLine(
                     item=item,
                     sourcing_status="not_run",
                     sourcing_error=ErrorDetail(
                         code="SOURCING_LIMIT", message="Per-job sourcing limit reached"
                     ),
                 )
-            else:
-                try:
-                    line = self.sourcing.source(item)
-                except Exception:
-                    line = ReportLine(
-                        item=item,
-                        sourcing_status="failed",
-                        sourcing_error=ErrorDetail(
-                            code="SOURCING_FAILED", message="Could not source this part"
-                        ),
-                    )
-                if not item.user_has_it:
-                    searched += 1
+            try:
+                return self.sourcing.source(item)
+            except Exception:
+                return ReportLine(
+                    item=item,
+                    sourcing_status="failed",
+                    sourcing_error=ErrorDetail(
+                        code="SOURCING_FAILED", message="Could not source this part"
+                    ),
+                )
 
-            def checkpoint(record: StoredJob, result=line):
+        for offset in range(0, len(pending), self.sourcing_parallelism):
+            current = self.store.get(job_id)
+            if current is None or current.run_id != run_id or current.job.status != "sourcing":
+                return
+            if current.job.pause_requested:
+
+                def acknowledge(record):
+                    if record.run_id == run_id and record.job.status == "sourcing":
+                        self._pause_at_checkpoint(record)
+
+                self.store.mutate(job_id, acknowledge)
+                return
+            batch = pending[offset : offset + self.sourcing_parallelism]
+            with ThreadPoolExecutor(max_workers=self.sourcing_parallelism) as pool:
+                futures = []
+                for item in batch:
+                    limited = not item.user_has_it and searched >= self.sourcing_max_parts
+                    if not item.user_has_it and not limited:
+                        searched += 1
+                    futures.append(pool.submit(source_item, item, limited))
+                for future in as_completed(futures):
+                    line = future.result()
+
+                    def checkpoint(record, result=line):
+                        if record.run_id != run_id or record.job.status != "sourcing":
+                            return
+                        lines = {line.item.line_id: line for line in record.job.report.lines}
+                        lines[result.item.line_id] = result
+                        record.job.report.lines = [
+                            lines[item.line_id]
+                            for item in record.job.items
+                            if item.line_id in lines
+                        ]
+                        update_costs(record.job.report)
+                        record.lease_until = now() + timedelta(seconds=self.sourcing_lease_seconds)
+                        self._transition(
+                            record.job, "sourcing", f"Checked sourcing for {result.item.line_id}."
+                        )
+
+                    self.store.mutate(job_id, checkpoint)
+
+            def batch_complete(record):
                 if record.run_id != run_id or record.job.status != "sourcing":
                     return
-                lines = {line.item.line_id: line for line in record.job.report.lines}
-                lines[result.item.line_id] = result
-                record.job.report.lines = [
-                    lines[item.line_id] for item in record.job.items if item.line_id in lines
-                ]
-                if scope is not None:
-                    update_costs(record.job.report)
-                record.lease_until = now() + timedelta(seconds=self.sourcing_lease_seconds)
-                self._transition(
-                    record.job, "sourcing", f"Checked sourcing for {result.item.line_id}."
-                )
                 if record.job.pause_requested:
                     self._pause_at_checkpoint(record)
                 elif one_line:
                     record.run_id = record.lease_until = None
-                    self._transition(
-                        record.job, "resolving", "Checkpoint saved; remaining work queued."
-                    )
+                    self._transition(record.job, "resolving", "Batch saved; remaining work queued.")
 
-            self.store.mutate(job_id, checkpoint)
+            self.store.mutate(job_id, batch_complete)
             if one_line:
                 return
 

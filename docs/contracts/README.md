@@ -1,7 +1,9 @@
-# Implemented API contract — v0.13
+# Implemented API contract — v0.14
 
 This directory is the handoff between backend and frontend. The architecture docs describe
 the target system; this contract describes the runnable local milestone.
+
+v0.14 adds [project-only chat, parallel part sourcing and seller diagnostics](project-chat-and-sourcing.md).
 
 v0.13 uses [durable queued dispatch](queued-dispatch.md) in cloud mode. API shapes
 are unchanged; expect cold starts and `resolving` between sourcing checkpoints.
