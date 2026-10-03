@@ -1,5 +1,8 @@
 # Connect the local frontend
 
+For v0.11 sourcing controls, see [pause/resume](pause-resume.md). Render the new
+`paused` status and distinguish a pending pause from an acknowledged pause.
+
 ## Connection
 
 Base URL: `https://bharat-sourcer-integration-diahnrbuna-el.a.run.app`

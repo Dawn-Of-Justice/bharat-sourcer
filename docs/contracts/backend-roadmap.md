@@ -3,7 +3,7 @@
 This roadmap tracks decisions from implementation discussions. Architecture documents
 describe a broader target; the API contract describes what actually works.
 
-## Available in the integration backend (v0.10)
+## Available in the integration backend (v0.11)
 
 | Area | Implemented |
 | --- | --- |
@@ -17,6 +17,7 @@ describe a broader target; the API contract describes what actually works.
 | Revisions | Targeted seller refresh; post-report required-spec updates and reassessment |
 | Design advice | Confirmed single-LED resistor calculation; contextual role questions |
 | Recovery | Bounded HTTP retries, leases, checkpoint resume, tested resistor-selector fallback |
+| Sourcing controls (v0.11) | Persisted pause intent, part-boundary acknowledgement, resume saved work; chat stays available |
 | Storage | Firestore persistence and private per-job tokens |
 
 ## Agreed work still to implement
@@ -24,7 +25,7 @@ describe a broader target; the API contract describes what actually works.
 | Priority | Deliverable | Completion criteria / frontend impact |
 | --- | --- | --- |
 | 1 | End-to-end conversational UI integration | BOM beside chat; citation navigation; proposal diff and accept/reject; SSE reconnect; explicit confirmation; integration smoke test |
-| 2 | Pause/resume and user steering during sourcing | Persist pause intent; acknowledge safe checkpoint; avoid claiming active HTTP calls cancelled; resume remaining work; UI controls and progress states |
+| 2 | User steering during sourcing | Pause/resume implemented in v0.11; reviewed edits to a paused sourcing plan and frontend controls remain |
 | 3 | Agent-triggered search and report tools | Agent proposes scoped refresh/spec changes; user authorizes cost-bearing work; tool progress and results visible in chat; preserve limits and stale-edit checks |
 | 4 | Broader seller-spec parsing | Read supported specification tables with field-level evidence; detect contradictions; unknown stays unknown; evaluate real sellers |
 | 5 | Circuit context and more design rules | Establish resistor roles, topology and source-backed inputs; support additional roles only with validated calculations; attach suggestions to a specific physical component |
@@ -52,7 +53,7 @@ structured endpoints. No checkout, automatic purchase or verified final delivere
 
 ## Suggested implementation order
 
-Integrate the deployed v0.10 API first, then pause/resume plus reviewed agent tools.
+Integrate the deployed v0.11 API including pause/resume, then add reviewed agent tools.
 Develop seller parsing and circuit-context work against real labelled examples. Add queueing
 and public-launch controls before opening paid job creation to general users. Rule repairs
 must preserve failure evidence and earn promotion through regression checks.

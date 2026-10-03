@@ -109,7 +109,7 @@ def create_app(
 
     app = FastAPI(
         title="Bharat Sourcer API",
-        version="0.10.0",
+        version="0.11.0",
         description="Demo or live YouTube extraction with optional Firestore job persistence.",
         lifespan=lifespan,
         responses={422: {"model": ErrorResponse}, 503: {"model": ErrorResponse}},
@@ -207,6 +207,27 @@ def create_app(
         service.confirm(job_id, x_job_token, body)
         tasks.add_task(service.finish, job_id)
         return ConfirmationAccepted()
+
+    @app.post(
+        "/v1/jobs/{job_id}/pause",
+        response_model=Job,
+        tags=["jobs"],
+        responses={404: {"model": ErrorResponse}, 409: {"model": ErrorResponse}},
+    )
+    def pause_job(job_id: str, x_job_token: JobToken = None):
+        return service.pause(job_id, x_job_token)
+
+    @app.post(
+        "/v1/jobs/{job_id}/resume",
+        status_code=202,
+        response_model=Job,
+        tags=["jobs"],
+        responses={404: {"model": ErrorResponse}, 409: {"model": ErrorResponse}},
+    )
+    def resume_job(job_id: str, tasks: BackgroundTasks, x_job_token: JobToken = None):
+        job = service.resume(job_id, x_job_token)
+        tasks.add_task(service.finish, job_id)
+        return job
 
     @app.post(
         "/v1/jobs/{job_id}/selections",

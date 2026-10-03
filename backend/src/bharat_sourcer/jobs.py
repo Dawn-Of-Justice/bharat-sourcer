@@ -177,6 +177,9 @@ class JobService:
                         return
                     current.run_id = None
                     current.lease_until = None
+                    if current.job.status == "sourcing" and current.job.pause_requested:
+                        self._pause_at_checkpoint(current)
+                        return
                     if current.job.recovery_attempts < 1:
                         current.job.recovery_attempts += 1
                         current.job.error = None
@@ -198,6 +201,52 @@ class JobService:
                     self._transition(current.job, "failed", current.job.error.message)
 
                 self.store.mutate(job_id, expire)
+
+    def _pause_at_checkpoint(self, record: StoredJob) -> None:
+        record.run_id = None
+        record.lease_until = None
+        self._transition(record.job, "paused", "Sourcing paused; saved results are preserved.")
+
+    def pause(self, job_id: str, token: str | None) -> Job:
+        self._validate_id(job_id)
+
+        def change(record: StoredJob):
+            job = self._authorized(record, token)
+            if job.status not in {"resolving", "sourcing", "paused"} or not job.sourcing_enabled:
+                raise JobError(409, "INVALID_STATE", "Pause requires active live sourcing")
+            if job.pause_requested:
+                return
+            job.pause_requested = True
+            if job.status == "resolving":
+                self._pause_at_checkpoint(record)
+            else:
+                self._transition(job, "sourcing", "Pause requested; current part may finish first.")
+
+        record = self.store.mutate(job_id, change)
+        if record is None:
+            raise JobError(404, "JOB_NOT_FOUND", "Job not found or token invalid")
+        return record.job.model_copy(deep=True)
+
+    def resume(self, job_id: str, token: str | None) -> Job:
+        self._validate_id(job_id)
+
+        def change(record: StoredJob):
+            job = self._authorized(record, token)
+            if job.status in {"resolving", "sourcing"} and not job.pause_requested:
+                return
+            if job.status != "paused":
+                raise JobError(409, "INVALID_STATE", "Wait for paused before resuming")
+            if self.sourcing is None:
+                raise JobError(
+                    503, "SOURCING_UNAVAILABLE", "Sourcing is unavailable on this worker"
+                )
+            job.pause_requested = False
+            self._transition(job, "resolving", "Resuming remaining sourcing work.")
+
+        record = self.store.mutate(job_id, change)
+        if record is None:
+            raise JobError(404, "JOB_NOT_FOUND", "Job not found or token invalid")
+        return record.job.model_copy(deep=True)
 
     def refresh_offers(self, job_id: str, token: str | None, request: RefreshOffers) -> None:
         self._validate_id(job_id)
@@ -513,6 +562,14 @@ class JobService:
             current = self.store.get(job_id)
             if current is None or current.run_id != run_id or current.job.status != "sourcing":
                 return
+            if current.job.pause_requested:
+
+                def acknowledge(record: StoredJob):
+                    if record.run_id == run_id and record.job.status == "sourcing":
+                        self._pause_at_checkpoint(record)
+
+                self.store.mutate(job_id, acknowledge)
+                return
             if not item.user_has_it and searched >= self.sourcing_max_parts:
                 line = ReportLine(
                     item=item,
@@ -549,11 +606,16 @@ class JobService:
                 self._transition(
                     record.job, "sourcing", f"Checked sourcing for {result.item.line_id}."
                 )
+                if record.job.pause_requested:
+                    self._pause_at_checkpoint(record)
 
             self.store.mutate(job_id, checkpoint)
 
         def complete(record: StoredJob):
             if record.run_id != run_id or record.job.status != "sourcing":
+                return
+            if record.job.pause_requested:
+                self._pause_at_checkpoint(record)
                 return
             record.run_id = None
             record.lease_until = None

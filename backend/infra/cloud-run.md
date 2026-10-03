@@ -1,7 +1,15 @@
 # Cloud Run integration deployment
 
 Project `hackathon-510415`, region `asia-south1`, service `bharat-sourcer-integration`.
-This is a team integration environment for the v0.10 backend, not a public launch.
+This is a team integration environment for the v0.11 backend.
+
+Revision `bharat-sourcer-integration-00003-2dm` serves 100% of traffic. Verified live:
+health, v0.11 schema, pause/resume access and state guards, and reading a pre-v0.11
+Firestore snapshot. No paid sourcing was started for this deployment check.
+Local validation: full suite 170 passed/1 emulator test skipped, then all four
+pause/resume tests passed after adding refresh-scope coverage. Lint, formatting
+and OpenAPI consistency checks passed. Active pause/resume behavior was tested
+with controlled sourcing adapters; it was not exercised against live sellers.
 
 Base URL: `https://bharat-sourcer-integration-diahnrbuna-el.a.run.app`
 
@@ -11,7 +19,7 @@ Google's edge; [Cloud Run reserves some paths ending in z](https://docs.cloud.go
 
 ## Verified deployment — 3 Oct 2026
 
-Revision `bharat-sourcer-integration-00002-vld` serves 100% of traffic. The remote smoke
+The previous revision `bharat-sourcer-integration-00002-vld` passed a remote smoke
 test passed health, required team key, localhost:5173 and localhost:3000 CORS, live video
 extraction, persisted Gemini chat, and an actual HTTP SSE snapshot. The test job remains
 awaiting confirmation; no seller search was run. Local suite: 167 passed, 1 emulator

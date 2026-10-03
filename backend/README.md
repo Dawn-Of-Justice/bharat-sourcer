@@ -1,5 +1,8 @@
 # Backend
 
+v0.11 adds persisted sourcing pause/resume at part checkpoints. Chat remains available;
+see [frontend controls and limitations](../docs/contracts/pause-resume.md).
+
 Python + FastAPI, with an isolated package, virtual environment, tests and configuration.
 
 ## Run locally (PowerShell)

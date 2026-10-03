@@ -1,7 +1,10 @@
-# Implemented API contract — v0.10
+# Implemented API contract — v0.11
 
 This directory is the handoff between backend and frontend. The architecture docs describe
 the target system; this contract describes the runnable local milestone.
+
+v0.11 adds [sourcing pause/resume](pause-resume.md), the `paused` status and
+`Job.pause_requested`. Regenerate frontend types for the new status.
 
 `openapi.json` is generated from backend Pydantic schemas and FastAPI routes. Do not edit
 it manually. Backend CI checks that it matches the implementation. The frontend can

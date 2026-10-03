@@ -17,7 +17,14 @@ Name = Annotated[str, Field(min_length=1, max_length=200)]
 Quantity = Annotated[int, Field(strict=True, ge=1, le=10000)]
 Money = Annotated[str, Field(pattern=r"^\d+\.\d{2}$")]
 Status = Literal[
-    "queued", "extracting", "awaiting_confirmation", "resolving", "sourcing", "done", "failed"
+    "queued",
+    "extracting",
+    "awaiting_confirmation",
+    "resolving",
+    "sourcing",
+    "paused",
+    "done",
+    "failed",
 ]
 
 
@@ -325,6 +332,7 @@ class Job(Model):
     sourcing_enabled: bool = False
     recovery_attempts: int = Field(default=0, ge=0)
     refresh_count: int = Field(default=0, ge=0)
+    pause_requested: bool = False
     messages: list[ChatMessage] = Field(default_factory=list)
     chat_state: Literal["idle", "queued", "thinking", "failed"] = "idle"
     chat_error: "ErrorDetail | None" = None
