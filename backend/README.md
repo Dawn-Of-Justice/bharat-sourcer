@@ -1,5 +1,8 @@
 # Backend
 
+GitHub Actions checks backend changes and deploys successful `main` builds to
+Cloud Run. See [CI/CD setup and first run](infra/github-actions.md).
+
 v0.13 supports [Cloud Tasks dispatch and scale to zero](../docs/contracts/queued-dispatch.md).
 Local development retains background tasks; cloud execution uses authenticated HTTP workers.
 
