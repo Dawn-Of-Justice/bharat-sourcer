@@ -42,7 +42,7 @@ class Evidence(Model):
 
 
 class PartSpecs(Model):
-    family: Literal["pro_micro", "oled", "ttp223", "usb_cable"] | None = None
+    family: str | None = Field(default=None, min_length=1, max_length=100)
     controller: Literal["atmega32u4", "ssd1306", "sh1106", "ttp223"] | None = None
     logic_v: Literal[3.3, 5.0] | None = None
     clock_mhz: Literal[8, 16] | None = None
@@ -66,7 +66,11 @@ class PartSpecs(Model):
             "ttp223": {"ttp223"},
             "usb_cable": set(),
         }
-        if self.family and self.controller and self.controller not in controllers[self.family]:
+        if (
+            self.family in controllers
+            and self.controller
+            and (self.controller not in controllers[self.family])
+        ):
             raise ValueError("Controller does not belong to the declared part family")
         if self.family == "pro_micro" and self.logic_v is not None and self.clock_mhz is not None:
             if (self.logic_v, self.clock_mhz) not in {(3.3, 8), (5.0, 16)}:
@@ -92,6 +96,70 @@ class Clarification(Model):
     question: str
 
 
+class PartRequirement(Model):
+    name: str = Field(min_length=1, max_length=100)
+    value: str = Field(min_length=1, max_length=200)
+    unit: str | None = Field(default=None, max_length=40)
+    operator: Literal["equals", "at_least", "at_most"] = "equals"
+
+
+class ResearchFact(Model):
+    name: str = Field(min_length=1, max_length=100)
+    value: str = Field(min_length=1, max_length=200)
+    unit: str | None = Field(default=None, max_length=40)
+    quote: str = Field(min_length=3, max_length=1000)
+
+
+class RequirementCheck(Model):
+    requirement: PartRequirement
+    status: Literal["meets", "does_not_meet", "unknown"]
+    reason: str
+
+
+class ResearchAssessment(Model):
+    status: Literal["potential_match", "needs_information", "not_suitable", "stale"]
+    explanation: str = Field(min_length=1, max_length=1500)
+    conditions: list[Annotated[str, Field(min_length=1, max_length=400)]] = Field(
+        default_factory=list, max_length=10
+    )
+    questions: list[Annotated[str, Field(min_length=1, max_length=400)]] = Field(
+        default_factory=list, max_length=10
+    )
+    method: Literal["llm_evidence_review"] = "llm_evidence_review"
+    checks: list[RequirementCheck] = Field(default_factory=list)
+
+
+class ResearchCandidate(Model):
+    url: HttpUrl
+    title: str = Field(min_length=1, max_length=300)
+    category: str = Field(min_length=1, max_length=100)
+    kind: Literal["seller", "manufacturer", "reference"]
+    identity_quote: str = Field(min_length=3, max_length=1000)
+    match: Literal["exact", "possible"]
+    facts: list[ResearchFact] = Field(default_factory=list, max_length=20)
+    assessment: ResearchAssessment
+    evidence_method: Literal["llm_extraction_quote_checked"] = "llm_extraction_quote_checked"
+
+
+class ResearchSource(Model):
+    url: HttpUrl
+    status: Literal["read", "unavailable"]
+    reason: str | None = None
+    reviewed: bool = False
+
+
+class PartResearch(Model):
+    status: Literal["ready", "no_evidence", "failed", "stale"]
+    summary: str
+    candidates: list[ResearchCandidate] = Field(default_factory=list, max_length=8)
+    sources: list[ResearchSource] = Field(default_factory=list, max_length=16)
+    questions: list[Annotated[str, Field(min_length=1, max_length=400)]] = Field(
+        default_factory=list, max_length=10
+    )
+    model: str | None = None
+    checked_at: datetime = Field(default_factory=now)
+
+
 class Compatibility(Model):
     status: Literal["unknown", "compatible", "changes_required", "incompatible"]
     grade: Literal["A", "B", "C", "D", "X"] | None = None
@@ -111,6 +179,7 @@ class BomItem(Model):
     evidence: list[Evidence] = Field(default_factory=list)
     user_edited: bool = False
     specs: PartSpecs = Field(default_factory=PartSpecs)
+    requirements: list[PartRequirement] = Field(default_factory=list, max_length=20)
     clarifications: list[Clarification] = Field(default_factory=list)
 
 
@@ -120,11 +189,12 @@ class UpdateLine(Model):
     raw_name: Name | None = None
     qty: Quantity | None = None
     specs: PartSpecs | None = None
+    requirements: list[PartRequirement] | None = Field(default=None, max_length=20)
 
     @model_validator(mode="after")
     def require_change(self):
-        if self.raw_name is None and self.qty is None and self.specs is None:
-            raise ValueError("An update requires raw_name, qty or specs")
+        if all(v is None for v in (self.raw_name, self.qty, self.specs, self.requirements)):
+            raise ValueError("An update requires raw_name, qty, specs or requirements")
         return self
 
 
@@ -144,6 +214,7 @@ class AddLine(Model):
     raw_name: Name
     qty: Quantity = 1
     specs: PartSpecs = Field(default_factory=PartSpecs)
+    requirements: list[PartRequirement] = Field(default_factory=list, max_length=20)
 
 
 Edit = Annotated[UpdateLine | RemoveLine | HaveLine | AddLine, Field(discriminator="op")]
@@ -157,6 +228,7 @@ class SelectOffer(Model):
     line_id: str
     offer_url: HttpUrl | None = None
     accept_changes: bool = False
+    accept_research_assessment: bool = False
 
 
 class SelectOffers(Model):
@@ -169,12 +241,13 @@ class RefreshOffers(Model):
 
 class UpdatePartSpecs(Model):
     line_id: str
-    specs: PartSpecs
+    specs: PartSpecs | None = None
+    requirements: list[PartRequirement] | None = Field(default=None, max_length=20)
 
     @model_validator(mode="after")
     def require_fields(self):
-        if not self.specs.model_fields_set:
-            raise ValueError("Provide at least one specification field")
+        if not (self.specs and self.specs.model_fields_set) and self.requirements is None:
+            raise ValueError("Provide specification fields or requirements")
         return self
 
 
@@ -282,6 +355,7 @@ class VerifiedOffer(Model):
     url: HttpUrl
     seller: str
     title: str
+    image_url: HttpUrl | None = None
     price_inr: str = Field(pattern=r"^\d+\.\d{2}$")
     currency: Literal["INR"] = "INR"
     stock: Literal["in_stock", "out_of_stock", "preorder", "unknown"] = "unknown"
@@ -296,6 +370,7 @@ class VerifiedOffer(Model):
     specs: PartSpecs = Field(default_factory=PartSpecs)
     spec_evidence: list[SpecEvidence] = Field(default_factory=list)
     compatibility: Compatibility | None = None
+    research_assessment: ResearchAssessment | None = None
 
 
 class SearchAttribution(Model):
@@ -312,12 +387,14 @@ class ReportLine(Model):
     resolution: PartResolution | None = None
     offers: list[VerifiedOffer] = Field(default_factory=list)
     attribution: SearchAttribution | None = None
+    research: PartResearch | None = None
     sourcing_error: "ErrorDetail | None" = None
     selected_offer_url: HttpUrl | None = None
     price_inr: Money | None = None
     subtotal_inr: Money | None = None
     grade: Literal["A", "B"] | None = None
     changes_accepted: bool = False
+    research_accepted: bool = False
 
 
 class Report(Model):

@@ -1,13 +1,30 @@
 # Connect the local frontend
 
-v0.13 can scale to zero. Allow for cold starts and keep watching through intermediate
+v0.16 adds [research results for arbitrary parts](part-research.md). Display
+`line.research.candidates` independently of `line.offers`; show cited facts, AI
+assessments, conditions, and follow-up questions. A missing verified quote does not
+mean there are no useful candidates. The current tracked UI needs these controls.
+
+v0.14 runs on Cloud Tasks and can scale to zero. Allow for cold starts and keep watching through intermediate
 `resolving` states; see [queued dispatch](queued-dispatch.md).
 
-v0.12 adds [chat refresh approval controls](chat-actions.md); approval uses the
+The backend supports [chat refresh approval controls](chat-actions.md); approval uses the
 existing message decision endpoint and sourcing progress uses existing SSE snapshots.
 
 For v0.11 sourcing controls, see [pause/resume](pause-resume.md). Render the new
 `paused` status and distinguish a pending pause from an acknowledged pause.
+
+For v0.14, display `sourcing_error` diagnostics when a line has no verified offers.
+This means candidates did not pass page verification; it does not establish that no
+sellers exist. The current workspace chat types still render BOM edit proposals only.
+Add a card for `ChatMessage.refresh_proposal` before using chat to approve a targeted
+seller refresh; the existing decision endpoint performs the approval. See
+[chat actions](chat-actions.md). Pause acknowledgement waits for the active sourcing
+batch to finish and save.
+
+The v0.15 API adds optional nullable `image_url` to each verified offer. Display it
+when present; older snapshots and offers without seller image metadata remain valid.
+See the [image handoff](frontend-image-handoff.md) for source limits and planned fallbacks.
 
 ## Connection
 

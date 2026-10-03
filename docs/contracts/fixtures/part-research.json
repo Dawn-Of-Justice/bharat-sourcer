@@ -1,0 +1,59 @@
+{
+  "fixture": true,
+  "description": "Synthetic UI fixture. No real seller, verified price, model assessment or compatibility claim.",
+  "line": {
+    "item": {
+      "line_id": "L01",
+      "raw_name": "Synthetic bearing",
+      "qty": 1,
+      "requirements": [
+        {"name": "bore diameter", "value": "8", "unit": "mm", "operator": "equals"}
+      ]
+    },
+    "sourcing_status": "no_verified_offers",
+    "offers": [],
+    "research": {
+      "status": "ready",
+      "summary": "Synthetic research candidate without a verified price offer.",
+      "model": "fixture-only",
+      "checked_at": "2026-10-04T00:00:00Z",
+      "questions": ["What load must the bearing support?"],
+      "sources": [
+        {
+          "url": "https://manufacturer.example/synthetic-bearing",
+          "status": "read",
+          "reason": null,
+          "reviewed": true
+        }
+      ],
+      "candidates": [
+        {
+          "url": "https://manufacturer.example/synthetic-bearing",
+          "title": "Synthetic bearing",
+          "category": "ball bearing",
+          "kind": "manufacturer",
+          "identity_quote": "Synthetic bearing. Bore diameter 8 mm.",
+          "match": "exact",
+          "facts": [
+            {"name": "bore diameter", "value": "8", "unit": "mm", "quote": "Bore diameter 8 mm."}
+          ],
+          "assessment": {
+            "status": "potential_match",
+            "explanation": "Synthetic example: bore matches the declared requirement.",
+            "method": "llm_evidence_review",
+            "conditions": ["Confirm load rating and outer dimensions before choosing."],
+            "questions": ["What load must the bearing support?"],
+            "checks": [
+              {
+                "requirement": {"name": "bore diameter", "value": "8", "unit": "mm", "operator": "equals"},
+                "status": "meets",
+                "reason": "Synthetic numeric comparison: 8 mm equals 8 mm."
+              }
+            ]
+          },
+          "evidence_method": "llm_extraction_quote_checked"
+        }
+      ]
+    }
+  }
+}

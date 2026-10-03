@@ -3,7 +3,7 @@
   "info": {
     "title": "Bharat Sourcer API",
     "description": "Demo or live YouTube extraction with optional Firestore job persistence.",
-    "version": "0.14.0"
+    "version": "0.16.0"
   },
   "paths": {
     "/healthz": {
@@ -1201,6 +1201,14 @@
           },
           "specs": {
             "$ref": "#/components/schemas/PartSpecs"
+          },
+          "requirements": {
+            "items": {
+              "$ref": "#/components/schemas/PartRequirement"
+            },
+            "type": "array",
+            "maxItems": 20,
+            "title": "Requirements"
           }
         },
         "additionalProperties": false,
@@ -1262,6 +1270,14 @@
           },
           "specs": {
             "$ref": "#/components/schemas/PartSpecs"
+          },
+          "requirements": {
+            "items": {
+              "$ref": "#/components/schemas/PartRequirement"
+            },
+            "type": "array",
+            "maxItems": 20,
+            "title": "Requirements"
           },
           "clarifications": {
             "items": {
@@ -1939,6 +1955,118 @@
         ],
         "title": "Job"
       },
+      "PartRequirement": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "value": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Value"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 40
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit"
+          },
+          "operator": {
+            "type": "string",
+            "enum": [
+              "equals",
+              "at_least",
+              "at_most"
+            ],
+            "title": "Operator",
+            "default": "equals"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "name",
+          "value"
+        ],
+        "title": "PartRequirement"
+      },
+      "PartResearch": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ready",
+              "no_evidence",
+              "failed",
+              "stale"
+            ],
+            "title": "Status"
+          },
+          "summary": {
+            "type": "string",
+            "title": "Summary"
+          },
+          "candidates": {
+            "items": {
+              "$ref": "#/components/schemas/ResearchCandidate"
+            },
+            "type": "array",
+            "maxItems": 8,
+            "title": "Candidates"
+          },
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/ResearchSource"
+            },
+            "type": "array",
+            "maxItems": 16,
+            "title": "Sources"
+          },
+          "questions": {
+            "items": {
+              "type": "string",
+              "maxLength": 400,
+              "minLength": 1
+            },
+            "type": "array",
+            "maxItems": 10,
+            "title": "Questions"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "checked_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Checked At"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "status",
+          "summary"
+        ],
+        "title": "PartResearch"
+      },
       "PartResolution": {
         "properties": {
           "query": {
@@ -1989,12 +2117,8 @@
             "anyOf": [
               {
                 "type": "string",
-                "enum": [
-                  "pro_micro",
-                  "oled",
-                  "ttp223",
-                  "usb_cable"
-                ]
+                "maxLength": 100,
+                "minLength": 1
               },
               {
                 "type": "null"
@@ -2418,6 +2542,16 @@
               }
             ]
           },
+          "research": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PartResearch"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "sourcing_error": {
             "anyOf": [
               {
@@ -2485,6 +2619,11 @@
             "type": "boolean",
             "title": "Changes Accepted",
             "default": false
+          },
+          "research_accepted": {
+            "type": "boolean",
+            "title": "Research Accepted",
+            "default": false
           }
         },
         "additionalProperties": false,
@@ -2494,6 +2633,253 @@
           "sourcing_status"
         ],
         "title": "ReportLine"
+      },
+      "RequirementCheck": {
+        "properties": {
+          "requirement": {
+            "$ref": "#/components/schemas/PartRequirement"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "meets",
+              "does_not_meet",
+              "unknown"
+            ],
+            "title": "Status"
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "requirement",
+          "status",
+          "reason"
+        ],
+        "title": "RequirementCheck"
+      },
+      "ResearchAssessment": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "potential_match",
+              "needs_information",
+              "not_suitable",
+              "stale"
+            ],
+            "title": "Status"
+          },
+          "explanation": {
+            "type": "string",
+            "maxLength": 1500,
+            "minLength": 1,
+            "title": "Explanation"
+          },
+          "conditions": {
+            "items": {
+              "type": "string",
+              "maxLength": 400,
+              "minLength": 1
+            },
+            "type": "array",
+            "maxItems": 10,
+            "title": "Conditions"
+          },
+          "questions": {
+            "items": {
+              "type": "string",
+              "maxLength": 400,
+              "minLength": 1
+            },
+            "type": "array",
+            "maxItems": 10,
+            "title": "Questions"
+          },
+          "method": {
+            "type": "string",
+            "const": "llm_evidence_review",
+            "title": "Method",
+            "default": "llm_evidence_review"
+          },
+          "checks": {
+            "items": {
+              "$ref": "#/components/schemas/RequirementCheck"
+            },
+            "type": "array",
+            "title": "Checks"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "status",
+          "explanation"
+        ],
+        "title": "ResearchAssessment"
+      },
+      "ResearchCandidate": {
+        "properties": {
+          "url": {
+            "type": "string",
+            "maxLength": 2083,
+            "minLength": 1,
+            "format": "uri",
+            "title": "Url"
+          },
+          "title": {
+            "type": "string",
+            "maxLength": 300,
+            "minLength": 1,
+            "title": "Title"
+          },
+          "category": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Category"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "seller",
+              "manufacturer",
+              "reference"
+            ],
+            "title": "Kind"
+          },
+          "identity_quote": {
+            "type": "string",
+            "maxLength": 1000,
+            "minLength": 3,
+            "title": "Identity Quote"
+          },
+          "match": {
+            "type": "string",
+            "enum": [
+              "exact",
+              "possible"
+            ],
+            "title": "Match"
+          },
+          "facts": {
+            "items": {
+              "$ref": "#/components/schemas/ResearchFact"
+            },
+            "type": "array",
+            "maxItems": 20,
+            "title": "Facts"
+          },
+          "assessment": {
+            "$ref": "#/components/schemas/ResearchAssessment"
+          },
+          "evidence_method": {
+            "type": "string",
+            "const": "llm_extraction_quote_checked",
+            "title": "Evidence Method",
+            "default": "llm_extraction_quote_checked"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "url",
+          "title",
+          "category",
+          "kind",
+          "identity_quote",
+          "match",
+          "assessment"
+        ],
+        "title": "ResearchCandidate"
+      },
+      "ResearchFact": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "value": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Value"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 40
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit"
+          },
+          "quote": {
+            "type": "string",
+            "maxLength": 1000,
+            "minLength": 3,
+            "title": "Quote"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "name",
+          "value",
+          "quote"
+        ],
+        "title": "ResearchFact"
+      },
+      "ResearchSource": {
+        "properties": {
+          "url": {
+            "type": "string",
+            "maxLength": 2083,
+            "minLength": 1,
+            "format": "uri",
+            "title": "Url"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "read",
+              "unavailable"
+            ],
+            "title": "Status"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "reviewed": {
+            "type": "boolean",
+            "title": "Reviewed",
+            "default": false
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "url",
+          "status"
+        ],
+        "title": "ResearchSource"
       },
       "ResistorAdvice": {
         "properties": {
@@ -2754,6 +3140,11 @@
             "type": "boolean",
             "title": "Accept Changes",
             "default": false
+          },
+          "accept_research_assessment": {
+            "type": "boolean",
+            "title": "Accept Research Assessment",
+            "default": false
           }
         },
         "additionalProperties": false,
@@ -2904,6 +3295,21 @@
                 "type": "null"
               }
             ]
+          },
+          "requirements": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/PartRequirement"
+                },
+                "type": "array",
+                "maxItems": 20
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Requirements"
           }
         },
         "additionalProperties": false,
@@ -2921,14 +3327,35 @@
             "title": "Line Id"
           },
           "specs": {
-            "$ref": "#/components/schemas/PartSpecs"
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PartSpecs"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "requirements": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/PartRequirement"
+                },
+                "type": "array",
+                "maxItems": 20
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Requirements"
           }
         },
         "additionalProperties": false,
         "type": "object",
         "required": [
-          "line_id",
-          "specs"
+          "line_id"
         ],
         "title": "UpdatePartSpecs"
       },
@@ -2948,6 +3375,20 @@
           "title": {
             "type": "string",
             "title": "Title"
+          },
+          "image_url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2083,
+                "minLength": 1,
+                "format": "uri"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Image Url"
           },
           "price_inr": {
             "type": "string",
@@ -3022,6 +3463,16 @@
             "anyOf": [
               {
                 "$ref": "#/components/schemas/Compatibility"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "research_assessment": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ResearchAssessment"
               },
               {
                 "type": "null"

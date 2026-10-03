@@ -99,11 +99,18 @@ def resolve_part(item: BomItem) -> PartResolution:
     ]
     missing = [field for field in required_fields(specs) if getattr(specs, field) is None]
     if specs.family is None:
-        missing = ["family"]
+        missing = []
     questions = [
         Clarification(field=field, question=f"Confirm {field.replace('_', ' ')} for this part")
         for field in missing
     ]
+    if specs.family is None and not item.requirements:
+        questions.append(
+            Clarification(
+                field="requirements",
+                question="What must this part do, and what must it connect or fit to?",
+            )
+        )
     return PartResolution(
         query=item.raw_name,
         specs=specs,
@@ -122,8 +129,8 @@ def assess(required: PartSpecs, offered: PartSpecs) -> Compatibility:
     if required.family not in REQUIRED:
         return Compatibility(
             status="unknown",
-            missing_fields=["required.family"],
-            reasons=["This part family is not supported by the rules engine"],
+            missing_fields=["project_requirements"],
+            reasons=["Review the cited part research and confirm project requirements"],
         )
     if offered.family is None:
         missing.append("offered.family")

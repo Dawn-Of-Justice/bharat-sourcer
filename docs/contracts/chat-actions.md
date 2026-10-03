@@ -1,5 +1,9 @@
 # Reviewed chat actions (v0.12)
 
+The current tracked frontend has not yet added a `refresh_proposal` type/card. Its
+chat currently shows assistant text and BOM edit proposals only. Update the chat UI
+before expecting users to approve seller refresh proposals.
+
 The agent can propose a targeted seller refresh from a completed live report.
 Sending a chat message never starts that search. The returned assistant message
 contains `refresh_proposal`, separate from the existing draft BOM `proposal`:

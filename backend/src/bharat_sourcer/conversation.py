@@ -129,6 +129,7 @@ class GeminiAssistant:
                     else None,
                     "offers": [offer.model_dump(mode="json") for offer in line.offers],
                     "sourcing_status": line.sourcing_status,
+                    "research": line.research.model_dump(mode="json") if line.research else None,
                 }
                 for line in job.report.lines
             ]
@@ -147,6 +148,14 @@ class GeminiAssistant:
             "discussing parts; explain timestamps and evidence when available. Distinguish "
             "model-reported video evidence, user assertions and seller claims. Never invent "
             "specs, prices, compatibility or observations. Ask focused questions when missing. "
+            "Research covers any part category. Use saved research candidates, quoted facts, "
+            "questions and requirement checks when available; cite their source URLs. "
+            "Candidate assessments are AI advice, not compatibility grades or verified prices. "
+            "A no_verified_offers status can still have useful research candidates. "
+            "Never rely on a stale research assessment; explain that requirements changed. "
+            "Free-form requirements support arbitrary properties with name/value/unit and "
+            "equals, at_least or at_most. In draft edit proposals, a requirements list replaces "
+            "the whole list; preserve existing requirements unless the user changes them. "
             "Do not claim to watch new video, browse or execute tools. You only see saved data. "
             "When status is awaiting_confirmation, you may propose edits explicitly requested "
             "by the user using edits. They are proposals, not applied changes. Do not infer "

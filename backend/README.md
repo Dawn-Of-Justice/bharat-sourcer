@@ -1,5 +1,14 @@
 # Backend
 
+v0.16 adds [general part research](../docs/contracts/part-research.md): arbitrary
+categories, source-linked facts, AI suitability assessments, flexible user requirements,
+and deterministic comparisons. Research candidates survive missing structured offers.
+Chat can answer from these results. The frontend needs the documented research cards
+and requirement controls; research candidates are separate from verified price offers.
+
+v0.15 adds optional seller product image URLs to verified offers. The frontend can
+display these directly; image metadata is optional and never affects offer verification.
+
 v0.14 adds a project-scope chat gate, three concurrent sourcing lines per batch,
 explicit seller variant verification and useful no-offer diagnostics.
 See [behavior and limits](../docs/contracts/project-chat-and-sourcing.md).
@@ -131,11 +140,17 @@ match the query, currency must be INR, and price must be a positive decimal. Sto
 copied from explicit availability or marked unknown. Aggregate prices and unresolved
 variant URLs are rejected. This verifies seller-published data, not merchant honesty,
 delivery to the PIN, tax inclusion, electrical suitability or an independent stock check.
-All sellers are labelled `unverified`; no offer is selected automatically.
+If the verified Product JSON-LD includes an HTTPS image URL, it is returned as optional
+`image_url` for the frontend to display. The backend does not download or proxy seller
+images; missing or invalid image metadata does not affect the offer. All sellers are
+labelled `unverified`; no offer is selected automatically.
 
-Part resolution supports Pro Micro, OLED, TTP223 and USB cable families. It is not a
-general knowledge graph or automatic datasheet resolver; other families stay unknown.
-Missing specifications do not prevent discovery and remain visible for review.
+General research accepts any part category, reads source text and text PDFs, and
+extracts quoted specifications and candidate assessments. Discovery searches globally
+for technical documentation and Indian sellers. Missing or blocked sources stay visible.
+The original deterministic compatibility grades still cover Pro Micro, OLED, TTP223
+and USB cables; other categories use the separate AI assessment and generic requirement
+checks. No category needs a new enum or parser before it can be researched.
 
 Lines are checkpointed in Firestore as sourcing progresses. An expired sourcing lease
 queues unfinished work once, preserving completed lines and the sourcing limit. A second
@@ -147,8 +162,13 @@ interruption fails with `SOURCING_INTERRUPTED`. Per-line errors remain explicit 
 with the job token. Use null `offer_url` to clear a selection. Changes apply atomically.
 Only completed live reports support selection. Offers must be in stock, checked within
 24 hours, and graded A or B; B requires `accept_changes: true`. Nothing is purchased.
-Unknown compatibility cannot be selected. The current seller adapters often lack enough
-specifications for selection; this limitation remains visible rather than guessing.
+Unknown compatibility requires explicit research review as described below. Seller
+adapters can lack sufficient specification evidence; gaps remain visible for review.
+
+For v0.16, a verified quote with a current AI `potential_match` assessment can also be
+selected with explicit `accept_research_assessment: true`. Generic requirements must
+pass, known incompatibility blocks selection, and the report records research approval
+without assigning an A/B grade. See the research contract for stale-assessment handling.
 
 The line `price_inr` is the selected unit price; `subtotal_inr` multiplies it by quantity
 using decimal arithmetic. Owned items contribute zero. `selected_parts_subtotal_inr`

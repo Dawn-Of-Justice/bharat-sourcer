@@ -2,7 +2,7 @@
 
 **Owner:** Salo (backend)  
 **Date:** 2026-10-03  
-**Status:** Proposed implementation. Image retrieval and generation are not implemented by this document.
+**Status:** Seller product image URLs are implemented in backend v0.15. Part-level fallbacks and image generation remain planned.
 
 ## Goal and current frontend behavior
 
@@ -10,7 +10,7 @@ Show a square image beside each completed part, preferring an actual product pho
 
 The frontend currently accepts optional nullable `report.lines[].offers[].image_url`. It displays the first offer with an image URL, fits the image inside a square without cropping, and shows “Image unavailable” for missing or broken images. The development preview uses a labelled local illustration.
 
-The published backend API does not yet include the image field. The frontend does not yet render image provenance labels or a part-level fallback. Those frontend changes must accompany this implementation before generated images are enabled.
+The backend now returns optional nullable `image_url` on verified offers. It reads only the Product JSON-LD image on the same seller page used to verify that offer. It does not download or proxy the image. Missing, unsafe, or malformed image metadata is omitted and never changes the sourcing result. The frontend does not yet render image provenance labels or a part-level fallback.
 
 Images are presentation assets, not evidence of price, stock, specifications, pin layout, or compatibility.
 
@@ -18,7 +18,7 @@ Images are presentation assets, not evidence of price, stock, specifications, pi
 
 | Priority | Source | Required UI label |
 | --- | --- | --- |
-| 1 | Actual image from the corresponding seller product page | Seller image |
+| 1 | Actual image from the corresponding seller product page | Seller image (frontend label not yet implemented) |
 | 2 | Manufacturer image matching the exact model | Manufacturer reference |
 | 3 | Existing category illustration from an asset library | Category illustration |
 | 4 | Nano Banana generated representative illustration | AI-generated illustration |
@@ -30,16 +30,13 @@ Keep seller photos associated with their own offers. Put category/generated fall
 
 ## Proposed API additions
 
-Preserve existing fields and sourcing statuses. Add optional fields to each offer:
+Preserve existing fields and sourcing statuses. The implemented offer field is:
 
 | Field | Type | Meaning |
 | --- | --- | --- |
-| `image_url` | string or null | Browser-readable HTTPS URL |
-| `image_source` | `seller`, `manufacturer`, or null | Photo origin |
-| `image_source_url` | string or null | Original product/reference page |
-| `image_alt` | string or null | Short image description |
+| `image_url` | string or null | HTTPS URL explicitly attached to the verified Product JSON-LD entity |
 
-Also add optional nullable `image` to each report line for the selected display image or fallback:
+Future work may add optional nullable `image` to each report line for the selected display image or fallback:
 
 ```json
 {
@@ -64,7 +61,7 @@ This URL is illustrative, not a working asset.
 
 Future frontend precedence: ready `line.image`, then an offer image, then the unavailable placeholder. Display the source label from the table above. Coordinate these frontend changes before enabling generated fallbacks.
 
-Update public schemas, regenerate `docs/contracts/openapi.json`, and update the implemented contract when these fields are added. This handoff itself does not change the schema.
+The implemented optional offer field is in the public schema and `docs/contracts/openapi.json`. Missing fields remain valid in older snapshots.
 
 ## Nano Banana integration
 
@@ -107,7 +104,7 @@ The frontend already polls snapshots after `done` and matches results by `line_i
 
 ## Suggested implementation order
 
-1. Add optional offer photo fields and fixtures; extract seller images from existing fetched product data.
+1. (Done, v0.15) Add optional offer image URL and extract safe HTTPS seller images from verified Product JSON-LD.
 2. Add part-level image metadata and category fallbacks, including parts without offers.
 3. Coordinate frontend provenance labels and part-level image rendering.
 4. Add optional generated-image tasks, Cloud Storage persistence, deduplication, and budgets.

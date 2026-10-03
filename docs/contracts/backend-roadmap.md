@@ -3,7 +3,11 @@
 This roadmap tracks decisions from implementation discussions. Architecture documents
 describe a broader target; the API contract describes what actually works.
 
-## Available in the integration backend (v0.13)
+## Available in the integration backend (v0.16)
+
+v0.16 is deployed: [general part research](part-research.md), arbitrary
+categories, source quotes, AI suitability assessments, flexible requirements, and
+reviewed selection of verified quotes. Frontend research controls need integration.
 
 | Area | Implemented |
 | --- | --- |
@@ -12,14 +16,16 @@ describe a broader target; the API contract describes what actually works.
 | Conversation | Persistent job chat, saved-state questions, draft edit proposals with accept/reject |
 | Live updates | SSE job snapshots and chat state; complete replies rather than token streaming |
 | Sourcing | Grounded discovery, guarded seller fetches, explicit JSON-LD price/stock verification |
-| Compatibility | Declared-spec A/B/X/unknown rules for four supported families |
+| Compatibility | General AI suitability assessments with cited facts and generic requirement checks; legacy A/B/X rules for four families |
 | Costs | Explicit quote selection, parts subtotals, unknown tax/shipping |
 | Revisions | Targeted seller refresh; post-report required-spec updates and reassessment |
 | Design advice | Confirmed single-LED resistor calculation; contextual role questions |
 | Recovery | Bounded HTTP retries, leases, checkpoint resume, tested resistor-selector fallback |
-| Sourcing controls (v0.11) | Persisted pause intent, part-boundary acknowledgement, resume saved work; chat stays available |
+| Sourcing controls (v0.11) | Persisted pause intent, acknowledgement after the active sourcing batch is saved, resume saved work; chat stays available |
 | Chat actions (v0.12) | Proposed scoped seller refresh with explicit approval, atomic queuing, stale-report checks and existing limits |
 | Durable dispatch (v0.13) | Cloud Tasks HTTP execution, sourcing checkpoints, scheduled pending-state reconciliation and scale to zero |
+| Project-only chat and search behavior (v0.14) | LLM scope gate with fail-closed handling; up to three concurrent part searches; verified same-product variant fetch; per-line no-offer diagnostics |
+| Offer images (v0.15) | Optional HTTPS seller image URL extracted only from the matching verified Product JSON-LD |
 | Storage | Firestore persistence and private per-job tokens |
 
 ## Agreed work still to implement
@@ -55,8 +61,8 @@ structured endpoints. No checkout, automatic purchase or verified final delivere
 
 ## Suggested implementation order
 
-Integrate the deployed v0.12 API including pause/resume and reviewed refresh actions,
-then add reviewed specification changes.
-Develop seller parsing and circuit-context work against real labelled examples. Add queueing
-and public-launch controls before opening paid job creation to general users. Rule repairs
-must preserve failure evidence and earn promotion through regression checks.
+Integrate the v0.15 API including optional offer images, sourcing progress diagnostics
+and reviewed refresh actions, then add reviewed specification changes. Develop seller
+parsing and circuit-context work against real labelled examples. Add public-launch controls
+before opening paid job creation to general users. Rule repairs must preserve failure
+evidence and earn promotion through regression checks.

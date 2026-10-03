@@ -4,7 +4,7 @@ import json
 import re
 from decimal import Decimal, InvalidOperation
 from html.parser import HTMLParser
-from urllib.parse import parse_qs, urlsplit
+from urllib.parse import parse_qs, urljoin, urlsplit
 
 from bharat_sourcer.compat import parse_name
 from bharat_sourcer.schemas import PartSpecs, SpecEvidence, VerifiedOffer
@@ -63,7 +63,13 @@ def title_matches(query: str, title: str) -> bool:
     }
 
     def tokens(text):
-        plurals = {"resistors": "resistor", "leds": "led", "wires": "wire"}
+        plurals = {
+            "resistors": "resistor",
+            "leds": "led",
+            "wires": "wire",
+            "buttons": "button",
+            "switches": "switch",
+        }
         return {
             plurals.get(word, word)
             for word in re.findall(r"[a-z0-9]+", text.lower())
@@ -72,6 +78,36 @@ def title_matches(query: str, title: str) -> bool:
 
     expected, actual = tokens(query), tokens(title)
     return bool(expected) and expected.issubset(actual)
+
+
+def product_image_url(product: dict, page_url: str) -> str | None:
+    """Return the first safe HTTPS image explicitly attached to this Product entity."""
+    images = product.get("image")
+    if isinstance(images, (str, dict)):
+        images = [images]
+    if not isinstance(images, list):
+        return None
+    for image in images[:20]:
+        if isinstance(image, dict):
+            image = image.get("url") or image.get("contentUrl")
+        if not isinstance(image, str) or not image.strip() or len(image) > 2048:
+            continue
+        try:
+            url = urljoin(page_url, image.strip())
+            parsed = urlsplit(url)
+            if (
+                len(url) <= 2048
+                and parsed.scheme == "https"
+                and parsed.hostname
+                and not parsed.username
+                and not parsed.password
+                and parsed.port in (None, 443)
+                and not any(c in url for c in "\r\n\t")
+            ):
+                return url
+        except (ValueError, UnicodeError):
+            continue
+    return None
 
 
 def variant_url(page: Page, query: str) -> str | None:
@@ -197,6 +233,7 @@ def verify_page(page: Page, query: str) -> VerifiedOffer | None:
         url=page.url,
         seller=urlsplit(page.url).hostname,
         title=title,
+        image_url=product_image_url(product, page.url),
         price_inr=f"{price:.2f}",
         stock=stock,
         specs=specs,

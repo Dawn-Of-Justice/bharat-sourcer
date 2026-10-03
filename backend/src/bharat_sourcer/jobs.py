@@ -28,6 +28,7 @@ from bharat_sourcer.schemas import (
     UpdateJobSpecs,
     now,
 )
+from bharat_sourcer.sourcing.research import check_requirements
 from bharat_sourcer.sourcing.service import SourcingService
 from bharat_sourcer.storage import JobStore, MemoryJobStore, StoredJob
 
@@ -348,15 +349,26 @@ class JobService:
                 item = items[key]
                 try:
                     merged = PartSpecs(
-                        **(item.specs.model_dump() | update.specs.model_dump(exclude_unset=True))
+                        **(
+                            item.specs.model_dump()
+                            | (update.specs.model_dump(exclude_unset=True) if update.specs else {})
+                        )
                     )
-                    candidate = item.model_copy(update={"specs": merged}, deep=True)
+                    requirements = (
+                        update.requirements
+                        if update.requirements is not None
+                        else item.requirements
+                    )
+                    candidate = item.model_copy(
+                        update={"specs": merged, "requirements": requirements}, deep=True
+                    )
                     resolution = resolve_part(candidate)
                 except ValueError as exc:
                     raise JobError(422, "INVALID_SPECS", "Conflicting part specifications") from exc
-                if merged == item.specs:
+                if merged == item.specs and requirements == item.requirements:
                     continue
                 item.specs = merged
+                item.requirements = requirements
                 item.user_edited = True
                 item.clarifications = resolution.clarifications
                 line = lines[key]
@@ -369,8 +381,36 @@ class JobService:
                 line.selected_offer_url = None
                 line.price_inr = line.grade = None
                 line.changes_accepted = False
+                line.research_accepted = False
                 changed.append(key)
             if changed:
+                # Every LLM assessment used project context; sibling edits can invalidate it.
+                for line in job.report.lines:
+                    if line.research:
+                        line.research.status = "stale"
+                        line.research.summary = "Project requirements changed; refresh to reassess."
+                        for candidate in line.research.candidates:
+                            candidate.assessment.status = "stale"
+                            candidate.assessment.explanation = (
+                                "Project context changed. Refresh for a new AI assessment."
+                            )
+                            candidate.assessment.conditions = []
+                            candidate.assessment.checks = check_requirements(
+                                line.item.requirements, candidate.facts
+                            )
+                    for offer in line.offers:
+                        if offer.research_assessment:
+                            offer.research_assessment.status = "stale"
+                            offer.research_assessment.explanation = (
+                                "Project context changed. Refresh for a new AI assessment."
+                            )
+                            offer.research_assessment.conditions = []
+                            offer.research_assessment.checks = []
+                    if line.research_accepted:
+                        line.selected_offer_url = None
+                        line.price_inr = line.grade = None
+                        line.research_accepted = False
+                        line.changes_accepted = False
                 update_costs(job.report)
                 self._transition(job, "done", "Updated required specs for " + ", ".join(changed))
 
@@ -399,6 +439,7 @@ class JobService:
                     line.selected_offer_url = None
                     line.price_inr = line.grade = None
                     line.changes_accepted = False
+                    line.research_accepted = False
                     continue
                 offer = next((o for o in line.offers if o.url == selection.offer_url), None)
                 if offer is None:
@@ -408,14 +449,46 @@ class JobService:
                 if offer.checked_at < now() - timedelta(hours=24):
                     raise JobError(409, "OFFER_STALE", "Offer is over 24 hours old; source again")
                 compat = offer.compatibility
+                if line.item.requirements:
+                    candidate = (
+                        next((c for c in line.research.candidates if c.url == offer.url), None)
+                        if line.research and line.research.status == "ready"
+                        else None
+                    )
+                    checks = check_requirements(
+                        line.item.requirements, candidate.facts if candidate else []
+                    )
+                    if any(c.status != "meets" for c in checks):
+                        raise JobError(
+                            422,
+                            "REQUIREMENTS_UNRESOLVED",
+                            "This offer has missing or conflicting requirement evidence",
+                        )
+                reviewed = False
                 if compat is None or compat.grade not in {"A", "B"}:
-                    raise JobError(422, "COMPATIBILITY_UNRESOLVED", "Offer needs supported specs")
-                if compat.grade == "B" and not selection.accept_changes:
+                    review = offer.research_assessment
+                    reviewed = bool(
+                        selection.accept_research_assessment
+                        and line.research
+                        and line.research.status == "ready"
+                        and review
+                        and review.status == "potential_match"
+                        and all(c.status == "meets" for c in review.checks)
+                        and (compat is None or compat.status in {"unknown"})
+                    )
+                    if not reviewed:
+                        raise JobError(
+                            422,
+                            "COMPATIBILITY_UNRESOLVED",
+                            "Resolve specifications or explicitly approve a current research match",
+                        )
+                if compat and compat.grade == "B" and not selection.accept_changes:
                     raise JobError(422, "CHANGES_REQUIRED", "Acknowledge the listed changes")
                 line.selected_offer_url = offer.url
                 line.price_inr = offer.price_inr
-                line.grade = compat.grade
-                line.changes_accepted = compat.grade == "B"
+                line.grade = None if reviewed else compat.grade
+                line.changes_accepted = bool(compat and compat.grade == "B")
+                line.research_accepted = reviewed
             update_costs(job.report)
             job.updated_at = now()
 
@@ -450,6 +523,7 @@ class JobService:
                     qty=edit.qty,
                     user_edited=True,
                     specs=edit.specs,
+                    requirements=edit.requirements,
                 )
                 continue
             if edit.line_id not in items:
@@ -464,6 +538,8 @@ class JobService:
                     items[edit.line_id].raw_name = edit.raw_name
                 if edit.qty is not None:
                     items[edit.line_id].qty = edit.qty
+                if edit.requirements is not None:
+                    items[edit.line_id].requirements = edit.requirements
                 if edit.specs is not None:
                     try:
                         items[edit.line_id].specs = PartSpecs(
@@ -579,6 +655,9 @@ class JobService:
                     ),
                 )
             try:
+                project_source = getattr(self.sourcing, "source_for_project", None)
+                if project_source:
+                    return project_source(item, claimed.job.items)
                 return self.sourcing.source(item)
             except Exception:
                 return ReportLine(

@@ -49,6 +49,29 @@ def test_verified_offer_has_no_invented_safety_or_cost_claims():
 
 
 @pytest.mark.parametrize(
+    "image, expected",
+    [
+        ("https://cdn.seller.example/ttp223.webp", "https://cdn.seller.example/ttp223.webp"),
+        (
+            [{"@type": "ImageObject", "url": "/images/ttp223.png"}],
+            "https://seller.example/images/ttp223.png",
+        ),
+        ("http://seller.example/logo.png", None),
+        ("//seller.example/logo.png", "https://seller.example/logo.png"),
+        ("javascript:alert(1)", None),
+        ({"url": "https://user:pass@seller.example/p.png"}, None),
+        (None, None),
+    ],
+)
+def test_product_image_is_optional_and_limited_to_safe_https_urls(image, expected):
+    product = {**PRODUCT, "image": image}
+    offer = verify_page(page(product), "TTP223")
+    assert (str(offer.image_url) if offer.image_url else None) == expected
+    # Image metadata must never change whether the seller offer itself verifies.
+    assert offer.price_inr == "25.50"
+
+
+@pytest.mark.parametrize(
     "change",
     [
         {"priceCurrency": "USD"},

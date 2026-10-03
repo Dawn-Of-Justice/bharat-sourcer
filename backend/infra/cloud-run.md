@@ -1,9 +1,40 @@
 # Cloud Run integration deployment
 
 Project `hackathon-510415`, region `asia-south1`, service `bharat-sourcer-integration`.
-This is a team integration environment for the v0.13 backend.
+This is a team integration environment for the v0.16 backend.
 
-## Current deployment: durable dispatch
+## Current deployment: v0.16 with durable dispatch
+
+Deployed v0.16 on 4 Oct 2026. `scripts/check_release.py` verified live Firestore
+health, API version 0.16.0, research and requirements schemas, and unauthenticated
+job-creation rejection. The deployed frontend has not been updated for research cards.
+See [the frontend research contract](../../docs/contracts/part-research.md).
+
+Validation: 227 tests passed and one emulator test skipped; the subsequently added
+frontend fixture check passed with all 36 focused research tests. Lint, formatting
+and OpenAPI consistency passed. A local adapter call to live Gemini using the Quartz
+Components LED page returned one candidate, four quoted facts and two questions.
+The switch source check returned no usable evidence. This is not an end-to-end
+cloud research-job verification or a guarantee of source coverage.
+
+## Previous v0.15 deployment
+
+Revision `bharat-sourcer-integration-00010-txx` serves API v0.15. Verified public
+health reports live mode with Firestore storage. OpenAPI reports v0.15 and includes
+optional `VerifiedOffer.image_url`. Live classifier checks rejected unrelated
+requests and accepted a project-specific electronics question. A real Quartz
+Components 5mm red LED variant was fetched and verified at INR 2.00. Local
+validation: 192 tests passed, one Firestore emulator test skipped; lint, formatting
+and OpenAPI consistency checks passed. The concurrent sourcing behavior was
+verified with a controlled adapter and full API suite.
+
+End-to-end frontend proxy check on 4 Oct created and confirmed a real YouTube job.
+It completed with offers on all three lines (Pro Micro 1, TTP223 1, OLED 3).
+This confirms the deployed request path and this sample search; it does not mean
+every seller page can be read or every part has verified offers.
+
+The v0.15 image URL field is available to the frontend at
+`offers[].image_url`. A live seller search was not run as part of this deployment.
 
 Revision `bharat-sourcer-integration-00005-6x4` serves the queued backend with
 request-based billing, zero minimum instances, maximum one instance and a

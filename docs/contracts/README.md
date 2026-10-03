@@ -1,9 +1,17 @@
-# Implemented API contract — v0.14
+# Implemented API contract — v0.16
 
 This directory is the handoff between backend and frontend. The architecture docs describe
 the target system; this contract describes the runnable local milestone.
 
-v0.14 adds [project-only chat, parallel part sourcing and seller diagnostics](project-chat-and-sourcing.md).
+v0.16 adds [general part research, flexible requirements and reviewed AI assessments](part-research.md).
+Render research candidates even when no verified offers exist. Existing chat receives
+research evidence; frontend research cards and requirement controls need integration.
+
+v0.15 adds optional seller product image URLs to verified offers. v0.14 added
+[project-only chat, parallel part sourcing and seller diagnostics](project-chat-and-sourcing.md).
+See the [image handoff](frontend-image-handoff.md) for the current field behavior
+and future fallback plan.
+The deployed backend runs Cloud Tasks in request-billed mode; see [durable dispatch](queued-dispatch.md).
 
 v0.13 uses [durable queued dispatch](queued-dispatch.md) in cloud mode. API shapes
 are unchanged; expect cold starts and `resolving` between sourcing checkpoints.
@@ -77,7 +85,9 @@ Base URL: `http://127.0.0.1:8000` (no `/api` prefix locally).
 ## Compatibility and clarification (v0.5)
 
 Draft `items[]` includes `specs` (nullable typed fields) and `clarifications[]` with `field`
-and `question`. Use the OpenAPI `PartSpecs` enums for answer controls. Example confirmation:
+and `question`. Use OpenAPI for typed-field answer controls; `family` is now free text.
+Use [generic requirements and research](part-research.md) for arbitrary categories.
+Example confirmation:
 
 ```json
 {"edits":[{"op":"update","line_id":"L01","specs":{
