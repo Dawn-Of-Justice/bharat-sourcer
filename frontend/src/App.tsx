@@ -40,17 +40,26 @@ function Header({ onHome, isHome }: { onHome: () => void; isHome: boolean }) {
             <a href="#why-it-matters">Why it matters</a>
           </nav>
         ) : null}
-        <a className="nav-cta" href={isHome ? '#start' : '/'} onClick={isHome ? undefined : (event) => { event.preventDefault(); onHome() }}>
-          {isHome ? 'Try it now' : 'Back to start'} <ArrowIcon diagonal={isHome} />
-        </a>
+        {!isHome ? <a className="nav-cta" href="/" onClick={(event) => { event.preventDefault(); onHome() }}>Back to start <ArrowIcon /></a> : null}
       </div>
     </header>
   )
 }
 
-function HeroIllustration() {
+type LinkSource = 'youtube' | 'article' | 'github'
+type SourceType = LinkSource | 'audio'
+
+const previewCopy: Record<SourceType, { label: string; symbol: string; caption: string; firstStep: string; firstDetail: string; footnote: string; accessibleLabel: string }> = {
+  youtube: { label: 'YouTube', symbol: '▶', caption: 'A project you want to make', firstStep: 'Parts found in the video', firstDetail: 'With moments you can revisit', footnote: 'Illustration of the workflow · No sample prices or grades', accessibleLabel: 'A YouTube project becomes a reviewable parts list and Indian seller options' },
+  article: { label: 'Article / blog', symbol: '▤', caption: 'A guide worth building from', firstStep: 'Parts mentioned in the guide', firstDetail: 'Review each part before sourcing', footnote: 'Preview concept · Live blog extraction is still in development', accessibleLabel: 'Preview concept for turning an article or blog guide into a reviewable parts list. Live blog extraction is not yet available.' },
+  github: { label: 'GitHub', symbol: '</>', caption: 'An open-source build idea', firstStep: 'Parts noted in project files', firstDetail: 'Check the list against the repository', footnote: 'Preview concept · Live GitHub extraction is still in development', accessibleLabel: 'Preview concept for turning a GitHub repository into a reviewable parts list. Live GitHub extraction is not yet available.' },
+  audio: { label: 'Audio', symbol: '♫', caption: 'A build idea, spoken aloud', firstStep: 'Parts from your description', firstDetail: 'Review what was understood', footnote: 'Preview concept · Audio upload is not available yet', accessibleLabel: 'Preview concept for turning an audio description into a reviewable parts list. Audio upload is not yet available.' },
+}
+
+function HeroIllustration({ source }: { source: SourceType }) {
+  const preview = previewCopy[source]
   return (
-    <div className="hero-visual" aria-label="Illustration showing a YouTube tutorial becoming an India-ready parts list">
+    <div className="hero-visual" role="img" aria-label={preview.accessibleLabel}>
       <div className="orbit orbit-one" aria-hidden="true" />
       <div className="orbit orbit-two" aria-hidden="true" />
       <div className="preview-card">
@@ -59,30 +68,42 @@ function HeroIllustration() {
           <span className="preview-counter">01 / 03</span>
         </div>
         <div className="video-tile">
-          <div className="video-art" aria-hidden="true">
-            <div className="board board-main"><span /><span /><span /><span /></div>
-            <div className="board board-small"><span /><span /></div>
-            <i className="wire wire-one" /><i className="wire wire-two" /><i className="wire wire-three" />
-            <div className="play-button"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="m5 3 8 5-8 5V3Z" fill="currentColor" /></svg></div>
+          <div className={`video-art source-art-${source}`} key={source} aria-hidden="true">
+            {source === 'youtube' ? <>
+              <div className="board board-main"><span /><span /><span /><span /></div>
+              <div className="board board-small"><span /><span /></div>
+              <i className="wire wire-one" /><i className="wire wire-two" /><i className="wire wire-three" />
+              <div className="play-button"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="m5 3 8 5-8 5V3Z" fill="currentColor" /></svg></div>
+            </> : source === 'article' ? <div className="article-sheet">
+              <div className="article-sheet-top"><span>MAKER JOURNAL</span><span>↗</span></div>
+              <strong>Build something brilliant</strong>
+              <div className="article-rule article-rule-long" /><div className="article-rule" />
+              <div className="article-parts"><span>IN THE BUILD</span><b>Controller · display · sensor</b></div>
+            </div> : source === 'github' ? <div className="repo-window">
+              <div className="repo-top"><span className="repo-dots"><i /><i /><i /></span><span>maker / project</span><span>⌄</span></div>
+              <div className="repo-file"><span>▤</span> README.md <small>main</small></div>
+              <div className="repo-code"><div><span>01</span><b># Build notes</b></div><div><span>02</span><em>parts:</em> controller, display</div><div><span>03</span><em>power:</em> USB cable</div></div>
+            </div> : <div className="audio-stage">
+              <div className="audio-mic"><svg viewBox="0 0 32 32" fill="none" aria-hidden="true"><rect x="12" y="4" width="8" height="16" rx="4" stroke="currentColor" strokeWidth="2.5" /><path d="M7 15a9 9 0 0 0 18 0M16 24v5m-5 0h10" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" /></svg></div>
+              <div className="audio-wave">{[11, 22, 35, 19, 42, 29, 15, 38, 25, 46, 24, 33, 17, 27, 12].map((height, index) => <i key={index} style={{ height }} />)}</div>
+              <span className="audio-time">00:12 / 01:08</span>
+            </div>}
           </div>
-          <div className="video-caption"><span className="youtube-pill">▶ YouTube</span><strong>A project you want to make</strong></div>
+          <div className="video-caption"><span className={`source-pill source-pill-${source}`}>{preview.symbol} {preview.label}</span><strong>{preview.caption}</strong></div>
         </div>
         <div className="flow-line" aria-hidden="true"><span /></div>
         <div className="preview-steps">
-          <div className="preview-step"><span className="step-icon step-icon-one">01</span><span><strong>Parts found in the video</strong><small>With moments you can revisit</small></span><span className="step-check">✓</span></div>
+          <div className="preview-step"><span className="step-icon step-icon-one">01</span><span><strong>{preview.firstStep}</strong><small>{preview.firstDetail}</small></span><span className="step-check">✓</span></div>
           <div className="preview-step"><span className="step-icon step-icon-two">02</span><span><strong>You review the list</strong><small>Fix anything before sourcing</small></span><span className="step-check">✓</span></div>
           <div className="preview-step current"><span className="step-icon step-icon-three">03</span><span><strong>India-ready options</strong><small>Seller links & compatibility notes</small></span><span className="step-spark" aria-hidden="true">✦</span></div>
         </div>
-        <div className="preview-footnote">Illustration of the workflow · No sample prices or grades</div>
+        <div className="preview-footnote">{preview.footnote}</div>
       </div>
       <div className="floating-chip chip-top"><span>⌁</span> From inspiration</div>
       <div className="floating-chip chip-bottom"><span>✳</span> To a buildable plan</div>
     </div>
   )
 }
-
-type LinkSource = 'youtube' | 'article' | 'github'
-type SourceType = LinkSource | 'audio'
 
 const sourceOptions: { id: SourceType; label: string; symbol: string }[] = [
   { id: 'youtube', label: 'YouTube', symbol: '▶' },
@@ -148,7 +169,8 @@ function Landing({ onCreated }: { onCreated: (id: string) => void }) {
           <div className="hero-copy">
             <div className="eyebrow"><span className="eyebrow-line" /> BUILT FOR MAKERS IN INDIA</div>
             <h1 className="hero-headline">Found your next project? <span>Source it. Plan it. Build it.</span></h1>
-            <p className="hero-description">That YouTube project you saved? Turn it into a parts list you can review, with Indian seller options and clear notes on what may need to change.</p>
+            <p className="hero-description">Saved a project you want to make? Get a practical parts list, Indian seller options, and clear notes on what to change.</p>
+            <p className="source-support">This works for projects found in videos, blogs, or elsewhere.</p>
             <div className="input-callout" aria-hidden="true"><span>Your build starts here</span><svg viewBox="0 0 90 90" fill="none"><path className="draw-arrow" d="M4 5c3 31 28 31 50 60M37 59l17 6-2-19" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" /></svg></div>
             <form className="source-form" onSubmit={submit}>
               <div className="source-options" role="group" aria-label="Choose a project source">{sourceOptions.map((option) => <button key={option.id} type="button" className={`source-option ${source === option.id ? 'selected' : ''}`} aria-pressed={source === option.id} onClick={() => { setSource(option.id); setError('') }}><span aria-hidden="true">{option.symbol}</span>{option.label}</button>)}</div>
@@ -161,7 +183,7 @@ function Landing({ onCreated }: { onCreated: (id: string) => void }) {
             </form>
             <div className="hero-reassurance"><span className="reassurance-check">✓</span> Review the parts before any seller search begins <span className="reassurance-separator">·</span> No account needed</div>
           </div>
-          <HeroIllustration />
+          <HeroIllustration source={source} />
         </div>
         <div className="container hero-bottom"><span>ONE LINK. A CLEARER WAY TO BUILD.</span><a href="#how-it-works">Explore how it works <span aria-hidden="true">↓</span></a></div>
       </section>
@@ -176,27 +198,27 @@ function Landing({ onCreated }: { onCreated: (id: string) => void }) {
 
       <section className="section how-section" id="how-it-works">
         <div className="container">
-          <div className="section-heading"><div><span className="section-kicker">THE SIMPLE IDEA</span><h2>From “I want to make that”<br />to “here’s what I need.”</h2></div><p>A guided path from a video to a practical starting point for your own build.</p></div>
+          <div className="section-heading"><div><span className="section-kicker">THE SIMPLE IDEA</span><h2>From “I want to make that”<br />to “here’s what I need.”</h2></div></div>
           <div className="how-grid">
-            <article className="how-card"><span className="how-number">01 / INPUT</span><div className="how-icon video-icon" aria-hidden="true">▶</div><h3>Drop in a video</h3><p>Paste a public YouTube maker project. We look for the parts shown and mentioned.</p></article>
-            <article className="how-card"><span className="how-number">02 / REVIEW</span><div className="how-icon review-icon" aria-hidden="true">✓</div><h3>Make the list yours</h3><p>Check quantities, correct a name, or mark a part you already have before sourcing starts.</p></article>
-            <article className="how-card"><span className="how-number">03 / SOURCE</span><div className="how-icon source-icon" aria-hidden="true">↗</div><h3>Explore local options</h3><p>Open Indian seller pages and see what declared specifications match, differ, or are still unknown.</p></article>
+            <article className="how-card"><span className="how-number">01 / INPUT</span><div className="how-icon video-icon" aria-hidden="true">✳</div><h3>Bring in your project</h3><p>Start with a YouTube video, blog post, GitHub repository, or audio file</p></article>
+            <article className="how-card"><span className="how-number">02 / REVIEW</span><div className="how-icon review-icon" aria-hidden="true">✓</div><h3>Shape your build plan</h3><p>Check the evidence, adjust parts and quantities, mark what you own, and ask questions before confirming the list.</p></article>
+            <article className="how-card"><span className="how-number">03 / SOURCE</span><div className="how-icon source-icon" aria-hidden="true">↗</div><h3>Explore Indian options</h3><p>After you confirm, inspect seller listings, prices, and compatibility notes—with unknowns left visible for you to verify.</p></article>
           </div>
         </div>
       </section>
 
       <section className="trust-section" id="why-it-matters">
         <div className="container trust-layout">
-          <div><span className="section-kicker light-kicker">MADE FOR THE REAL BUILD</span><h2>Useful answers<br />show their working.</h2><p>The best parts list gives you a way to check it. Bharat Sourcer keeps evidence, unknowns, and seller-reported details visible.</p><a href="#start" className="text-link">Try your video <ArrowIcon /></a></div>
+          <div><span className="section-kicker light-kicker">MADE FOR THE REAL BUILD</span><h2>Build with context.<br />Not guesswork.</h2><p>A useful build plan shows where parts came from, what still needs checking, and how Indian seller options compare. Bharat Sourcer keeps that context visible as you plan.</p><a href="#start" className="text-link">Start with a project <ArrowIcon /></a></div>
           <div className="trust-stack">
-            <div className="trust-item"><span className="trust-item-index">01</span><div><strong>Jump back to the moment</strong><p>Video timestamps help you inspect where a part was identified.</p></div></div>
-            <div className="trust-item"><span className="trust-item-index">02</span><div><strong>Know what the grade covers</strong><p>Compatibility notes explain checked specifications and missing information.</p></div></div>
-            <div className="trust-item"><span className="trust-item-index">03</span><div><strong>See a seller's own listing</strong><p>Offers link to checked product pages and show when the quote was observed.</p></div></div>
+            <div className="trust-item"><span className="trust-item-index">01</span><div><strong>Inspect the evidence</strong><p>See the saved observations behind a part and decide what deserves a closer look.</p></div></div>
+            <div className="trust-item"><span className="trust-item-index">02</span><div><strong>See what is still unknown</strong><p>Compatibility notes separate declared-spec matches from missing details and assumptions.</p></div></div>
+            <div className="trust-item"><span className="trust-item-index">03</span><div><strong>Check the seller's page</strong><p>Open Indian listings and review seller-reported prices and availability before ordering.</p></div></div>
           </div>
         </div>
       </section>
 
-      <section className="closing-section"><div className="container closing-inner"><span className="section-kicker">FOR THE NEXT IDEA ON YOUR WATCH LATER LIST</span><h2>Watch it anywhere.<br /><em>Build it in India.</em></h2><a className="primary-button closing-button" href="#start">Start with a YouTube link <ArrowIcon /></a></div></section>
+      <section className="closing-section"><div className="container closing-inner"><span className="section-kicker">FOR THE PROJECT YOU SAVED FOR LATER</span><h2>Find inspiration anywhere.<br /><em>Build it with parts you can source in India.</em></h2><a className="primary-button closing-button" href="#start">Plan your next build <ArrowIcon /></a></div></section>
     </main>
   )
 }
