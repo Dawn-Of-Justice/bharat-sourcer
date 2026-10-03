@@ -216,6 +216,44 @@ Rule references: [SparkFun Pro Micro guide](https://learn.sparkfun.com/tutorials
 For TTP223, supply and output-mode rules are based on the exact declared module; the cited
 chip datasheet is background and does not establish which chip revision a seller ships.
 
+## Correct required specs after sourcing
+
+`POST /v1/jobs/{job_id}/specs` accepts `{"updates":[{"line_id":"L01","specs":{"logic_v":5.0}}]}`
+with the job token and returns the updated Job. It supports completed live reports only.
+Saved answers merge atomically; explicit null clears an answer, though name inference can
+still supply it. Invalid merged specs or repeated/unknown lines roll back the whole batch.
+
+This updates required specs and reassesses saved offers without network calls or changes
+to seller specs, prices, check times or video evidence. Changed lines lose selections;
+other selections remain. Exact repeated answers are a no-op. Missing seller specifications
+remain unknown, and stale quotes still need refresh before selection.
+
+## Project conversation (v0.9)
+
+Users can ask questions alongside the BOM using persistent job chat. The live Gemini
+adapter receives saved parts, evidence, offer assessments and the last 12 messages.
+It can answer in every job state and propose draft BOM edits while awaiting confirmation.
+Proposals require explicit acceptance; acceptance does not start sourcing. Stale proposals
+are rejected, and existing deterministic edit validation applies atomically.
+
+`POST /v1/jobs/{id}/messages` queues a turn using a client UUID for deduplication.
+`POST /v1/jobs/{id}/messages/{message_id}/decision` accepts or rejects a proposal.
+`GET /v1/jobs/{id}/stream` sends full job snapshots over SSE with token authentication.
+Streams check saved state about once a second and close after about 60 seconds; reconnect
+while the project is open. Each subscriber causes storage reads, including Firestore reads.
+Replies appear once validated, rather than token by token. Polling GET remains supported.
+
+Chat has separate queued/thinking/idle/failed state, a 20-turn limit and one active turn.
+Queued turns resume after restart. Expired reply leases fail visibly without an automatic
+generation replay; send a new message UUID to retry. Model HTTP calls use bounded transient
+retries and may incur costs. Demo chat returns a labelled static response without Gemini.
+Chat does not yet execute search tools, pause/cancel jobs, or edit completed reports;
+the existing spec/refresh endpoints still serve those report updates. Model answers are
+not independently verified; only line-reference existence and proposal validity are checked.
+
+Frontend implementation details and a fetch/SSE client are in
+[the conversation integration guide](../docs/contracts/conversation.md).
+
 ## Package layout
 
 ```text

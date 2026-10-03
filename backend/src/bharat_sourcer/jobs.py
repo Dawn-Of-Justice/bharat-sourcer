@@ -5,7 +5,7 @@ from datetime import timedelta
 from hashlib import sha256
 from uuid import UUID, uuid4
 
-from bharat_sourcer.compat import resolve_part
+from bharat_sourcer.compat import assess, resolve_part
 from bharat_sourcer.costing import update_costs
 from bharat_sourcer.extraction import ExtractionError, Extractor, youtube_url
 from bharat_sourcer.schemas import (
@@ -24,6 +24,7 @@ from bharat_sourcer.schemas import (
     ReportLine,
     SelectOffers,
     Status,
+    UpdateJobSpecs,
     now,
 )
 from bharat_sourcer.sourcing.service import SourcingService
@@ -273,6 +274,55 @@ class JobService:
         if self.store.mutate(job_id, change) is None:
             raise JobError(404, "JOB_NOT_FOUND", "Job not found or token invalid")
 
+    def update_specs(self, job_id: str, token: str | None, request: UpdateJobSpecs) -> Job:
+        self._validate_id(job_id)
+
+        def change(record: StoredJob):
+            job = self._authorized(record, token)
+            if job.status != "done" or job.report is None or job.demo:
+                raise JobError(409, "INVALID_STATE", "Update specs in a completed live report")
+            items = {item.line_id: item for item in job.items}
+            lines = {line.item.line_id: line for line in job.report.lines}
+            seen, changed = set(), []
+            for update in request.updates:
+                key = update.line_id
+                if key in seen or key not in items or key not in lines:
+                    raise JobError(422, "INVALID_EDIT", "Unknown or repeated line")
+                seen.add(key)
+                item = items[key]
+                try:
+                    merged = PartSpecs(
+                        **(item.specs.model_dump() | update.specs.model_dump(exclude_unset=True))
+                    )
+                    candidate = item.model_copy(update={"specs": merged}, deep=True)
+                    resolution = resolve_part(candidate)
+                except ValueError as exc:
+                    raise JobError(422, "INVALID_SPECS", "Conflicting part specifications") from exc
+                if merged == item.specs:
+                    continue
+                item.specs = merged
+                item.user_edited = True
+                item.clarifications = resolution.clarifications
+                line = lines[key]
+                line.item = item.model_copy(deep=True)
+                line.resolution = resolution
+                for offer in line.offers:
+                    offer.compatibility = assess(resolution.specs, offer.specs)
+                    offer.compatibility.references.append(str(offer.url))
+                    offer.compatibility_status = offer.compatibility.status
+                line.selected_offer_url = None
+                line.price_inr = line.grade = None
+                line.changes_accepted = False
+                changed.append(key)
+            if changed:
+                update_costs(job.report)
+                self._transition(job, "done", "Updated required specs for " + ", ".join(changed))
+
+        record = self.store.mutate(job_id, change)
+        if record is None:
+            raise JobError(404, "JOB_NOT_FOUND", "Job not found or token invalid")
+        return record.job.model_copy(deep=True)
+
     def select_offers(self, job_id: str, token: str | None, request: SelectOffers) -> Job:
         self._validate_id(job_id)
 
@@ -323,65 +373,75 @@ class JobService:
 
         def change(record: StoredJob):
             job = self._authorized(record, token)
-            if job.status != "awaiting_confirmation":
-                raise JobError(409, "INVALID_STATE", "Job is not awaiting confirmation")
-            # Work on a copy so any invalid edit rolls back the entire confirmation.
-            items = {item.line_id: item.model_copy(deep=True) for item in job.items}
-            next_id = max((int(key[1:]) for key in items), default=0) + 1
-            for edit in request.edits:
-                if isinstance(edit, AddLine):
-                    line_id = f"L{next_id:02d}"
-                    next_id += 1
-                    items[line_id] = BomItem(
-                        line_id=line_id,
-                        raw_name=edit.raw_name,
-                        qty=edit.qty,
-                        user_edited=True,
-                        specs=edit.specs,
-                    )
-                    continue
-                if edit.line_id not in items:
-                    raise JobError(422, "INVALID_EDIT", f"Unknown line: {edit.line_id}")
-                if isinstance(edit, RemoveLine):
-                    del items[edit.line_id]
-                elif isinstance(edit, HaveLine):
-                    items[edit.line_id].user_has_it = edit.user_has_it
-                else:
-                    items[edit.line_id].user_edited = True
-                    if edit.raw_name is not None:
-                        items[edit.line_id].raw_name = edit.raw_name
-                    if edit.qty is not None:
-                        items[edit.line_id].qty = edit.qty
-                    if edit.specs is not None:
-                        try:
-                            items[edit.line_id].specs = PartSpecs(
-                                **(
-                                    items[edit.line_id].specs.model_dump()
-                                    | edit.specs.model_dump(exclude_unset=True)
-                                )
-                            )
-                        except ValueError as exc:
-                            raise JobError(
-                                422, "INVALID_SPECS", "Conflicting part specifications"
-                            ) from exc
-            if not items:
-                raise JobError(422, "EMPTY_BOM", "Keep at least one BOM line")
-            if len(items) > 100:
-                raise JobError(422, "BOM_TOO_LARGE", "Keep at most 100 BOM lines")
-            if any(item.qty is None for item in items.values()):
-                raise JobError(422, "UNKNOWN_QUANTITY", "Set a quantity for every retained part")
-            job.items = list(items.values())
-            for item in job.items:
-                try:
-                    item.clarifications = resolve_part(item).clarifications
-                except ValueError as exc:
-                    raise JobError(
-                        422, "INVALID_SPECS", "Name and part specifications conflict"
-                    ) from exc
-            self._transition(job, "resolving", "Confirmed edits; preparing the report.")
+            self.edit_draft(job, request, finalize=True)
 
         if self.store.mutate(job_id, change) is None:
             raise JobError(404, "JOB_NOT_FOUND", "Job not found or token invalid")
+
+    def edit_draft(self, job: Job, request: ConfirmJob, *, finalize: bool = False) -> None:
+        if job.status != "awaiting_confirmation":
+            raise JobError(409, "INVALID_STATE", "Job is not awaiting confirmation")
+        # Work on a copy so any invalid edit rolls back the entire confirmation.
+        items = {item.line_id: item.model_copy(deep=True) for item in job.items}
+        next_id = max((int(key[1:]) for key in items), default=0) + 1
+        for edit in request.edits:
+            if isinstance(edit, AddLine):
+                line_id = f"L{next_id:02d}"
+                next_id += 1
+                items[line_id] = BomItem(
+                    line_id=line_id,
+                    raw_name=edit.raw_name,
+                    qty=edit.qty,
+                    user_edited=True,
+                    specs=edit.specs,
+                )
+                continue
+            if edit.line_id not in items:
+                raise JobError(422, "INVALID_EDIT", f"Unknown line: {edit.line_id}")
+            if isinstance(edit, RemoveLine):
+                del items[edit.line_id]
+            elif isinstance(edit, HaveLine):
+                items[edit.line_id].user_has_it = edit.user_has_it
+            else:
+                items[edit.line_id].user_edited = True
+                if edit.raw_name is not None:
+                    items[edit.line_id].raw_name = edit.raw_name
+                if edit.qty is not None:
+                    items[edit.line_id].qty = edit.qty
+                if edit.specs is not None:
+                    try:
+                        items[edit.line_id].specs = PartSpecs(
+                            **(
+                                items[edit.line_id].specs.model_dump()
+                                | edit.specs.model_dump(exclude_unset=True)
+                            )
+                        )
+                    except ValueError as exc:
+                        raise JobError(
+                            422, "INVALID_SPECS", "Conflicting part specifications"
+                        ) from exc
+        if not items:
+            raise JobError(422, "EMPTY_BOM", "Keep at least one BOM line")
+        if len(items) > 100:
+            raise JobError(422, "BOM_TOO_LARGE", "Keep at most 100 BOM lines")
+        if finalize and any(item.qty is None for item in items.values()):
+            raise JobError(422, "UNKNOWN_QUANTITY", "Set a quantity for every retained part")
+        job.items = list(items.values())
+        for item in job.items:
+            try:
+                item.clarifications = resolve_part(item).clarifications
+            except ValueError as exc:
+                raise JobError(
+                    422, "INVALID_SPECS", "Name and part specifications conflict"
+                ) from exc
+        if finalize:
+            self._transition(job, "resolving", "Confirmed edits; preparing the report.")
+        else:
+            self._transition(
+                job,
+                "awaiting_confirmation",
+                "Applied reviewed chat proposal; review BOM before confirming.",
+            )
 
     def finish(self, job_id: str) -> None:
         record = self.store.get(job_id)

@@ -46,14 +46,14 @@ class ExtractedBom(Model):
     items: list[ExtractedPart] = Field(max_length=100)
 
 
-def generation_schema() -> dict:
+def generation_schema(model=ExtractedBom) -> dict:
     """Keep the generation grammar simple; enforce all bounds locally afterward.
 
     The full Pydantic schema is rejected by the live endpoint with INVALID_ARGUMENT.
     Inline references and omit validation constraints from the provider schema.
     ExtractedBom remains the authoritative validator for returned content.
     """
-    original = ExtractedBom.model_json_schema()
+    original = model.model_json_schema()
     omitted = {
         "$defs",
         "title",
@@ -65,6 +65,7 @@ def generation_schema() -> dict:
         "maximum",
         "minItems",
         "maxItems",
+        "discriminator",
     }
 
     def simplify(node):
@@ -74,7 +75,11 @@ def generation_schema() -> dict:
             return node
         if "$ref" in node:
             return simplify(original["$defs"][node["$ref"].split("/")[-1]])
-        return {key: simplify(value) for key, value in node.items() if key not in omitted}
+        return {
+            ("anyOf" if key == "oneOf" else key): simplify(value)
+            for key, value in node.items()
+            if key not in omitted
+        }
 
     return simplify(original)
 

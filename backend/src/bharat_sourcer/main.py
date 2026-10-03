@@ -6,10 +6,11 @@ from typing import Annotated
 from fastapi import BackgroundTasks, FastAPI, Header, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from google.api_core.exceptions import GoogleAPICallError
 
 from bharat_sourcer.config import Settings
+from bharat_sourcer.conversation import Assistant, ConversationService, GeminiAssistant
 from bharat_sourcer.extraction import Extractor, GeminiExtractor
 from bharat_sourcer.jobs import JobError, JobService
 from bharat_sourcer.schemas import (
@@ -20,11 +21,15 @@ from bharat_sourcer.schemas import (
     ErrorResponse,
     Health,
     Job,
+    ProposalDecision,
     RefreshOffers,
     SelectOffers,
+    SendMessage,
+    UpdateJobSpecs,
 )
 from bharat_sourcer.sourcing.service import GeminiDiscovery, SourcingService
 from bharat_sourcer.storage import FirestoreJobStore, JobStore, MemoryJobStore, StorageError
+from bharat_sourcer.streaming import snapshots
 
 JobToken = Annotated[str | None, Header(alias="X-Job-Token")]
 
@@ -33,6 +38,7 @@ def create_app(
     settings: Settings | None = None,
     extractor: Extractor | None = None,
     store: JobStore | None = None,
+    assistant: Assistant | None = None,
 ) -> FastAPI:
     settings = settings or Settings()
     live_extractor = None if settings.demo_mode else (extractor or GeminiExtractor(settings))
@@ -58,6 +64,10 @@ def create_app(
         sourcing_lease_seconds=settings.sourcing_lease_s,
     )
 
+    conversation = ConversationService(
+        service, assistant or (GeminiAssistant(settings) if not settings.demo_mode else None)
+    )
+
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         stop = asyncio.Event()
@@ -73,21 +83,37 @@ def create_app(
                 except TimeoutError:
                     pass
 
+        async def chat_recovery():
+            while not stop.is_set():
+                try:
+                    await asyncio.to_thread(conversation.recover)
+                except Exception as exc:
+                    logging.getLogger(__name__).error(
+                        "Chat recovery failed: %s", type(exc).__name__
+                    )
+                try:
+                    await asyncio.wait_for(stop.wait(), settings.recovery_interval_s)
+                except TimeoutError:
+                    pass
+
         task = asyncio.create_task(recovery())
+        chat_task = asyncio.create_task(chat_recovery())
         try:
             yield
         finally:
             stop.set()
             await task
+            await chat_task
 
     app = FastAPI(
         title="Bharat Sourcer API",
-        version="0.7.0",
+        version="0.9.0",
         description="Demo or live YouTube extraction with optional Firestore job persistence.",
         lifespan=lifespan,
         responses={422: {"model": ErrorResponse}, 503: {"model": ErrorResponse}},
     )
     app.state.job_service = service
+    app.state.conversation_service = conversation
 
     @app.exception_handler(StorageError)
     @app.exception_handler(GoogleAPICallError)
@@ -185,6 +211,57 @@ def create_app(
         service.refresh_offers(job_id, x_job_token, body)
         tasks.add_task(service.finish, job_id)
         return ConfirmationAccepted()
+
+    @app.post(
+        "/v1/jobs/{job_id}/specs",
+        response_model=Job,
+        tags=["jobs"],
+        responses={404: {"model": ErrorResponse}, 409: {"model": ErrorResponse}},
+    )
+    def update_specs(job_id: str, body: UpdateJobSpecs, x_job_token: JobToken = None):
+        return service.update_specs(job_id, x_job_token, body)
+
+    @app.post(
+        "/v1/jobs/{job_id}/messages",
+        status_code=202,
+        response_model=Job,
+        tags=["conversation"],
+        responses={404: {"model": ErrorResponse}, 409: {"model": ErrorResponse}},
+    )
+    def send_message(
+        job_id: str, body: SendMessage, tasks: BackgroundTasks, x_job_token: JobToken = None
+    ):
+        job = conversation.send(job_id, x_job_token, body)
+        tasks.add_task(conversation.process, job_id)
+        return job
+
+    @app.post(
+        "/v1/jobs/{job_id}/messages/{message_id}/decision",
+        response_model=Job,
+        tags=["conversation"],
+        responses={404: {"model": ErrorResponse}, 409: {"model": ErrorResponse}},
+    )
+    def decide_proposal(
+        job_id: str, message_id: str, body: ProposalDecision, x_job_token: JobToken = None
+    ):
+        return conversation.decide(job_id, x_job_token, message_id, body)
+
+    @app.get(
+        "/v1/jobs/{job_id}/stream",
+        tags=["conversation"],
+        response_class=StreamingResponse,
+        responses={
+            200: {"content": {"text/event-stream": {"schema": {"type": "string"}}}},
+            404: {"model": ErrorResponse},
+        },
+    )
+    def stream_job(job_id: str, request: Request, x_job_token: JobToken = None):
+        service.get(job_id, x_job_token)
+        return StreamingResponse(
+            snapshots(service, job_id, x_job_token, request),
+            media_type="text/event-stream",
+            headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+        )
 
     return app
 

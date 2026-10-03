@@ -1,4 +1,4 @@
-# Implemented API contract — v0.7
+# Implemented API contract — v0.9
 
 This directory is the handoff between backend and frontend. The architecture docs describe
 the target system; this contract describes the runnable local milestone.
@@ -8,6 +8,9 @@ it manually. Backend CI checks that it matches the implementation. The frontend 
 generate TypeScript types from it using its own tooling.
 
 ## Local workflow
+
+**New: [conversation integration guide](conversation.md).** Add chat beside the BOM,
+reviewable edit proposals and a live snapshot stream. Existing endpoints remain available.
 
 Base URL: `http://127.0.0.1:8000` (no `/api` prefix locally).
 
@@ -79,6 +82,31 @@ a whole-project safety claim. These checks do not verify current, mechanical fit
 circuit wiring, firmware or seller accuracy. No C/D adaptation rules exist yet. `references`
 contains rule references and the checked seller page. Chip documentation is not module evidence.
 Offer `compatibility_status` mirrors the assessment; old saved offers can remain `not_checked`.
+
+## Answering specs after a report (v0.8)
+
+For a completed live report, `POST /v1/jobs/{job_id}/specs` with `X-Job-Token`
+updates required part specifications and returns the updated Job (200):
+
+```json
+{"updates":[{"line_id":"L01","specs":{"logic_v":5.0,"clock_mhz":16}}]}
+```
+
+Send 1–100 distinct existing lines, each with at least one spec field. Fields merge with
+saved answers; omitted fields remain and explicit null clears an answer. Literal name
+inference can still supply a cleared field. Invalid merged specs reject the entire batch.
+Demo, active and failed jobs return 409 `INVALID_STATE`; use confirmation edits for drafts.
+
+The backend updates BOM and report copies, clarification questions and user provenance,
+then reassesses saved offers locally. It does not call Gemini, refresh prices, change seller
+specs or consume refresh/recovery budgets. Original video evidence stays intact.
+Missing seller specs still prevent a positive grade even after all required specs are answered.
+
+Changed lines lose their selections and contribute nothing until selected again; other
+selections survive. Exact repeated answers are a no-op and preserve selections. Offer age
+still comes from its original `checked_at`; use `/refresh` to retrieve new seller quotes.
+Errors: 422 `INVALID_EDIT` for unknown/repeated lines; `INVALID_SPECS` for merged conflicts;
+`VALIDATION_ERROR` for malformed or empty updates; 404 for an invalid job/token.
 
 ## Sourcing
 

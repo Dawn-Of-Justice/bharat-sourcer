@@ -1,5 +1,6 @@
 from datetime import UTC, datetime
 from typing import Annotated, Literal
+from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, HttpUrl, model_validator
 
@@ -159,11 +160,56 @@ class RefreshOffers(Model):
     line_ids: list[str] = Field(min_length=1, max_length=30)
 
 
+class UpdatePartSpecs(Model):
+    line_id: str
+    specs: PartSpecs
+
+    @model_validator(mode="after")
+    def require_fields(self):
+        if not self.specs.model_fields_set:
+            raise ValueError("Provide at least one specification field")
+        return self
+
+
+class UpdateJobSpecs(Model):
+    updates: list[UpdatePartSpecs] = Field(min_length=1, max_length=100)
+
+
 class Event(Model):
     seq: int
     status: Status
     message: str
     timestamp: datetime = Field(default_factory=now)
+
+
+class SendMessage(Model):
+    message_id: UUID
+    text: str = Field(min_length=1, max_length=4000)
+
+
+class ProposalDecision(Model):
+    action: Literal["accept", "reject"]
+
+
+class ChatReply(Model):
+    text: str = Field(min_length=1, max_length=4000)
+    cited_line_ids: list[str] = Field(default_factory=list, max_length=100)
+    edits: list[Edit] = Field(default_factory=list, max_length=20)
+
+
+class ChatProposal(Model):
+    edits: list[Edit]
+    status: Literal["pending", "accepted", "rejected"] = "pending"
+    base_fingerprint: str
+
+
+class ChatMessage(Model):
+    message_id: str
+    role: Literal["user", "assistant"]
+    text: str
+    created_at: datetime = Field(default_factory=now)
+    cited_line_ids: list[str] = Field(default_factory=list)
+    proposal: ChatProposal | None = None
 
 
 class PartResolution(Model):
@@ -244,6 +290,9 @@ class Job(Model):
     sourcing_enabled: bool = False
     recovery_attempts: int = Field(default=0, ge=0)
     refresh_count: int = Field(default=0, ge=0)
+    messages: list[ChatMessage] = Field(default_factory=list)
+    chat_state: Literal["idle", "queued", "thinking", "failed"] = "idle"
+    chat_error: "ErrorDetail | None" = None
 
 
 class CreatedJob(Model):

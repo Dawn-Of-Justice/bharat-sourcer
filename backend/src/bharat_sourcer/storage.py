@@ -16,6 +16,8 @@ class StoredJob(Model):
     run_id: str | None = None
     lease_until: datetime | None = None
     sourcing_scope: list[str] | None = None
+    chat_run_id: str | None = None
+    chat_lease_until: datetime | None = None
     schema_version: int = Field(default=1, ge=1, le=1)
 
 
@@ -68,6 +70,7 @@ class MemoryJobStore:
                 key
                 for key, record in self._records.items()
                 if record.job.status in {"queued", "extracting", "resolving", "sourcing"}
+                or record.job.chat_state in {"queued", "thinking"}
             ]
 
 
@@ -110,7 +113,7 @@ class FirestoreJobStore:
     def pending(self) -> list[str]:
         from google.cloud.firestore_v1.base_query import FieldFilter
 
-        return [
+        workflow_ids = [
             snapshot.id
             for snapshot in self.collection.where(
                 filter=FieldFilter(
@@ -118,3 +121,10 @@ class FirestoreJobStore:
                 )
             ).stream()
         ]
+        chat_ids = [
+            snapshot.id
+            for snapshot in self.collection.where(
+                filter=FieldFilter("job.chat_state", "in", ["queued", "thinking"])
+            ).stream()
+        ]
+        return list(dict.fromkeys(workflow_ids + chat_ids))
