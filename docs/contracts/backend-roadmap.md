@@ -3,7 +3,7 @@
 This roadmap tracks decisions from implementation discussions. Architecture documents
 describe a broader target; the API contract describes what actually works.
 
-## Available in the integration backend (v0.11)
+## Available in the integration backend (v0.12)
 
 | Area | Implemented |
 | --- | --- |
@@ -18,6 +18,7 @@ describe a broader target; the API contract describes what actually works.
 | Design advice | Confirmed single-LED resistor calculation; contextual role questions |
 | Recovery | Bounded HTTP retries, leases, checkpoint resume, tested resistor-selector fallback |
 | Sourcing controls (v0.11) | Persisted pause intent, part-boundary acknowledgement, resume saved work; chat stays available |
+| Chat actions (v0.12) | Proposed scoped seller refresh with explicit approval, atomic queuing, stale-report checks and existing limits |
 | Storage | Firestore persistence and private per-job tokens |
 
 ## Agreed work still to implement
@@ -26,7 +27,7 @@ describe a broader target; the API contract describes what actually works.
 | --- | --- | --- |
 | 1 | End-to-end conversational UI integration | BOM beside chat; citation navigation; proposal diff and accept/reject; SSE reconnect; explicit confirmation; integration smoke test |
 | 2 | User steering during sourcing | Pause/resume implemented in v0.11; reviewed edits to a paused sourcing plan and frontend controls remain |
-| 3 | Agent-triggered search and report tools | Agent proposes scoped refresh/spec changes; user authorizes cost-bearing work; tool progress and results visible in chat; preserve limits and stale-edit checks |
+| 3 | More agent search and report tools | Refresh proposals implemented; spec changes, completion chat messages and per-action result history remain |
 | 4 | Broader seller-spec parsing | Read supported specification tables with field-level evidence; detect contradictions; unknown stays unknown; evaluate real sellers |
 | 5 | Circuit context and more design rules | Establish resistor roles, topology and source-backed inputs; support additional roles only with validated calculations; attach suggestions to a specific physical component |
 | 6 | Permanent rule repair workflow | Capture bounded failure cases; generate candidate patch in isolation; regression/property tests; versioned release and rollback. Current runtime only quarantines and falls back; no automatic patch authoring/deployment |
@@ -53,7 +54,8 @@ structured endpoints. No checkout, automatic purchase or verified final delivere
 
 ## Suggested implementation order
 
-Integrate the deployed v0.11 API including pause/resume, then add reviewed agent tools.
+Integrate the deployed v0.12 API including pause/resume and reviewed refresh actions,
+then add reviewed specification changes.
 Develop seller parsing and circuit-context work against real labelled examples. Add queueing
 and public-launch controls before opening paid job creation to general users. Rule repairs
 must preserve failure evidence and earn promotion through regression checks.

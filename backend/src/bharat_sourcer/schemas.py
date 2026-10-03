@@ -236,12 +236,26 @@ class ChatReply(Model):
     cited_line_ids: list[str] = Field(default_factory=list, max_length=100)
     edits: list[Edit] = Field(default_factory=list, max_length=20)
     resistor_question: ResistorQuestion | None = None
+    refresh: RefreshOffers | None = None
+
+    @model_validator(mode="after")
+    def one_action(self):
+        if self.edits and self.refresh:
+            raise ValueError("Propose either draft edits or a refresh, not both")
+        return self
 
 
 class ChatProposal(Model):
     edits: list[Edit]
     status: Literal["pending", "accepted", "rejected"] = "pending"
     base_fingerprint: str
+
+
+class RefreshProposal(Model):
+    request: RefreshOffers
+    status: Literal["pending", "accepted", "rejected"] = "pending"
+    base_fingerprint: str
+    refresh_count: int | None = None
 
 
 class ChatMessage(Model):
@@ -251,6 +265,7 @@ class ChatMessage(Model):
     created_at: datetime = Field(default_factory=now)
     cited_line_ids: list[str] = Field(default_factory=list)
     proposal: ChatProposal | None = None
+    refresh_proposal: RefreshProposal | None = None
     resistor_question: ResistorQuestion | None = None
 
 

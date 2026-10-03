@@ -1,5 +1,8 @@
 # Backend
 
+v0.12 adds [user-approved chat refresh proposals](../docs/contracts/chat-actions.md).
+Approval atomically queues a scoped refresh with existing limits and stale-report checks.
+
 v0.11 adds persisted sourcing pause/resume at part checkpoints. Chat remains available;
 see [frontend controls and limitations](../docs/contracts/pause-resume.md).
 

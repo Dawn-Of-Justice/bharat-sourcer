@@ -109,7 +109,7 @@ def create_app(
 
     app = FastAPI(
         title="Bharat Sourcer API",
-        version="0.11.0",
+        version="0.12.0",
         description="Demo or live YouTube extraction with optional Firestore job persistence.",
         lifespan=lifespan,
         responses={422: {"model": ErrorResponse}, 503: {"model": ErrorResponse}},
@@ -282,9 +282,16 @@ def create_app(
         responses={404: {"model": ErrorResponse}, 409: {"model": ErrorResponse}},
     )
     def decide_proposal(
-        job_id: str, message_id: str, body: ProposalDecision, x_job_token: JobToken = None
+        job_id: str,
+        message_id: str,
+        body: ProposalDecision,
+        tasks: BackgroundTasks,
+        x_job_token: JobToken = None,
     ):
-        return conversation.decide(job_id, x_job_token, message_id, body)
+        job = conversation.decide(job_id, x_job_token, message_id, body)
+        if body.action == "accept" and job.status == "resolving":
+            tasks.add_task(service.finish, job_id)
+        return job
 
     @app.get(
         "/v1/jobs/{job_id}/stream",

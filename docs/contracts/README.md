@@ -1,7 +1,10 @@
-# Implemented API contract — v0.11
+# Implemented API contract — v0.12
 
 This directory is the handoff between backend and frontend. The architecture docs describe
 the target system; this contract describes the runnable local milestone.
+
+v0.12 adds [reviewed chat refresh actions](chat-actions.md). Render
+`ChatMessage.refresh_proposal` with approval controls before starting seller search.
 
 v0.11 adds [sourcing pause/resume](pause-resume.md), the `paused` status and
 `Job.pause_requested`. Regenerate frontend types for the new status.

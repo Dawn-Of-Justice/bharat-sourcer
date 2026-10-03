@@ -252,76 +252,77 @@ class JobService:
         self._validate_id(job_id)
 
         def change(record: StoredJob):
-            job = self._authorized(record, token)
-            interrupted = (
-                job.status == "failed" and job.error and job.error.code == "SOURCING_INTERRUPTED"
-            )
-            if (
-                (job.status != "done" and not interrupted)
-                or job.demo
-                or not job.sourcing_enabled
-                or job.report is None
-            ):
-                raise JobError(
-                    409, "INVALID_STATE", "Refresh requires a completed or interrupted live report"
-                )
-            if self.sourcing is None:
-                raise JobError(
-                    503, "SOURCING_UNAVAILABLE", "Sourcing is unavailable on this worker"
-                )
-            if job.refresh_count >= 2:
-                raise JobError(409, "REFRESH_LIMIT", "Two refresh batches have already been used")
-            wanted = set(request.line_ids)
-            items = {item.line_id: item for item in job.items}
-            if (
-                len(wanted) != len(request.line_ids)
-                or not wanted.issubset(items)
-                or any(items[key].user_has_it for key in wanted)
-                or len(wanted) > self.sourcing_max_parts
-            ):
-                raise JobError(
-                    422,
-                    "INVALID_REFRESH",
-                    "Choose distinct unowned lines within the sourcing limit",
-                )
-            previous = {line.item.line_id: line for line in job.report.lines}
-            lines = []
-            for item in job.items:
-                if item.line_id in wanted:
-                    lines.append(
-                        ReportLine(item=item.model_copy(deep=True), sourcing_status="not_run")
-                    )
-                elif item.line_id in previous:
-                    lines.append(previous[item.line_id])
-                else:
-                    lines.append(
-                        ReportLine(
-                            item=item.model_copy(deep=True),
-                            sourcing_status="already_owned" if item.user_has_it else "not_run",
-                            sourcing_error=None
-                            if item.user_has_it
-                            else ErrorDetail(
-                                code="SOURCING_INTERRUPTED",
-                                message="Not completed; select this line to refresh",
-                            ),
-                        )
-                    )
-            job.report.lines = lines
-            job.report.summary = (
-                "Refreshing selected parts; previous quotes for these parts were cleared."
-            )
-            update_costs(job.report)
-            job.error = None
-            job.refresh_count += 1
-            record.sourcing_scope = request.line_ids.copy()
-            record.run_id = None
-            record.lease_until = None
-            self._transition(
-                job, "resolving", "Offer refresh queued for " + ", ".join(request.line_ids)
-            )
+            self._authorized(record, token)
+            self.prepare_refresh(record, request)
 
         if self.store.mutate(job_id, change) is None:
             raise JobError(404, "JOB_NOT_FOUND", "Job not found or token invalid")
+
+    def prepare_refresh(self, record: StoredJob, request: RefreshOffers) -> None:
+        """Validate and queue a refresh inside an existing transaction; no external I/O."""
+        job = record.job
+        interrupted = (
+            job.status == "failed" and job.error and job.error.code == "SOURCING_INTERRUPTED"
+        )
+        if (
+            (job.status != "done" and not interrupted)
+            or job.demo
+            or not job.sourcing_enabled
+            or job.report is None
+        ):
+            raise JobError(
+                409, "INVALID_STATE", "Refresh requires a completed or interrupted live report"
+            )
+        if self.sourcing is None:
+            raise JobError(503, "SOURCING_UNAVAILABLE", "Sourcing is unavailable on this worker")
+        if job.refresh_count >= 2:
+            raise JobError(409, "REFRESH_LIMIT", "Two refresh batches have already been used")
+        wanted = set(request.line_ids)
+        items = {item.line_id: item for item in job.items}
+        if (
+            len(wanted) != len(request.line_ids)
+            or not wanted.issubset(items)
+            or any(items[key].user_has_it for key in wanted)
+            or len(wanted) > self.sourcing_max_parts
+        ):
+            raise JobError(
+                422,
+                "INVALID_REFRESH",
+                "Choose distinct unowned lines within the sourcing limit",
+            )
+        previous = {line.item.line_id: line for line in job.report.lines}
+        lines = []
+        for item in job.items:
+            if item.line_id in wanted:
+                lines.append(ReportLine(item=item.model_copy(deep=True), sourcing_status="not_run"))
+            elif item.line_id in previous:
+                lines.append(previous[item.line_id])
+            else:
+                lines.append(
+                    ReportLine(
+                        item=item.model_copy(deep=True),
+                        sourcing_status="already_owned" if item.user_has_it else "not_run",
+                        sourcing_error=None
+                        if item.user_has_it
+                        else ErrorDetail(
+                            code="SOURCING_INTERRUPTED",
+                            message="Not completed; select this line to refresh",
+                        ),
+                    )
+                )
+        job.report.lines = lines
+        job.report.summary = (
+            "Refreshing selected parts; previous quotes for these parts were cleared."
+        )
+        update_costs(job.report)
+        job.error = None
+        job.refresh_count += 1
+        record.sourcing_scope = request.line_ids.copy()
+        record.run_id = None
+        record.lease_until = None
+        self._transition(
+            job, "resolving", "Offer refresh queued for " + ", ".join(request.line_ids)
+        )
 
     def update_specs(self, job_id: str, token: str | None, request: UpdateJobSpecs) -> Job:
         self._validate_id(job_id)

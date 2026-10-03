@@ -1,5 +1,8 @@
 # Connect the local frontend
 
+v0.12 adds [chat refresh approval controls](chat-actions.md); approval uses the
+existing message decision endpoint and sourcing progress uses existing SSE snapshots.
+
 For v0.11 sourcing controls, see [pause/resume](pause-resume.md). Render the new
 `paused` status and distinguish a pending pause from an acknowledged pause.
 

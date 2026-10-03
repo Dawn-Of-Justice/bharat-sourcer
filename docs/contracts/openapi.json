@@ -3,7 +3,7 @@
   "info": {
     "title": "Bharat Sourcer API",
     "description": "Demo or live YouTube extraction with optional Firestore job persistence.",
-    "version": "0.11.0"
+    "version": "0.12.0"
   },
   "paths": {
     "/healthz": {
@@ -1319,6 +1319,16 @@
               }
             ]
           },
+          "refresh_proposal": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RefreshProposal"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "resistor_question": {
             "anyOf": [
               {
@@ -2241,6 +2251,45 @@
           "line_ids"
         ],
         "title": "RefreshOffers"
+      },
+      "RefreshProposal": {
+        "properties": {
+          "request": {
+            "$ref": "#/components/schemas/RefreshOffers"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "accepted",
+              "rejected"
+            ],
+            "title": "Status",
+            "default": "pending"
+          },
+          "base_fingerprint": {
+            "type": "string",
+            "title": "Base Fingerprint"
+          },
+          "refresh_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Refresh Count"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "request",
+          "base_fingerprint"
+        ],
+        "title": "RefreshProposal"
       },
       "RemoveLine": {
         "properties": {

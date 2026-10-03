@@ -21,6 +21,7 @@ from bharat_sourcer.schemas import (
     ErrorDetail,
     Job,
     ProposalDecision,
+    RefreshProposal,
     ResistorInputs,
     SendMessage,
     now,
@@ -29,6 +30,15 @@ from bharat_sourcer.schemas import (
 
 def fingerprint(job: Job) -> str:
     data = {"status": job.status, "items": [item.model_dump(mode="json") for item in job.items]}
+    return sha256(json.dumps(data, sort_keys=True).encode()).hexdigest()
+
+
+def report_fingerprint(job: Job) -> str:
+    data = {
+        "bom": fingerprint(job),
+        "report": job.report.model_dump(mode="json") if job.report else None,
+        "refresh_count": job.refresh_count,
+    }
     return sha256(json.dumps(data, sort_keys=True).encode()).hexdigest()
 
 
@@ -44,6 +54,8 @@ class GeminiAssistant:
         # Deliberately exclude external HTML, tokens and internal worker metadata.
         context = {
             "status": job.status,
+            "refresh_count": job.refresh_count,
+            "sourcing_enabled": job.sourcing_enabled,
             "items": [item.model_dump(mode="json") for item in job.items],
             "report": [
                 {
@@ -73,6 +85,12 @@ class GeminiAssistant:
             "by the user using edits. They are proposals, not applied changes. Do not infer "
             "electrical specs from general knowledge. In any other status return edits: []. "
             "Questions alone do not authorize edits. No purchase or whole-circuit safety claims. "
+            "When the user requests a new seller search for specific existing parts in a "
+            "completed live report with sourcing_enabled and refresh_count below 2, you may "
+            "set refresh to {line_ids: [...]} for distinct unowned parts. This only proposes "
+            "a refresh: explain that approval starts paid search and clears previous quotes "
+            "and selections for those lines. Never claim a search has started or finished. "
+            "Otherwise return refresh: null. Never combine refresh with edits. "
             "For resistor value questions, set resistor_question with an existing line_id, "
             "a tentative purpose and a focused question about circuit role and missing bounds. "
             "Never invent a resistance value or put a calculated value in edits. Use saved "
@@ -178,6 +196,8 @@ class ConversationService:
                 self.jobs.edit_draft(
                     claimed.job.model_copy(deep=True), ConfirmJob(edits=reply.edits)
                 )
+            if reply.refresh:
+                self.jobs.prepare_refresh(claimed.model_copy(deep=True), reply.refresh)
             if reply.resistor_question:
                 if reply.resistor_question.line_id not in {i.line_id for i in claimed.job.items}:
                     raise ValueError("Unknown resistor line")
@@ -201,6 +221,12 @@ class ConversationService:
                         text=reply.text,
                         cited_line_ids=reply.cited_line_ids,
                         resistor_question=reply.resistor_question,
+                        refresh_proposal=RefreshProposal(
+                            request=reply.refresh,
+                            base_fingerprint=report_fingerprint(claimed.job),
+                        )
+                        if reply.refresh
+                        else None,
                         proposal=ChatProposal(
                             edits=reply.edits, base_fingerprint=fingerprint(claimed.job)
                         )
@@ -220,18 +246,23 @@ class ConversationService:
         def apply(record):
             job = self.jobs._authorized(record, token)
             message = next((m for m in job.messages if m.message_id == message_id), None)
-            if message is None or message.proposal is None:
+            if message is None or (message.proposal is None and message.refresh_proposal is None):
                 raise JobError(404, "PROPOSAL_NOT_FOUND", "Proposal not found")
-            proposal = message.proposal
+            proposal = message.refresh_proposal or message.proposal
             target = "accepted" if decision.action == "accept" else "rejected"
             if proposal.status == target:
                 return
             if proposal.status != "pending":
                 raise JobError(409, "PROPOSAL_DECIDED", "Proposal already decided")
             if decision.action == "accept":
-                if fingerprint(job) != proposal.base_fingerprint:
+                current = report_fingerprint(job) if message.refresh_proposal else fingerprint(job)
+                if current != proposal.base_fingerprint:
                     raise JobError(409, "PROPOSAL_STALE", "BOM changed; ask for a new proposal")
-                self.jobs.edit_draft(job, ConfirmJob(edits=proposal.edits))
+                if message.refresh_proposal:
+                    self.jobs.prepare_refresh(record, proposal.request)
+                    proposal.refresh_count = job.refresh_count
+                else:
+                    self.jobs.edit_draft(job, ConfirmJob(edits=proposal.edits))
             proposal.status = target
             job.updated_at = now()
 

@@ -1,9 +1,15 @@
 # Cloud Run integration deployment
 
 Project `hackathon-510415`, region `asia-south1`, service `bharat-sourcer-integration`.
-This is a team integration environment for the v0.11 backend.
+This is a team integration environment for the v0.12 backend.
 
-Revision `bharat-sourcer-integration-00003-2dm` serves 100% of traffic. Verified live:
+Revision `bharat-sourcer-integration-00004-fbh` serves 100% of traffic. Verified live:
+health, v0.12 refresh-proposal schema, reading an existing persisted job, and decision
+access checks. Local suite: 176 passed, 1 emulator test skipped; lint, formatting
+and OpenAPI consistency passed. Approval execution was tested with controlled
+adapters; this deployment check did not call Gemini or start paid seller searches.
+
+Previous v0.11 revision `bharat-sourcer-integration-00003-2dm` was verified for:
 health, v0.11 schema, pause/resume access and state guards, and reading a pre-v0.11
 Firestore snapshot. No paid sourcing was started for this deployment check.
 Local validation: full suite 170 passed/1 emulator test skipped, then all four
