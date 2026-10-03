@@ -7,6 +7,7 @@ from bharat_sourcer.main import create_app
 def test_integration_key_and_cors_preflight():
     client = TestClient(create_app(Settings(_env_file=None, integration_key="test-team-key")))
     assert client.get("/healthz").status_code == 200
+    assert client.get("/health").json() == client.get("/healthz").json()
     assert client.post("/v1/jobs", json={"url": "https://example.com"}).status_code == 401
     response = client.options(
         "/v1/jobs",

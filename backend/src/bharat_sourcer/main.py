@@ -164,6 +164,7 @@ def create_app(
             status_code=422, content={"error": {"code": "VALIDATION_ERROR", "message": message}}
         )
 
+    @app.get("/health", response_model=Health, tags=["health"])
     @app.get("/healthz", response_model=Health, tags=["health"])
     def health():
         return Health(

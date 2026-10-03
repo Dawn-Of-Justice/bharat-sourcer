@@ -10,13 +10,18 @@ generate TypeScript types from it using its own tooling.
 ## Local workflow
 
 For team cloud integration, see [deployment and access](../../backend/infra/cloud-run.md).
+Base URL: `https://bharat-sourcer-integration-diahnrbuna-el.a.run.app`.
+Cloud liveness endpoint: `/health`. Use `/docs` or `/openapi.json` for the deployed API.
 When configured, send `X-Integration-Key` on **every** `/v1/` request (including streams),
 in addition to `X-Job-Token` for the relevant job. Missing integration access returns 401
 `INTEGRATION_KEY_REQUIRED`. Keep the shared key in local development configuration and
 share it privately; do not bundle it in a public frontend release. `/healthz`, `/docs`
-and `/openapi.json` are public. The API base URL has no `/api` suffix.
+and `/openapi.json` are public. `/health` is the cloud-safe liveness path.
+The API base URL has no `/api` suffix.
 
 [Backend roadmap](backend-roadmap.md) tracks agreed features still to implement.
+[Frontend quickstart](frontend-quickstart.md) includes local configuration, request code,
+credentials guidance and the integration acceptance checklist.
 
 **New: [conversation integration guide](conversation.md).** Add chat beside the BOM,
 reviewable edit proposals and a live snapshot stream. Existing endpoints remain available.

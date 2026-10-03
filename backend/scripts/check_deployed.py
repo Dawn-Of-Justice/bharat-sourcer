@@ -12,7 +12,7 @@ def main():
     access = json.loads(Path(".data/integration-access.json").read_text(encoding="utf-8"))
     base, key = access["base_url"], access["integration_key"]
     with httpx.Client(base_url=base, timeout=90) as client:
-        health = client.get("/healthz")
+        health = client.get("/health")
         health.raise_for_status()
         print("Health:", health.json(), flush=True)
         assert client.get("/openapi.json").json()["info"]["version"] == "0.10.0"

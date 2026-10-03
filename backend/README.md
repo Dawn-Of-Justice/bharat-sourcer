@@ -351,6 +351,9 @@ After changing public routes or schemas, regenerate and commit the shared contra
 
 ## Next backend milestones
 
+See the [agreed feature roadmap](../docs/contracts/backend-roadmap.md) for priorities and
+the [Cloud Run guide](infra/cloud-run.md) for the shared frontend integration environment.
+
 - Validate extraction against real videos and a labelled BOM evaluation set.
 - Add project page/code extraction and evidence fusion.
 - Add durable queue dispatch and broaden seller format support.

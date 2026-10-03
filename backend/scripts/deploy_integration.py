@@ -113,6 +113,7 @@ def main():
         "--memory=512Mi",
         "--min-instances=1",
         "--max-instances=1",
+        "--max=1",
         "--no-cpu-throttling",
         "--concurrency=20",
         "--timeout=300",

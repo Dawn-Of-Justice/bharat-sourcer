@@ -3,6 +3,23 @@
 Project `hackathon-510415`, region `asia-south1`, service `bharat-sourcer-integration`.
 This is a team integration environment for the v0.10 backend, not a public launch.
 
+Base URL: `https://bharat-sourcer-integration-diahnrbuna-el.a.run.app`
+
+API reference: [Swagger UI](https://bharat-sourcer-integration-diahnrbuna-el.a.run.app/docs).
+Use `/health` for cloud liveness. `/healthz` remains a local alias but is intercepted by
+Google's edge; [Cloud Run reserves some paths ending in z](https://docs.cloud.google.com/run/docs/known-issues#reserved_url_paths).
+
+## Verified deployment — 3 Oct 2026
+
+Revision `bharat-sourcer-integration-00002-vld` serves 100% of traffic. The remote smoke
+test passed health, required team key, localhost:5173 and localhost:3000 CORS, live video
+extraction, persisted Gemini chat, and an actual HTTP SSE snapshot. The test job remains
+awaiting confirmation; no seller search was run. Local suite: 167 passed, 1 emulator
+test skipped, followed by the passing targeted health-alias test. Frontend/browser UI
+integration still needs the teammate's app; this test used an HTTP client.
+
+Start with the [frontend quickstart](../../docs/contracts/frontend-quickstart.md).
+
 ## Runtime configuration
 
 - One Uvicorn worker in a Python 3.12 container, 1 CPU, 512 MiB RAM.
