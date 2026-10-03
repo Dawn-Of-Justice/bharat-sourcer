@@ -14,7 +14,41 @@ npm run dev
 
 Open <http://127.0.0.1:5173>. To use a backend at another origin, create an ignored `frontend/.env` with `VITE_API_BASE_URL=https://your-api-origin` (origin only, without `/v1`). The default is `http://127.0.0.1:8000`.
 
+For the shared integration backend, create ignored `frontend/.env.local`:
+
+```dotenv
+VITE_API_BASE_URL=https://bharat-sourcer-integration-diahnrbuna-el.a.run.app
+VITE_INTEGRATION_KEY=<privately-shared-team-key>
+```
+
+Restart Vite after editing this file. The key is sent as `X-Integration-Key` on API calls. Vite exposes `VITE_` values to the browser, so use this only for team integration, not a public release.
+
 Run `npm run build` before delivery. `npm run preview` serves the built frontend locally.
+
+## Private Cloud Run integration deployment
+
+The production build sends same-origin requests to `/api`. The Node server in
+`server.mjs` serves the built app and forwards those requests to the deployed backend,
+adding the team key from Cloud Run Secret Manager. The key is absent from the production
+JavaScript bundle. `/api/healthz` maps to the backend's Cloud Run-safe `/health` route.
+
+`scripts/deploy_cloud_run.ps1` targets project `hackathon-510415`, region `asia-south1`,
+and private service `bharat-sourcer-web`. Sign in with a project-authorized account, then
+run the script from `frontend/`:
+
+```powershell
+gcloud auth login
+.\scripts\deploy_cloud_run.ps1
+```
+
+An IAM administrator must grant the dedicated frontend service account
+`roles/secretmanager.secretAccessor` on the existing `bharat-sourcer-integration-key`
+secret before deployment. The script creates the service account if needed and deploys
+the Dockerfile. It uploads only files
+listed by `.gcloudignore`, excluding `.env.local`, dependencies, caches and built output.
+Keep the Cloud Run service private until user authentication and paid-use quotas exist.
+For local checks without a live backend, run `npm run test:server`; its API replies are
+labelled dummy data.
 
 ## Current behavior
 
