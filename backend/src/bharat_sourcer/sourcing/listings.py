@@ -4,7 +4,7 @@ import json
 import re
 from decimal import Decimal, InvalidOperation
 from html.parser import HTMLParser
-from urllib.parse import urlsplit
+from urllib.parse import parse_qs, urlsplit
 
 from bharat_sourcer.compat import parse_name
 from bharat_sourcer.schemas import PartSpecs, SpecEvidence, VerifiedOffer
@@ -63,10 +63,55 @@ def title_matches(query: str, title: str) -> bool:
     }
 
     def tokens(text):
-        return {word for word in re.findall(r"[a-z0-9]+", text.lower()) if aliases.get(word, word)}
+        plurals = {"resistors": "resistor", "leds": "led", "wires": "wire"}
+        return {
+            plurals.get(word, word)
+            for word in re.findall(r"[a-z0-9]+", text.lower())
+            if aliases.get(word, word)
+        }
 
     expected, actual = tokens(query), tokens(title)
     return bool(expected) and expected.issubset(actual)
+
+
+def variant_url(page: Page, query: str) -> str | None:
+    """Follow one explicitly declared variant on the same product path, then reverify."""
+    if page.status != 200 or "text/html" not in page.headers.get("content-type", ""):
+        return None
+    parser = ProductScripts()
+    parser.feed(page.body.decode("utf-8", errors="replace"))
+    products = []
+    for script in parser.scripts[:30]:
+        try:
+            products.extend(n for n in nodes(json.loads(script)) if is_type(n, "Product"))
+        except (ValueError, RecursionError):
+            continue
+    if len(products) != 1:
+        return None
+    product = products[0]
+    if not isinstance(product.get("name"), str) or not title_matches(query, product["name"]):
+        return None
+    offers = product.get("offers", [])
+    if isinstance(offers, dict):
+        offers = [offers]
+    if not isinstance(offers, list) or len(offers) != 1 or not isinstance(offers[0], dict):
+        return None
+    target = offers[0].get("url")
+    if not isinstance(target, str) or not is_type(offers[0], "Offer"):
+        return None
+    source, dest = urlsplit(page.url), urlsplit(target)
+    if (
+        dest.scheme != "https"
+        or dest.netloc != source.netloc
+        or dest.path.rstrip("/") != source.path.rstrip("/")
+        or source.query
+        or dest.fragment
+    ):
+        return None
+    params = parse_qs(dest.query)
+    if set(params) != {"variant"} or len(params["variant"]) != 1:
+        return None
+    return target
 
 
 def verify_page(page: Page, query: str) -> VerifiedOffer | None:

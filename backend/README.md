@@ -1,5 +1,9 @@
 # Backend
 
+v0.14 adds a project-scope chat gate, three concurrent sourcing lines per batch,
+explicit seller variant verification and useful no-offer diagnostics.
+See [behavior and limits](../docs/contracts/project-chat-and-sourcing.md).
+
 GitHub Actions checks backend changes and deploys successful `main` builds to
 Cloud Run. See [CI/CD setup and first run](infra/github-actions.md).
 

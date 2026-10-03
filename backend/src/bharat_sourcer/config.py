@@ -25,6 +25,7 @@ class Settings(BaseSettings):
     extraction_timeout_s: float = Field(default=120, ge=1, le=300)
     sourcing_enabled: bool = True
     sourcing_max_parts: int = Field(default=10, ge=1, le=30)
+    sourcing_parallelism: int = Field(default=3, ge=1, le=4)
     sourcing_candidates_per_part: int = Field(default=5, ge=1, le=8)
     sourcing_lease_s: int = Field(default=1800, ge=600, le=7200)
     cors_origins: list[str] = ["http://localhost:5173", "http://127.0.0.1:5173"]

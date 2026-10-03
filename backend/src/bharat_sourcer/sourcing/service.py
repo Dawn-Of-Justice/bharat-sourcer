@@ -13,7 +13,7 @@ from bharat_sourcer.schemas import (
     SearchAttribution,
 )
 from bharat_sourcer.sourcing.fetch import FetchError, SafeFetcher
-from bharat_sourcer.sourcing.listings import verify_page
+from bharat_sourcer.sourcing.listings import variant_url, verify_page
 
 
 class DiscoveryError(Exception):
@@ -110,10 +110,18 @@ class SourcingService:
         offers = []
         fetcher = self.fetcher or SafeFetcher()
         seen = set()
+        fetched, rejected, blocked = 0, 0, 0
         for url in attribution.source_urls:
             try:
                 page = fetcher.get(url)
+                fetched += 1
                 offer = verify_page(page, resolution.query)
+                if offer is None:
+                    variant = variant_url(page, resolution.query)
+                    if variant:
+                        offer = verify_page(fetcher.get(variant), resolution.query)
+                if offer is None:
+                    rejected += 1
                 if offer and str(offer.url) not in seen:
                     offer.compatibility = assess(resolution.specs, offer.specs)
                     offer.compatibility.references.append(str(offer.url))
@@ -121,6 +129,7 @@ class SourcingService:
                     seen.add(str(offer.url))
                     offers.append(offer)
             except (FetchError, ValueError, RecursionError):
+                blocked += 1
                 continue
         return ReportLine(
             item=item,
@@ -128,4 +137,15 @@ class SourcingService:
             offers=offers,
             attribution=attribution,
             sourcing_status="offers_found" if offers else "no_verified_offers",
+            sourcing_error=None
+            if offers
+            else ErrorDetail(
+                code="NO_VERIFIED_OFFERS",
+                message=(
+                    f"Search found {len(attribution.source_urls)} candidate pages; "
+                    f"{fetched} fetched, {rejected} had no supported matching offer, "
+                    f"{blocked} could not be verified. Try a more specific part name "
+                    "or refresh later. No price was inferred."
+                ),
+            ),
         )

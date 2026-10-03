@@ -65,6 +65,7 @@ def create_app(
         ),
         sourcing_max_parts=settings.sourcing_max_parts,
         sourcing_lease_seconds=settings.sourcing_lease_s,
+        sourcing_parallelism=settings.sourcing_parallelism,
     )
 
     conversation = ConversationService(
@@ -121,7 +122,7 @@ def create_app(
 
     app = FastAPI(
         title="Bharat Sourcer API",
-        version="0.13.0",
+        version="0.14.0",
         description="Demo or live YouTube extraction with optional Firestore job persistence.",
         lifespan=lifespan,
         responses={422: {"model": ErrorResponse}, 503: {"model": ErrorResponse}},
