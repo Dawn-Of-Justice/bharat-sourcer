@@ -14,6 +14,7 @@ node_modules/
 dist/
 .vite/
 coverage/
+frontend/HANDOFF.md
 
 # Local credentials and editor state
 .env
