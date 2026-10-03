@@ -1,5 +1,9 @@
 # Connect the local frontend
 
+v0.16.1 can try one extra source search when the first provides no usable evidence.
+Keep showing sourcing progress until the line completes; extra latency is expected.
+Research source diagnostics can contain up to 32 entries across both rounds.
+
 v0.16 adds [research results for arbitrary parts](part-research.md). Display
 `line.research.candidates` independently of `line.offers`; show cited facts, AI
 assessments, conditions, and follow-up questions. A missing verified quote does not

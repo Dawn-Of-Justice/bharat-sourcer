@@ -63,6 +63,7 @@ def create_app(
             SourcingService(
                 GeminiDiscovery(settings),
                 researcher=GeminiResearch(settings) if settings.research_enabled else None,
+                followup_enabled=settings.research_followup_enabled,
             )
             if settings.sourcing_enabled and not settings.demo_mode
             else None
@@ -126,7 +127,7 @@ def create_app(
 
     app = FastAPI(
         title="Bharat Sourcer API",
-        version="0.16.0",
+        version="0.16.1",
         description="Demo or live YouTube extraction with optional Firestore job persistence.",
         lifespan=lifespan,
         responses={422: {"model": ErrorResponse}, 503: {"model": ErrorResponse}},

@@ -1,5 +1,6 @@
 import json
 from typing import Protocol
+from urllib.parse import urlsplit, urlunsplit
 
 import httpx
 
@@ -102,20 +103,101 @@ class SourcingService:
         discovery: Discoverer,
         fetcher: SafeFetcher | None = None,
         researcher: Researcher | None = None,
+        followup_enabled: bool = False,
     ):
         self.discovery = discovery
         self.fetcher = fetcher
         self.researcher = researcher
+        self.followup_enabled = followup_enabled
 
     def source(self, item: BomItem) -> ReportLine:
         return self.source_for_project(item, [item])
 
     def source_for_project(self, item: BomItem, project_items: list[BomItem]) -> ReportLine:
+        attempted = set()
+        fetcher = self.fetcher or SafeFetcher()
+        first = self._source_attempt(item, project_items, fetcher, attempted)
+        if not (
+            self.followup_enabled
+            and first.research
+            and first.research.status == "no_evidence"
+            and not first.offers
+        ):
+            return first
+        # One additional discovery, never a recursive retry. Existing per-call budgets apply.
+        domains = sorted(
+            {
+                urlsplit(str(s.url)).hostname
+                for s in first.research.sources
+                if urlsplit(str(s.url)).hostname != "vertexaisearch.cloud.google.com"
+            }
+        )
+        followup = (
+            "Find alternative accessible product specifications and manufacturer documentation "
+            "for this part. Earlier sources provided no usable evidence. Prefer different "
+            "suppliers, public HTML specification tables or text datasheets. Do not bypass "
+            "access restrictions. Keep the original part identity and requirements. "
+            "Previously attempted domains: " + json.dumps(domains[:8]) + ". Part: "
+        )
+        second = self._source_attempt(item, project_items, fetcher, attempted, followup)
+        if second.offers or (
+            second.research and second.research.status in {"ready", "no_evidence"}
+        ):
+            result = second
+        else:
+            result = first
+        if first.attribution and second.attribution:
+            result.attribution = SearchAttribution(
+                source_urls=list(
+                    dict.fromkeys(first.attribution.source_urls + second.attribution.source_urls)
+                ),
+                search_queries=list(
+                    dict.fromkeys(
+                        first.attribution.search_queries + second.attribution.search_queries
+                    )
+                ),
+                search_suggestions_html="\n".join(
+                    filter(
+                        None,
+                        [
+                            first.attribution.search_suggestions_html,
+                            second.attribution.search_suggestions_html,
+                        ],
+                    )
+                )
+                or None,
+            )
+        if result.research:
+            sources = {str(s.url): s for s in first.research.sources}
+            if second.research:
+                sources.update({str(s.url): s for s in second.research.sources})
+            result.research.sources = list(sources.values())[:32]
+            result.research.summary += (
+                " One follow-up search was attempted."
+                if second.sourcing_status != "failed"
+                else " Follow-up search failed; initial results were preserved."
+            )
+        if not result.offers:
+            result.sourcing_error = ErrorDetail(
+                code="NO_VERIFIED_OFFERS",
+                message="Initial and follow-up searches produced no verified price offer. "
+                "Review research candidates and source diagnostics for available evidence.",
+            )
+        return result
+
+    def _source_attempt(
+        self,
+        item: BomItem,
+        project_items: list[BomItem],
+        fetcher,
+        attempted: set[str],
+        query_prefix: str = "",
+    ) -> ReportLine:
         resolution = resolve_part(item)
         if item.user_has_it:
             return ReportLine(item=item, sourcing_status="already_owned", resolution=resolution)
         try:
-            query = resolution.query
+            query = query_prefix + resolution.query
             if item.requirements:
                 query += " Requirements: " + json.dumps(
                     [r.model_dump() for r in item.requirements], ensure_ascii=False
@@ -129,7 +211,6 @@ class SourcingService:
                 sourcing_error=ErrorDetail(code="DISCOVERY_FAILED", message="Seller search failed"),
             )
         offers = []
-        fetcher = self.fetcher or SafeFetcher()
         seen = set()
         pages, sources = [], []
         fetched, rejected, blocked = 0, 0, 0
@@ -139,8 +220,17 @@ class SourcingService:
             except (FetchError, ValueError):
                 blocked += 1
                 continue
+            parsed = urlsplit(url)
+            key = urlunsplit(parsed._replace(fragment=""))
+            if key in attempted:
+                continue
+            attempted.add(key)
             try:
                 page = fetcher.get(url)
+                final_key = urlunsplit(urlsplit(page.url)._replace(fragment=""))
+                if final_key != key and final_key in attempted:
+                    continue
+                attempted.add(final_key)
                 fetched += 1
                 if page.url not in {p.url for p in pages}:
                     pages.append(page)

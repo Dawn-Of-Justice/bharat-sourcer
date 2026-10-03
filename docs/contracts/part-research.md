@@ -1,4 +1,4 @@
-# General part research — v0.16
+# General part research — v0.16.1
 
 The research path accepts arbitrary components, materials and part categories. It
 uses grounded search to find supplier pages and manufacturer documentation, reads
@@ -119,9 +119,25 @@ choose one of four categories.
 Sourcing still runs parts in parallel and checkpoints each complete line. Research
 adds one Gemini request per part with readable documents, with existing bounded
 transient retries; it increases model usage and per-line completion latency. It
-does not stream partial research tokens. It adds no extra web-search request.
+does not stream partial research tokens.
+
+v0.16.1 attempts one follow-up discovery if the first round has neither a verified
+offer nor usable research evidence. It asks for alternative accessible sources while
+preserving the original identity and requirements. It skips previously attempted URLs
+and merges source diagnostics and search attribution. Redirect aliases can still incur
+a fetch before their duplicate destination is recognized. Provider failures do not
+trigger an extra search; failed follow-ups preserve the original results. A successful
+verified quote survives even if its research call fails. The follow-up does not consume
+one of the user's two refresh batches.
+
+This allows at most two discovery requests and two research requests per sourced part
+(each still subject to bounded transient retries). Each round retains the existing
+candidate and readable-document budgets. Sources are capped at 32 across both rounds.
+Unreadable documents no longer consume the readable-document review budget. Search
+coverage may still vary between runs; sources can remain blocked or lack useful text.
 
 - `BS_RESEARCH_ENABLED=true` enables research in live mode.
+- `BS_RESEARCH_FOLLOWUP_ENABLED=true` enables the single automatic follow-up.
 - `BS_RESEARCH_PAGES_PER_PART=3` limits reviewed documents (1–5).
 - `BS_RESEARCH_PAGE_CHARS=12000` caps text per document (2,000–20,000).
 - Existing discovery and per-job sourcing budgets still apply.

@@ -264,7 +264,9 @@ class GeminiResearch:
     def research(self, item, pages, sources, project_items):
         documents = []
         source_records = [s.model_copy(deep=True) for s in sources]
-        for page in pages[: self.settings.research_pages_per_part]:
+        for page in pages:
+            if len(documents) >= self.settings.research_pages_per_part:
+                break
             text = page_text(page, self.settings.research_page_chars)
             if not text:
                 for source in source_records:

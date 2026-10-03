@@ -89,6 +89,7 @@ def main():
         "BS_GEMINI_MODEL": settings.gemini_model,
         "BS_SOURCING_ENABLED": "true",
         "BS_RESEARCH_ENABLED": str(settings.research_enabled).lower(),
+        "BS_RESEARCH_FOLLOWUP_ENABLED": str(settings.research_followup_enabled).lower(),
         "BS_RESEARCH_PAGES_PER_PART": str(settings.research_pages_per_part),
         "BS_RESEARCH_PAGE_CHARS": str(settings.research_page_chars),
         "BS_CORS_ORIGINS": json.dumps(

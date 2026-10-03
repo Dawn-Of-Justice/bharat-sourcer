@@ -1,5 +1,9 @@
 # Backend
 
+v0.16.1 adds one bounded alternative-source search when no verified offer or research
+evidence is available. Unreadable pages no longer consume the document-review budget.
+See the [research limits and cost controls](../docs/contracts/part-research.md).
+
 v0.16 adds [general part research](../docs/contracts/part-research.md): arbitrary
 categories, source-linked facts, AI suitability assessments, flexible user requirements,
 and deterministic comparisons. Research candidates survive missing structured offers.

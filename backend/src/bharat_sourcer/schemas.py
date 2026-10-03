@@ -152,7 +152,7 @@ class PartResearch(Model):
     status: Literal["ready", "no_evidence", "failed", "stale"]
     summary: str
     candidates: list[ResearchCandidate] = Field(default_factory=list, max_length=8)
-    sources: list[ResearchSource] = Field(default_factory=list, max_length=16)
+    sources: list[ResearchSource] = Field(default_factory=list, max_length=32)
     questions: list[Annotated[str, Field(min_length=1, max_length=400)]] = Field(
         default_factory=list, max_length=10
     )

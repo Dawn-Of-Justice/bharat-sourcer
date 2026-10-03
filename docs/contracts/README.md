@@ -1,4 +1,4 @@
-# Implemented API contract — v0.16
+# Implemented API contract — v0.16.1
 
 This directory is the handoff between backend and frontend. The architecture docs describe
 the target system; this contract describes the runnable local milestone.

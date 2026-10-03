@@ -11,10 +11,13 @@ from bharat_sourcer.sourcing.service import GeminiDiscovery, SourcingService
 parser = argparse.ArgumentParser()
 parser.add_argument("--part", required=True)
 parser.add_argument("--research", action="store_true", help="Also run paid evidence research")
+parser.add_argument("--followup", action="store_true", help="Allow one extra search if no evidence")
 args = parser.parse_args()
 settings = Settings()
 result = SourcingService(
-    GeminiDiscovery(settings), researcher=GeminiResearch(settings) if args.research else None
+    GeminiDiscovery(settings),
+    researcher=GeminiResearch(settings) if args.research else None,
+    followup_enabled=args.followup,
 ).source(BomItem(line_id="L01", raw_name=args.part))
 target = Path(".data/sourcing-check.json")
 target.parent.mkdir(exist_ok=True)
