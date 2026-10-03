@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type FormEvent } from 'react'
 import { ApiError, confirmJob, createJob, getBackendMode, getJob, type BomItem, type Job } from './api'
 import ChatPanel from './ChatPanel'
 
@@ -112,6 +112,13 @@ const sourceOptions: { id: SourceType; label: string; symbol: string }[] = [
   { id: 'audio', label: 'Audio', symbol: '♫' },
 ]
 
+const calloutArrowPaths: Record<SourceType, string> = {
+  youtube: 'M8 7 C8 23 23 24 42 40',
+  article: 'M7 7 C20 14 10 30 42 40',
+  github: 'M8 7 C17 3 26 23 42 40',
+  audio: 'M8 6 C4 19 26 26 42 40',
+}
+
 const sourceFields: Record<LinkSource, { label: string; placeholder: string }> = {
   youtube: { label: 'Paste a YouTube project link', placeholder: 'https://www.youtube.com/watch?v=...' },
   article: { label: 'Paste a tutorial or blog link', placeholder: 'https://www.instructables.com/your-project/' },
@@ -120,10 +127,60 @@ const sourceFields: Record<LinkSource, { label: string; placeholder: string }> =
 
 function Landing({ onCreated }: { onCreated: (id: string) => void }) {
   const [source, setSource] = useState<SourceType>('youtube')
+  const [arrowSource, setArrowSource] = useState<SourceType>('youtube')
+  const [arrowVisible, setArrowVisible] = useState(true)
+  const arrowTimer = useRef<number | null>(null)
+  const calloutRef = useRef<HTMLDivElement>(null)
+  const tabRefs = useRef<Partial<Record<SourceType, HTMLButtonElement>>>({})
+  const [arrowPosition, setArrowPosition] = useState<{ left: number; top: number } | null>(null)
   const [sourceUrls, setSourceUrls] = useState<Record<LinkSource, string>>({ youtube: '', article: '', github: '' })
   const [pin, setPin] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
+
+  useLayoutEffect(() => {
+    const callout = calloutRef.current
+    const tab = tabRefs.current[arrowSource]
+    if (!callout || !tab) return
+    const positionArrow = () => {
+      const calloutBox = callout.getBoundingClientRect()
+      const tabBox = tab.getBoundingClientRect()
+      setArrowPosition({
+        left: tabBox.left + tabBox.width / 2 - calloutBox.left - 42,
+        top: tabBox.top - calloutBox.top - 44,
+      })
+    }
+    positionArrow()
+    const observer = new ResizeObserver(positionArrow)
+    observer.observe(callout)
+    observer.observe(tab)
+    window.addEventListener('resize', positionArrow)
+    return () => {
+      observer.disconnect()
+      window.removeEventListener('resize', positionArrow)
+    }
+  }, [arrowSource])
+
+  useEffect(() => () => {
+    if (arrowTimer.current !== null) window.clearTimeout(arrowTimer.current)
+  }, [])
+
+  function chooseSource(next: SourceType) {
+    setSource(next)
+    setError('')
+    if (arrowTimer.current !== null) window.clearTimeout(arrowTimer.current)
+    if (next === arrowSource) {
+      setArrowVisible(true)
+      arrowTimer.current = null
+      return
+    }
+    setArrowVisible(false)
+    arrowTimer.current = window.setTimeout(() => {
+      setArrowSource(next)
+      setArrowVisible(true)
+      arrowTimer.current = null
+    }, 180)
+  }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -171,9 +228,9 @@ function Landing({ onCreated }: { onCreated: (id: string) => void }) {
             <h1 className="hero-headline">Found your next project? <span>Source it. Plan it. Build it.</span></h1>
             <p className="hero-description">Saved a project you want to make? Get a practical parts list, Indian seller options, and clear notes on what to change.</p>
             <p className="source-support">This works for projects found in videos, blogs, or elsewhere.</p>
-            <div className="input-callout" aria-hidden="true"><span>Your build starts here</span><svg viewBox="0 0 90 90" fill="none"><path className="draw-arrow" d="M4 5c3 31 28 31 50 60M37 59l17 6-2-19" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" /></svg></div>
+            <div className="input-callout" aria-hidden="true" ref={calloutRef}><span>Your build starts here</span><svg className={arrowPosition && arrowVisible ? 'tab-arrow is-ready' : 'tab-arrow'} style={arrowPosition ?? undefined} viewBox="0 0 64 48" fill="none"><defs><marker id="landing-arrowhead" viewBox="0 0 16 16" refX="12" refY="8" markerWidth="16" markerHeight="16" markerUnits="userSpaceOnUse" orient="auto"><path d="M3 3 L12 8 L3 13" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" /></marker></defs><path className="draw-arrow" d={calloutArrowPaths[arrowSource]} markerEnd="url(#landing-arrowhead)" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" fill="none" /></svg></div>
             <form className="source-form" onSubmit={submit}>
-              <div className="source-options" role="group" aria-label="Choose a project source">{sourceOptions.map((option) => <button key={option.id} type="button" className={`source-option ${source === option.id ? 'selected' : ''}`} aria-pressed={source === option.id} onClick={() => { setSource(option.id); setError('') }}><span aria-hidden="true">{option.symbol}</span>{option.label}</button>)}</div>
+              <div className="source-options" role="group" aria-label="Choose a project source">{sourceOptions.map((option) => <button key={option.id} ref={(element) => { tabRefs.current[option.id] = element ?? undefined }} type="button" className={`source-option ${source === option.id ? 'selected' : ''}`} aria-pressed={source === option.id} onClick={() => chooseSource(option.id)}><span aria-hidden="true">{option.symbol}</span>{option.label}</button>)}</div>
               {source === 'audio' ? <div className="audio-field"><label htmlFor="audio-file">Choose a build description or maker audio file</label><input id="audio-file" type="file" accept="audio/*" /><p>Audio transcription and uploads are planned; this file stays on your device for now.</p></div> : <><label htmlFor="source-url">{sourceFields[source].label}</label><div className="url-row"><span className={`url-icon url-icon-${source}`} aria-hidden="true">{source === 'youtube' ? <svg viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="4" fill="currentColor" /><path d="m10 9 6 3-6 3V9Z" fill="#fff" /></svg> : source === 'article' ? '▤' : '</>'}</span><input id="source-url" name="url" type="url" inputMode="url" autoComplete="url" placeholder={sourceFields[source].placeholder} value={sourceUrls[source]} onChange={(event) => setSourceUrls((current) => ({ ...current, [source]: event.target.value }))} required /></div>{source !== 'youtube' ? <p className="source-note">Live {source === 'article' ? 'article and blog' : 'GitHub repository'} extraction is on the roadmap. In backend demo mode, this link shows a labelled sample BOM.</p> : null}</>}
               <div className={`form-bottom ${source === 'audio' ? 'audio-bottom' : ''}`}>
                 {source !== 'audio' ? <div className="pin-wrap"><label htmlFor="pin-code">Your PIN code <span>(optional)</span></label><input id="pin-code" name="pin" type="text" inputMode="numeric" maxLength={6} placeholder="e.g. 560001" value={pin} onChange={(event) => setPin(event.target.value.replace(/\D/g, ''))} /></div> : null}
