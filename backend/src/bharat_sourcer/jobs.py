@@ -159,15 +159,18 @@ class JobService:
 
         self.store.mutate(job_id, complete)
 
-    def recover(self) -> None:
-        for job_id in self.store.pending():
+    def recover(self, job_id: str | None = None, *, execute: bool = True) -> None:
+        keys = [job_id] if job_id else self.store.pending()
+        for job_id in keys:
             record = self.store.get(job_id)
             if record is None:
                 continue
             if record.job.status == "queued":
-                self.extract(job_id)
+                if execute:
+                    self.extract(job_id)
             elif record.job.status == "resolving":
-                self.finish(job_id)
+                if execute:
+                    self.finish(job_id)
             elif record.job.status in {"extracting", "sourcing"}:
 
                 def expire(current: StoredJob):
@@ -493,10 +496,10 @@ class JobService:
                 "Applied reviewed chat proposal; review BOM before confirming.",
             )
 
-    def finish(self, job_id: str) -> None:
+    def finish(self, job_id: str, *, one_line: bool = False) -> None:
         record = self.store.get(job_id)
         if record and record.job.sourcing_enabled and not record.job.demo:
-            self._source(job_id)
+            self._source(job_id, one_line=one_line)
             return
 
         def change(record: StoredJob):
@@ -523,7 +526,7 @@ class JobService:
 
         self.store.mutate(job_id, change)
 
-    def _source(self, job_id: str) -> None:
+    def _source(self, job_id: str, *, one_line: bool = False) -> None:
         if self.sourcing is None:
             return
         run_id = str(uuid4())
@@ -609,8 +612,15 @@ class JobService:
                 )
                 if record.job.pause_requested:
                     self._pause_at_checkpoint(record)
+                elif one_line:
+                    record.run_id = record.lease_until = None
+                    self._transition(
+                        record.job, "resolving", "Checkpoint saved; remaining work queued."
+                    )
 
             self.store.mutate(job_id, checkpoint)
+            if one_line:
+                return
 
         def complete(record: StoredJob):
             if record.run_id != run_id or record.job.status != "sourcing":

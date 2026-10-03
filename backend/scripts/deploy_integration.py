@@ -98,8 +98,19 @@ def main():
         ),
     }
     env_path = data_dir / "cloud-run-env.json"
+    # Preserve an existing queue migration when redeploying or rotating secrets.
+    if env_path.exists():
+        saved = json.loads(env_path.read_text())
+        env.update(
+            {
+                key: value
+                for key, value in saved.items()
+                if key == "BS_DISPATCH_BACKEND" or key.startswith("BS_TASKS_")
+            }
+        )
+    queued = env.get("BS_DISPATCH_BACKEND") == "cloud_tasks"
     env_path.write_text(json.dumps(env), encoding="utf-8")
-    print("Building and deploying Cloud Run (one always-running instance)...", flush=True)
+    print("Building and deploying Cloud Run...", flush=True)
     result = command(
         "run",
         "deploy",
@@ -111,12 +122,13 @@ def main():
         "--port=8080",
         "--cpu=1",
         "--memory=512Mi",
-        "--min-instances=1",
+        "--min-instances=0" if queued else "--min-instances=1",
+        "--min=0",
         "--max-instances=1",
         "--max=1",
-        "--no-cpu-throttling",
+        "--cpu-throttling" if queued else "--no-cpu-throttling",
         "--concurrency=20",
-        "--timeout=300",
+        "--timeout=1800" if queued else "--timeout=300",
         f"--env-vars-file={env_path}",
         f"--set-secrets=BS_GEMINI_API_KEY=bharat-sourcer-gemini:{gemini_version},"
         f"BS_INTEGRATION_KEY=bharat-sourcer-integration-key:{access_version}",

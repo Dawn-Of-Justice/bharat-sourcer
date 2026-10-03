@@ -1,9 +1,23 @@
 # Cloud Run integration deployment
 
 Project `hackathon-510415`, region `asia-south1`, service `bharat-sourcer-integration`.
-This is a team integration environment for the v0.12 backend.
+This is a team integration environment for the v0.13 backend.
 
-Revision `bharat-sourcer-integration-00004-fbh` serves 100% of traffic. Verified live:
+## Current deployment: durable dispatch
+
+Revision `bharat-sourcer-integration-00005-6x4` serves the queued backend with
+request-based billing, zero minimum instances, maximum one instance and a
+1,800-second worker timeout. Cloud Tasks queue `bharat-sourcer` dispatches work;
+Scheduler job `bharat-sourcer-reconcile` checks pending work every five minutes.
+See [execution, recovery and frontend behavior](../../docs/contracts/queued-dispatch.md).
+
+Verified after migration: live queued video extraction and queued Gemini chat,
+Firestore persistence, HTTP SSE, CORS and integration access. The test job remains
+awaiting confirmation; no paid seller search was started. Local suite: 181 passed,
+1 emulator test skipped. Cloud Run CPU throttling is enabled and the old minimum
+instance setting is removed. Earlier deployment records below are historical.
+
+Previous revision `bharat-sourcer-integration-00004-fbh` was verified for:
 health, v0.12 refresh-proposal schema, reading an existing persisted job, and decision
 access checks. Local suite: 176 passed, 1 emulator test skipped; lint, formatting
 and OpenAPI consistency passed. Approval execution was tested with controlled
@@ -37,9 +51,9 @@ Start with the [frontend quickstart](../../docs/contracts/frontend-quickstart.md
 ## Runtime configuration
 
 - One Uvicorn worker in a Python 3.12 container, 1 CPU, 512 MiB RAM.
-- Minimum and maximum instances: 1. CPU stays allocated outside requests so the current
-  background tasks and recovery sweeps can run. This incurs idle-instance charges.
-- Request timeout: 300 seconds; SSE streams end after about 60 seconds and reconnect.
+- Minimum instances: 0; maximum: 1. CPU is allocated during requests, including
+  Cloud Tasks worker requests. Scheduled reconciliation replaces background sweeps.
+- Request timeout: 1,800 seconds; SSE streams end after about 60 seconds and reconnect.
 - Firestore `(default)` database, separate collection `backend_integration_jobs`.
 - Runtime identity `bharat-sourcer-api@hackathon-510415.iam.gserviceaccount.com`, with
   `roles/datastore.user`. This role is project-wide data access, not collection-scoped.
@@ -91,8 +105,9 @@ retention or distributed abuse quota yet. Min/max settings bound instance count 
 not cap Gemini or Firestore charges. Shut down/delete the integration service when no
 longer needed; do not leave it running unintentionally.
 
-Cloud Run may terminate instances; leases and stored checkpoints handle bounded recovery,
-but this is not durable task dispatch. See the [remaining feature roadmap](../../docs/contracts/backend-roadmap.md).
+Cloud Run may terminate instances; Cloud Tasks retries and scheduled reconciliation
+use leases and stored checkpoints for bounded workflow recovery. See the
+[remaining feature roadmap](../../docs/contracts/backend-roadmap.md).
 
 References: [Python on Cloud Run](https://docs.cloud.google.com/run/docs/tips/python)
 and [background work and minimum instances](https://docs.cloud.google.com/run/docs/about-instance-autoscaling).

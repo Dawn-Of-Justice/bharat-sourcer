@@ -3,7 +3,7 @@
   "info": {
     "title": "Bharat Sourcer API",
     "description": "Demo or live YouTube extraction with optional Firestore job persistence.",
-    "version": "0.12.0"
+    "version": "0.13.0"
   },
   "paths": {
     "/healthz": {

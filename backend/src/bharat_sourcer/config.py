@@ -9,6 +9,11 @@ class Settings(BaseSettings):
 
     demo_mode: bool = True
     integration_key: SecretStr | None = None
+    dispatch_backend: Literal["local", "cloud_tasks"] = "local"
+    tasks_location: str = "asia-south1"
+    tasks_queue: str = "bharat-sourcer"
+    tasks_url: str | None = None
+    tasks_service_account: str | None = None
     storage_backend: Literal["memory", "firestore"] = "memory"
     gcp_project: str | None = None
     firestore_database: str = "(default)"
@@ -26,6 +31,15 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def require_project(self):
+        if self.dispatch_backend == "cloud_tasks" and (
+            self.storage_backend != "firestore"
+            or not self.tasks_url
+            or not self.tasks_service_account
+            or not self.gcp_project
+        ):
+            raise ValueError(
+                "Cloud Tasks requires Firestore, project, target URL and service account"
+            )
         if self.storage_backend == "firestore" and not self.gcp_project:
             raise ValueError("BS_GCP_PROJECT is required for Firestore storage")
         return self

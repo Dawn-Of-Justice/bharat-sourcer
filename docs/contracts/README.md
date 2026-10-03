@@ -1,7 +1,10 @@
-# Implemented API contract — v0.12
+# Implemented API contract — v0.13
 
 This directory is the handoff between backend and frontend. The architecture docs describe
 the target system; this contract describes the runnable local milestone.
+
+v0.13 uses [durable queued dispatch](queued-dispatch.md) in cloud mode. API shapes
+are unchanged; expect cold starts and `resolving` between sourcing checkpoints.
 
 v0.12 adds [reviewed chat refresh actions](chat-actions.md). Render
 `ChatMessage.refresh_proposal` with approval controls before starting seller search.

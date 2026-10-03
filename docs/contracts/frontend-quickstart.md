@@ -1,5 +1,8 @@
 # Connect the local frontend
 
+v0.13 can scale to zero. Allow for cold starts and keep watching through intermediate
+`resolving` states; see [queued dispatch](queued-dispatch.md).
+
 v0.12 adds [chat refresh approval controls](chat-actions.md); approval uses the
 existing message decision endpoint and sourcing progress uses existing SSE snapshots.
 

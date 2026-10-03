@@ -1,5 +1,8 @@
 # Backend
 
+v0.13 supports [Cloud Tasks dispatch and scale to zero](../docs/contracts/queued-dispatch.md).
+Local development retains background tasks; cloud execution uses authenticated HTTP workers.
+
 v0.12 adds [user-approved chat refresh proposals](../docs/contracts/chat-actions.md).
 Approval atomically queues a scoped refresh with existing limits and stale-report checks.
 

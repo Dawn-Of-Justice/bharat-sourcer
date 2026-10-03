@@ -12,6 +12,7 @@ from google.api_core.exceptions import GoogleAPICallError
 
 from bharat_sourcer.config import Settings
 from bharat_sourcer.conversation import Assistant, ConversationService, GeminiAssistant
+from bharat_sourcer.dispatch import CloudDispatcher, Work, work_once
 from bharat_sourcer.extraction import Extractor, GeminiExtractor
 from bharat_sourcer.jobs import JobError, JobService
 from bharat_sourcer.schemas import (
@@ -70,8 +71,19 @@ def create_app(
         service, assistant or (GeminiAssistant(settings) if not settings.demo_mode else None)
     )
 
+    dispatcher = CloudDispatcher(settings) if settings.dispatch_backend == "cloud_tasks" else None
+
+    def dispatch(tasks, function, key, kind="workflow"):
+        if dispatcher:
+            dispatcher.notify(key, kind)
+        else:
+            tasks.add_task(function, key)
+
     @asynccontextmanager
     async def lifespan(app: FastAPI):
+        if dispatcher:
+            yield
+            return
         stop = asyncio.Event()
 
         async def recovery():
@@ -109,7 +121,7 @@ def create_app(
 
     app = FastAPI(
         title="Bharat Sourcer API",
-        version="0.12.0",
+        version="0.13.0",
         description="Demo or live YouTube extraction with optional Firestore job persistence.",
         lifespan=lifespan,
         responses={422: {"model": ErrorResponse}, 503: {"model": ErrorResponse}},
@@ -180,7 +192,7 @@ def create_app(
     )
     def create_job(body: CreateJob, tasks: BackgroundTasks):
         job, token = service.create(body)
-        tasks.add_task(service.extract, job.job_id)
+        dispatch(tasks, service.extract, job.job_id)
         return CreatedJob(
             job_id=job.job_id, job_token=token, watch=f"/v1/jobs/{job.job_id}", demo=job.demo
         )
@@ -205,7 +217,7 @@ def create_app(
         job_id: str, body: ConfirmJob, tasks: BackgroundTasks, x_job_token: JobToken = None
     ):
         service.confirm(job_id, x_job_token, body)
-        tasks.add_task(service.finish, job_id)
+        dispatch(tasks, service.finish, job_id)
         return ConfirmationAccepted()
 
     @app.post(
@@ -226,7 +238,7 @@ def create_app(
     )
     def resume_job(job_id: str, tasks: BackgroundTasks, x_job_token: JobToken = None):
         job = service.resume(job_id, x_job_token)
-        tasks.add_task(service.finish, job_id)
+        dispatch(tasks, service.finish, job_id)
         return job
 
     @app.post(
@@ -249,7 +261,7 @@ def create_app(
         job_id: str, body: RefreshOffers, tasks: BackgroundTasks, x_job_token: JobToken = None
     ):
         service.refresh_offers(job_id, x_job_token, body)
-        tasks.add_task(service.finish, job_id)
+        dispatch(tasks, service.finish, job_id)
         return ConfirmationAccepted()
 
     @app.post(
@@ -272,7 +284,7 @@ def create_app(
         job_id: str, body: SendMessage, tasks: BackgroundTasks, x_job_token: JobToken = None
     ):
         job = conversation.send(job_id, x_job_token, body)
-        tasks.add_task(conversation.process, job_id)
+        dispatch(tasks, conversation.process, job_id, "chat")
         return job
 
     @app.post(
@@ -290,7 +302,7 @@ def create_app(
     ):
         job = conversation.decide(job_id, x_job_token, message_id, body)
         if body.action == "accept" and job.status == "resolving":
-            tasks.add_task(service.finish, job_id)
+            dispatch(tasks, service.finish, job_id)
         return job
 
     @app.get(
@@ -318,6 +330,29 @@ def create_app(
     )
     def resistor_advice(job_id: str, body: ResistorInputs, x_job_token: JobToken = None):
         return conversation.resistor_advice(job_id, x_job_token, body)
+
+    def authorize_worker(request):
+        if not dispatcher or not dispatcher.authorize(request.headers.get("Authorization")):
+            raise JobError(401, "WORKER_AUTH_REQUIRED", "Worker identity required")
+
+    @app.post("/internal/work", include_in_schema=False)
+    def internal_work(body: Work, request: Request):
+        authorize_worker(request)
+        complete = work_once(service, conversation, body)
+        return JSONResponse(status_code=200 if complete else 503, content={"complete": complete})
+
+    @app.post("/internal/sweep", include_in_schema=False)
+    def internal_sweep(request: Request):
+        authorize_worker(request)
+        for key in service.store.pending():
+            record = service.store.get(key)
+            if record is None:
+                continue
+            if record.job.status in {"queued", "extracting", "resolving", "sourcing"}:
+                dispatcher.enqueue(key, "workflow", sweep=True)
+            if record.job.chat_state in {"queued", "thinking"}:
+                dispatcher.enqueue(key, "chat", sweep=True)
+        return {"status": "ok"}
 
     return app
 

@@ -297,13 +297,15 @@ class ConversationService:
             raise JobError(404, "JOB_NOT_FOUND", "Job not found or token invalid")
         return record.job.model_copy(deep=True)
 
-    def recover(self) -> None:
-        for job_id in self.store.pending():
+    def recover(self, job_id: str | None = None, *, execute: bool = True) -> None:
+        keys = [job_id] if job_id else self.store.pending()
+        for job_id in keys:
             record = self.store.get(job_id)
             if record is None:
                 continue
             if record.job.chat_state == "queued":
-                self.process(job_id)
+                if execute:
+                    self.process(job_id)
             elif record.job.chat_state == "thinking":
 
                 def expire(current):
