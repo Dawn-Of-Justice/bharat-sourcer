@@ -1,4 +1,5 @@
-const API_BASE = (import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000').replace(/\/$/, '')
+const API_BASE = (import.meta.env.PROD ? '/api' : (import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000')).replace(/\/$/, '')
+const INTEGRATION_KEY = import.meta.env.DEV ? import.meta.env.VITE_INTEGRATION_KEY : undefined
 
 export type JobStatus = 'queued' | 'extracting' | 'awaiting_confirmation' | 'resolving' | 'sourcing' | 'done' | 'failed'
 
@@ -89,12 +90,13 @@ async function request<T>(path: string, options: RequestInit = {}, token?: strin
       ...options,
       headers: {
         'Content-Type': 'application/json',
+        ...(INTEGRATION_KEY ? { 'X-Integration-Key': INTEGRATION_KEY } : {}),
         ...(token ? { 'X-Job-Token': token } : {}),
         ...options.headers,
       },
     })
   } catch {
-    throw new Error('Could not reach the backend. Check that it is running on port 8000.')
+    throw new Error('Could not reach the backend. Check the API URL and connection.')
   }
 
   if (!response.ok) {
