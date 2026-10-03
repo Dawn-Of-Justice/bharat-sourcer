@@ -191,10 +191,44 @@ class ProposalDecision(Model):
     action: Literal["accept", "reject"]
 
 
+class ResistorQuestion(Model):
+    line_id: str
+    purpose: Literal["unknown", "led_series", "piezo_input", "pull_up", "other"] = "unknown"
+    question: str = Field(min_length=1, max_length=1000)
+
+
+class ResistorInputs(Model):
+    line_id: str
+    purpose: Literal["led_series"]
+    supply_max_v: float = Field(gt=0, le=24, allow_inf_nan=False)
+    led_forward_min_v: float = Field(gt=0, le=24, allow_inf_nan=False)
+    target_max_ma: float = Field(gt=0, le=20, allow_inf_nan=False)
+    driver_limit_ma: float = Field(gt=0, le=100, allow_inf_nan=False)
+    confirmed: Literal[True]
+
+
+class ResistorAdvice(Model):
+    advice_id: str
+    inputs: ResistorInputs
+    created_at: datetime = Field(default_factory=now)
+    status: Literal["suggestion", "unavailable"]
+    rule_version: str
+    recovery: Literal["none", "validated_fallback", "blocked"] = "none"
+    resistance_ohm: str | None = None
+    worst_case_current_ma: str | None = None
+    worst_case_power_w: str | None = None
+    minimum_rated_power_w: str | None = None
+    tolerance_percent: Literal[5] = 5
+    explanation: str
+    limitations: list[str] = Field(default_factory=list)
+    references: list[str] = Field(default_factory=list)
+
+
 class ChatReply(Model):
     text: str = Field(min_length=1, max_length=4000)
     cited_line_ids: list[str] = Field(default_factory=list, max_length=100)
     edits: list[Edit] = Field(default_factory=list, max_length=20)
+    resistor_question: ResistorQuestion | None = None
 
 
 class ChatProposal(Model):
@@ -210,6 +244,7 @@ class ChatMessage(Model):
     created_at: datetime = Field(default_factory=now)
     cited_line_ids: list[str] = Field(default_factory=list)
     proposal: ChatProposal | None = None
+    resistor_question: ResistorQuestion | None = None
 
 
 class PartResolution(Model):
@@ -293,6 +328,7 @@ class Job(Model):
     messages: list[ChatMessage] = Field(default_factory=list)
     chat_state: Literal["idle", "queued", "thinking", "failed"] = "idle"
     chat_error: "ErrorDetail | None" = None
+    resistor_advice: list[ResistorAdvice] = Field(default_factory=list)
 
 
 class CreatedJob(Model):

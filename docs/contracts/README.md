@@ -1,4 +1,4 @@
-# Implemented API contract — v0.9
+# Implemented API contract — v0.10
 
 This directory is the handoff between backend and frontend. The architecture docs describe
 the target system; this contract describes the runnable local milestone.
@@ -8,6 +8,15 @@ it manually. Backend CI checks that it matches the implementation. The frontend 
 generate TypeScript types from it using its own tooling.
 
 ## Local workflow
+
+For team cloud integration, see [deployment and access](../../backend/infra/cloud-run.md).
+When configured, send `X-Integration-Key` on **every** `/v1/` request (including streams),
+in addition to `X-Job-Token` for the relevant job. Missing integration access returns 401
+`INTEGRATION_KEY_REQUIRED`. Keep the shared key in local development configuration and
+share it privately; do not bundle it in a public frontend release. `/healthz`, `/docs`
+and `/openapi.json` are public. The API base URL has no `/api` suffix.
+
+[Backend roadmap](backend-roadmap.md) tracks agreed features still to implement.
 
 **New: [conversation integration guide](conversation.md).** Add chat beside the BOM,
 reviewable edit proposals and a live snapshot stream. Existing endpoints remain available.

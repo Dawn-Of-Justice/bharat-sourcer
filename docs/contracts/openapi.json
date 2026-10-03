@@ -3,7 +3,7 @@
   "info": {
     "title": "Bharat Sourcer API",
     "description": "Demo or live YouTube extraction with optional Firestore job persistence.",
-    "version": "0.9.0"
+    "version": "0.10.0"
   },
   "paths": {
     "/healthz": {
@@ -860,6 +860,104 @@
           }
         }
       }
+    },
+    "/v1/jobs/{job_id}/resistor-advice": {
+      "post": {
+        "tags": [
+          "conversation"
+        ],
+        "summary": "Resistor Advice",
+        "operationId": "resistor_advice_v1_jobs__job_id__resistor_advice_post",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Job Id"
+            }
+          },
+          {
+            "name": "X-Job-Token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Job-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResistorInputs"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Job"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -998,6 +1096,16 @@
             "anyOf": [
               {
                 "$ref": "#/components/schemas/ChatProposal"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "resistor_question": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ResistorQuestion"
               },
               {
                 "type": "null"
@@ -1580,6 +1688,13 @@
                 "type": "null"
               }
             ]
+          },
+          "resistor_advice": {
+            "items": {
+              "$ref": "#/components/schemas/ResistorAdvice"
+            },
+            "type": "array",
+            "title": "Resistor Advice"
           }
         },
         "additionalProperties": false,
@@ -2106,6 +2221,209 @@
           "sourcing_status"
         ],
         "title": "ReportLine"
+      },
+      "ResistorAdvice": {
+        "properties": {
+          "advice_id": {
+            "type": "string",
+            "title": "Advice Id"
+          },
+          "inputs": {
+            "$ref": "#/components/schemas/ResistorInputs"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "suggestion",
+              "unavailable"
+            ],
+            "title": "Status"
+          },
+          "rule_version": {
+            "type": "string",
+            "title": "Rule Version"
+          },
+          "recovery": {
+            "type": "string",
+            "enum": [
+              "none",
+              "validated_fallback",
+              "blocked"
+            ],
+            "title": "Recovery",
+            "default": "none"
+          },
+          "resistance_ohm": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resistance Ohm"
+          },
+          "worst_case_current_ma": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Worst Case Current Ma"
+          },
+          "worst_case_power_w": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Worst Case Power W"
+          },
+          "minimum_rated_power_w": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Minimum Rated Power W"
+          },
+          "tolerance_percent": {
+            "type": "integer",
+            "const": 5,
+            "title": "Tolerance Percent",
+            "default": 5
+          },
+          "explanation": {
+            "type": "string",
+            "title": "Explanation"
+          },
+          "limitations": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Limitations"
+          },
+          "references": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "References"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "advice_id",
+          "inputs",
+          "status",
+          "rule_version",
+          "explanation"
+        ],
+        "title": "ResistorAdvice"
+      },
+      "ResistorInputs": {
+        "properties": {
+          "line_id": {
+            "type": "string",
+            "title": "Line Id"
+          },
+          "purpose": {
+            "type": "string",
+            "const": "led_series",
+            "title": "Purpose"
+          },
+          "supply_max_v": {
+            "type": "number",
+            "maximum": 24.0,
+            "exclusiveMinimum": 0.0,
+            "title": "Supply Max V"
+          },
+          "led_forward_min_v": {
+            "type": "number",
+            "maximum": 24.0,
+            "exclusiveMinimum": 0.0,
+            "title": "Led Forward Min V"
+          },
+          "target_max_ma": {
+            "type": "number",
+            "maximum": 20.0,
+            "exclusiveMinimum": 0.0,
+            "title": "Target Max Ma"
+          },
+          "driver_limit_ma": {
+            "type": "number",
+            "maximum": 100.0,
+            "exclusiveMinimum": 0.0,
+            "title": "Driver Limit Ma"
+          },
+          "confirmed": {
+            "type": "boolean",
+            "const": true,
+            "title": "Confirmed"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "line_id",
+          "purpose",
+          "supply_max_v",
+          "led_forward_min_v",
+          "target_max_ma",
+          "driver_limit_ma",
+          "confirmed"
+        ],
+        "title": "ResistorInputs"
+      },
+      "ResistorQuestion": {
+        "properties": {
+          "line_id": {
+            "type": "string",
+            "title": "Line Id"
+          },
+          "purpose": {
+            "type": "string",
+            "enum": [
+              "unknown",
+              "led_series",
+              "piezo_input",
+              "pull_up",
+              "other"
+            ],
+            "title": "Purpose",
+            "default": "unknown"
+          },
+          "question": {
+            "type": "string",
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Question"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "line_id",
+          "question"
+        ],
+        "title": "ResistorQuestion"
       },
       "SearchAttribution": {
         "properties": {

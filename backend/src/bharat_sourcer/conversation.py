@@ -12,6 +12,7 @@ from bharat_sourcer.config import Settings
 from bharat_sourcer.extraction import generation_schema
 from bharat_sourcer.jobs import JobError, JobService
 from bharat_sourcer.resilience import post_with_retry
+from bharat_sourcer.resistor_rules import calculate
 from bharat_sourcer.schemas import (
     ChatMessage,
     ChatProposal,
@@ -20,6 +21,7 @@ from bharat_sourcer.schemas import (
     ErrorDetail,
     Job,
     ProposalDecision,
+    ResistorInputs,
     SendMessage,
     now,
 )
@@ -57,6 +59,7 @@ class GeminiAssistant:
             if job.report
             else None,
             "messages": [{"role": m.role, "text": m.text} for m in job.messages[-12:]],
+            "resistor_advice": [a.model_dump(mode="json") for a in job.resistor_advice[-10:]],
         }
         prompt = (
             "You help a maker review this saved project. Answer the latest user message. "
@@ -70,7 +73,15 @@ class GeminiAssistant:
             "by the user using edits. They are proposals, not applied changes. Do not infer "
             "electrical specs from general knowledge. In any other status return edits: []. "
             "Questions alone do not authorize edits. No purchase or whole-circuit safety claims. "
-            "Return JSON with text, cited_line_ids and edits matching the schema."
+            "For resistor value questions, set resistor_question with an existing line_id, "
+            "a tentative purpose and a focused question about circuit role and missing bounds. "
+            "Never invent a resistance value or put a calculated value in edits. Use saved "
+            "resistor_advice only when its confirmed inputs match this question; otherwise ask for "
+            "confirmation of supply maximum, LED forward minimum, target maximum current and "
+            "driver allowable design current. The deterministic calculator supports one LED series "
+            "resistor only. Piezo input/protection, pull-ups and unknown topology need schematic "
+            "details and are unsupported; do not apply an LED formula to them. "
+            "Distinguish suggestions from extracted facts. Return JSON matching the schema."
         )
         with httpx.Client(timeout=45, transport=self.transport) as client:
             response = post_with_retry(
@@ -167,6 +178,9 @@ class ConversationService:
                 self.jobs.edit_draft(
                     claimed.job.model_copy(deep=True), ConfirmJob(edits=reply.edits)
                 )
+            if reply.resistor_question:
+                if reply.resistor_question.line_id not in {i.line_id for i in claimed.job.items}:
+                    raise ValueError("Unknown resistor line")
         except Exception:
             error = ErrorDetail(
                 code="CHAT_FAILED",
@@ -186,6 +200,7 @@ class ConversationService:
                         role="assistant",
                         text=reply.text,
                         cited_line_ids=reply.cited_line_ids,
+                        resistor_question=reply.resistor_question,
                         proposal=ChatProposal(
                             edits=reply.edits, base_fingerprint=fingerprint(claimed.job)
                         )
@@ -221,6 +236,32 @@ class ConversationService:
             job.updated_at = now()
 
         record = self.store.mutate(job_id, apply)
+        if record is None:
+            raise JobError(404, "JOB_NOT_FOUND", "Job not found or token invalid")
+        return record.job.model_copy(deep=True)
+
+    def resistor_advice(self, job_id: str, token: str | None, inputs: ResistorInputs) -> Job:
+        # Authorize before invoking the calculator; no external I/O in transaction callbacks.
+        job = self.jobs.get(job_id, token)
+        if inputs.line_id not in {item.line_id for item in job.items}:
+            raise JobError(422, "INVALID_EDIT", "Unknown part line")
+        try:
+            advice = calculate(inputs)
+        except ValueError as exc:
+            raise JobError(422, "INVALID_CIRCUIT", str(exc)) from exc
+
+        def save(record):
+            current = self.jobs._authorized(record, token)
+            if current.status not in {"awaiting_confirmation", "done"}:
+                raise JobError(409, "INVALID_STATE", "Wait for a reviewable BOM")
+            if inputs.line_id not in {item.line_id for item in current.items}:
+                raise JobError(422, "INVALID_EDIT", "Unknown part line")
+            if len(current.resistor_advice) >= 20:
+                raise JobError(409, "ADVICE_LIMIT", "Maximum 20 calculations per job")
+            current.resistor_advice.append(advice)
+            current.updated_at = now()
+
+        record = self.store.mutate(job_id, save)
         if record is None:
             raise JobError(404, "JOB_NOT_FOUND", "Job not found or token invalid")
         return record.job.model_copy(deep=True)

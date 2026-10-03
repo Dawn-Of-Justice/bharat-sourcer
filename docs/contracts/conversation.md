@@ -1,4 +1,4 @@
-# Conversation integration — v0.9
+# Conversation integration — v0.10
 
 The project conversation sits beside the bill of materials (BOM). Users can ask about
 saved parts and evidence, review proposed draft edits, and accept or reject them.
@@ -104,7 +104,7 @@ chunks and multi-line SSE data. It aborts reads and reconnect delays when the vi
 The callbacks should update UI state without logging private tokens or message content.
 
 ```js
-async function watchJob({ baseUrl, jobId, token, signal, onSnapshot, onError }) {
+async function watchJob({ baseUrl, jobId, token, integrationKey, signal, onSnapshot, onError }) {
   const url = `${baseUrl}/v1/jobs/${encodeURIComponent(jobId)}/stream`;
   let backoff = 1000;
 
@@ -125,7 +125,8 @@ async function watchJob({ baseUrl, jobId, token, signal, onSnapshot, onError }) 
     let reader;
     try {
       const response = await fetch(url, {
-        headers: { "X-Job-Token": token, Accept: "text/event-stream" },
+        headers: { "X-Job-Token": token, Accept: "text/event-stream",
+          ...(integrationKey ? { "X-Integration-Key": integrationKey } : {}) },
         cache: "no-store",
         signal,
       });
@@ -202,6 +203,61 @@ const controller = new AbortController();
 Do not make a lost stream connection look like a failed job. Show a connection indicator
 and reconnect; a GET snapshot is also a valid fallback. Only one watcher should be active
 per open job view. Reconnect after switching back to a suspended view and read fresh state.
+
+## Contextual resistor suggestions (v0.10)
+
+An assistant message may include `resistor_question: {line_id, purpose, question}`.
+The purpose is tentative (`unknown`, `led_series`, `piezo_input`, `pull_up`, `other`),
+not extracted evidence. Render the question alongside the relevant BOM line. A project
+containing two resistors may use them for different roles; do not apply one calculated
+value to the whole quantity. Ask which physical resistor the user is designing.
+
+The currently implemented deterministic rule covers **one LED with one series resistor**.
+After the user confirms that topology and the four input bounds, submit:
+
+```http
+POST /v1/jobs/{job_id}/resistor-advice
+X-Job-Token: <private job token>
+Content-Type: application/json
+
+{"line_id":"L02","purpose":"led_series","supply_max_v":3.3,
+ "led_forward_min_v":2.0,"target_max_ma":5,"driver_limit_ma":8,"confirmed":true}
+```
+
+These numbers are illustrative, not facts from the video. Show explicit input controls;
+do not silently submit model-inferred values or pre-accept confirmation. The driver limit
+must be an allowable design current from the relevant datasheet, not an absolute maximum.
+The endpoint returns 200 Job with an appended `resistor_advice[]` entry. The SSE stream
+also exposes it. This makes no model call and does not change BOM names, quantities,
+specifications, selections or compatibility grades. Limit: 20 calculations per job.
+Calculations work while `awaiting_confirmation` or `done`; other states return 409.
+
+Render a **conditional design suggestion** card with inputs, rule version, resistance,
+worst-case current, worst-case dissipation and minimum rated power. Resistor tolerance
+is fixed at 5%; power margin is 2x. Decimal output strings may use scientific notation.
+The backend selects the lowest qualifying E24 value. Show the limitations and reference
+link, and distinguish these suggestions from verified seller offers and video evidence.
+The example gives 300 ohms. User-confirmed inputs are assertions, not measurements verified
+by the system. Older advice is historical; a BOM or circuit change requires fresh inputs.
+
+`status: unavailable` with `recovery: blocked` means no recommendation; disable any use
+action. `recovery: validated_fallback` means a tested alternate selector passed checks
+after the primary failed. A primary selector quarantine persists for the worker process;
+each restarted worker runs the self-checks again. Rule failure codes are logged without
+user messages or credentials. This does not synthesize or deploy code patches.
+
+Unsupported resistor roles need circuit details; piezo-input protection cannot be solved
+by the LED rule. Bounds are limited to 24 V and 20 mA target current. Errors include 422
+`INVALID_CIRCUIT`, `INVALID_EDIT` or `VALIDATION_ERROR`, and 409 `ADVICE_LIMIT`.
+The language model is prompted to use validated saved advice and ask for missing inputs;
+its prose is still generated text, not a substitute for the deterministic advice card.
+
+Live smoke test (3 Oct 2026): for video `En4KD0c3XXs`, Gemini returned an `unknown`-purpose
+question for the two-resistor BOM line, asked for each resistor's topology and LED input
+bounds, and left the BOM unchanged. Frontend acceptance flow: display that question,
+collect confirmed inputs only for a supported role, show the conditional result card,
+and retain unsupported roles as unresolved. No actual resistor value for that video has
+been established by this test.
 
 ## Recovery, evidence and scope
 

@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import secrets
 from contextlib import asynccontextmanager
 from typing import Annotated
 
@@ -23,6 +24,7 @@ from bharat_sourcer.schemas import (
     Job,
     ProposalDecision,
     RefreshOffers,
+    ResistorInputs,
     SelectOffers,
     SendMessage,
     UpdateJobSpecs,
@@ -107,7 +109,7 @@ def create_app(
 
     app = FastAPI(
         title="Bharat Sourcer API",
-        version="0.9.0",
+        version="0.10.0",
         description="Demo or live YouTube extraction with optional Firestore job persistence.",
         lifespan=lifespan,
         responses={422: {"model": ErrorResponse}, 503: {"model": ErrorResponse}},
@@ -123,11 +125,27 @@ def create_app(
             content={"error": {"code": "STORAGE_ERROR", "message": "Job storage operation failed"}},
         )
 
+    @app.middleware("http")
+    async def integration_access(request: Request, call_next):
+        if settings.integration_key and request.url.path.startswith("/v1/"):
+            supplied = request.headers.get("X-Integration-Key", "")
+            if not secrets.compare_digest(supplied, settings.integration_key.get_secret_value()):
+                return JSONResponse(
+                    status_code=401,
+                    content={
+                        "error": {
+                            "code": "INTEGRATION_KEY_REQUIRED",
+                            "message": "Integration key required",
+                        }
+                    },
+                )
+        return await call_next(request)
+
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins,
         allow_methods=["GET", "POST"],
-        allow_headers=["Content-Type", "X-Job-Token"],
+        allow_headers=["Content-Type", "X-Job-Token", "X-Integration-Key"],
     )
 
     @app.exception_handler(JobError)
@@ -262,6 +280,15 @@ def create_app(
             media_type="text/event-stream",
             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
         )
+
+    @app.post(
+        "/v1/jobs/{job_id}/resistor-advice",
+        response_model=Job,
+        tags=["conversation"],
+        responses={404: {"model": ErrorResponse}, 409: {"model": ErrorResponse}},
+    )
+    def resistor_advice(job_id: str, body: ResistorInputs, x_job_token: JobToken = None):
+        return conversation.resistor_advice(job_id, x_job_token, body)
 
     return app
 
