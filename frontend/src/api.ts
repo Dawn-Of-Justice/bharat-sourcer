@@ -36,6 +36,7 @@ export interface ReportLine {
     url: string
     seller: string
     title: string
+    image_url?: string | null
     price_inr: string
     stock: string
     checked_at: string
@@ -84,6 +85,10 @@ export class ApiError extends Error {
 }
 
 async function request<T>(path: string, options: RequestInit = {}, token?: string): Promise<T> {
+  if (import.meta.env.DEV && new URLSearchParams(window.location.search).get('preview') === '1') {
+    const { previewRequest } = await import('./preview')
+    return previewRequest(path, options) as T
+  }
   let response: Response
   try {
     response = await fetch(`${API_BASE}${path}`, {

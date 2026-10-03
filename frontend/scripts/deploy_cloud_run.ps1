@@ -25,12 +25,12 @@ try {
         if ($LASTEXITCODE -ne 0) { throw 'Could not create frontend service account' }
     }
 
-    & $gcloud run deploy $service "--project=$project" "--region=$region" '--source=.' "--service-account=$serviceAccount" '--no-allow-unauthenticated' '--port=8080' '--cpu=1' '--memory=512Mi' '--min-instances=0' '--max-instances=1' '--concurrency=20' '--timeout=120' "--set-env-vars=BACKEND_BASE_URL=$backendUrl" "--set-secrets=INTEGRATION_KEY=${secret}:latest" --quiet
+    & $gcloud run deploy $service "--project=$project" "--region=$region" '--source=.' "--service-account=$serviceAccount" '--port=8080' '--cpu=1' '--memory=512Mi' '--min-instances=0' '--max-instances=1' '--concurrency=20' '--timeout=120' "--set-env-vars=BACKEND_BASE_URL=$backendUrl" "--set-secrets=INTEGRATION_KEY=${secret}:latest" --quiet
     if ($LASTEXITCODE -ne 0) { throw 'Cloud Run frontend deployment failed' }
 
     $url = & $gcloud run services describe $service "--project=$project" "--region=$region" '--format=value(status.url)' --quiet
     if ($LASTEXITCODE -ne 0) { throw 'Cloud Run deployed, but its URL could not be read' }
-    Write-Output "Deployed private frontend: $url"
+    Write-Output "Deployed frontend: $url"
 } finally {
     Pop-Location
 }

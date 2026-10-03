@@ -46,9 +46,9 @@ svg { display: block; }
 .hero-headline span { display: block; }
 .hero-description { max-width: 585px; margin: 0; color: #536669; font-size: 19px; font-style: italic; line-height: 1.58; }
 .source-support { max-width: 585px; margin: 12px 0 0; color: #647673; font-size: 13px; line-height: 1.5; }
-.input-callout { position: relative; z-index: 3; height: 72px; display: flex; align-items: flex-start; padding: 19px 0 0; margin-left: -15px; color: #b46a26; font-family: "Segoe Print", "Bradley Hand", cursive; font-size: 16px; font-weight: 700; }
-.input-callout span { display: inline-block; transform: rotate(-2deg); }
-.input-callout .tab-arrow { position: absolute; width: 64px; height: 48px; overflow: visible; pointer-events: none; opacity: 0; transition: left .32s ease-out, top .32s ease-out, opacity .18s ease-in-out; animation: arrow-hover 1.6s ease-in-out infinite; }
+.input-callout { position: relative; z-index: 3; height: 96px; display: flex; align-items: flex-start; padding: 19px 0 0; margin-left: -15px; color: #b46a26; font-family: "Segoe Print", "Bradley Hand", cursive; font-size: 16px; font-weight: 700; }
+.input-callout span { display: inline-block; transform: translateY(8px) rotate(-2deg); }
+.input-callout .tab-arrow { position: absolute; width: 64px; height: 48px; overflow: visible; pointer-events: none; opacity: 0; transition: opacity .18s ease-in-out; animation: arrow-hover 1.6s ease-in-out infinite; }
 .input-callout .tab-arrow.is-ready { opacity: 1; }
 @keyframes arrow-hover { 0%, 100% { transform: translateY(-2px); } 50% { transform: translateY(3px); } }
 .source-form { display: flex; flex-direction: column; width: 100%; max-width: 635px; min-height: 330px; padding: 21px; background: #fff; border: 1px solid #dde4dd; border-radius: 18px; box-shadow: 0 18px 42px rgba(24, 54, 51, .10), 0 2px 7px rgba(24, 54, 51, .04); }
@@ -209,8 +209,34 @@ svg { display: block; }
 }
 .input-callout { padding-left: 0; }
 @media (max-width: 600px) {
-  .input-callout { height: 72px; padding-left: 0; }
+  .input-callout { height: 96px; padding-left: 0; }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: .01ms !important; }
 }
+
+.job-primary > .job-panel:first-child { margin-top: 0; }
+.job-primary, .chat-panel { min-width: 0; }
+.product-image { display: grid; place-items: center; width: 84px; height: 84px; flex: 0 0 84px; overflow: hidden; border: 1px solid #dfe7df; border-radius: 10px; background: #fff; }
+.product-image img { width: 100%; height: 100%; object-fit: contain; padding: 6px; }
+.product-image > span { color: #84938c; font-size: 10px; line-height: 1.5; text-align: center; }
+.result-title > div:last-child { min-width: 0; overflow-wrap: anywhere; }
+.parts-progress-summary { display: flex; justify-content: space-between; gap: 12px; margin-top: 22px; color: #42685d; font-size: 12px; }
+.parts-progress-meter { display: block; width: 100%; height: 8px; margin: 12px 0 20px; border: 0; border-radius: 8px; overflow: hidden; background: #dbece1; accent-color: #278d7b; }
+.parts-progress-meter::-webkit-progress-bar { background: #dbece1; }
+.parts-progress-meter::-webkit-progress-value { background: #278d7b; transition: width .3s; }
+.parts-progress-meter::-moz-progress-bar { background: #278d7b; }
+.parallel-parts { display: grid; gap: 10px; list-style: none; padding: 0; margin: 0; }
+.part-progress { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 14px; border: 1px solid #dfe7df; border-radius: 10px; background: #f7faf4; }
+.part-progress > div { display: grid; gap: 4px; min-width: 0; }
+.part-progress strong { font-size: 14px; color: #264b43; overflow-wrap: anywhere; }
+.part-progress small, .part-progress div > span { color: #71867c; font-size: 11px; }
+.part-status { flex-shrink: 0; padding: 5px 8px; border-radius: 7px; background: #edf0e9; color: #65796d; font-size: 11px; }
+.offers_found .part-status, .already_owned .part-status { background: #def1e3; color: #286d51; }
+.failed .part-status, .no_verified_offers .part-status { background: #fff0df; color: #916034; }
+@media (max-width: 600px) {
+  .product-image { width: 64px; height: 64px; flex-basis: 64px; }
+  .part-progress { align-items: flex-start; flex-direction: column; gap: 9px; }
+}
+
+.preview-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 14px; padding: 12px 20px; background: #fff0c7; color: #654c22; font-size: 12px; } .preview-toolbar a { text-decoration: underline; font-weight: 700; }
