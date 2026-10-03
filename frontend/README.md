@@ -25,15 +25,17 @@ Restart Vite after editing this file. The key is sent as `X-Integration-Key` on 
 
 Run `npm run build` before delivery. `npm run preview` serves the built frontend locally.
 
-## Private Cloud Run integration deployment
+## Cloud Run team preview
 
 The production build sends same-origin requests to `/api`. The Node server in
 `server.mjs` serves the built app and forwards those requests to the deployed backend,
 adding the team key from Cloud Run Secret Manager. The key is absent from the production
 JavaScript bundle. `/api/healthz` maps to the backend's Cloud Run-safe `/health` route.
+The frontend pages and API proxy do not require an application login. The integration
+key is used only by the server to authenticate requests to the backend.
 
 `scripts/deploy_cloud_run.ps1` targets project `hackathon-510415`, region `asia-south1`,
-and private service `bharat-sourcer-web`. Sign in with a project-authorized account, then
+and service `bharat-sourcer-web`. Sign in with a project-authorized account, then
 run the script from `frontend/`:
 
 ```powershell
@@ -46,7 +48,13 @@ An IAM administrator must grant the dedicated frontend service account
 secret before deployment. The script creates the service account if needed and deploys
 the Dockerfile. It uploads only files
 listed by `.gcloudignore`, excluding `.env.local`, dependencies, caches and built output.
-Keep the Cloud Run service private until user authentication and paid-use quotas exist.
+An IAM administrator must enable direct browser access once:
+
+```powershell
+gcloud run services update bharat-sourcer-web --project=hackathon-510415 --region=asia-south1 --no-invoker-iam-check
+```
+
+Application login is planned for a future update.
 For local checks without a live backend, run `npm run test:server`; its API replies are
 labelled dummy data.
 
@@ -59,3 +67,8 @@ labelled dummy data.
 - The landing illustration changes with the selected YouTube, article/blog, GitHub or audio tab. It is built with CSS/SVG, needs no image download, and respects reduced-motion settings. Planned sources are labelled as preview concepts.
 
 This is the first frontend slice. Offer selection, targeted refresh, the YouTube player, PWA share target, exports and public sharing are subsequent integration work. The implemented API is documented in [docs/contracts](../docs/contracts/README.md); the broader [frontend architecture](../docs/02-architecture/09-frontend-and-ux.md) is a target design.
+
+## Local UI preview without API calls
+
+Run npm run dev and open http://localhost:5173/?preview=1. The preview toolbar switches between landing, review, parallel progress, and results. API actions use in-memory dummy responses; the sample image is a local labelled illustration. Preview mode is development-only and requires preview=1 in the URL. Normal URLs retain the configured backend connection.
+

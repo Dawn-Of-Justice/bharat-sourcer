@@ -112,13 +112,6 @@ const sourceOptions: { id: SourceType; label: string; symbol: string }[] = [
   { id: 'audio', label: 'Audio', symbol: '♫' },
 ]
 
-const calloutArrowPaths: Record<SourceType, string> = {
-  youtube: 'M8 7 C8 23 23 24 42 40',
-  article: 'M7 7 C20 14 10 30 42 40',
-  github: 'M8 7 C17 3 26 23 42 40',
-  audio: 'M8 6 C4 19 26 26 42 40',
-}
-
 const sourceFields: Record<LinkSource, { label: string; placeholder: string }> = {
   youtube: { label: 'Paste a YouTube project link', placeholder: 'https://www.youtube.com/watch?v=...' },
   article: { label: 'Paste a tutorial or blog link', placeholder: 'https://www.instructables.com/your-project/' },
@@ -127,9 +120,6 @@ const sourceFields: Record<LinkSource, { label: string; placeholder: string }> =
 
 function Landing({ onCreated }: { onCreated: (id: string) => void }) {
   const [source, setSource] = useState<SourceType>('youtube')
-  const [arrowSource, setArrowSource] = useState<SourceType>('youtube')
-  const [arrowVisible, setArrowVisible] = useState(true)
-  const arrowTimer = useRef<number | null>(null)
   const calloutRef = useRef<HTMLDivElement>(null)
   const tabRefs = useRef<Partial<Record<SourceType, HTMLButtonElement>>>({})
   const [arrowPosition, setArrowPosition] = useState<{ left: number; top: number } | null>(null)
@@ -140,14 +130,14 @@ function Landing({ onCreated }: { onCreated: (id: string) => void }) {
 
   useLayoutEffect(() => {
     const callout = calloutRef.current
-    const tab = tabRefs.current[arrowSource]
+    const tab = tabRefs.current.youtube
     if (!callout || !tab) return
     const positionArrow = () => {
       const calloutBox = callout.getBoundingClientRect()
       const tabBox = tab.getBoundingClientRect()
       setArrowPosition({
         left: tabBox.left + tabBox.width / 2 - calloutBox.left - 42,
-        top: tabBox.top - calloutBox.top - 44,
+        top: calloutBox.height - 38,
       })
     }
     positionArrow()
@@ -159,27 +149,11 @@ function Landing({ onCreated }: { onCreated: (id: string) => void }) {
       observer.disconnect()
       window.removeEventListener('resize', positionArrow)
     }
-  }, [arrowSource])
-
-  useEffect(() => () => {
-    if (arrowTimer.current !== null) window.clearTimeout(arrowTimer.current)
   }, [])
 
   function chooseSource(next: SourceType) {
     setSource(next)
     setError('')
-    if (arrowTimer.current !== null) window.clearTimeout(arrowTimer.current)
-    if (next === arrowSource) {
-      setArrowVisible(true)
-      arrowTimer.current = null
-      return
-    }
-    setArrowVisible(false)
-    arrowTimer.current = window.setTimeout(() => {
-      setArrowSource(next)
-      setArrowVisible(true)
-      arrowTimer.current = null
-    }, 180)
   }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -228,7 +202,7 @@ function Landing({ onCreated }: { onCreated: (id: string) => void }) {
             <h1 className="hero-headline">Found your next project? <span>Source it. Plan it. Build it.</span></h1>
             <p className="hero-description">Saved a project you want to make? Get a practical parts list, Indian seller options, and clear notes on what to change.</p>
             <p className="source-support">This works for projects found in videos, blogs, or elsewhere.</p>
-            <div className="input-callout" aria-hidden="true" ref={calloutRef}><span>Your build starts here</span><svg className={arrowPosition && arrowVisible ? 'tab-arrow is-ready' : 'tab-arrow'} style={arrowPosition ?? undefined} viewBox="0 0 64 48" fill="none"><defs><marker id="landing-arrowhead" viewBox="0 0 16 16" refX="12" refY="8" markerWidth="16" markerHeight="16" markerUnits="userSpaceOnUse" orient="auto"><path d="M3 3 L12 8 L3 13" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" /></marker></defs><path className="draw-arrow" d={calloutArrowPaths[arrowSource]} markerEnd="url(#landing-arrowhead)" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" fill="none" /></svg></div>
+            <div className="input-callout" aria-hidden="true" ref={calloutRef}><span>Your build starts here</span><svg className={arrowPosition ? 'tab-arrow is-ready' : 'tab-arrow'} style={arrowPosition ?? undefined} viewBox="0 0 64 48" fill="none"><defs><marker id="landing-arrowhead" viewBox="0 0 16 16" refX="12" refY="8" markerWidth="16" markerHeight="16" markerUnits="userSpaceOnUse" orient="auto"><path d="M3 3 L12 8 L3 13" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" /></marker></defs><path className="draw-arrow" d="M8 7 C8 23 23 24 42 40" markerEnd="url(#landing-arrowhead)" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" fill="none" /></svg></div>
             <form className="source-form" onSubmit={submit}>
               <div className="source-options" role="group" aria-label="Choose a project source">{sourceOptions.map((option) => <button key={option.id} ref={(element) => { tabRefs.current[option.id] = element ?? undefined }} type="button" className={`source-option ${source === option.id ? 'selected' : ''}`} aria-pressed={source === option.id} onClick={() => chooseSource(option.id)}><span aria-hidden="true">{option.symbol}</span>{option.label}</button>)}</div>
               {source === 'audio' ? <div className="audio-field"><label htmlFor="audio-file">Choose a build description or maker audio file</label><input id="audio-file" type="file" accept="audio/*" /><p>Audio transcription and uploads are planned; this file stays on your device for now.</p></div> : <><label htmlFor="source-url">{sourceFields[source].label}</label><div className="url-row"><span className={`url-icon url-icon-${source}`} aria-hidden="true">{source === 'youtube' ? <svg viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="4" fill="currentColor" /><path d="m10 9 6 3-6 3V9Z" fill="#fff" /></svg> : source === 'article' ? '▤' : '</>'}</span><input id="source-url" name="url" type="url" inputMode="url" autoComplete="url" placeholder={sourceFields[source].placeholder} value={sourceUrls[source]} onChange={(event) => setSourceUrls((current) => ({ ...current, [source]: event.target.value }))} required /></div>{source !== 'youtube' ? <p className="source-note">Live {source === 'article' ? 'article and blog' : 'GitHub repository'} extraction is on the roadmap. In backend demo mode, this link shows a labelled sample BOM.</p> : null}</>}
@@ -317,13 +291,40 @@ function Review({ job, token, onConfirmed }: { job: Job; token: string; onConfir
   return <section className="job-panel"><span className="section-kicker">YOUR REVIEW</span><h2>Does this parts list look right?</h2><p className="job-panel-intro">AI extraction can miss or misname parts. Check each line before we search sellers.</p><form onSubmit={submit}><div className="review-list">{rows.map((row) => <div id={`line-${row.item.line_id}`} className={`review-row ${row.removed ? 'removed' : ''}`} key={row.item.line_id}><div className="review-fields"><label>Part name<input value={row.name} disabled={row.removed} onChange={(event) => update(row.item.line_id, { name: event.target.value })} /></label><label className="qty-field">Qty<input type="number" min="1" max="10000" value={row.qty} disabled={row.removed} onChange={(event) => update(row.item.line_id, { qty: event.target.value })} /></label></div><div className="review-row-bottom"><label className="check-label"><input type="checkbox" checked={row.owned} disabled={row.removed} onChange={(event) => update(row.item.line_id, { owned: event.target.checked })} /> I already have this</label><button type="button" className="remove-button" onClick={() => update(row.item.line_id, { removed: !row.removed })}>{row.removed ? 'Undo remove' : 'Remove'}</button></div>{row.item.evidence.length ? <div className="evidence-note">Video evidence: {row.item.evidence.map((entry) => `${entry.timestamp} — ${entry.observation}`).join(' · ')}</div> : null}{row.item.clarifications.length ? <div className="evidence-note">Still unclear: {row.item.clarifications.map((entry) => entry.question).join(' ')}</div> : null}</div>)}</div>{error ? <p className="form-error" role="alert">{error}</p> : null}<button className="primary-button job-action" disabled={busy} type="submit">{busy ? 'Confirming…' : 'Confirm BOM and find offers'} <ArrowIcon /></button></form></section>
 }
 
+function ProductImage({ url, name }: { url?: string | null; name: string }) {
+  const [failedUrl, setFailedUrl] = useState<string | null>(null)
+  const validUrl = url && (/^https?:/.test(url) || url === '/preview-part.svg') && failedUrl !== url
+  return <div className="product-image">{validUrl ? <img src={url} alt={name} loading="lazy" referrerPolicy="no-referrer" onError={() => setFailedUrl(url)} /> : <span>Image<br />unavailable</span>}</div>
+}
+
+function AnalysisProgress({ job }: { job: Job }) {
+  const results = new Map(job.report?.lines.map(line => [line.item.line_id, line]) ?? [])
+  const finished = job.items.filter(item => item.user_has_it || (results.has(item.line_id) && results.get(item.line_id)?.sourcing_status !== 'not_run')).length
+  const labels = { offers_found: 'Offers found', no_verified_offers: 'No verified offers', failed: 'Check failed', already_owned: 'Already owned', not_run: 'Pending result' }
+  return <section className="job-panel progress-panel">
+    <span className="section-kicker">IN PROGRESS</span>
+    <h2>{job.status === 'sourcing' ? 'Finding offers for your parts' : job.status === 'resolving' ? 'Preparing your parts' : job.status === 'extracting' ? 'Reading the video' : 'Waiting to start'}</h2>
+    <p>{job.status === 'sourcing' ? 'Results appear as each part finishes. Multiple parts can be processed together.' : 'Your parts will appear here as the analysis progresses.'}</p>
+    {job.items.length > 0 && <>
+      <div className="parts-progress-summary"><strong>{finished} / {job.items.length} parts completed</strong><span>{job.items.length - finished} pending</span></div>
+      <progress className="parts-progress-meter" value={finished} max={job.items.length} aria-label="Parts completed" />
+      <ul className="parallel-parts">{job.items.map(item => {
+        const line = results.get(item.line_id)
+        const status = item.user_has_it ? 'already_owned' : line?.sourcing_status ?? 'not_run'
+        return <li id={'line-' + item.line_id} key={item.line_id} className={'part-progress ' + status}><div><small>{item.line_id}</small><strong>{item.raw_name}</strong><span>Qty {item.qty ?? 'unknown'}</span></div><span className="part-status">{labels[status]}</span></li>
+      })}</ul>
+    </>}
+    {!job.items.length && <div className="progress-track" aria-label="Analysis in progress"><span /></div>}
+  </section>
+}
+
 function Results({ job }: { job: Job }) {
   if (!job.report) return null
-  return <section className="job-panel"><span className="section-kicker">YOUR DESI BOM</span><h2>Explore the parts</h2>{job.demo ? <div className="demo-alert"><strong>Demo data</strong> · This is a fixed example. Extraction, seller checks, prices, and compatibility grades did not run.</div> : <p className="job-panel-intro">Seller prices are snapshots from product pages. Tax, shipping, and final payable cost are unknown.</p>}<div className="result-list">{job.report.lines.map((line) => <article id={`line-${line.item.line_id}`} className="result-row" key={line.item.line_id}><div className="result-title"><span>{line.item.line_id}</span><div><h3>{line.item.raw_name}</h3><p>Qty {line.item.qty ?? 'unknown'}{line.item.user_has_it ? ' · Already owned' : ''}</p></div></div>{line.item.evidence.length ? <details className="result-evidence"><summary>Saved video evidence</summary><ul>{line.item.evidence.map((entry, index) => <li key={`${entry.timestamp}-${index}`}>{entry.timestamp} — {entry.observation}</li>)}</ul><small>Model-reported; review against the source video.</small></details> : null}{line.sourcing_status === 'offers_found' ? <div className="offers-list">{line.offers.map((offer) => <div className="offer" key={offer.url}><div><strong>{offer.seller}</strong><span>{formatMoney(offer.price_inr)} per piece · {offer.stock.replaceAll('_', ' ')} · checked {new Date(offer.checked_at).toLocaleDateString('en-IN')}</span>{offer.compatibility ? <small>{offer.compatibility.grade ? `Grade ${offer.compatibility.grade}: ` : 'Compatibility unknown: '}{offer.compatibility.reasons.join(' ')} {offer.compatibility.missing_fields.length ? `Missing: ${offer.compatibility.missing_fields.join(', ')}.` : ''}</small> : null}</div><a href={offer.url} target="_blank" rel="noopener noreferrer">Seller page <ArrowIcon diagonal /></a></div>)}</div> : <p className="result-status">{line.sourcing_status === 'already_owned' ? 'Already owned — no seller search needed.' : line.sourcing_status === 'no_verified_offers' ? (line.sourcing_error?.message || 'No seller page met the current verification checks.') : line.sourcing_error?.message || 'No seller search was run for this part.'}</p>}</article>)}</div>{job.report.parts_subtotal_inr ? <div className="subtotal"><span>Selected parts subtotal</span><strong>{formatMoney(job.report.parts_subtotal_inr)}</strong></div> : null}<p className="result-disclaimer">A listed offer is seller-reported, and a compatibility grade checks declared specifications only. Verify the product and build before ordering.</p></section>
+  return <section className="job-panel"><span className="section-kicker">YOUR DESI BOM</span><h2>Explore the parts</h2>{job.demo ? <div className="demo-alert"><strong>Demo data</strong> · This is a fixed example. Extraction, seller checks, prices, and compatibility grades did not run.</div> : <p className="job-panel-intro">Seller prices are snapshots from product pages. Tax, shipping, and final payable cost are unknown.</p>}<div className="result-list">{job.report.lines.map((line) => <article id={`line-${line.item.line_id}`} className="result-row" key={line.item.line_id}><div className="result-title"><ProductImage url={line.offers.find(offer => offer.image_url)?.image_url} name={line.item.raw_name} /><span>{line.item.line_id}</span><div><h3>{line.item.raw_name}</h3><p>Qty {line.item.qty ?? 'unknown'}{line.item.user_has_it ? ' · Already owned' : ''}</p></div></div>{line.item.evidence.length ? <details className="result-evidence"><summary>Saved video evidence</summary><ul>{line.item.evidence.map((entry, index) => <li key={`${entry.timestamp}-${index}`}>{entry.timestamp} — {entry.observation}</li>)}</ul><small>Model-reported; review against the source video.</small></details> : null}{line.sourcing_status === 'offers_found' ? <div className="offers-list">{line.offers.map((offer) => <div className="offer" key={offer.url}><div><strong>{offer.seller}</strong><span>{formatMoney(offer.price_inr)} per piece · {offer.stock.replaceAll('_', ' ')} · checked {new Date(offer.checked_at).toLocaleDateString('en-IN')}</span>{offer.compatibility ? <small>{offer.compatibility.grade ? `Grade ${offer.compatibility.grade}: ` : 'Compatibility unknown: '}{offer.compatibility.reasons.join(' ')} {offer.compatibility.missing_fields.length ? `Missing: ${offer.compatibility.missing_fields.join(', ')}.` : ''}</small> : null}</div><a href={offer.url} target="_blank" rel="noopener noreferrer">Seller page <ArrowIcon diagonal /></a></div>)}</div> : <p className="result-status">{line.sourcing_status === 'already_owned' ? 'Already owned — no seller search needed.' : line.sourcing_status === 'no_verified_offers' ? (line.sourcing_error?.message || 'No seller page met the current verification checks.') : line.sourcing_error?.message || 'No seller search was run for this part.'}</p>}</article>)}</div>{job.report.parts_subtotal_inr ? <div className="subtotal"><span>Selected parts subtotal</span><strong>{formatMoney(job.report.parts_subtotal_inr)}</strong></div> : null}<p className="result-disclaimer">A listed offer is seller-reported, and a compatibility grade checks declared specifications only. Verify the product and build before ordering.</p></section>
 }
 
 function JobPage({ id }: { id: string }) {
-  const token = sessionStorage.getItem(`bharat-sourcer:job:${id}`)
+  const token = (import.meta.env.DEV && new URLSearchParams(window.location.search).get('preview') === '1' ? 'dummy-token' : null) || sessionStorage.getItem(`bharat-sourcer:job:${id}`)
   const [job, setJob] = useState<Job | null>(null)
   const [fatalError, setFatalError] = useState('')
   const [connectionIssue, setConnectionIssue] = useState('')
@@ -373,7 +374,7 @@ function JobPage({ id }: { id: string }) {
         {job.status === 'failed' ? <section className="job-panel"><h2>Analysis stopped</h2><p>{job.error?.message || 'Please start a new job and try again.'}</p></section> : null}
         {job.status === 'awaiting_confirmation' ? <Review key={JSON.stringify(job.items)} job={job} token={token} onConfirmed={() => setRevision((value) => value + 1)} /> : null}
         {job.status === 'done' ? <Results job={job} /> : null}
-        {!['awaiting_confirmation', 'done', 'failed'].includes(job.status) ? <section className="job-panel progress-panel"><span className="section-kicker">IN PROGRESS</span><h2>{statusLabel[job.status]}</h2><p>{job.events.at(-1)?.message || 'Your job is starting.'}</p>{job.report?.lines.length ? <p>{job.report.lines.length} of {job.items.length} parts have a sourcing result so far.</p> : null}{job.items.length ? <ul className="progress-parts">{job.items.map((item) => <li id={`line-${item.line_id}`} key={item.line_id}><strong>{item.line_id}</strong> {item.raw_name} · qty {item.qty ?? 'unknown'}</li>)}</ul> : null}<div className="progress-track"><span /></div></section> : null}
+        {!['awaiting_confirmation', 'done', 'failed'].includes(job.status) ? <AnalysisProgress job={job} /> : null}
         {job.events.length ? <section className="activity-panel"><h2>Activity</h2><ol>{job.events.slice(-5).reverse().map((event) => <li key={event.seq}><span>{event.message}</span><time>{new Date(event.timestamp).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</time></li>)}</ol></section> : null}
       </div><ChatPanel job={job} token={token} onJob={applySnapshot} /></div>
     </>}
@@ -387,7 +388,7 @@ function Footer() {
 export default function App() {
   const [path, setPath] = useState(window.location.pathname)
   useEffect(() => { const handlePop = () => setPath(window.location.pathname); window.addEventListener('popstate', handlePop); return () => window.removeEventListener('popstate', handlePop) }, [])
-  function navigate(next: string) { window.history.pushState({}, '', next); setPath(next); window.scrollTo({ top: 0, behavior: 'instant' }) }
+  function navigate(next: string) { if (import.meta.env.DEV && new URLSearchParams(window.location.search).get('preview') === '1') next += '?preview=1'; window.history.pushState({}, '', next); setPath(next.split('?')[0]); window.scrollTo({ top: 0, behavior: 'instant' }) }
   const jobId = path.startsWith('/job/') ? path.slice(5) : null
-  return <><a className="skip-link" href="#main">Skip to content</a><Header onHome={() => navigate('/')} isHome={!jobId} />{jobId ? <JobPage id={jobId} /> : <Landing onCreated={(id) => navigate(`/job/${encodeURIComponent(id)}`)} />}<Footer /></>
+  return <>{import.meta.env.DEV && new URLSearchParams(window.location.search).get('preview') === '1' && <div className="preview-toolbar"><strong>LOCAL DEMO ? Dummy data ? No API calls</strong><a href="/?preview=1">Landing</a><a href="/job/ui-preview?preview=1">Review</a><a href="/job/ui-preview?preview=1&stage=sourcing">Parallel progress</a><a href="/job/ui-preview?preview=1&stage=done">Results</a></div>}<a className="skip-link" href="#main">Skip to content</a><Header onHome={() => navigate('/')} isHome={!jobId} />{jobId ? <JobPage id={jobId} /> : <Landing onCreated={(id) => navigate(`/job/${encodeURIComponent(id)}`)} />}<Footer /></>
 }

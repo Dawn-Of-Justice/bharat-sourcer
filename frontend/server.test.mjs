@@ -73,6 +73,7 @@ test('serves the frontend and a labelled dummy API response', async () => {
   }))
   const page = await fetch(base + '/')
   assert.equal(page.status, 200)
+  assert.equal(page.headers.get('www-authenticate'), null)
   assert.match(await page.text(), /id="root"/)
   const created = await fetch(base + '/api/v1/jobs', {
     method: 'POST',
