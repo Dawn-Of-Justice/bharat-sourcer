@@ -73,8 +73,9 @@ Firestore transactions make edits, extraction claims, and report publication ato
 Callbacks do not make external calls and may be retried by Firestore. A periodic sweep
 resumes queued work and report creation after a process restart. Confirmation drafts
 and completed/failed jobs remain untouched. Active extraction has a ten-minute lease;
-once expired, recovery marks it `failed` with `EXTRACTION_INTERRUPTED`. It does not
-automatically repeat potentially billed extraction. Late responses cannot overwrite it.
+once expired, recovery requeues it once per job. A later interruption marks it failed
+with `EXTRACTION_INTERRUPTED`. Recovery can repeat billed extraction; late responses
+cannot overwrite it. See [Cloud Run integration deployment](cloud-run.md).
 
 The sweeper runs inside the API process, so Cloud Run needs CPU allocated outside requests.
 This is not a durable task queue: recovery needs a running API instance, and graceful

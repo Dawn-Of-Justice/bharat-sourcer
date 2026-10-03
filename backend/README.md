@@ -230,6 +230,24 @@ remain unknown, and stale quotes still need refresh before selection.
 
 ## Project conversation (v0.9)
 
+Live smoke test on 3 Oct 2026 used YouTube Short `En4KD0c3XXs`: Gemini returned
+five BOM lines, answered a question with a saved timestamp and line citation, and
+produced ownership proposals that were rejected and accepted in an isolated memory job.
+Acceptance left the job awaiting confirmation. The snapshot generator emitted the changed
+state and heartbeat. One chat turn returned `CHAT_FAILED`; a new turn using the saved
+extraction succeeded. The underlying failure cause was not captured. This validates live
+adapter connectivity, not BOM accuracy or a deployed browser-to-server SSE connection.
+
+Repeat from `backend/` with configured Gemini credentials (billable calls may occur):
+
+```powershell
+.venv/Scripts/python scripts/check_conversation.py --url https://www.youtube.com/shorts/En4KD0c3XXs
+```
+
+The test uses isolated memory storage, performs no sourcing, and saves a token-free
+snapshot in ignored `.data/conversation-check.json`. Its ownership edit is test data.
+Use `--resume` to reuse that snapshot and retry the acceptance step without re-extraction.
+
 Users can ask questions alongside the BOM using persistent job chat. The live Gemini
 adapter receives saved parts, evidence, offer assessments and the last 12 messages.
 It can answer in every job state and propose draft BOM edits while awaiting confirmation.
@@ -255,6 +273,48 @@ Frontend implementation details and a fetch/SSE client are in
 [the conversation integration guide](../docs/contracts/conversation.md).
 
 ## Package layout
+
+### Deterministic resistor advice (v0.10)
+
+Chat may ask a contextual resistor-role question. Confirmed low-voltage single-LED
+series-resistor inputs can be submitted to `/v1/jobs/{id}/resistor-advice`; see the
+[frontend guide](../docs/contracts/conversation.md#contextual-resistor-suggestions-v010).
+Decimal arithmetic selects the next E24 value considering 5% negative tolerance and
+the smaller of desired current and driver design current. Power uses maximum voltage
+drop and minimum resistance, with a 2x rated-power margin. Advice is saved separately
+from extracted parts and never automatically changes quantities or selections.
+
+Reference formula: [DigiKey LED series resistor calculator](https://www.digikey.ie/en/resources/conversion-calculators/conversion-calculator-led-series-resistor).
+No board-specific GPIO current or LED forward voltage is inferred from the video.
+
+Rule self-checks and an independent selection check detect exceptions or incorrect
+standard values. A failing primary selector is quarantined for the worker process;
+a bundled tested fallback is used for later calls, with its own output validation.
+Both failing produces an unavailable result. Events `RULE_QUARANTINED` and
+`RULE_UNAVAILABLE` provide diagnostic signals; advice stores version and fallback status.
+This is bounded recovery, not autonomous source-code repair. A permanent correction
+requires a regression case, a new version, checks and deployment. Restarted workers
+repeat self-checks; quarantines are not synchronized across workers. Arbitrary formula,
+hardware or shared-data defects are not guaranteed to be detected by these checks.
+
+Run `python scripts/check_rules.py` from the installed backend development environment
+before shipping a rule change. This runs the electrical reference examples, bounds,
+injected selector failures, fallback checks and API isolation checks, with a nonzero exit
+on failure. The existing CI `pytest` step includes this same test file. Add a failing
+regression case for each discovered defect before changing a rule; bump its version when
+behavior changes. Passing this suite alone does not prove every possible circuit safe.
+
+On 3 Oct 2026, live Gemini was asked about the two unspecified resistors in the saved
+`En4KD0c3XXs` BOM. It returned a structured question about each resistor's role and the
+four LED-rule input bounds, without suggesting a value or changing the BOM. Reproduce with:
+
+```powershell
+.venv/Scripts/python scripts/check_conversation.py --url https://www.youtube.com/shorts/En4KD0c3XXs --resume --resistor-question
+```
+
+This command needs the earlier saved extraction and makes one billable chat operation
+(with bounded HTTP retries). It validates the live clarification path, not the video's
+actual circuit connections or component values.
 
 ```text
 backend/

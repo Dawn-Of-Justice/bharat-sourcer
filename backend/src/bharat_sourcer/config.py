@@ -8,6 +8,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="BS_", env_file=".env", extra="ignore")
 
     demo_mode: bool = True
+    integration_key: SecretStr | None = None
     storage_backend: Literal["memory", "firestore"] = "memory"
     gcp_project: str | None = None
     firestore_database: str = "(default)"
