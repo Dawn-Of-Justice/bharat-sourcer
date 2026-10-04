@@ -129,7 +129,7 @@ def create_app(
 
     app = FastAPI(
         title="Bharat Sourcer API",
-        version="0.17.1",
+        version="0.17.2",
         description="Demo or live YouTube extraction with optional Firestore job persistence.",
         lifespan=lifespan,
         responses={422: {"model": ErrorResponse}, 503: {"model": ErrorResponse}},

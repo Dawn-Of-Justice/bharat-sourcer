@@ -11,7 +11,7 @@ from typing import Annotated
 from fastapi import Depends, Header, Query, Request, Response
 from pydantic import Field
 
-from bharat_sourcer.identity import FirebaseVerifier, GuestSessions
+from bharat_sourcer.identity import FirebaseVerifier, GuestSessions, IdentityUnavailable
 from bharat_sourcer.jobs import JobError
 from bharat_sourcer.schemas import Job, Model, Status
 
@@ -92,6 +92,10 @@ class Access:
                 principal = self.verifier.verify(token)
             else:
                 principal = self.sessions.verify(request.cookies.get(self.sessions.cookie_name))
+        except IdentityUnavailable as exc:
+            raise JobError(
+                503, "IDENTITY_UNAVAILABLE", "Account verification unavailable; retry later"
+            ) from exc
         except Exception as exc:
             raise JobError(401, "IDENTITY_REQUIRED", "Sign in or start a guest session") from exc
         request.state.principal = principal

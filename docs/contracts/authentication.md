@@ -146,7 +146,24 @@ usage-store outage. Memory counters are for local development only and reset
 on restart. These limits bound admitted requests, not exact monetary spend or
 concurrent workers. Clearing cookies does not reset IP quotas, but distributed
 attackers require additional edge protection. Firebase token signature, audience,
-issuer and expiry are checked; revoked-token/disabled-user lookup is not implemented.
+issuer and expiry are checked. v0.17.2 additionally checks Firebase account status
+on every account-authenticated HTTP request, without caching successful lookups.
+Disabled/deleted users and tokens whose `auth_time` precedes the account's
+`validSince` are rejected with 401 `IDENTITY_REQUIRED`. Refreshing a token alone
+does not fix revocation: prompt a new Google sign-in. Provider outages or missing
+backend IAM return 503 `IDENTITY_UNAVAILABLE`; preserve the session and offer retry.
+Neither response falls back to a guest session or admits paid work.
+
+This v0.17.2 change is local, not deployed yet. Before rollout, grant the backend
+runtime service account `firebaseauth.users.get` (for example via
+`roles/firebaseauth.viewer`) on `hackathon-510415`. The lookup uses Application
+Default Credentials, never a downloaded service-account key. Requests to the
+account-status endpoint have a 10-second timeout. Each new HTTP request checks
+status once; an already-open SSE stream can continue until its bounded 60-second
+end, and already-admitted queued work is not canceled by revocation.
+
+References: [Firebase session revocation](https://firebase.google.com/docs/auth/admin/manage-sessions)
+and [account lookup](https://docs.cloud.google.com/identity-platform/docs/reference/rest/v1/accounts/lookup).
 
 ## Rollout checklist
 

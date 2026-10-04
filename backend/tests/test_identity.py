@@ -190,7 +190,7 @@ def test_verifier_checks_issuer_project_provider_and_email():
         "auth_time": int(time.time()),
         "exp": int(time.time()) + 3600,
     }
-    verifier = FirebaseVerifier("test")
+    verifier = FirebaseVerifier("test", account_lookup=lambda project, uid: {"localId": uid})
     with patch("google.oauth2.id_token.verify_firebase_token", return_value=valid) as verify:
         assert verifier.verify("fixture-token").owner == "user:alice"
         assert verify.call_args.kwargs["audience"] == "test"

@@ -6,7 +6,8 @@ import secrets
 import time
 from dataclasses import dataclass
 
-from google.auth.transport.requests import Request
+import google.auth
+from google.auth.transport.requests import AuthorizedSession, Request
 from google.oauth2 import id_token
 
 
@@ -17,9 +18,38 @@ class Principal:
     expires_at: int | None = None
 
 
+class IdentityUnavailable(Exception):
+    """Provider status could not be checked; never admit the request."""
+
+
+def lookup_account(project: str, uid: str) -> dict:
+    try:
+        credentials, _ = google.auth.default(
+            scopes=["https://www.googleapis.com/auth/cloud-platform"]
+        )
+        with AuthorizedSession(credentials) as session:
+            response = session.post(
+                "https://identitytoolkit.googleapis.com/v1/accounts:lookup",
+                json={"targetProjectId": project, "localId": [uid]},
+                timeout=10,
+            )
+            response.raise_for_status()
+            users = response.json().get("users", [])
+            if not isinstance(users, list):
+                raise ValueError("Invalid account response")
+    except Exception as exc:
+        raise IdentityUnavailable("Account verification unavailable") from exc
+    if not users:
+        raise ValueError("Account no longer exists")
+    if len(users) != 1 or not isinstance(users[0], dict) or users[0].get("localId") != uid:
+        raise IdentityUnavailable("Unexpected account response")
+    return users[0]
+
+
 class FirebaseVerifier:
-    def __init__(self, project: str):
+    def __init__(self, project: str, account_lookup=None):
         self.project = project
+        self.account_lookup = account_lookup or lookup_account
 
     def verify(self, token: str) -> Principal:
         claims = id_token.verify_firebase_token(token, Request(), audience=self.project)
@@ -33,6 +63,13 @@ class FirebaseVerifier:
             or claims.get("auth_time", time.time() + 1) > time.time()
         ):
             raise ValueError("Invalid account identity")
+        account = self.account_lookup(self.project, uid)
+        try:
+            valid_since = int(account.get("validSince", 0))
+        except (ValueError, TypeError) as exc:
+            raise IdentityUnavailable("Invalid account status") from exc
+        if account.get("disabled", False) or claims["auth_time"] < valid_since:
+            raise ValueError("Account disabled or session revoked")
         return Principal("user:" + uid, expires_at=int(claims["exp"]))
 
 

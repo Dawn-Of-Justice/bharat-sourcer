@@ -1,5 +1,9 @@
 # Backend
 
+v0.17.2 checks Firebase account status for disabled/deleted users and revoked
+sessions on each authenticated request. Provider outages fail closed with 503.
+The runtime identity needs `firebaseauth.users.get`; see the auth rollout guide.
+
 v0.17.1 adds `GET /v1/session/usage` for remaining personal quotas and reset times,
 and returns the applicable quota reset delay in `Retry-After` on usage rejection.
 
