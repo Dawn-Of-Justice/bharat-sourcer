@@ -1,9 +1,25 @@
 # Cloud Run integration deployment
 
 Project `hackathon-510415`, region `asia-south1`, service `bharat-sourcer-integration`.
-This is a team integration environment for the v0.16.1 backend.
+This is a team integration environment for the v0.17.0 backend.
 
-## Current deployment: v0.16.1 with durable dispatch
+## Current deployment: v0.17.0, authentication awaiting frontend integration
+
+Deployed and verified 4 October 2026: healthy live Firestore mode, API v0.17.0,
+and integration-key enforcement. Authentication remains disabled so the existing
+frontend continues working. See the [frontend auth handoff](../../docs/contracts/authentication.md).
+
+Validation: 254 tests passed, two emulator tests skipped; lint, formatting and
+OpenAPI checks passed. A separate live Firestore check verified owner-scoped
+pagination and atomic shared quotas across clients, then removed its synthetic
+records. No Gemini or sourcing calls were made by these checks.
+
+`scripts/prepare_auth.py` prepares a stable Secret Manager guest-session secret
+and requests TTL cleanup for the deployed usage collection. It does not enable
+authentication. Firebase Google provider configuration, frontend integration,
+production CORS and staging login checks remain prerequisites for activation.
+
+## Previous deployment: v0.16.1 with durable dispatch
 
 The live release check confirmed API 0.16.1, healthy live Firestore mode, research
 schemas and integration-access enforcement after the deployment resumed. This release

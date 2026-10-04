@@ -113,6 +113,36 @@ def main():
             }
         )
     queued = env.get("BS_DISPATCH_BACKEND") == "cloud_tasks"
+    # Auth is an operational rollout flag. A source deploy must preserve the live settings.
+    current = command(
+        "run",
+        "services",
+        "describe",
+        SERVICE,
+        f"--region={REGION}",
+        "--format=json",
+        optional=True,
+    )
+    if current.returncode == 0:
+        current_env = json.loads(current.stdout)["spec"]["template"]["spec"]["containers"][0].get(
+            "env", []
+        )
+        auth_keys = {
+            "BS_AUTH_ENABLED",
+            "BS_GUEST_SESSION_DAYS",
+            "BS_GUEST_PART_LIMIT",
+            "BS_ACCOUNT_DAILY_ACTIONS",
+            "BS_GUEST_DAILY_ACTIONS",
+            "BS_GLOBAL_DAILY_ACTIONS",
+            "BS_IP_DAILY_ACTIONS",
+            "BS_TRUSTED_PROXY_IP_HEADER",
+            "BS_CORS_ORIGINS",
+        }
+        env.update(
+            {e["name"]: e["value"] for e in current_env if e["name"] in auth_keys and "value" in e}
+        )
+    elif "NOT_FOUND" not in current.stderr:
+        raise RuntimeError(current.stderr)
     env_path.write_text(json.dumps(env), encoding="utf-8")
     print("Building and deploying Cloud Run...", flush=True)
     result = command(
@@ -134,7 +164,7 @@ def main():
         "--concurrency=20",
         "--timeout=1800" if queued else "--timeout=300",
         f"--env-vars-file={env_path}",
-        f"--set-secrets=BS_GEMINI_API_KEY=bharat-sourcer-gemini:{gemini_version},"
+        f"--update-secrets=BS_GEMINI_API_KEY=bharat-sourcer-gemini:{gemini_version},"
         f"BS_INTEGRATION_KEY=bharat-sourcer-integration-key:{access_version}",
         "--format=value(status.url)",
     )

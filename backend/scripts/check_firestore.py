@@ -1,7 +1,10 @@
 """Credentialed persistence smoke check. Creates and removes one synthetic demo job."""
 
 import argparse
+from concurrent.futures import ThreadPoolExecutor
+from uuid import uuid4
 
+from bharat_sourcer.identity import Principal
 from bharat_sourcer.jobs import JobService
 from bharat_sourcer.schemas import ConfirmJob, CreateJob
 from bharat_sourcer.storage import FirestoreJobStore
@@ -24,3 +27,27 @@ try:
     print("Firestore create/read/confirm/report check passed. No Gemini calls were made.")
 finally:
     store.collection.document(job.job_id).delete()
+
+# Isolated synthetic collection: validate the production query and shared quota transaction.
+collection = "auth_smoke_" + uuid4().hex
+first = FirestoreJobStore(args.project, args.database, collection)
+second = FirestoreJobStore(args.project, args.database, collection)
+owner = Principal("user:smoke-fixture")
+created = []
+try:
+    for _ in range(3):
+        created.append(
+            JobService(store=first).create(CreateJob(url="https://example.com"), owner)[0]
+        )
+    page = second.owned(owner.owner, "", 2)
+    tail = second.owned(owner.owner, page[-1].job.job_id, 2)
+    assert len(page) == 2 and len(tail) == 1
+    assert second.owned("user:other-fixture", "", 2) == []
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        results = list(pool.map(lambda i: [first, second][i % 2].consume({"fixture": 2}), range(4)))
+    assert sum(results) == 2
+    print("Firestore owner pagination and atomic quota check passed. Synthetic records removed.")
+finally:
+    for saved in created:
+        first.collection.document(saved.job_id).delete()
+    first.usage.document("fixture").delete()

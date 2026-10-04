@@ -1,7 +1,39 @@
 # Authentication and saved projects — v0.17
 
-Implemented behind `BS_AUTH_ENABLED=false`. Authentication is not yet enabled in
+Deployed in API v0.17.0 behind `BS_AUTH_ENABLED=false`. Authentication is not yet enabled in
 production. The existing frontend proxy needs the changes below before rollout.
+
+## Team handoff — 4 October 2026
+
+Frontend implementation belongs to the frontend teammate. No frontend files were
+changed for this handoff. Backend infrastructure preparation uses
+`backend/scripts/prepare_auth.py`; it preserves the auth flag and existing guest
+secret, and requests TTL cleanup for the actual deployed usage collection
+(`backend_integration_jobs_usage`). Source deployments preserve live auth settings
+and existing secret bindings.
+
+The live Firestore smoke check passed owner-only pagination and concurrent quota
+admission across separate clients, using synthetic records that were removed.
+Real Firebase login still needs the Firebase project/provider configuration and
+frontend integration described below. Keep `BS_AUTH_ENABLED=false` until both are
+verified together. The public frontend continues using the existing token flow.
+
+### Frontend teammate acceptance checklist
+
+- [ ] Configure Firebase Google login for project `hackathon-510415` and register
+  `bharat-sourcer-web-diahnrbuna-el.a.run.app` as an authorized domain.
+- [ ] Implement Google login, guest entry and logout; refresh Firebase ID tokens.
+- [ ] Forward credentials and each response cookie through the server proxy.
+- [ ] Add the saved-project list and reopen by ID without creating another job.
+- [ ] Offer explicit guest-to-account claim after login, preserving the guest cookie.
+- [ ] Attach Authorization to chat and fetch-based streaming requests too.
+- [ ] Show quota errors while keeping saved projects and pause available.
+- [ ] Verify two-account isolation, guest claim, expiry and a returning-user visit
+  on an auth-enabled staging backend before coordinating production activation.
+
+Backend activation must add the production frontend Origin to `BS_CORS_ORIGINS`.
+Trusted IP forwarding remains disabled until the teammate confirms the proxy
+overwrites caller input using its verified platform client-IP chain.
 
 ## User flow
 
