@@ -9,6 +9,15 @@ class Settings(BaseSettings):
 
     demo_mode: bool = True
     integration_key: SecretStr | None = None
+    auth_enabled: bool = False
+    guest_session_secret: SecretStr | None = None
+    guest_session_days: int = Field(default=14, ge=1, le=30)
+    guest_part_limit: int = Field(default=3, ge=1, le=10)
+    account_daily_actions: int = Field(default=40, ge=1, le=1000)
+    guest_daily_actions: int = Field(default=5, ge=1, le=50)
+    global_daily_actions: int = Field(default=1000, ge=1)
+    ip_daily_actions: int = Field(default=100, ge=1)
+    trusted_proxy_ip_header: bool = False
     dispatch_backend: Literal["local", "cloud_tasks"] = "local"
     tasks_location: str = "asia-south1"
     tasks_queue: str = "bharat-sourcer"
@@ -36,6 +45,14 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def require_project(self):
+        if self.auth_enabled and (
+            not self.gcp_project
+            or not self.guest_session_secret
+            or len(self.guest_session_secret.get_secret_value()) < 32
+        ):
+            raise ValueError("Authentication requires a project and a 32-character guest secret")
+        if self.trusted_proxy_ip_header and not self.integration_key:
+            raise ValueError("Trusted proxy IP requires integration authentication")
         if self.dispatch_backend == "cloud_tasks" and (
             self.storage_backend != "firestore"
             or not self.tasks_url

@@ -1,7 +1,11 @@
-# Implemented API contract — v0.16.1
+# Implemented API contract — v0.17.0
 
 This directory is the handoff between backend and frontend. The architecture docs describe
 the target system; this contract describes the runnable local milestone.
+
+v0.17 adds [authentication, saved projects and guest limits](authentication.md),
+behind an opt-in setting. Production activation requires Firebase setup and frontend
+credential/cookie forwarding. Existing job-token integration remains the default.
 
 v0.16 adds [general part research, flexible requirements and reviewed AI assessments](part-research.md).
 Render research candidates even when no verified offers exist. Existing chat receives

@@ -6,6 +6,7 @@ from uuid import uuid4
 
 import pytest
 
+from bharat_sourcer.identity import Principal
 from bharat_sourcer.jobs import JobError, JobService
 from bharat_sourcer.schemas import ConfirmJob, CreateJob
 from bharat_sourcer.storage import FirestoreJobStore
@@ -39,3 +40,26 @@ def test_firestore_persists_and_serializes_confirmation():
         assert token not in store.get(job.job_id).model_dump_json()
     finally:
         store.collection.document(job.job_id).delete()
+
+
+def test_firestore_ownership_listing_and_atomic_limits_across_clients():
+    collection = "test_identity_" + uuid4().hex
+    first = FirestoreJobStore("demo-bharat-sourcer", collection=collection)
+    second = FirestoreJobStore("demo-bharat-sourcer", collection=collection)
+    service = JobService(store=first)
+    principal = Principal("user:fixture")
+    jobs = [service.create(CreateJob(url="https://example.com"), principal)[0] for _ in range(3)]
+    try:
+        page = second.owned(principal.owner, "", 2)
+        tail = second.owned(principal.owner, page[-1].job.job_id, 2)
+        assert len(page) == 2 and len(tail) == 1
+        assert second.owned("user:other", "", 2) == []
+        with ThreadPoolExecutor(max_workers=4) as pool:
+            results = list(
+                pool.map(lambda i: [first, second][i % 2].consume({"fixture": 2}), range(4))
+            )
+        assert sum(results) == 2
+    finally:
+        for job in jobs:
+            first.collection.document(job.job_id).delete()
+        first.usage.document("fixture").delete()

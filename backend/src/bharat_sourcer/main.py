@@ -2,18 +2,19 @@ import asyncio
 import logging
 import secrets
 from contextlib import asynccontextmanager
-from typing import Annotated
 
-from fastapi import BackgroundTasks, FastAPI, Header, Request
+from fastapi import BackgroundTasks, FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 from google.api_core.exceptions import GoogleAPICallError
 
+from bharat_sourcer.access import Access, ProjectAccess, add_access_routes
 from bharat_sourcer.config import Settings
 from bharat_sourcer.conversation import Assistant, ConversationService, GeminiAssistant
 from bharat_sourcer.dispatch import CloudDispatcher, Work, work_once
 from bharat_sourcer.extraction import Extractor, GeminiExtractor
+from bharat_sourcer.identity import Principal
 from bharat_sourcer.jobs import JobError, JobService
 from bharat_sourcer.schemas import (
     ConfirmationAccepted,
@@ -35,7 +36,7 @@ from bharat_sourcer.sourcing.service import GeminiDiscovery, SourcingService
 from bharat_sourcer.storage import FirestoreJobStore, JobStore, MemoryJobStore, StorageError
 from bharat_sourcer.streaming import snapshots
 
-JobToken = Annotated[str | None, Header(alias="X-Job-Token")]
+JobToken = ProjectAccess
 
 
 def create_app(
@@ -43,6 +44,7 @@ def create_app(
     extractor: Extractor | None = None,
     store: JobStore | None = None,
     assistant: Assistant | None = None,
+    identity_verifier=None,
 ) -> FastAPI:
     settings = settings or Settings()
     live_extractor = None if settings.demo_mode else (extractor or GeminiExtractor(settings))
@@ -127,13 +129,16 @@ def create_app(
 
     app = FastAPI(
         title="Bharat Sourcer API",
-        version="0.16.1",
+        version="0.17.0",
         description="Demo or live YouTube extraction with optional Firestore job persistence.",
         lifespan=lifespan,
         responses={422: {"model": ErrorResponse}, 503: {"model": ErrorResponse}},
     )
     app.state.job_service = service
     app.state.conversation_service = conversation
+    access = Access(settings, service, identity_verifier)
+    app.state.access = access
+    add_access_routes(app, access)
 
     @app.exception_handler(StorageError)
     @app.exception_handler(GoogleAPICallError)
@@ -157,13 +162,50 @@ def create_app(
                         }
                     },
                 )
-        return await call_next(request)
+        if settings.auth_enabled and request.url.path.startswith("/v1/"):
+            try:
+                if request.method == "POST" and request.url.path.startswith("/v1/jobs"):
+                    access.csrf(request)
+                    principal = await asyncio.to_thread(access.identity, request)
+                    parts = request.url.path.split("/")
+                    if len(parts) > 3:
+                        await asyncio.to_thread(service.get, parts[3], principal)
+                    # Users must always be able to stop work after exhausting their quota.
+                    if not request.url.path.endswith("/pause"):
+                        await asyncio.to_thread(access.charge, request, principal)
+            except JobError as exc:
+                return JSONResponse(
+                    status_code=exc.status,
+                    content={"error": {"code": exc.code, "message": exc.message}},
+                    headers={"Retry-After": "60"} if exc.status == 429 else {},
+                )
+            except (StorageError, GoogleAPICallError):
+                return JSONResponse(
+                    status_code=503,
+                    content={
+                        "error": {
+                            "code": "USAGE_STORE_UNAVAILABLE",
+                            "message": "Usage checks unavailable; retry later",
+                        }
+                    },
+                )
+        result = await call_next(request)
+        if request.url.path.startswith("/v1/"):
+            result.headers["Cache-Control"] = "no-store"
+        return result
 
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins,
         allow_methods=["GET", "POST"],
-        allow_headers=["Content-Type", "X-Job-Token", "X-Integration-Key"],
+        allow_headers=[
+            "Content-Type",
+            "X-Job-Token",
+            "X-Integration-Key",
+            "Authorization",
+            "X-Requested-With",
+        ],
+        allow_credentials=True,
     )
 
     @app.exception_handler(JobError)
@@ -171,6 +213,7 @@ def create_app(
         return JSONResponse(
             status_code=exc.status,
             content={"error": {"code": exc.code, "message": exc.message}},
+            headers={"Retry-After": "60"} if exc.status == 429 else {},
         )
 
     @app.exception_handler(RequestValidationError)
@@ -196,8 +239,13 @@ def create_app(
         tags=["jobs"],
         responses={400: {"model": ErrorResponse}},
     )
-    def create_job(body: CreateJob, tasks: BackgroundTasks):
-        job, token = service.create(body)
+    def create_job(body: CreateJob, tasks: BackgroundTasks, x_job_token: JobToken = None):
+        principal = x_job_token if isinstance(x_job_token, Principal) else None
+        job, token = service.create(
+            body,
+            principal,
+            settings.guest_part_limit if principal and principal.guest else None,
+        )
         dispatch(tasks, service.extract, job.job_id)
         return CreatedJob(
             job_id=job.job_id, job_token=token, watch=f"/v1/jobs/{job.job_id}", demo=job.demo

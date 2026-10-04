@@ -1,6 +1,7 @@
 """Atomic job transitions. External I/O stays outside storage transactions."""
 
 import secrets
+import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import timedelta
 from hashlib import sha256
@@ -9,6 +10,7 @@ from uuid import UUID, uuid4
 from bharat_sourcer.compat import assess, resolve_part
 from bharat_sourcer.costing import update_costs
 from bharat_sourcer.extraction import ExtractionError, Extractor, youtube_url
+from bharat_sourcer.identity import Principal
 from bharat_sourcer.schemas import (
     AddLine,
     BomItem,
@@ -67,7 +69,9 @@ class JobService:
         job.updated_at = now()
         job.events.append(Event(seq=len(job.events) + 1, status=status, message=message))
 
-    def create(self, request: CreateJob) -> tuple[Job, str]:
+    def create(
+        self, request: CreateJob, principal: Principal | None = None, part_limit: int | None = None
+    ) -> tuple[Job, str]:
         if self.extractor:
             try:
                 youtube_url(str(request.url))
@@ -83,7 +87,14 @@ class JobService:
         token = secrets.token_urlsafe(32)
         message = "Demo job queued." if job.demo else "Video queued."
         self._transition(job, "queued", message)
-        self.store.create(StoredJob(job=job, token_hash=self._hash(token)))
+        self.store.create(
+            StoredJob(
+                job=job,
+                token_hash=self._hash(token),
+                owner_id=principal.owner if principal else None,
+                part_limit=part_limit,
+            )
+        )
         return job.model_copy(deep=True), token
 
     @staticmethod
@@ -91,6 +102,14 @@ class JobService:
         return sha256((token or "").encode()).hexdigest()
 
     def _authorized(self, record: StoredJob | None, token: str | None) -> Job:
+        if isinstance(token, Principal):
+            if token.expires_at is not None and token.expires_at <= time.time():
+                raise JobError(401, "IDENTITY_EXPIRED", "Session expired; refresh your credentials")
+            if record is None or record.owner_id != token.owner:
+                raise JobError(404, "JOB_NOT_FOUND", "Project not found")
+            return record.job
+        if record is not None and record.owner_id is not None:
+            raise JobError(404, "JOB_NOT_FOUND", "Project not found")
         if record is None or not secrets.compare_digest(record.token_hash, self._hash(token)):
             raise JobError(404, "JOB_NOT_FOUND", "Job not found or token invalid")
         return record.job
@@ -260,6 +279,8 @@ class JobService:
 
         def change(record: StoredJob):
             self._authorized(record, token)
+            if record.part_limit and len(request.line_ids) > record.part_limit:
+                raise JobError(422, "PART_LIMIT", "Choose fewer parts for this account tier")
             self.prepare_refresh(record, request)
 
         if self.store.mutate(job_id, change) is None:
@@ -290,7 +311,8 @@ class JobService:
             len(wanted) != len(request.line_ids)
             or not wanted.issubset(items)
             or any(items[key].user_has_it for key in wanted)
-            or len(wanted) > self.sourcing_max_parts
+            or len(wanted)
+            > min(self.sourcing_max_parts, record.part_limit or self.sourcing_max_parts)
         ):
             raise JobError(
                 422,
@@ -503,6 +525,13 @@ class JobService:
         def change(record: StoredJob):
             job = self._authorized(record, token)
             self.edit_draft(job, request, finalize=True)
+            if (
+                record.part_limit
+                and sum(not item.user_has_it for item in job.items) > record.part_limit
+            ):
+                raise JobError(
+                    422, "PART_LIMIT", "Remove parts or mark owned parts before confirming"
+                )
 
         if self.store.mutate(job_id, change) is None:
             raise JobError(404, "JOB_NOT_FOUND", "Job not found or token invalid")
@@ -684,7 +713,10 @@ class JobService:
             with ThreadPoolExecutor(max_workers=self.sourcing_parallelism) as pool:
                 futures = []
                 for item in batch:
-                    limited = not item.user_has_it and searched >= self.sourcing_max_parts
+                    limit = min(
+                        self.sourcing_max_parts, claimed.part_limit or self.sourcing_max_parts
+                    )
+                    limited = not item.user_has_it and searched >= limit
                     if not item.user_has_it and not limited:
                         searched += 1
                     futures.append(pool.submit(source_item, item, limited))

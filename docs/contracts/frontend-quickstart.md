@@ -107,3 +107,8 @@ status becomes `done`: chat has its own lifecycle. Generation does not stream to
 See [all implemented routes](README.md), [conversation integration](conversation.md),
 and [agreed remaining features](backend-roadmap.md). The backend deployment does not
 modify or scaffold the teammate's frontend.
+# Authentication integration (v0.17)
+
+Before enabling account access, follow the [authentication handoff](authentication.md)
+for Firebase login, guest cookies, saved projects, claiming and proxy headers.
+Authentication is disabled by default; the examples below describe legacy token access.

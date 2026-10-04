@@ -1,5 +1,10 @@
 # Backend
 
+v0.17.0 adds optional Firebase Google authentication, signed guest sessions,
+owner-scoped saved projects, guest-to-account claims and shared usage limits.
+Authentication defaults to disabled until the frontend proxy and Firebase setup
+are ready. See [authentication and rollout](../docs/contracts/authentication.md).
+
 v0.16.1 adds one bounded alternative-source search when no verified offer or research
 evidence is available. Unreadable pages no longer consume the document-review budget.
 See the [research limits and cost controls](../docs/contracts/part-research.md).

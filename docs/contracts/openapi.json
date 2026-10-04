@@ -3,9 +3,252 @@
   "info": {
     "title": "Bharat Sourcer API",
     "description": "Demo or live YouTube extraction with optional Firestore job persistence.",
-    "version": "0.16.1"
+    "version": "0.17.0"
   },
   "paths": {
+    "/v1/session/guest": {
+      "post": {
+        "tags": [
+          "identity"
+        ],
+        "summary": "Guest Session",
+        "operationId": "guest_session_v1_session_guest_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionInfo"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/session": {
+      "get": {
+        "tags": [
+          "identity"
+        ],
+        "summary": "Session",
+        "operationId": "session_v1_session_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionInfo"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/session/logout": {
+      "post": {
+        "tags": [
+          "identity"
+        ],
+        "summary": "Logout",
+        "operationId": "logout_v1_session_logout_post",
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/projects": {
+      "get": {
+        "tags": [
+          "projects"
+        ],
+        "summary": "Projects",
+        "operationId": "projects_v1_projects_get",
+        "parameters": [
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "Cursor"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 50,
+              "minimum": 1,
+              "default": 20,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectList"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        }
+      }
+    },
+    "/v1/projects/{job_id}/claim": {
+      "post": {
+        "tags": [
+          "projects"
+        ],
+        "summary": "Claim",
+        "operationId": "claim_v1_projects__job_id__claim_post",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Job Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClaimProject"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Job"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        }
+      }
+    },
     "/healthz": {
       "get": {
         "tags": [
@@ -95,15 +338,33 @@
         ],
         "summary": "Create Job",
         "operationId": "create_job_v1_jobs_post",
+        "parameters": [
+          {
+            "name": "x-job-token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Job-Token"
+            }
+          }
+        ],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/CreateJob"
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "202": {
@@ -117,34 +378,34 @@
             }
           },
           "422": {
-            "description": "Unprocessable Entity",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
-            }
+            },
+            "description": "Unprocessable Entity"
           },
           "503": {
-            "description": "Service Unavailable",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
-            }
+            },
+            "description": "Service Unavailable"
           },
           "400": {
-            "description": "Bad Request",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
-            }
+            },
+            "description": "Bad Request"
           }
         }
       }
@@ -167,7 +428,7 @@
             }
           },
           {
-            "name": "X-Job-Token",
+            "name": "x-job-token",
             "in": "header",
             "required": false,
             "schema": {
@@ -245,7 +506,7 @@
             }
           },
           {
-            "name": "X-Job-Token",
+            "name": "x-job-token",
             "in": "header",
             "required": false,
             "schema": {
@@ -343,7 +604,7 @@
             }
           },
           {
-            "name": "X-Job-Token",
+            "name": "x-job-token",
             "in": "header",
             "required": false,
             "schema": {
@@ -431,7 +692,7 @@
             }
           },
           {
-            "name": "X-Job-Token",
+            "name": "x-job-token",
             "in": "header",
             "required": false,
             "schema": {
@@ -519,7 +780,7 @@
             }
           },
           {
-            "name": "X-Job-Token",
+            "name": "x-job-token",
             "in": "header",
             "required": false,
             "schema": {
@@ -617,7 +878,7 @@
             }
           },
           {
-            "name": "X-Job-Token",
+            "name": "x-job-token",
             "in": "header",
             "required": false,
             "schema": {
@@ -715,7 +976,7 @@
             }
           },
           {
-            "name": "X-Job-Token",
+            "name": "x-job-token",
             "in": "header",
             "required": false,
             "schema": {
@@ -813,7 +1074,7 @@
             }
           },
           {
-            "name": "X-Job-Token",
+            "name": "x-job-token",
             "in": "header",
             "required": false,
             "schema": {
@@ -920,7 +1181,7 @@
             }
           },
           {
-            "name": "X-Job-Token",
+            "name": "x-job-token",
             "in": "header",
             "required": false,
             "schema": {
@@ -1018,7 +1279,7 @@
             }
           },
           {
-            "name": "X-Job-Token",
+            "name": "x-job-token",
             "in": "header",
             "required": false,
             "schema": {
@@ -1096,7 +1357,7 @@
             }
           },
           {
-            "name": "X-Job-Token",
+            "name": "x-job-token",
             "in": "header",
             "required": false,
             "schema": {
@@ -1418,6 +1679,25 @@
           "base_fingerprint"
         ],
         "title": "ChatProposal"
+      },
+      "ClaimProject": {
+        "properties": {
+          "job_token": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Job Token"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "ClaimProject"
       },
       "Clarification": {
         "properties": {
@@ -2339,6 +2619,85 @@
         "type": "object",
         "title": "PartSpecs"
       },
+      "ProjectList": {
+        "properties": {
+          "projects": {
+            "items": {
+              "$ref": "#/components/schemas/ProjectSummary"
+            },
+            "type": "array",
+            "title": "Projects"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "projects"
+        ],
+        "title": "ProjectList"
+      },
+      "ProjectSummary": {
+        "properties": {
+          "job_id": {
+            "type": "string",
+            "title": "Job Id"
+          },
+          "url": {
+            "type": "string",
+            "title": "Url"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "extracting",
+              "awaiting_confirmation",
+              "resolving",
+              "sourcing",
+              "paused",
+              "done",
+              "failed"
+            ],
+            "title": "Status"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          },
+          "part_count": {
+            "type": "integer",
+            "title": "Part Count"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "job_id",
+          "url",
+          "status",
+          "created_at",
+          "updated_at",
+          "part_count"
+        ],
+        "title": "ProjectSummary"
+      },
       "ProposalDecision": {
         "properties": {
           "action": {
@@ -3194,6 +3553,41 @@
           "text"
         ],
         "title": "SendMessage"
+      },
+      "SessionInfo": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "title": "Kind"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
+          "daily_action_limit": {
+            "type": "integer",
+            "title": "Daily Action Limit"
+          },
+          "part_limit": {
+            "type": "integer",
+            "title": "Part Limit"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "kind",
+          "daily_action_limit",
+          "part_limit"
+        ],
+        "title": "SessionInfo"
       },
       "SpecEvidence": {
         "properties": {

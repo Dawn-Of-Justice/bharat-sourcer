@@ -42,7 +42,7 @@ and fixes readable-document budget handling. The live API version and health are
 | 5 | Circuit context and more design rules | Establish resistor roles, topology and source-backed inputs; support additional roles only with validated calculations; attach suggestions to a specific physical component |
 | 6 | Permanent rule repair workflow | Capture bounded failure cases; generate candidate patch in isolation; regression/property tests; versioned release and rollback. Current runtime only quarantines and falls back; no automatic patch authoring/deployment |
 | 7 | Queue operations hardening | Durable dispatch implemented; add queue-age alerts, bounded/paginated reconciliation at larger scale and per-user quotas |
-| 8 | Public launch controls | User authentication/authorization, durable quotas/rate limits, retention, operational alerts and access review. Shared integration key is temporary team access only |
+| 8 | Public launch controls | v0.17 implements opt-in account/guest authorization and transactional usage quotas locally; Firebase/proxy integration and cloud activation remain. Retention, operational alerts, revoked-user checks and access review remain. See [authentication rollout](authentication.md) |
 | 9 | Extraction quality evaluation | Labelled real-video BOM set; measure omissions, quantities and evidence accuracy; avoid fixture-based accuracy claims |
 | 10 | Project page/code evidence | Extract supported project pages and code; show provenance/conflicts alongside video evidence |
 | 11 | Richer sourcing decisions | Seller trust checks, module-backed compatibility rules, delivery/tax/shipping inputs and final cost calculations |
