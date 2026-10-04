@@ -1,9 +1,17 @@
 # Cloud Run integration deployment
 
 Project `hackathon-510415`, region `asia-south1`, service `bharat-sourcer-integration`.
-This is a team integration environment for the v0.17.1 backend.
+This is a team integration environment for the v0.17.2 backend.
 
-## Current deployment: v0.17.1
+## Current deployment: v0.17.2
+
+Verified healthy in live Firestore mode with integration-key enforcement. Revoked
+sessions and disabled/deleted account checks are deployed behind the disabled auth
+flag. The runtime service account has Firebase Auth Viewer access for account lookup.
+Validation: 265 tests passed, two emulator tests skipped; lint, formatting and OpenAPI
+checks passed. Live account revocation testing remains pending auth-enabled staging.
+
+## Previous deployment: v0.17.1
 
 Deployed and verified healthy in live Firestore mode. Personal usage counters and
 accurate quota retry delays are available when authentication is enabled. The auth

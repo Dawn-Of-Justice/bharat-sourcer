@@ -3,7 +3,7 @@
 import json
 import secrets
 
-from deploy_integration import ACCOUNT, REGION, SERVICE, command
+from deploy_integration import ACCOUNT, PROJECT, REGION, SERVICE, command
 
 
 def main():
@@ -33,6 +33,14 @@ def main():
         raise RuntimeError("Guest secret has no enabled version; restore it before continuing")
     version = max(int(item["name"].split("/")[-1]) for item in versions)
     runtime_account = service["spec"]["template"]["spec"].get("serviceAccountName", ACCOUNT)
+    command(
+        "projects",
+        "add-iam-policy-binding",
+        PROJECT,
+        f"--member=serviceAccount:{runtime_account}",
+        "--role=roles/firebaseauth.viewer",
+        "--condition=None",
+    )
     command(
         "secrets",
         "add-iam-policy-binding",

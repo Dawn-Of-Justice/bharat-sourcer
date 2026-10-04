@@ -7,8 +7,9 @@ v0.17 adds [authentication, saved projects and guest limits](authentication.md),
 behind an opt-in setting. Production activation requires Firebase setup and frontend
 credential/cookie forwarding. Existing job-token integration remains the default.
 v0.17.1 adds personal remaining usage and accurate quota reset delays and is deployed.
-v0.17.2 adds revoked-session and disabled-account checks locally; deployment requires
-runtime Firebase account-read permission. See the authentication handoff for error handling.
+v0.17.2 deploys revoked-session and disabled-account checks with runtime Firebase
+account-read permission configured. Auth remains disabled pending frontend integration.
+See the authentication handoff for error handling.
 
 v0.16 adds [general part research, flexible requirements and reviewed AI assessments](part-research.md).
 Render research candidates even when no verified offers exist. Existing chat receives

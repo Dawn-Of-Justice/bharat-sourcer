@@ -1,11 +1,11 @@
 # Authentication and saved projects — v0.17
 
-Deployed in API v0.17.1 behind `BS_AUTH_ENABLED=false`. Authentication is not yet enabled in
+Deployed in API v0.17.2 behind `BS_AUTH_ENABLED=false`. Authentication is not yet enabled in
 production. The existing frontend proxy needs the changes below before rollout.
 
 ## Team handoff — 4 October 2026
 
-Backend v0.17.1 is deployed and verified. Firebase project registration and the
+Backend v0.17.2 is deployed and verified. Firebase project registration and the
 `Bharat Sourcer Web` app now exist; Authentication is initialized. Google sign-in
 is enabled and verified through the console and Firebase API. The approved public
 name is `Bharat Sourcer`; the support email is configured in Firebase.
@@ -154,9 +154,10 @@ does not fix revocation: prompt a new Google sign-in. Provider outages or missin
 backend IAM return 503 `IDENTITY_UNAVAILABLE`; preserve the session and offer retry.
 Neither response falls back to a guest session or admits paid work.
 
-This v0.17.2 change is local, not deployed yet. Before rollout, grant the backend
-runtime service account `firebaseauth.users.get` (for example via
-`roles/firebaseauth.viewer`) on `hackathon-510415`. The lookup uses Application
+This v0.17.2 change is deployed with authentication still disabled. The backend
+runtime service account has `roles/firebaseauth.viewer` on `hackathon-510415`,
+which supplies `firebaseauth.users.get`; `prepare_auth.py` preserves this setup.
+Live user revocation testing remains pending auth-enabled staging. The lookup uses Application
 Default Credentials, never a downloaded service-account key. Requests to the
 account-status endpoint have a 10-second timeout. Each new HTTP request checks
 status once; an already-open SSE stream can continue until its bounded 60-second
