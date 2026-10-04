@@ -3,11 +3,14 @@
 This roadmap tracks decisions from implementation discussions. Architecture documents
 describe a broader target; the API contract describes what actually works.
 
-## Available in the integration backend (v0.16)
+## Available in the integration backend (v0.16.1)
 
 v0.16 is deployed: [general part research](part-research.md), arbitrary
 categories, source quotes, AI suitability assessments, flexible requirements, and
 reviewed selection of verified quotes. Frontend research controls need integration.
+
+v0.16.1 adds a single automatic alternative-source search for empty research results
+and fixes readable-document budget handling. The live API version and health are verified.
 
 | Area | Implemented |
 | --- | --- |

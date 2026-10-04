@@ -1,9 +1,24 @@
 # Cloud Run integration deployment
 
 Project `hackathon-510415`, region `asia-south1`, service `bharat-sourcer-integration`.
-This is a team integration environment for the v0.16 backend.
+This is a team integration environment for the v0.16.1 backend.
 
-## Current deployment: v0.16 with durable dispatch
+## Current deployment: v0.16.1 with durable dispatch
+
+The live release check confirmed API 0.16.1, healthy live Firestore mode, research
+schemas and integration-access enforcement after the deployment resumed. This release
+adds one bounded alternative-source search when the initial search provides neither
+verified offers nor research evidence. Unreadable documents no longer consume the
+readable-document review budget.
+
+Validation: 238 tests passed, one Firestore emulator test skipped; lint, formatting
+and OpenAPI checks passed. The controlled workflow covers confirmation, source recovery,
+requirement edits, stale assessments and refresh-based reassessment without re-extraction.
+A live switch search returned one verified offer and two research candidates with 11
+quoted facts. That run succeeded on the first search; automatic follow-up recovery was
+tested with controlled sources. Full browser integration still requires frontend controls.
+
+## Previous v0.16 deployment
 
 Deployed v0.16 on 4 Oct 2026. `scripts/check_release.py` verified live Firestore
 health, API version 0.16.0, research and requirements schemas, and unauthenticated
