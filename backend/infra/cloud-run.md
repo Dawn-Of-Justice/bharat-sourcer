@@ -1,9 +1,19 @@
 # Cloud Run integration deployment
 
 Project `hackathon-510415`, region `asia-south1`, service `bharat-sourcer-integration`.
-This is a team integration environment for the v0.17.0 backend.
+This is a team integration environment for the v0.17.1 backend.
 
-## Current deployment: v0.17.0, authentication awaiting frontend integration
+## Current deployment: v0.17.1
+
+Deployed and verified healthy in live Firestore mode. Personal usage counters and
+accurate quota retry delays are available when authentication is enabled. The auth
+flag remains disabled. Firebase Management and Identity Toolkit APIs are enabled;
+the existing GCP project and `Bharat Sourcer Web` app are registered with Firebase.
+Authentication is initialized and the Google provider is enabled, verified through
+the Firebase API and console. SDK config is in ignored `.data/firebase-web-config.json`.
+Production-domain authorization and an actual frontend sign-in test remain pending.
+
+## Previous deployment: v0.17.0, authentication awaiting frontend integration
 
 Deployed and verified 4 October 2026: healthy live Firestore mode, API v0.17.0,
 and integration-key enforcement. Authentication remains disabled so the existing

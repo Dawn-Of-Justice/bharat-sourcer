@@ -1,9 +1,17 @@
 # Authentication and saved projects — v0.17
 
-Deployed in API v0.17.0 behind `BS_AUTH_ENABLED=false`. Authentication is not yet enabled in
+Deployed in API v0.17.1 behind `BS_AUTH_ENABLED=false`. Authentication is not yet enabled in
 production. The existing frontend proxy needs the changes below before rollout.
 
 ## Team handoff — 4 October 2026
+
+Backend v0.17.1 is deployed and verified. Firebase project registration and the
+`Bharat Sourcer Web` app now exist; Authentication is initialized. Google sign-in
+is enabled and verified through the console and Firebase API. The approved public
+name is `Bharat Sourcer`; the support email is configured in Firebase.
+The SDK config is saved locally in ignored `backend/.data/firebase-web-config.json`;
+obtain it from the project owner or Firebase project settings. Production-domain
+authorization and an actual sign-in check remain pending. Backend auth stays off.
 
 Frontend implementation belongs to the frontend teammate. No frontend files were
 changed for this handoff. Backend infrastructure preparation uses
@@ -14,13 +22,14 @@ and existing secret bindings.
 
 The live Firestore smoke check passed owner-only pagination and concurrent quota
 admission across separate clients, using synthetic records that were removed.
-Real Firebase login still needs the Firebase project/provider configuration and
+Real Firebase login still needs production-domain authorization and the
 frontend integration described below. Keep `BS_AUTH_ENABLED=false` until both are
 verified together. The public frontend continues using the existing token flow.
 
 ### Frontend teammate acceptance checklist
 
-- [ ] Configure Firebase Google login for project `hackathon-510415` and register
+- [x] Enable Firebase Google provider for project `hackathon-510415` (backend setup).
+- [ ] Register
   `bharat-sourcer-web-diahnrbuna-el.a.run.app` as an authorized domain.
 - [ ] Implement Google login, guest entry and logout; refresh Firebase ID tokens.
 - [ ] Forward credentials and each response cookie through the server proxy.
@@ -123,14 +132,14 @@ latest reset of the exhausted limits: next minute for burst limits, midnight UTC
 for daily limits. The header is exposed through CORS. Avoid retrying mutations
 automatically because attempts themselves consume quota.
 
-`GET /v1/session/usage` is available in v0.17.1 (not yet deployed). It reads only the
+`GET /v1/session/usage` is deployed in v0.17.1. It reads only the
 current identity's counters and does not consume action quota. It does not expose
 other users, aggregate service usage or IP counters. Shared IP/global limits can
 therefore reject an action even when personal `remaining` is positive. Values are
 an advisory snapshot, not a reservation; another request can consume usage before
 the next action. Fetch on opening the account panel or after an action/429, rather
 than continuously polling. Reopening saved work remains available at zero quota.
-The deployed v0.17.0 still uses a fixed 60-second retry hint until upgraded.
+The earlier v0.17.0 used a fixed 60-second retry hint.
 
 Firestore transactions enforce counters across instances and fail closed on a
 usage-store outage. Memory counters are for local development only and reset
