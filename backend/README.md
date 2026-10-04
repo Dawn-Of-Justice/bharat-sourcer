@@ -1,5 +1,8 @@
 # Backend
 
+v0.17.1 adds `GET /v1/session/usage` for remaining personal quotas and reset times,
+and returns the applicable quota reset delay in `Retry-After` on usage rejection.
+
 v0.17.0 adds optional Firebase Google authentication, signed guest sessions,
 owner-scoped saved projects, guest-to-account claims and shared usage limits.
 Authentication defaults to disabled until the frontend proxy and Firebase setup

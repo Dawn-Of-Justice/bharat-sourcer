@@ -282,3 +282,48 @@ def test_expired_principal_cannot_continue_reading_saved_project():
     with pytest.raises(JobError) as error:
         app.state.job_service.get(key, expired)
     assert error.value.code == "IDENTITY_EXPIRED"
+
+
+def test_usage_is_private_read_only_and_resets_at_utc_boundary():
+    client, app = setup(account_daily_actions=2)
+    headers = {"Authorization": "Bearer alice"}
+    moment = 1750000020
+    with patch("time.time", return_value=moment):
+        assert create(client, "alice").status_code == 202
+        usage = client.get("/v1/session/usage", headers=headers).json()
+        assert usage["daily_actions"]["used"] == 1
+        assert usage["daily_actions"]["remaining"] == 1
+        assert usage["daily_projects"]["remaining"] == 4
+        assert usage["daily_actions"]["resets_at"] == (moment // 86400 + 1) * 86400
+        assert client.get("/v1/session/usage", headers=headers).json() == usage
+        other = client.get("/v1/session/usage", headers={"Authorization": "Bearer bob"}).json()
+        assert other["daily_actions"]["used"] == 0
+        assert client.get("/v1/session/usage").status_code == 401
+    with patch("time.time", return_value=(moment // 86400 + 1) * 86400):
+        assert client.get("/v1/session/usage", headers=headers).json()["daily_actions"]["used"] == 0
+
+
+def test_daily_quota_retry_after_waits_until_midnight():
+    client, app = setup(account_daily_actions=1)
+    moment = 1750000020
+    with patch("time.time", return_value=moment):
+        assert create(client, "alice").status_code == 202
+        rejected = create(client, "alice")
+        assert rejected.status_code == 429
+        assert int(rejected.headers["Retry-After"]) == (moment // 86400 + 1) * 86400 - moment
+
+
+def test_burst_quota_retry_after_waits_only_until_next_minute():
+    client, app = setup()
+    moment = 1750000020
+    with patch("time.time", return_value=moment):
+        key = create(client, "alice").json()["job_id"]
+        headers = {"Authorization": "Bearer alice"}
+        # Invalid-body attempts are charged, without starting model work.
+        for _ in range(4):
+            assert (
+                client.post(f"/v1/jobs/{key}/messages", headers=headers, json={}).status_code == 422
+            )
+        response = client.post(f"/v1/jobs/{key}/messages", headers=headers, json={})
+        assert response.status_code == 429
+        assert int(response.headers["Retry-After"]) == 60 - moment % 60

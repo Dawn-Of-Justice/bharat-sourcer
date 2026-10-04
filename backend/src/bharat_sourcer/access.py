@@ -3,6 +3,7 @@
 import hashlib
 import hmac
 import ipaddress
+import math
 import time
 from datetime import UTC, datetime
 from typing import Annotated
@@ -30,6 +31,19 @@ class SessionInfo(Model):
     expires_at: int | None = None
     daily_action_limit: int
     part_limit: int
+
+
+class UsageWindow(Model):
+    limit: int
+    used: int
+    remaining: int
+    resets_at: int
+
+
+class SessionUsage(Model):
+    daily_actions: UsageWindow
+    daily_projects: UsageWindow
+    minute_actions: UsageWindow
 
 
 class ProjectSummary(Model):
@@ -104,7 +118,8 @@ class Access:
         return hmac.new(self.sessions.secret, value.encode(), hashlib.sha256).hexdigest()
 
     def charge(self, request, principal, *, session=False):
-        day = datetime.now(UTC).strftime("%Y%m%d")
+        timestamp = time.time()
+        day = datetime.fromtimestamp(timestamp, UTC).strftime("%Y%m%d")
         ip = self.ip_key(request)
         if session:
             limits = {f"session-{day}-{ip}": 10, f"session-global-{day}": 1000}
@@ -119,14 +134,52 @@ class Access:
                 f"actions-{day}-{owner}": cap,
                 f"actions-ip-{day}-{ip}": self.settings.ip_daily_actions,
                 f"actions-global-{day}": self.settings.global_daily_actions,
-                f"burst-{int(time.time()) // 60}-{owner}": 5,
+                f"burst-{int(timestamp) // 60}-{owner}": 5,
             }
             if request.url.path == "/v1/jobs":
                 limits[f"create-{day}-{owner}"] = 1 if principal.guest else 5
         if not self.service.store.consume(limits):
+            counts = self.service.store.usage_counts(list(limits))
+            resets = [
+                (int(timestamp) // window + 1) * window
+                for key, cap in limits.items()
+                if counts[key] >= cap
+                for window in [60 if key.startswith("burst-") else 86400]
+            ]
             raise JobError(
-                429, "USAGE_LIMIT", "Usage limit reached; saved projects remain available"
+                429,
+                "USAGE_LIMIT",
+                "Usage limit reached; saved projects remain available",
+                retry_after=max(1, math.ceil(max(resets, default=timestamp + 60) - time.time())),
             )
+
+    def usage(self, principal):
+        timestamp = int(time.time())
+        day = datetime.fromtimestamp(timestamp, UTC).strftime("%Y%m%d")
+        owner = hashlib.sha256(principal.owner.encode()).hexdigest()
+        windows = {
+            "daily_actions": (
+                f"actions-{day}-{owner}",
+                self.settings.guest_daily_actions
+                if principal.guest
+                else self.settings.account_daily_actions,
+                86400,
+            ),
+            "daily_projects": (f"create-{day}-{owner}", 1 if principal.guest else 5, 86400),
+            "minute_actions": (f"burst-{timestamp // 60}-{owner}", 5, 60),
+        }
+        counts = self.service.store.usage_counts([key for key, _, _ in windows.values()])
+        return SessionUsage(
+            **{
+                name: UsageWindow(
+                    limit=cap,
+                    used=counts[key],
+                    remaining=max(0, cap - counts[key]),
+                    resets_at=(timestamp // duration + 1) * duration,
+                )
+                for name, (key, cap, duration) in windows.items()
+            }
+        )
 
     def session_info(self, principal):
         return SessionInfo(
@@ -167,6 +220,10 @@ def add_access_routes(app, access):
     @app.get("/v1/session", response_model=SessionInfo, tags=["identity"])
     def session(request: Request):
         return access.session_info(access.identity(request))
+
+    @app.get("/v1/session/usage", response_model=SessionUsage, tags=["identity"])
+    def usage(request: Request):
+        return access.usage(access.identity(request))
 
     @app.post("/v1/session/logout", status_code=204, tags=["identity"])
     def logout(request: Request, response: Response):

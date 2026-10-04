@@ -63,6 +63,7 @@ sign-in recovery rather than silently creating another guest identity.
 | --- | --- |
 | `POST /v1/session/guest` | Create or reuse guest cookie; returns session info |
 | `GET /v1/session` | Returns `kind`, `expires_at` (Unix seconds), `daily_action_limit`, `part_limit` |
+| `GET /v1/session/usage` | v0.17.1: personal daily actions, daily projects and minute actions, each with `limit`, `used`, `remaining`, `resets_at` (Unix seconds) |
 | `POST /v1/session/logout` | Clears guest cookie, 204; frontend must also call Firebase sign-out |
 | `GET /v1/projects?limit=20&cursor=...` | Owner-only summaries and nullable `next_cursor`; max limit 50 |
 | `POST /v1/projects/{job_id}/claim` | Account claims a guest project, or legacy project with `{"job_token":"..."}` |
@@ -117,8 +118,19 @@ Additional defaults: 100 job POST attempts/IP/day, 1,000 across the service/day;
 guest cookie does not consume session quota. POST attempts consume quota before
 body validation, including retries and idempotent repeats. Unauthorized ownership
 attempts do not consume the project action quota. Reads, claims, logout and pause
-are excluded. `429 USAGE_LIMIT` includes `Retry-After: 60`; a daily limit can remain
-blocked until midnight UTC, so avoid automatic repeated retries.
+are excluded. In v0.17.1, `429 USAGE_LIMIT` includes `Retry-After` seconds until the
+latest reset of the exhausted limits: next minute for burst limits, midnight UTC
+for daily limits. The header is exposed through CORS. Avoid retrying mutations
+automatically because attempts themselves consume quota.
+
+`GET /v1/session/usage` is available in v0.17.1 (not yet deployed). It reads only the
+current identity's counters and does not consume action quota. It does not expose
+other users, aggregate service usage or IP counters. Shared IP/global limits can
+therefore reject an action even when personal `remaining` is positive. Values are
+an advisory snapshot, not a reservation; another request can consume usage before
+the next action. Fetch on opening the account panel or after an action/429, rather
+than continuously polling. Reopening saved work remains available at zero quota.
+The deployed v0.17.0 still uses a fixed 60-second retry hint until upgraded.
 
 Firestore transactions enforce counters across instances and fail closed on a
 usage-store outage. Memory counters are for local development only and reset

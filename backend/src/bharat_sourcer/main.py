@@ -129,7 +129,7 @@ def create_app(
 
     app = FastAPI(
         title="Bharat Sourcer API",
-        version="0.17.0",
+        version="0.17.1",
         description="Demo or live YouTube extraction with optional Firestore job persistence.",
         lifespan=lifespan,
         responses={422: {"model": ErrorResponse}, 503: {"model": ErrorResponse}},
@@ -177,7 +177,7 @@ def create_app(
                 return JSONResponse(
                     status_code=exc.status,
                     content={"error": {"code": exc.code, "message": exc.message}},
-                    headers={"Retry-After": "60"} if exc.status == 429 else {},
+                    headers={"Retry-After": str(exc.retry_after)} if exc.status == 429 else {},
                 )
             except (StorageError, GoogleAPICallError):
                 return JSONResponse(
@@ -206,6 +206,7 @@ def create_app(
             "X-Requested-With",
         ],
         allow_credentials=True,
+        expose_headers=["Retry-After"],
     )
 
     @app.exception_handler(JobError)
@@ -213,7 +214,7 @@ def create_app(
         return JSONResponse(
             status_code=exc.status,
             content={"error": {"code": exc.code, "message": exc.message}},
-            headers={"Retry-After": "60"} if exc.status == 429 else {},
+            headers={"Retry-After": str(exc.retry_after)} if exc.status == 429 else {},
         )
 
     @app.exception_handler(RequestValidationError)

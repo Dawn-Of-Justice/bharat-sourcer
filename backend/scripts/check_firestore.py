@@ -46,6 +46,7 @@ try:
     with ThreadPoolExecutor(max_workers=4) as pool:
         results = list(pool.map(lambda i: [first, second][i % 2].consume({"fixture": 2}), range(4)))
     assert sum(results) == 2
+    assert second.usage_counts(["fixture", "absent"]) == {"fixture": 2, "absent": 0}
     print("Firestore owner pagination and atomic quota check passed. Synthetic records removed.")
 finally:
     for saved in created:

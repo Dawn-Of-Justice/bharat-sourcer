@@ -3,7 +3,7 @@
   "info": {
     "title": "Bharat Sourcer API",
     "description": "Demo or live YouTube extraction with optional Firestore job persistence.",
-    "version": "0.17.0"
+    "version": "0.17.1"
   },
   "paths": {
     "/v1/session/guest": {
@@ -61,6 +61,47 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/SessionInfo"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/session/usage": {
+      "get": {
+        "tags": [
+          "identity"
+        ],
+        "summary": "Usage",
+        "operationId": "usage_v1_session_usage_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionUsage"
                 }
               }
             }
@@ -3589,6 +3630,27 @@
         ],
         "title": "SessionInfo"
       },
+      "SessionUsage": {
+        "properties": {
+          "daily_actions": {
+            "$ref": "#/components/schemas/UsageWindow"
+          },
+          "daily_projects": {
+            "$ref": "#/components/schemas/UsageWindow"
+          },
+          "minute_actions": {
+            "$ref": "#/components/schemas/UsageWindow"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "daily_actions",
+          "daily_projects",
+          "minute_actions"
+        ],
+        "title": "SessionUsage"
+      },
       "SpecEvidence": {
         "properties": {
           "field": {
@@ -3752,6 +3814,35 @@
           "line_id"
         ],
         "title": "UpdatePartSpecs"
+      },
+      "UsageWindow": {
+        "properties": {
+          "limit": {
+            "type": "integer",
+            "title": "Limit"
+          },
+          "used": {
+            "type": "integer",
+            "title": "Used"
+          },
+          "remaining": {
+            "type": "integer",
+            "title": "Remaining"
+          },
+          "resets_at": {
+            "type": "integer",
+            "title": "Resets At"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "limit",
+          "used",
+          "remaining",
+          "resets_at"
+        ],
+        "title": "UsageWindow"
       },
       "VerifiedOffer": {
         "properties": {

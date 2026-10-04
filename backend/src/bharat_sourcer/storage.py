@@ -40,6 +40,7 @@ class JobStore(Protocol):
     def pending(self) -> list[str]: ...
     def owned(self, owner: str, after: str, limit: int) -> list[StoredJob]: ...
     def consume(self, limits: dict[str, int]) -> bool: ...
+    def usage_counts(self, keys: list[str]) -> dict[str, int]: ...
 
 
 class MemoryJobStore:
@@ -47,6 +48,10 @@ class MemoryJobStore:
         self._records: dict[str, StoredJob] = {}
         self._lock = RLock()
         self._usage: dict[str, int] = {}
+
+    def usage_counts(self, keys: list[str]) -> dict[str, int]:
+        with self._lock:
+            return {key: self._usage.get(key, 0) for key in keys}
 
     def consume(self, limits: dict[str, int]) -> bool:
         with self._lock:
@@ -99,6 +104,11 @@ class FirestoreJobStore:
         self.client = firestore.Client(project=project, database=database)
         self.collection = self.client.collection(collection)
         self.usage = self.client.collection(collection + "_usage")
+
+    def usage_counts(self, keys: list[str]) -> dict[str, int]:
+        snapshots = self.client.get_all([self.usage.document(key) for key in keys])
+        counts = {snapshot.id: (snapshot.to_dict() or {}).get("count", 0) for snapshot in snapshots}
+        return {key: counts.get(key, 0) for key in keys}
 
     def consume(self, limits: dict[str, int]) -> bool:
         from google.cloud import firestore

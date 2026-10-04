@@ -36,10 +36,11 @@ from bharat_sourcer.storage import JobStore, MemoryJobStore, StoredJob
 
 
 class JobError(Exception):
-    def __init__(self, status: int, code: str, message: str):
+    def __init__(self, status: int, code: str, message: str, retry_after: int = 60):
         self.status = status
         self.code = code
         self.message = message
+        self.retry_after = retry_after
 
 
 class JobService:
