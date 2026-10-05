@@ -4,6 +4,16 @@
 **Date:** 2026-10-03  
 **Status:** Seller product image URLs are implemented in backend v0.15. Part-level fallbacks and opt-in generation are implemented in v0.17.4 (see below). The later sections are the original design; where they differ, the v0.17.4 section describes actual behavior.
 
+## Known gap: parts without verified offers show no image (5 October 2026)
+
+Production data (7 completed jobs, 35 parts) showed 20 parts with no verified offer. The
+current frontend reads only `offers[].image_url`, so those parts always show "Image
+unavailable" even when the backend has `image_candidates` or a labelled `fallback`.
+Recommended frontend order: first offer `image_url`; then `line.image_candidates[0]`; then
+`GET /v1/jobs/{job_id}/parts/{line_id}/image` (use the first loadable candidate, else
+`fallback`). On an image load error, `POST` the same path with `failed_urls`. Always show
+the returned `label`. Backend v0.17.8 also stops returning storefront placeholder images.
+
 ## Implemented in v0.17.4
 
 - `report.lines[].image_candidates`: optional list of `PartImage` (`url`, `kind`, `label`, `source_url`). Kind `source` = matching Product JSON-LD photo from a fetched page, shown with label "Product reference · visual only".

@@ -22,11 +22,19 @@ class ProductScripts(HTMLParser):
     def __init__(self):
         super().__init__(convert_charrefs=True)
         self.scripts: list[str] = []
+        self.meta_images: list[str] = []
         self.buffer: list[str] | None = None
 
     def handle_starttag(self, tag, attrs):
-        if tag == "script" and dict(attrs).get("type", "").lower() == "application/ld+json":
+        values = dict(attrs)
+        if tag == "script" and (values.get("type") or "").lower() == "application/ld+json":
             self.buffer = []
+        elif tag == "meta" and len(self.meta_images) < 5:
+            key = (values.get("property") or values.get("name") or "").lower()
+            if key in {"og:image:secure_url", "og:image", "twitter:image"} and values.get(
+                "content"
+            ):
+                self.meta_images.append(values["content"])
 
     def handle_data(self, data):
         if self.buffer is not None:
@@ -87,33 +95,54 @@ def title_matches(query: str, title: str) -> bool:
     return bool(expected) and expected.issubset(actual)
 
 
-def product_image_url(product: dict, page_url: str) -> str | None:
-    """Return the first safe HTTPS image explicitly attached to this Product entity."""
+# Storefront "no image" assets are not product photos (e.g. Shopify's no-image-2048.gif).
+PLACEHOLDER_IMAGE = re.compile(
+    r"no[-_]?image|noimage|placeholder|default[-_]?(?:product|image)"
+    r"|image[-_]?not[-_]?available|coming[-_]?soon",
+    re.IGNORECASE,
+)
+
+
+def safe_image_url(raw: object, page_url: str, *, upgrade: bool = False) -> str | None:
+    if isinstance(raw, dict):
+        raw = raw.get("url") or raw.get("contentUrl")
+    if not isinstance(raw, str) or not raw.strip() or len(raw) > 2048:
+        return None
+    try:
+        url = urljoin(page_url, raw.strip())
+        parsed = urlsplit(url)
+        page_host = urlsplit(page_url).hostname
+        # Page metadata often says http:// for the seller's own HTTPS CDN path.
+        if upgrade and parsed.scheme == "http" and parsed.hostname == page_host:
+            url = "https" + url[4:]
+            parsed = urlsplit(url)
+        if (
+            len(url) <= 2048
+            and parsed.scheme == "https"
+            and parsed.hostname
+            and not parsed.username
+            and not parsed.password
+            and parsed.port in (None, 443)
+            and not any(c in url for c in "\r\n\t")
+            and not PLACEHOLDER_IMAGE.search(parsed.path)
+        ):
+            return url
+    except (ValueError, UnicodeError):
+        return None
+    return None
+
+
+def product_image_url(product: dict, page_url: str, meta_images=()) -> str | None:
+    """First real HTTPS image of this Product; page og:image only for single-product pages."""
     images = product.get("image")
     if isinstance(images, (str, dict)):
         images = [images]
-    if not isinstance(images, list):
-        return None
-    for image in images[:20]:
-        if isinstance(image, dict):
-            image = image.get("url") or image.get("contentUrl")
-        if not isinstance(image, str) or not image.strip() or len(image) > 2048:
-            continue
-        try:
-            url = urljoin(page_url, image.strip())
-            parsed = urlsplit(url)
-            if (
-                len(url) <= 2048
-                and parsed.scheme == "https"
-                and parsed.hostname
-                and not parsed.username
-                and not parsed.password
-                and parsed.port in (None, 443)
-                and not any(c in url for c in "\r\n\t")
-            ):
-                return url
-        except (ValueError, UnicodeError):
-            continue
+    for image in images[:20] if isinstance(images, list) else []:
+        if url := safe_image_url(image, page_url):
+            return url
+    for image in meta_images:
+        if url := safe_image_url(image, page_url, upgrade=True):
+            return url
     return None
 
 
@@ -123,26 +152,26 @@ def page_images(page: Page, query: str) -> list[PartImage]:
         return []
     parser = ProductScripts()
     parser.feed(page.body.decode("utf-8", errors="replace"))
-    images = []
+    products = []
     for script in parser.scripts[:30]:
         try:
-            for product in nodes(json.loads(script)):
-                if not is_type(product, "Product") or not title_matches(
-                    query, str(product.get("name", ""))
-                ):
-                    continue
-                url = product_image_url(product, page.url)
-                if url and url not in {image.url for image in images}:
-                    images.append(
-                        PartImage(
-                            url=url,
-                            kind="source",
-                            label="Product reference · visual only",
-                            source_url=page.url,
-                        )
-                    )
+            products.extend(n for n in nodes(json.loads(script)) if is_type(n, "Product"))
         except (ValueError, RecursionError):
             continue
+    meta = parser.meta_images if len(products) == 1 else ()
+    images = []
+    for product in products:
+        if title_matches(query, str(product.get("name", ""))):
+            url = product_image_url(product, page.url, meta)
+            if url and url not in {image.url for image in images}:
+                images.append(
+                    PartImage(
+                        url=url,
+                        kind="source",
+                        label="Product reference · visual only",
+                        source_url=page.url,
+                    )
+                )
     return images[:5]
 
 
@@ -232,7 +261,7 @@ def verify_page(page: Page, query: str) -> VerifiedOffer | None:
         url=page.url,
         seller=urlsplit(page.url).hostname,
         title=title,
-        image_url=product_image_url(product, page.url),
+        image_url=product_image_url(product, page.url, parser.meta_images),
         price_inr=f"{price:.2f}",
         stock=stock,
         specs=specs,

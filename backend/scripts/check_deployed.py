@@ -15,7 +15,7 @@ def main():
         health = client.get("/health")
         health.raise_for_status()
         print("Health:", health.json(), flush=True)
-        assert client.get("/openapi.json").json()["info"]["version"] == "0.17.7"
+        assert client.get("/openapi.json").json()["info"]["version"] == "0.17.8"
         assert client.post("/v1/jobs", json={"url": "https://example.com"}).status_code == 401
         for origin in ["http://localhost:5173", "http://localhost:3000"]:
             preflight = client.options(
