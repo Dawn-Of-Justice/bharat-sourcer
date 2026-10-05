@@ -1,9 +1,18 @@
 # Cloud Run integration deployment
 
 Project `hackathon-510415`, region `asia-south1`, service `bharat-sourcer-integration`.
-This is a team integration environment for the v0.17.3 backend.
+This is a team integration environment. Since v0.17.4, merges to `main` deploy here via
+GitHub Actions ([setup](github-actions.md)); `/openapi.json` reports the running version.
 
-## Current deployment: v0.17.3
+## v0.17.4 deployment (5 October 2026)
+
+First automated deploy: revision `bharat-sourcer-integration-00030`, image tagged with the
+merge commit. Live smoke test: a guest session created a job from a public YouTube Short,
+extraction reached `awaiting_confirmation` with seven parts, and the part image endpoint
+answered for each line (`not_requested`; generation remains disabled). This verifies
+connectivity and response shape, not extraction accuracy.
+
+## v0.17.3 deployment
 
 Deployed the grounded-discovery truncation fix to the Cloud Run backend referenced
 by the live frontend. MAX_TOKENS responses retain grounded URLs for downstream

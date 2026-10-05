@@ -20,10 +20,10 @@ pushes to `main` (or manual dispatch) after checks pass.
   bindings, runtime identity, scaling and Cloud Tasks settings remain as configured by
   `scripts/deploy_integration.py`. The job then checks that the service runs the pushed
   image and that `/openapi.json` reports the `pyproject.toml` version.
-- Until 5 October 2026 this job targeted a GKE cluster that was never created (the
-  Kubernetes Engine API is disabled), so every deploy run failed and releases were made
-  manually with `deploy_integration.py`. Use that script only for configuration changes
-  (new env vars or secret versions); routine code releases go through `main`.
+- On 5 October 2026 (PR #6) this job was switched to a GKE cluster that does not exist
+  (the Kubernetes Engine API is disabled), which broke deploys until v0.17.4 restored
+  Cloud Run. Use `scripts/deploy_integration.py` only for configuration changes (new env
+  vars or secret versions); routine code releases go through `main`.
 
 ## Frontend workflow
 

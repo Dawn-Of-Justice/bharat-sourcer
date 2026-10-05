@@ -183,3 +183,9 @@ def test_page_images_only_reads_matching_product_json_ld():
     assert [image.url for image in images] == ["https://seller.example/img/ttp223.png"]
     assert images[0].kind == "source"
     assert page_images(Page(page.url, 404, page.headers, page.body), "TTP223") == []
+
+
+def test_plural_part_names_use_category_illustrations():
+    for name in ["Resistors", "Jumper wires", "Blue LEDs", "Ceramic capacitors"]:
+        assert illustration(name).kind == "category", name
+    assert illustration("Ledger board").kind == "placeholder"

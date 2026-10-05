@@ -42,7 +42,7 @@ def illustration(name: str, category=True) -> PartImage:
         ),
     }
     lowered = name.lower()
-    key = next((key for key in shapes if re.search(r"\b" + key + r"\b", lowered)), None)
+    key = next((key for key in shapes if re.search(r"\b" + key + r"s?\b", lowered)), None)
     if "photoresistor" in lowered:
         key = "ldr"
     kind = "category" if key and category else "placeholder"
