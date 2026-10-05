@@ -22,6 +22,7 @@ from bharat_sourcer.schemas import (
     HaveLine,
     Job,
     PartSpecs,
+    ProjectContext,
     RefreshOffers,
     RemoveLine,
     Report,
@@ -29,6 +30,7 @@ from bharat_sourcer.schemas import (
     SelectOffers,
     Status,
     UpdateJobSpecs,
+    UpdateProject,
     now,
 )
 from bharat_sourcer.sourcing.research import check_requirements
@@ -155,6 +157,7 @@ class JobService:
             return
         error = None
         items = []
+        project = None
         try:
             if claimed.job.demo:
                 items = [
@@ -162,8 +165,16 @@ class JobService:
                     BomItem(line_id="L02", raw_name="BME280 sensor module"),
                     BomItem(line_id="L03", raw_name="Jumper wire", qty=4),
                 ]
+                project = ProjectContext(
+                    title="Demo: ESP32 weather station (sample)",
+                    description="Fixed demo project. Not extracted from the submitted link.",
+                    summary="Demo sample: an ESP32 reads a BME280 sensor over jumper wires.",
+                )
             else:
-                items = self.extractor.extract(str(claimed.job.input.url))
+                result = self.extractor.extract(str(claimed.job.input.url))
+                # Simple extractors (and tests) may return only the item list.
+                items = result if isinstance(result, list) else result.items
+                project = None if isinstance(result, list) else result.project
         except Exception as exc:
             error = (
                 exc
@@ -183,6 +194,7 @@ class JobService:
                 self._transition(record.job, "failed", error.message)
             else:
                 record.job.items = items
+                record.job.project = project
                 for item in record.job.items:
                     item.clarifications = resolve_part(item).clarifications
                 self._transition(record.job, "awaiting_confirmation", "Review parts and evidence.")
@@ -440,6 +452,25 @@ class JobService:
             update_costs(job.report)
             self._transition(job, "done", "Updated required specs for " + ", ".join(changed))
 
+    def update_project(self, job_id: str, token: str | None, request: UpdateProject) -> Job:
+        """Owner edits to the AI-written title/description; the summary stays the model's."""
+        self._validate_id(job_id)
+
+        def change(record: StoredJob):
+            job = self._authorized(record, token)
+            project = job.project or ProjectContext()
+            if request.title is not None:
+                project.title, project.title_source = request.title, "user"
+            if request.description is not None:
+                project.description, project.description_source = request.description, "user"
+            job.project = project
+            job.updated_at = now()
+
+        record = self.store.mutate(job_id, change)
+        if record is None:
+            raise JobError(404, "JOB_NOT_FOUND", "Job not found or token invalid")
+        return record.job.model_copy(deep=True)
+
     def update_specs(self, job_id: str, token: str | None, request: UpdateJobSpecs) -> Job:
         self._validate_id(job_id)
 
@@ -560,7 +591,9 @@ class JobService:
                 items[line_id] = BomItem(
                     line_id=line_id,
                     raw_name=edit.raw_name,
-                    qty=edit.qty,
+                    qty=edit.qty or 1,
+                    qty_source="user" if edit.qty else "inferred",
+                    qty_reason=None if edit.qty else "Count not given; assumed one.",
                     user_edited=True,
                     specs=edit.specs,
                     requirements=edit.requirements,
@@ -576,8 +609,10 @@ class JobService:
                 items[edit.line_id].user_edited = True
                 if edit.raw_name is not None:
                     items[edit.line_id].raw_name = edit.raw_name
-                if edit.qty is not None:
+                if edit.qty is not None and edit.qty != items[edit.line_id].qty:
                     items[edit.line_id].qty = edit.qty
+                    items[edit.line_id].qty_source = "user"
+                    items[edit.line_id].qty_reason = None
                 if edit.requirements is not None:
                     items[edit.line_id].requirements = edit.requirements
                 if edit.specs is not None:
@@ -596,8 +631,12 @@ class JobService:
             raise JobError(422, "EMPTY_BOM", "Keep at least one BOM line")
         if len(items) > 100:
             raise JobError(422, "BOM_TOO_LARGE", "Keep at most 100 BOM lines")
-        if finalize and any(item.qty is None for item in items.values()):
-            raise JobError(422, "UNKNOWN_QUANTITY", "Set a quantity for every retained part")
+        if finalize:
+            # Never block a maker on a count the source omitted (older snapshots can hold null).
+            for item in items.values():
+                if item.qty is None:
+                    item.qty, item.qty_source = 1, "inferred"
+                    item.qty_reason = "Count not stated; assumed one. Change it if needed."
         job.items = list(items.values())
         for item in job.items:
             try:

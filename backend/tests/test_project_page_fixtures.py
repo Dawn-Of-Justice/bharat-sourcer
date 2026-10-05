@@ -269,7 +269,7 @@ def test_instructables_extraction_cites_project_page_not_api():
         transport=httpx.MockTransport(handle),
         fetcher=fetcher,
     )
-    items = extractor.extract("https://www.instructables.com/Arduino-Obstacle-Avoiding-Robot")
+    items = extractor.extract("https://www.instructables.com/Arduino-Obstacle-Avoiding-Robot").items
     url = "https://www.instructables.com/Arduino-Obstacle-Avoiding-Robot/"
     assert fetcher.calls == [page.url]
     assert seen["document_url"] == url and seen["source_kind"] == "instructables"

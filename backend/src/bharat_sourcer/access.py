@@ -49,6 +49,10 @@ class SessionUsage(Model):
 class ProjectSummary(Model):
     job_id: str
     url: str
+    # AI-written (or owner-edited) card text; null for projects analysed before v0.19.
+    title: str | None = None
+    description: str | None = None
+    summary: str | None = None
     status: Status
     created_at: datetime
     updated_at: datetime
@@ -246,6 +250,9 @@ def add_access_routes(app, access):
                 ProjectSummary(
                     job_id=r.job.job_id,
                     url=str(r.job.input.url),
+                    title=r.job.project.title if r.job.project else None,
+                    description=r.job.project.description if r.job.project else None,
+                    summary=r.job.project.summary if r.job.project else None,
                     status=r.job.status,
                     created_at=r.job.created_at,
                     updated_at=r.job.updated_at,

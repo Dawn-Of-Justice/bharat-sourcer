@@ -4,7 +4,7 @@ import { useAccount, Projects } from './Account'
 import { useEffect, useLayoutEffect, useRef, useState, type FormEvent } from 'react'
 import { ApiError, claimProject, evidenceText, pauseJob, resumeJob, confirmJob, createJob, getJob, type BomItem, type Job } from './api'
 import ChatPanel from './ChatPanel'
-import Requirements, { validRequirements } from './Requirements'
+import Requirements, { requirementPayload, validRequirements } from './Requirements'
 
 function BrandMark() {
   return (
@@ -255,6 +255,13 @@ function Landing({ onCreated }: { onCreated: (id: string) => void }) {
   )
 }
 
+// The model's reading of the whole project. Shown for checking only; it is not a verified spec.
+function ProjectCard({ project }: { project?: Job['project'] }) {
+  if (!project) return null
+  const facts = [['Power', project.power], ['Controller', project.controller], ['Interfaces', (project.interfaces ?? []).join(', ')]].filter(([, value]) => value)
+  return <div className="project-card"><span className="inferred-tag">AI understanding of the project — check it</span><strong>What we understood</strong><p>{project.summary}</p>{facts.length > 0 && <p>{facts.map(([label, value]) => `${label}: ${value}`).join(' · ')}</p>}{project.assumptions?.length > 0 && <ul>{project.assumptions.map((entry, index) => <li key={index}>{entry}</li>)}</ul>}<small>Inferred quantities and build details below come from this reading. Correct anything that is wrong before confirming.</small></div>
+}
+
 type ReviewRow = { item: BomItem; name: string; qty: string; owned: boolean; removed: boolean; requirements: NonNullable<BomItem['requirements']> }
 
 function Review({ job, token, onConfirmed }: { job: Job; token: string; onConfirmed: () => void }) {
@@ -285,7 +292,7 @@ function Review({ job, token, onConfirmed }: { job: Job; token: string; onConfir
       const updateEdit: { op: 'update'; line_id: string; raw_name?: string; qty?: number; requirements?: NonNullable<BomItem['requirements']> } = { op: 'update', line_id: row.item.line_id }
       if (row.name.trim() !== row.item.raw_name) updateEdit.raw_name = row.name.trim()
       if (Number(row.qty) !== row.item.qty) updateEdit.qty = Number(row.qty)
-      if (JSON.stringify(row.requirements) !== JSON.stringify(row.item.requirements ?? [])) updateEdit.requirements = row.requirements.map(({ name, value, unit, operator }) => ({ name: name.trim(), value: value.trim(), unit: unit?.trim() || null, operator }))
+      if (JSON.stringify(row.requirements) !== JSON.stringify(row.item.requirements ?? [])) updateEdit.requirements = requirementPayload(row.requirements)
       if (updateEdit.raw_name !== undefined || updateEdit.qty !== undefined || updateEdit.requirements !== undefined) edits.push(updateEdit)
       if (row.owned !== row.item.user_has_it) edits.push({ op: 'have_it', line_id: row.item.line_id, user_has_it: row.owned })
     }
@@ -295,7 +302,7 @@ function Review({ job, token, onConfirmed }: { job: Job; token: string; onConfir
     finally { setBusy(false) }
   }
 
-  return <section className="job-panel"><span className="section-kicker">YOUR REVIEW</span><h2>Does this parts list look right?</h2><p className="job-panel-intro">AI extraction can miss or misname parts. Check each part before we search sellers.</p>{account.identity && account.identity !== 'legacy' && account.identity.kind === 'guest' && <p className="guest-limit">Guest limit: source up to {account.identity.part_limit} parts in this build. You can mark owned parts without using this limit.</p>}<form onSubmit={submit}><div className="review-list">{rows.map((row) => <div id={`line-${row.item.line_id}`} className={`review-row ${row.removed ? 'removed' : ''}`} key={row.item.line_id}><div className="review-fields"><label>Part name<input value={row.name} disabled={row.removed} onChange={(event) => update(row.item.line_id, { name: event.target.value })} /></label><label className="qty-field">Qty<input type="number" min="1" max="10000" value={row.qty} disabled={row.removed} onChange={(event) => update(row.item.line_id, { qty: event.target.value })} /></label></div><div className="review-row-bottom"><label className="check-label"><input type="checkbox" checked={row.owned} disabled={row.removed} onChange={(event) => update(row.item.line_id, { owned: event.target.checked })} /> I already have this</label><button type="button" className="remove-button" onClick={() => update(row.item.line_id, { removed: !row.removed })}>{row.removed ? 'Undo remove' : 'Remove'}</button></div><Requirements value={row.requirements} disabled={row.removed} onChange={requirements => update(row.item.line_id, { requirements })} />{row.item.evidence.length ? <div className="evidence-note">Evidence: {row.item.evidence.map((entry) => evidenceText(entry)).join(' · ')}</div> : null}{row.item.clarifications.length ? <div className="evidence-note">Still unclear: {row.item.clarifications.map((entry) => entry.question).join(' ')}</div> : null}</div>)}</div>{error ? <p className="form-error" role="alert">{error}</p> : null}<button className="primary-button job-action" disabled={busy} type="submit">{busy ? 'Confirming…' : 'Confirm BOM and find offers'} <ArrowIcon /></button></form></section>
+  return <section className="job-panel"><span className="section-kicker">YOUR REVIEW</span><h2>Does this parts list look right?</h2><p className="job-panel-intro">AI extraction can miss or misname parts. Check each part before we search sellers.</p><ProjectCard project={job.project} />{account.identity && account.identity !== 'legacy' && account.identity.kind === 'guest' && <p className="guest-limit">Guest limit: source up to {account.identity.part_limit} parts in this build. You can mark owned parts without using this limit.</p>}<form onSubmit={submit}><div className="review-list">{rows.map((row) => <div id={`line-${row.item.line_id}`} className={`review-row ${row.removed ? 'removed' : ''}`} key={row.item.line_id}><div className="review-fields"><label>Part name<input value={row.name} disabled={row.removed} onChange={(event) => update(row.item.line_id, { name: event.target.value })} /></label><label className="qty-field">Qty<input type="number" min="1" max="10000" value={row.qty} disabled={row.removed} onChange={(event) => update(row.item.line_id, { qty: event.target.value })} /></label></div>{row.item.qty_source === 'inferred' && row.qty === (row.item.qty?.toString() ?? '') && <p className="qty-inferred" title={row.item.qty_reason ?? undefined}><span className="inferred-tag">inferred qty</span> {row.item.qty_reason || 'The source did not state a count.'} Change it if you need a different number.</p>}<div className="review-row-bottom"><label className="check-label"><input type="checkbox" checked={row.owned} disabled={row.removed} onChange={(event) => update(row.item.line_id, { owned: event.target.checked })} /> I already have this</label><button type="button" className="remove-button" onClick={() => update(row.item.line_id, { removed: !row.removed })}>{row.removed ? 'Undo remove' : 'Remove'}</button></div><Requirements value={row.requirements} disabled={row.removed} onChange={requirements => update(row.item.line_id, { requirements })} />{row.item.evidence.length ? <div className="evidence-note">Evidence: {row.item.evidence.map((entry) => evidenceText(entry)).join(' · ')}</div> : null}{row.item.clarifications.length ? <div className="evidence-note">Still unclear: {row.item.clarifications.map((entry) => entry.question).join(' ')}</div> : null}</div>)}</div>{error ? <p className="form-error" role="alert">{error}</p> : null}<button className="primary-button job-action" disabled={busy} type="submit">{busy ? 'Confirming…' : 'Confirm BOM and find offers'} <ArrowIcon /></button></form></section>
 }
 
 function AnalysisProgress({ job }: { job: Job }) {

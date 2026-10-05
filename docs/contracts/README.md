@@ -1,7 +1,14 @@
-# Implemented API contract — v0.18.1
+# Implemented API contract — v0.19.0
 
 This directory is the handoff between backend and frontend. The architecture docs describe
 the target system; this contract describes the runnable local milestone.
+
+v0.19.0 adds [project understanding](project-understanding.md): `job.project` with an
+AI-written, editable title and description plus a summary; inferred quantities
+(`qty_source`, `qty_reason`) and inferred requirements (`origin`, `reason`);
+`POST /v1/jobs/{job_id}/project`; and title/description/summary on `GET /v1/projects`.
+`UNKNOWN_QUANTITY` is no longer returned. **Frontend to do:** project-list cards and an
+edit control for title/description.
 
 v0.18.1: Instructables extraction reads the project JSON; Hackster pages that refuse
 automated access fail with `SOURCE_UNAVAILABLE`. No schema changes.
@@ -357,7 +364,6 @@ Implemented domain and request-validation errors use:
 | 422 | `INVALID_EDIT` | Edit references a missing line |
 | 422 | `INVALID_SPECS` | Merged specs or identity conflict |
 | 422 | `EMPTY_BOM` | Confirmation removes every line |
-| 422 | `UNKNOWN_QUANTITY` | A retained part still has null quantity |
 | 422 | `BOM_TOO_LARGE` | More than 100 retained lines |
 | 503 | `STORAGE_ERROR` | Storage unavailable or snapshot too large |
 

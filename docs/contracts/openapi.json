@@ -3,7 +3,7 @@
   "info": {
     "title": "Bharat Sourcer API",
     "description": "Demo or live YouTube and project-page extraction with optional Firestore job persistence.",
-    "version": "0.18.1"
+    "version": "0.19.0"
   },
   "paths": {
     "/v1/session/guest": {
@@ -1161,6 +1161,94 @@
         }
       }
     },
+    "/v1/jobs/{job_id}/project": {
+      "post": {
+        "tags": [
+          "jobs"
+        ],
+        "summary": "Update Project",
+        "operationId": "update_project_v1_jobs__job_id__project_post",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Job Id"
+            }
+          },
+          {
+            "name": "x-job-token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Job-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateProject"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Job"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          }
+        }
+      }
+    },
     "/v1/jobs/{job_id}/specs": {
       "post": {
         "tags": [
@@ -1791,6 +1879,28 @@
             "const": "pcs",
             "title": "Qty Unit",
             "default": "pcs"
+          },
+          "qty_source": {
+            "type": "string",
+            "enum": [
+              "stated",
+              "inferred",
+              "user"
+            ],
+            "title": "Qty Source",
+            "default": "stated"
+          },
+          "qty_reason": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 300
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Qty Reason"
           },
           "user_has_it": {
             "type": "boolean",
@@ -2481,6 +2591,16 @@
           "input": {
             "$ref": "#/components/schemas/CreateJob"
           },
+          "project": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ProjectContext"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "created_at": {
             "type": "string",
             "format": "date-time",
@@ -2721,6 +2841,27 @@
             ],
             "title": "Operator",
             "default": "equals"
+          },
+          "origin": {
+            "type": "string",
+            "enum": [
+              "user",
+              "inferred"
+            ],
+            "title": "Origin",
+            "default": "user"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 300
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
           }
         },
         "additionalProperties": false,
@@ -3070,6 +3211,117 @@
         "type": "object",
         "title": "PartSpecs"
       },
+      "ProjectContext": {
+        "properties": {
+          "title": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 120,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "title_source": {
+            "type": "string",
+            "enum": [
+              "ai",
+              "user"
+            ],
+            "title": "Title Source",
+            "default": "ai"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 600,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "description_source": {
+            "type": "string",
+            "enum": [
+              "ai",
+              "user"
+            ],
+            "title": "Description Source",
+            "default": "ai"
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 1000,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Summary"
+          },
+          "power": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Power"
+          },
+          "controller": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Controller"
+          },
+          "interfaces": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 10,
+            "title": "Interfaces"
+          },
+          "assumptions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 10,
+            "title": "Assumptions"
+          },
+          "origin": {
+            "type": "string",
+            "const": "ai_inferred",
+            "title": "Origin",
+            "default": "ai_inferred"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "ProjectContext",
+        "description": "The model's reading of what the project is; AI-inferred, never verified.\n\n`title` and `description` are written by the model and editable by the owner\n(`*_source` records who wrote the current value). `summary` stays the model's own\nunderstanding after analysing the source and is not editable."
+      },
       "ProjectList": {
         "properties": {
           "projects": {
@@ -3107,6 +3359,39 @@
           "url": {
             "type": "string",
             "title": "Url"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Summary"
           },
           "status": {
             "type": "string",
@@ -4373,6 +4658,39 @@
           "line_id"
         ],
         "title": "UpdatePartSpecs"
+      },
+      "UpdateProject": {
+        "properties": {
+          "title": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 120,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 600,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "UpdateProject"
       },
       "UsageWindow": {
         "properties": {

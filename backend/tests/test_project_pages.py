@@ -290,13 +290,15 @@ def test_page_extraction_sends_text_as_data_and_checks_quotes():
             ]
         )
 
-    items = extractor(fetcher, handle).extract(
-        "https://hackster.io/maker/synthetic-weather-station/"
+    items = (
+        extractor(fetcher, handle)
+        .extract("https://hackster.io/maker/synthetic-weather-station/")
+        .items
     )
     assert fetcher.calls == [(HACKSTER, True, PAGE_BYTES)]
     assert [item.line_id for item in items] == ["L01", "L02"]
     assert [item.raw_name for item in items] == ["ESP32 development board", "BME280 sensor module"]
-    assert items[1].qty is None
+    assert (items[1].qty, items[1].qty_source) == (1, "inferred")
     evidence = items[1].evidence
     assert len(evidence) == 1
     assert evidence[0].source == "project_page"
@@ -338,8 +340,10 @@ def test_github_readme_fallback_and_evidence_url():
         "qty": 2,
         "evidence": [{"quote": "2 x N20 gear motor", "observation": "Parts list"}],
     }
-    items = extractor(fetcher, lambda request: gemini([motor])).extract(
-        "https://github.com/maker/synthetic-bot"
+    items = (
+        extractor(fetcher, lambda request: gemini([motor]))
+        .extract("https://github.com/maker/synthetic-bot")
+        .items
     )
     assert [call[0] for call in fetcher.calls] == [raw + "README.md", raw + "readme.md"]
     assert str(items[0].evidence[0].url) == raw + "readme.md"
