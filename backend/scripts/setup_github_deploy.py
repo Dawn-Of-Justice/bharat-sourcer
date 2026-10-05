@@ -2,6 +2,9 @@
 
 from deploy_integration import ACCOUNT, PROJECT, REGION, SERVICE, command
 
+WEB_SERVICE = "bharat-sourcer-web"
+WEB_ACCOUNT = f"bharat-sourcer-web@{PROJECT}.iam.gserviceaccount.com"
+
 
 def main():
     pool = "bharat-github"
@@ -18,7 +21,8 @@ def main():
         f"assertion.repository == '{repo}' && "
         "assertion.repository_owner == 'Dawn-Of-Justice' && "
         "assertion.ref == 'refs/heads/main' && "
-        f"assertion.workflow_ref == '{repo}/.github/workflows/backend.yml@refs/heads/main' && "
+        f"assertion.workflow_ref in ['{repo}/.github/workflows/backend.yml@refs/heads/main', "
+        f"'{repo}/.github/workflows/frontend.yml@refs/heads/main'] && "
         "assertion.event_name in ['push', 'workflow_dispatch']"
     )
     found = command(
@@ -79,7 +83,28 @@ def main():
         f"--member=serviceAccount:{deployer}",
         "--role=roles/iam.serviceAccountUser",
     )
-    print("GitHub OIDC configured for backend.yml on main; no service-account key created.")
+    # The frontend workflow updates only the web service image.
+    command(
+        "run",
+        "services",
+        "add-iam-policy-binding",
+        WEB_SERVICE,
+        f"--region={REGION}",
+        f"--member=serviceAccount:{deployer}",
+        "--role=roles/run.developer",
+    )
+    command(
+        "iam",
+        "service-accounts",
+        "add-iam-policy-binding",
+        WEB_ACCOUNT,
+        f"--member=serviceAccount:{deployer}",
+        "--role=roles/iam.serviceAccountUser",
+    )
+    print(
+        "GitHub OIDC configured for backend.yml and frontend.yml on main; "
+        "no service-account key created."
+    )
 
 
 if __name__ == "__main__":
