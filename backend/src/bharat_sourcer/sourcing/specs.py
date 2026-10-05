@@ -20,7 +20,7 @@ LABELS = {
         "supply voltage range",
     },
     "clock_mhz": {"clock speed", "clock frequency", "crystal frequency", "cpu speed"},
-    "resolution": {"resolution", "display resolution"},
+    "resolution": {"resolution", "display resolution", "pixel resolution"},
     "i2c_address": {"i2c address", "iic address"},
 }
 ALIASES = {label: field for field, labels in LABELS.items() for label in labels}
@@ -32,12 +32,25 @@ def label_field(label: str) -> str | None:
     return ALIASES.get(re.sub(r"\s+", " ", text))
 
 
+# A unit stated only in the label, e.g. "Operating Voltage (VDC)": "3.3 ~ 5" (compoindia.com).
+VOLT_UNITS = {"v", "vdc", "v dc", "volt", "volts"}
+
+
+def label_unit(label: str) -> str | None:
+    units = {u.strip().lower() for u in re.findall(r"\(([^)]*)\)", label)}
+    return "v" if units and units <= VOLT_UNITS else None
+
+
 def one(values: list) -> object | None:
     return values[0] if len(set(values)) == 1 else None
 
 
-def parse_value(field: str, raw: object) -> dict:
-    """Return PartSpecs values for one labelled seller value, or {} when ambiguous."""
+def parse_value(field: str, raw: object, unit: str | None = None) -> dict:
+    """Return PartSpecs values for one labelled seller value, or {} when ambiguous.
+
+    ``unit`` is a unit declared by the label itself; it only permits bare numbers when the
+    whole value is a single numeric range.
+    """
     text = str(raw).lower()
     if len(text) > 200:
         return {}
@@ -53,6 +66,9 @@ def parse_value(field: str, raw: object) -> dict:
         found["logic_v"] = one([v for v in volts if v in (3.3, 5.0)]) if len(volts) == 1 else None
     elif field == "supply":
         span = re.findall(VOLT.replace("\\s*v", "\\s*v?") + r"\s*(?:-|–|~|to)\s*" + VOLT, text)
+        bare = r"(\d+(?:\.\d+)?)\s*v?\s*(?:-|–|~|to)\s*(\d+(?:\.\d+)?)\s*v?(?:\s*dc)?"
+        if not span and unit == "v" and (match := re.fullmatch(bare, text.strip())):
+            span = [match.groups()]
         if len(span) == 1:
             low, high = (float(v) for v in span[0])
             if low < high:
@@ -131,6 +147,7 @@ def table_specs(html: str) -> list[tuple[str, object, str]]:
         field = label_field(label)
         if field:
             found.extend(
-                (name, parsed, label) for name, parsed in parse_value(field, value).items()
+                (name, parsed, label)
+                for name, parsed in parse_value(field, value, label_unit(label)).items()
             )
     return found

@@ -15,7 +15,7 @@ from bharat_sourcer.schemas import (
     VerifiedOffer,
 )
 from bharat_sourcer.sourcing.fetch import Page
-from bharat_sourcer.sourcing.specs import label_field, parse_value, table_specs
+from bharat_sourcer.sourcing.specs import label_field, label_unit, parse_value, table_specs
 
 
 class ProductScripts(HTMLParser):
@@ -78,6 +78,8 @@ def title_matches(query: str, title: str) -> bool:
     }
 
     def tokens(text):
+        # Sellers write sizes as 0.96", 0.96″ or "0.91 in."; all mean the same inch token.
+        text = re.sub(r"(\d)\s*(?:″|”|\"|inch(?:es)?\b|in\.)", r"\1 inch ", text.lower())
         plurals = {
             "resistors": "resistor",
             "leds": "led",
@@ -101,6 +103,16 @@ PLACEHOLDER_IMAGE = re.compile(
     r"|image[-_]?not[-_]?available|coming[-_]?soon",
     re.IGNORECASE,
 )
+
+
+def same_url(left: str, right: str) -> bool:
+    """Equal after dropping fragment/trailing slash; percent-escape hex case is insignificant."""
+
+    def norm(url):
+        url = url.split("#")[0].rstrip("/")
+        return re.sub(r"%[0-9a-fA-F]{2}", lambda m: m.group(0).upper(), url)
+
+    return norm(left) == norm(right)
 
 
 def safe_image_url(raw: object, page_url: str, *, upgrade: bool = False) -> str | None:
@@ -204,7 +216,7 @@ def variant_url(page: Page, query: str) -> str | None:
     if (
         dest.scheme != "https"
         or dest.netloc != source.netloc
-        or dest.path.rstrip("/") != source.path.rstrip("/")
+        or not same_url(dest.path, source.path)
         or source.query
         or dest.fragment
     ):
@@ -243,7 +255,7 @@ def verify_page(page: Page, query: str) -> VerifiedOffer | None:
         return None
     if offer.get("url"):
         # A different variant URL requires its own page verification.
-        if str(offer["url"]).split("#")[0].rstrip("/") != page.url.split("#")[0].rstrip("/"):
+        if not same_url(str(offer["url"]), page.url):
             return None
     try:
         price = Decimal(str(offer["price"]))
@@ -300,7 +312,7 @@ def seller_specs(product: dict, page: Page, title: str):
                 # An invalid explicit value is a contradiction, not an absence.
                 add(name, INVALID, "seller_property", shown=f"invalid: {str(raw)[:50]}")
         elif field := label_field(name):
-            for key, value in parse_value(field, raw).items():
+            for key, value in parse_value(field, raw, label_unit(name)).items():
                 add(key, value, "seller_property")
     for field, value, _label in table_specs(page.body.decode("utf-8", errors="replace")):
         add(field, value, "seller_table")

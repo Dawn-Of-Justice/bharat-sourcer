@@ -335,6 +335,13 @@ or an explicit property value is invalid, the field stays unknown and the offer 
 `spec_conflicts` entry with every candidate value and source. Tables are read from the
 whole verified page, so a related-product table can create a conflict, never a value.
 
+Title matching treats inch notations (`0.96"`, `0.96″`, `0.91 in.`) as the same `inch`
+token, and offer/variant URLs compare percent-escapes case-insensitively. A supply range
+written without units is read only when the label states volts, e.g. "Operating Voltage
+(VDC): 3.3 ~ 5"; "Pixel Resolution" is accepted as a resolution label. These came from a
+labelled evaluation on 17 trimmed real seller pages; see
+[seller-page evaluation](infra/seller-page-evaluation.md).
+
 ## Part image fallbacks
 
 Images are presentation only; they never establish specifications, compatibility or
