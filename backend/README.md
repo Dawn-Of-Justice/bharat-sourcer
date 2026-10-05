@@ -4,6 +4,10 @@ The integration deployment was observed on 5 October 2026 with Firebase account 
 guest authentication enabled. The frontend origin is included in CORS. The
 `BS_AUTH_ENABLED=false` setting shown below remains the default for a fresh local setup.
 
+v0.19.1 tightens inferred requirements after a live check: they must be measurable specs
+with units (resistance, voltage, connector…), not restated part types, and reasoned values
+go into the part's requirements. Possibly missing parts are listed as assumptions only.
+
 v0.19.0 makes extraction understand the project before listing parts: `job.project` holds
 an AI-written, owner-editable title and description, a non-editable summary of how the
 build works, and its power, controller, interfaces and assumptions. Missing quantities are

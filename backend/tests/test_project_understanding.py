@@ -178,3 +178,12 @@ def test_project_edit_on_legacy_job_creates_context_and_list_shows_title():
     created = demo.post("/v1/jobs", json={"url": "https://example.com"}).json()
     shown = demo.get(created["watch"], headers={"X-Job-Token": created["job_token"]}).json()
     assert shown["project"]["title"].startswith("Demo:")
+
+
+def test_prompts_ask_for_measurable_requirements_not_restated_types():
+    from bharat_sourcer.extraction import PAGE_PROMPT, PROMPT
+
+    for prompt in (PROMPT, PAGE_PROMPT):
+        assert "measurable specs" in prompt
+        assert "Do not restate the part name" in prompt
+        assert "do not add\nthem as items" in prompt

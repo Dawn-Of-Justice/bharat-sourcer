@@ -231,6 +231,15 @@ controller or supply, interface (I2C, SPI, PWM), current or torque the build nee
 resolution, size or connector. Give each a short reason tied to the project. Do not
 invent a specific brand or exact model the video does not show; prefer ranges
 (at_least/at_most) when the exact value is not determined.
+Requirements must be measurable specs a seller listing can be checked against, as a
+number or code with a unit where one applies: resistance, power rating, tolerance,
+operating or logic voltage, forward voltage, current, capacitance, resolution, diameter,
+pitch, connector type, protocol. Do not restate the part name, its type or category,
+mounting style or what it is used for as a requirement; that belongs in the reason.
+When you reason out a value (for example a resistor value in the summary), put it in that
+part's requirements, not only in assumptions. Mention parts the build seems to need but
+the source does not show (for example an LED series resistor) as assumptions; do not add
+them as items.
 Return an empty items list if the video is inaccessible or no supported BOM is available.
 Return JSON matching the supplied schema. Evidence and inferences will still need review.
 """
@@ -265,6 +274,15 @@ controller or supply, interface (I2C, SPI, PWM), current or torque the build nee
 resolution, size or connector. Give each a short reason tied to the project. Do not
 invent a specific brand or exact model the document does not name; prefer ranges
 (at_least/at_most) when the exact value is not determined.
+Requirements must be measurable specs a seller listing can be checked against, as a
+number or code with a unit where one applies: resistance, power rating, tolerance,
+operating or logic voltage, forward voltage, current, capacitance, resolution, diameter,
+pitch, connector type, protocol. Do not restate the part name, its type or category,
+mounting style or what it is used for as a requirement; that belongs in the reason.
+When you reason out a value (for example a resistor value in the summary), put it in that
+part's requirements, not only in assumptions. Mention parts the build seems to need but
+the source does not show (for example an LED series resistor) as assumptions; do not add
+them as items.
 Return an empty items list if no supported BOM is available.
 Return JSON matching the supplied schema. Evidence and inferences will still need review.
 """
