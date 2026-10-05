@@ -17,7 +17,7 @@ from bharat_sourcer.schemas import (
     SearchAttribution,
 )
 from bharat_sourcer.sourcing.fetch import FetchError, SafeFetcher, validate_url
-from bharat_sourcer.sourcing.listings import variant_url, verify_page
+from bharat_sourcer.sourcing.listings import page_images, variant_url, verify_page
 from bharat_sourcer.sourcing.research import Researcher
 
 
@@ -311,6 +311,9 @@ class SourcingService:
             item=item,
             resolution=resolution,
             offers=offers,
+            image_candidates=[
+                image for page in pages for image in page_images(page, resolution.query)
+            ][:10],
             attribution=attribution,
             research=research,
             sourcing_status="offers_found" if offers else "no_verified_offers",

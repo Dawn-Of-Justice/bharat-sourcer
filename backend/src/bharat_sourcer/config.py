@@ -10,6 +10,9 @@ class Settings(BaseSettings):
     demo_mode: bool = True
     integration_key: SecretStr | None = None
     auth_enabled: bool = False
+    image_generation_enabled: bool = False
+    image_model: str = Field(default="gemini-2.5-flash-image", pattern=r"^[a-zA-Z0-9.-]+$")
+    image_daily_limit: int = Field(default=30, ge=1, le=500)
     guest_session_secret: SecretStr | None = None
     guest_session_days: int = Field(default=14, ge=1, le=30)
     guest_part_limit: int = Field(default=3, ge=1, le=10)

@@ -7,7 +7,7 @@ from html.parser import HTMLParser
 from urllib.parse import parse_qs, urljoin, urlsplit
 
 from bharat_sourcer.compat import parse_name
-from bharat_sourcer.schemas import PartSpecs, SpecEvidence, VerifiedOffer
+from bharat_sourcer.schemas import PartImage, PartSpecs, SpecEvidence, VerifiedOffer
 from bharat_sourcer.sourcing.fetch import Page
 
 
@@ -108,6 +108,35 @@ def product_image_url(product: dict, page_url: str) -> str | None:
         except (ValueError, UnicodeError):
             continue
     return None
+
+
+def page_images(page: Page, query: str) -> list[PartImage]:
+    """Matching product photos can exist even when price/stock cannot be verified."""
+    if page.status != 200 or "text/html" not in page.headers.get("content-type", ""):
+        return []
+    parser = ProductScripts()
+    parser.feed(page.body.decode("utf-8", errors="replace"))
+    images = []
+    for script in parser.scripts[:30]:
+        try:
+            for product in nodes(json.loads(script)):
+                if not is_type(product, "Product") or not title_matches(
+                    query, str(product.get("name", ""))
+                ):
+                    continue
+                url = product_image_url(product, page.url)
+                if url and url not in {image.url for image in images}:
+                    images.append(
+                        PartImage(
+                            url=url,
+                            kind="source",
+                            label="Product reference · visual only",
+                            source_url=page.url,
+                        )
+                    )
+        except (ValueError, RecursionError):
+            continue
+    return images[:5]
 
 
 def variant_url(page: Page, query: str) -> str | None:

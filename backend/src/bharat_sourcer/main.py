@@ -15,6 +15,7 @@ from bharat_sourcer.conversation import Assistant, ConversationService, GeminiAs
 from bharat_sourcer.dispatch import CloudDispatcher, Work, work_once
 from bharat_sourcer.extraction import Extractor, GeminiExtractor
 from bharat_sourcer.identity import Principal
+from bharat_sourcer.images import PartImageService
 from bharat_sourcer.jobs import JobError, JobService
 from bharat_sourcer.schemas import (
     ConfirmationAccepted,
@@ -23,7 +24,9 @@ from bharat_sourcer.schemas import (
     CreateJob,
     ErrorResponse,
     Health,
+    ImageRequest,
     Job,
+    PartImages,
     ProposalDecision,
     RefreshOffers,
     ResistorInputs,
@@ -135,6 +138,8 @@ def create_app(
         responses={422: {"model": ErrorResponse}, 503: {"model": ErrorResponse}},
     )
     app.state.job_service = service
+    images = PartImageService(settings, service)
+    app.state.image_service = images
     app.state.conversation_service = conversation
     access = Access(settings, service, identity_verifier)
     app.state.access = access
@@ -260,6 +265,14 @@ def create_app(
     )
     def get_job(job_id: str, x_job_token: JobToken = None):
         return service.get(job_id, x_job_token)
+
+    @app.get("/v1/jobs/{job_id}/parts/{line_id}/image", response_model=PartImages, tags=["images"])
+    def get_image(job_id: str, line_id: str, x_job_token: JobToken = None):
+        return images.resolve(job_id, line_id, x_job_token)
+
+    @app.post("/v1/jobs/{job_id}/parts/{line_id}/image", response_model=PartImages, tags=["images"])
+    def fallback_image(job_id: str, line_id: str, body: ImageRequest, x_job_token: JobToken = None):
+        return images.resolve(job_id, line_id, x_job_token, body.failed_urls, generate=True)
 
     @app.post(
         "/v1/jobs/{job_id}/confirm",

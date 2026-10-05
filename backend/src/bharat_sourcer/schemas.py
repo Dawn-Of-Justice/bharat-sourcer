@@ -379,6 +379,23 @@ class SearchAttribution(Model):
     search_suggestions_html: str | None = None
 
 
+class PartImage(Model):
+    url: str
+    kind: Literal["seller", "source", "category", "generated", "placeholder"]
+    label: str
+    source_url: HttpUrl | None = None
+
+
+class PartImages(Model):
+    candidates: list[PartImage] = Field(default_factory=list)
+    fallback: PartImage
+    generation_status: Literal["not_needed", "not_requested", "ready", "pending", "unavailable"]
+
+
+class ImageRequest(Model):
+    failed_urls: list[str] = Field(default_factory=list, max_length=10)
+
+
 class ReportLine(Model):
     item: BomItem
     sourcing_status: Literal[
@@ -386,6 +403,7 @@ class ReportLine(Model):
     ]
     resolution: PartResolution | None = None
     offers: list[VerifiedOffer] = Field(default_factory=list)
+    image_candidates: list[PartImage] = Field(default_factory=list)
     attribution: SearchAttribution | None = None
     research: PartResearch | None = None
     sourcing_error: "ErrorDetail | None" = None

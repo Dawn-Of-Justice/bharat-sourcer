@@ -8,6 +8,7 @@ version = "0.17.3"
 description = "Bharat Sourcer API and analysis workflow"
 requires-python = ">=3.12"
 dependencies = [
+    "Pillow>=11,<13",
     "google-auth[requests]>=2.40,<3",
     "google-cloud-firestore>=2.20,<3",
     "httpx>=0.28,<1",
