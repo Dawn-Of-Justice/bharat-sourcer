@@ -1,7 +1,10 @@
-# Implemented API contract — v0.17.2
+# Implemented API contract — v0.17.3
 
 This directory is the handoff between backend and frontend. The architecture docs describe
 the target system; this contract describes the runnable local milestone.
+
+v0.17.3 fixes [discarded grounded sources on truncated discovery](sourcing-incident-2026-10-05.md).
+No frontend schema changes are required.
 
 v0.17 adds [authentication, saved projects and guest limits](authentication.md),
 with account and guest access enabled on the integration backend as of 5 October 2026.

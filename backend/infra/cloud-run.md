@@ -1,9 +1,18 @@
 # Cloud Run integration deployment
 
 Project `hackathon-510415`, region `asia-south1`, service `bharat-sourcer-integration`.
-This is a team integration environment for the v0.17.2 backend.
+This is a team integration environment for the v0.17.3 backend.
 
-## Current deployment: v0.17.2
+## Current deployment: v0.17.3
+
+Deployed the grounded-discovery truncation fix to the Cloud Run backend referenced
+by the live frontend. MAX_TOKENS responses retain grounded URLs for downstream
+verification; blocked responses and generated prose URLs remain rejected.
+269 tests passed, two emulator tests skipped. A live resistor discovery reproduced
+the old rejection and then accepted grounded URLs with the fix. Existing job results
+are preserved; refresh is explicit. See the [incident notes](../../docs/contracts/sourcing-incident-2026-10-05.md).
+
+## Previous deployment: v0.17.2
 
 5 October: authentication enabled on revision `bharat-sourcer-integration-00026-fzl`
 at 100% traffic. Production Firebase domain and CORS are configured. Direct

@@ -1,4 +1,5 @@
 import json
+import logging
 from typing import Protocol
 from urllib.parse import urlsplit, urlunsplit
 
@@ -67,7 +68,9 @@ class GeminiDiscovery:
                 )
             response.raise_for_status()
             candidate = response.json()["candidates"][0]
-            if candidate.get("finishReason") != "STOP":
+            finish_reason = candidate.get("finishReason")
+            if finish_reason not in {"STOP", "MAX_TOKENS"}:
+                logging.getLogger(__name__).warning("DISCOVERY_REJECTED finish=%s", finish_reason)
                 raise ValueError("Incomplete discovery")
             metadata = candidate.get("groundingMetadata", {})
             # URLs come only from Google's grounding metadata, never generated prose.
@@ -80,6 +83,14 @@ class GeminiDiscovery:
                     and isinstance(chunk["web"].get("uri"), str)
                 )
             )
+            # Discovery consumes grounding metadata only. Truncated generated prose does
+            # not invalidate complete source URLs; fetched evidence is verified separately.
+            if finish_reason == "MAX_TOKENS":
+                logging.getLogger(__name__).warning(
+                    "DISCOVERY_TRUNCATED grounded_sources=%s", len(urls)
+                )
+                if not urls:
+                    raise ValueError("Truncated discovery without grounded sources")
             suggestions = metadata.get("searchEntryPoint", {}).get("renderedContent")
             return SearchAttribution(
                 source_urls=urls[: self.settings.sourcing_candidates_per_part],
@@ -94,6 +105,11 @@ class GeminiDiscovery:
             TypeError,
             AttributeError,
         ) as exc:
+            logging.getLogger(__name__).warning(
+                "DISCOVERY_FAILED type=%s http_status=%s",
+                type(exc).__name__,
+                exc.response.status_code if isinstance(exc, httpx.HTTPStatusError) else None,
+            )
             raise DiscoveryError("Grounded seller search failed") from exc
 
 

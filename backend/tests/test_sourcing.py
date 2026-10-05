@@ -147,7 +147,8 @@ def test_robot_disallow_and_long_delay_are_respected():
             assert request.call_count == 1
 
 
-def test_discovery_uses_grounding_metadata_not_generated_urls():
+@pytest.mark.parametrize("finish_reason", ["STOP", "MAX_TOKENS"])
+def test_discovery_uses_grounding_metadata_not_generated_urls(finish_reason):
     def handle(request):
         payload = json.loads(request.content)
         assert payload["tools"] == [{"google_search": {}}]
@@ -156,7 +157,7 @@ def test_discovery_uses_grounding_metadata_not_generated_urls():
             json={
                 "candidates": [
                     {
-                        "finishReason": "STOP",
+                        "finishReason": finish_reason,
                         "content": {"parts": [{"text": "https://invented.example"}]},
                         "groundingMetadata": {
                             "groundingChunks": [{"web": {"uri": URL}}],
@@ -176,6 +177,24 @@ def test_discovery_uses_grounding_metadata_not_generated_urls():
     result = discovery.discover("TTP223")
     assert result.source_urls == [URL]
     assert result.search_suggestions_html is not None
+
+
+@pytest.mark.parametrize("finish_reason", ["MAX_TOKENS", "SAFETY", "RECITATION"])
+def test_truncated_without_grounding_or_blocked_discovery_is_rejected(finish_reason):
+    from bharat_sourcer.sourcing.service import DiscoveryError
+
+    candidate = {
+        "finishReason": finish_reason,
+        "content": {"parts": [{"text": "https://invented.example"}]},
+    }
+    if finish_reason != "MAX_TOKENS":
+        candidate["groundingMetadata"] = {"groundingChunks": [{"web": {"uri": URL}}]}
+    discovery = GeminiDiscovery(
+        Settings(_env_file=None, gemini_api_key="test"),
+        httpx.MockTransport(lambda request: httpx.Response(200, json={"candidates": [candidate]})),
+    )
+    with pytest.raises(DiscoveryError):
+        discovery.discover("33k resistor")
 
 
 def test_resolution_flags_unknown_variants():

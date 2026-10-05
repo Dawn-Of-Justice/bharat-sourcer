@@ -4,6 +4,10 @@ The integration deployment was observed on 5 October 2026 with Firebase account 
 guest authentication enabled. The frontend origin is included in CORS. The
 `BS_AUTH_ENABLED=false` setting shown below remains the default for a fresh local setup.
 
+v0.17.3 preserves grounded discovery URLs when Gemini ends with MAX_TOKENS,
+while keeping downstream evidence verification and blocked-response rejection.
+See [the sourcing investigation](../docs/contracts/sourcing-incident-2026-10-05.md).
+
 v0.17.2 checks Firebase account status for disabled/deleted users and revoked
 sessions on each authenticated request. Provider outages fail closed with 503.
 The runtime identity needs `firebaseauth.users.get`; see the auth rollout guide.
