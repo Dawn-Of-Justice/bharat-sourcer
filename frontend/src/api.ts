@@ -62,6 +62,14 @@ export interface ReportLine {
   grade?: 'A' | 'B' | null
   research_accepted?: boolean
   research?: PartResearch | null
+  image_candidates?: PartImage[]
+}
+
+export interface PartImage {
+  url: string
+  kind: 'seller' | 'source' | 'category' | 'generated' | 'placeholder'
+  label: string
+  source_url?: string | null
 }
 
 export interface Job {
