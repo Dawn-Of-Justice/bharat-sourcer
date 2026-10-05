@@ -1,0 +1,45 @@
+{
+  "_fixture": "Trimmed real response of https://www.instructables.com/json-api/showInstructableModel?urlString=Arduino-Weather-Station (the data behind https://www.instructables.com/Arduino-Weather-Station/), fetched 2026-10-05. Used only for parsing tests. Field names, nesting and the supplies/parts-list markup are kept as served; step prose is paraphrased and images, files and stats are removed. Original by HairySloth on Instructables, licensed Attribution-NonCommercial-ShareAlike (https://creativecommons.org/licenses/by-nc-sa/4.0/). Not verified parts data.",
+  "urlString": "Arduino-Weather-Station",
+  "showUrl": "/Arduino-Weather-Station/",
+  "title": "Arduino Weather Station",
+  "type": "Step by Step",
+  "locale": "en_US",
+  "status": "PUBLISHED",
+  "license": {
+    "fullName": "Attribution-NonCommercial-ShareAlike",
+    "shortName": "by-nc-sa",
+    "url": "https://creativecommons.org/licenses/by-nc-sa/4.0/"
+  },
+  "author": {
+    "screenName": "HairySloth"
+  },
+  "supplies": "<p>Onderdelen:</p><ul><li>ESP2866 Arduino met WiFi verbinding</li><li>WS2812B LED's (50)</li><li>Bedrading</li><li>Micro-USB kabel</li><li>Wifi of mobiele hotspot</li></ul><p>Behuizing:</p><ul><li>Dun, buigbaar, bouwkarton</li><li>Vel A4 papier</li></ul><p>Gereedschap:</p><ul><li>Schaar</li><li>Soldeerbout met tin</li><li>Lijm</li></ul>",
+  "steps": [
+    {
+      "stepIndex": 0,
+      "title": "Arduino Weather Station",
+      "body": "<p>[Paraphrased for this fixture] Introduces an LED weather display driven by an ESP8266 that reads OpenWeatherMap data.</p>"
+    },
+    {
+      "stepIndex": 1,
+      "title": "Design",
+      "body": "<p>[Paraphrased for this fixture] Describes experimenting with design ideas before settling on the layout.</p>"
+    },
+    {
+      "stepIndex": 2,
+      "title": "Constructie",
+      "body": "<p>[Paraphrased for this fixture] Explains the card housing, its LED segments and how the strips are arranged.</p>"
+    },
+    {
+      "stepIndex": 3,
+      "title": "Code",
+      "body": "<p>[Paraphrased for this fixture] Walks through the sketch: Wi-Fi setup, API request, JSON parsing and LED output.</p>"
+    },
+    {
+      "stepIndex": 4,
+      "title": "Conclusie",
+      "body": "<p>[Paraphrased for this fixture] Reflects on what was learned while building the project.</p>"
+    }
+  ]
+}

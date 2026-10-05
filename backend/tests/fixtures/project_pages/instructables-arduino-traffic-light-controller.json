@@ -1,0 +1,49 @@
+{
+  "_fixture": "Trimmed real response of https://www.instructables.com/json-api/showInstructableModel?urlString=Arduino-Traffic-Light-Controller (the data behind https://www.instructables.com/Arduino-Traffic-Light-Controller/), fetched 2026-10-05. Used only for parsing tests. Field names, nesting and the supplies/parts-list markup are kept as served; step prose is paraphrased and images, files and stats are removed. Original by lee_schnitz on Instructables, licensed Attribution-NonCommercial-ShareAlike (https://creativecommons.org/licenses/by-nc-sa/4.0/). Not verified parts data.",
+  "urlString": "Arduino-Traffic-Light-Controller",
+  "showUrl": "/Arduino-Traffic-Light-Controller/",
+  "title": "Arduino Traffic Light Controller",
+  "type": "Step by Step",
+  "locale": "en_US",
+  "status": "PUBLISHED",
+  "license": {
+    "fullName": "Attribution-NonCommercial-ShareAlike",
+    "shortName": "by-nc-sa",
+    "url": "https://creativecommons.org/licenses/by-nc-sa/4.0/"
+  },
+  "author": {
+    "screenName": "lee_schnitz"
+  },
+  "steps": [
+    {
+      "stepIndex": 0,
+      "title": "Arduino Traffic Light Controller",
+      "body": "<p>[Paraphrased for this fixture] Explains why a relay-switched Arduino suits a mains traffic light.</p><p>Parts List</p><p><a href=\"http://www.microcenter.com/product/431997/Uno_R3_MainBoard\" rel=\"nofollow noopener noreferrer\">Inland Arduino UNO R3</a>- $6</p><p><a href=\"http://www.microcenter.com/product/437828/4-Channel_5V_Relay_Module\" rel=\"nofollow noopener noreferrer\">Sainsmart 4 Channel Relay</a> - $8</p><p><a href=\"http://www.microcenter.com/product/444254/Wall_Adapter_Power_Supply_For_Arduino-_9V_1A\" rel=\"nofollow noopener noreferrer\">9V Arduino Powersupply</a> - $6 </p><p>Wires - use what you have or buy pre-made </p><p>Traffic Light - Have one or get one. Look on eBay or Craigslist.</p>"
+    },
+    {
+      "stepIndex": 1,
+      "title": "Connections on the Arduino and Relay",
+      "body": "<p>[Paraphrased for this fixture] Power the relay board from the Arduino 5V pin and wire outputs 5-7 to IN1-IN3.</p>"
+    },
+    {
+      "stepIndex": 2,
+      "title": "Programming!",
+      "body": "<p>[Paraphrased for this fixture] The sketch cycles each relay on for two seconds in turn.</p>"
+    },
+    {
+      "stepIndex": 3,
+      "title": "Test Before Install.",
+      "body": "<p>[Paraphrased for this fixture] Check the relay LEDs blink in sequence before connecting mains wiring.</p>"
+    },
+    {
+      "stepIndex": 4,
+      "title": "Integration",
+      "body": "<p>[Paraphrased for this fixture] Describes wiring the relays into the traffic light's lamp circuits.</p>"
+    },
+    {
+      "stepIndex": 5,
+      "title": "Plug It In!",
+      "body": "<p>[Paraphrased for this fixture] Plug in the light and the Arduino and watch the sequence run.</p>"
+    }
+  ]
+}
