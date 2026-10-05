@@ -1,7 +1,12 @@
-# Implemented API contract — v0.17.11
+# Implemented API contract — v0.18.0
 
 This directory is the handoff between backend and frontend. The architecture docs describe
 the target system; this contract describes the runnable local milestone.
+
+v0.18.0 accepts Instructables, Hackster and GitHub repository URLs in live mode.
+`items[].evidence[]` gains `source` (`video` default | `project_page`), optional `quote`
+and `url`; `timestamp` is now null for page evidence. New failure code
+`SOURCE_UNAVAILABLE`. Older snapshots stay valid.
 
 v0.17.11 adds optional `job.actions`, `messages[].refresh_results`,
 `messages[].completes_message_id` and `refresh_proposal.result_message_id`; see
@@ -294,13 +299,21 @@ The health endpoint reports configuration, not database readiness.
 ## Live extraction (v0.2 additions)
 
 The server defaults to demo mode. `/healthz` reports `mode: "demo" | "live"`.
-Live mode accepts public YouTube video URLs only; unsupported sources return 400.
+Live mode accepts public YouTube video URLs and supported project pages: Instructables
+(`instructables.com/<path>`), Hackster (`hackster.io/<user>/<project>`) and GitHub repository
+READMEs (`github.com/<owner>/<repo>`). Other sources return 400 `UNSUPPORTED_URL`.
 The same routes and job-token flow apply in both modes.
 
 - `items[].qty` can now be **null**. Ask the user for a positive integer before confirming,
   or let them remove the line. Confirmation rejects remaining unknown quantities.
-- `items[].evidence` contains `{timestamp: "01:12", observation: "..."}` entries reported
-  by the model. Display them for review; they are not independently verified.
+- `items[].evidence` entries are model-reported; display them for review. Branch on `source`:
+  - `source: "video"`: `{timestamp: "01:12", observation, source, quote: null, url: null}`.
+    Not independently verified. Older snapshots omit `source`; treat missing as `video`.
+  - `source: "project_page"`: `{timestamp: null, observation, source, quote, url}`. `quote`
+    was checked by the server to appear verbatim (whitespace-normalised) in the fetched
+    document at `url` (for GitHub, the raw README). Show it as a page citation, not a video
+    time. The quote proves the page says it, not that the identity or quantity is right.
+  Parts whose quotes could not be found on the page are dropped before review.
 - `items[].user_edited` marks manually added or updated lines. Existing evidence describes
   the original extraction, and may not support the user's replacement name or quantity.
 - Jobs include nullable `extraction_model` and `error: {code, message} | null`.
@@ -331,7 +344,7 @@ Implemented domain and request-validation errors use:
 
 | HTTP | Code | Meaning |
 |---|---|---|
-| 400 | `UNSUPPORTED_URL` | Live mode requires a supported YouTube video URL |
+| 400 | `UNSUPPORTED_URL` | Live mode requires a YouTube video, Instructables/Hackster project or GitHub repository URL |
 | 404 | `JOB_NOT_FOUND` | Missing job or incorrect token |
 | 409 | `INVALID_STATE` | Confirmation attempted in the wrong state |
 | 422 | `VALIDATION_ERROR` | Invalid fields, types, URL, PIN or quantity |
@@ -343,7 +356,9 @@ Implemented domain and request-validation errors use:
 | 503 | `STORAGE_ERROR` | Storage unavailable or snapshot too large |
 
 Background failures appear in the job snapshot (HTTP 200), with codes `UPSTREAM_QUOTA`,
-`UPSTREAM_ERROR`, `UPSTREAM_TIMEOUT`, `INVALID_EXTRACTION`, `NO_BOM`, `EXTRACTION_FAILED`,
+`UPSTREAM_ERROR`, `UPSTREAM_TIMEOUT`, `INVALID_EXTRACTION`, `NO_BOM`, `SOURCE_UNAVAILABLE`
+(project page could not be fetched, blocked by robots.txt, had no README or no readable text),
+`EXTRACTION_FAILED`,
 or `EXTRACTION_INTERRUPTED`.
 No raw upstream errors or credentials are exposed.
 

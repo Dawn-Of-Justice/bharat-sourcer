@@ -37,6 +37,7 @@ class Settings(BaseSettings):
     gemini_api_key: SecretStr | None = None
     gemini_model: str = Field(default="gemini-3.8-flash", pattern=r"^[a-zA-Z0-9.-]+$")
     extraction_timeout_s: float = Field(default=120, ge=1, le=300)
+    project_page_chars: int = Field(default=60000, ge=5000, le=100000)
     sourcing_enabled: bool = True
     sourcing_max_parts: int = Field(default=10, ge=1, le=30)
     sourcing_parallelism: int = Field(default=3, ge=1, le=4)

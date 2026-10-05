@@ -37,8 +37,27 @@ class CreateJob(Model):
 
 
 class Evidence(Model):
-    timestamp: str = Field(pattern=r"^\d{2,}:[0-5]\d$")
+    """Model-reported provenance for an extracted BOM line.
+
+    `source` defaults to `video` so snapshots saved before project-page support still
+    validate. Video evidence carries a timestamp. Project-page evidence carries the fetched
+    document `url` and a `quote` the server found verbatim (whitespace-normalised) in it.
+    """
+
+    timestamp: str | None = Field(default=None, pattern=r"^\d{2,}:[0-5]\d$")
     observation: str = Field(min_length=1, max_length=1000)
+    source: Literal["video", "project_page"] = "video"
+    quote: str | None = Field(default=None, min_length=3, max_length=500)
+    url: HttpUrl | None = None
+
+    @model_validator(mode="after")
+    def locator_matches_source(self):
+        if self.source == "video":
+            if self.timestamp is None or self.quote is not None or self.url is not None:
+                raise ValueError("Video evidence needs a timestamp and no page quote or URL")
+        elif self.timestamp is not None or self.quote is None or self.url is None:
+            raise ValueError("Project-page evidence needs a quote and URL and no timestamp")
+        return self
 
 
 class PartSpecs(Model):

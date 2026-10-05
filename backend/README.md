@@ -4,6 +4,13 @@ The integration deployment was observed on 5 October 2026 with Firebase account 
 guest authentication enabled. The frontend origin is included in CORS. The
 `BS_AUTH_ENABLED=false` setting shown below remains the default for a fresh local setup.
 
+v0.18.0 accepts public Instructables, Hackster and GitHub repository URLs in live mode and
+extracts a BOM from the page text (README for GitHub). Page evidence carries a quote the
+server found verbatim in the fetched page, plus its URL. It also adds an offline extraction
+evaluation harness (`scripts/evaluate_extraction.py`); no real labelled set exists yet,
+so no accuracy figure is claimed. The frontend landing page still gates non-YouTube links
+until a live page smoke test passes.
+
 v0.17.11 posts a deterministic chat summary when a chat-approved refresh finishes and keeps
 a bounded `job.actions` history of proposal decisions. See [chat actions](../docs/contracts/chat-actions.md).
 
@@ -105,7 +112,8 @@ deliberately when upgrading dependencies, then rerun checks and regenerate OpenA
 ## Implemented workflow
 
 1. `POST /v1/jobs` accepts an HTTP(S) project URL and returns a job ID and secret job token.
-2. A background task loads a fixed BOM in demo mode, or extracts a public YouTube video in live mode.
+2. A background task loads a fixed BOM in demo mode, or in live mode extracts a public YouTube
+   video or a supported project page (Instructables, Hackster, GitHub repository README).
 3. `POST /v1/jobs/{id}/confirm` applies all edits atomically.
 4. In live mode, grounded search discovers seller pages and the verifier reads product offers.
 5. `GET /v1/jobs/{id}` returns state, errors, events and the incremental report.
@@ -129,9 +137,10 @@ BS_EXTRACTION_TIMEOUT_S=120
 ```
 
 Keep the real key in the ignored `.env` file. Restart the server, then submit a public
-YouTube `watch`, `youtu.be`, `shorts`, or `embed` URL. Other sources return HTTP 400 in
-live mode. The backend sends a canonical YouTube URL to Gemini; it does not fetch arbitrary
-URLs or download video locally. Live requests can incur Gemini usage charges.
+YouTube `watch`, `youtu.be`, `shorts`, or `embed` URL, or a supported project page (see
+[Project page extraction](#project-page-extraction)). Other sources return HTTP 400
+`UNSUPPORTED_URL` in live mode. The backend sends a canonical YouTube URL to Gemini; it does
+not download video locally or fetch arbitrary URLs. Live requests can incur Gemini usage charges.
 
 The adapter uses `generateContent`, structured JSON output, and local Pydantic validation.
 The default model appears in Google's [model catalog](https://ai.google.dev/gemini-api/docs/models).
@@ -151,6 +160,40 @@ are bounded transient retries as described below, with no demo fallbacks. HTTP r
 is configurable; output is limited to 8,192 tokens and validated to at most 100 parts.
 Compatibility is limited to declared-spec comparisons described below. Parts costing is available
 after offer selection; shipping, tax and the final payable total remain unknown.
+
+## Project page extraction
+
+Live mode also accepts these project URLs (HTTP or HTTPS; query and fragment are dropped):
+
+| Source | Accepted URL | Document fetched |
+| --- | --- | --- |
+| Instructables | `instructables.com/<path>` (non-root) | `https://www.instructables.com/<path>/` |
+| Hackster | `hackster.io/<user>/<project>` | `https://www.hackster.io/<user>/<project>` |
+| GitHub | `github.com/<owner>/<repo>` (optional `.git`) | first of `README.md`, `readme.md`, `README.rst`, `README` at `https://raw.githubusercontent.com/<owner>/<repo>/HEAD/` |
+
+Other hosts, GitHub file/tree/gist URLs, Hackster section pages and reserved GitHub paths
+return HTTP 400 `UNSUPPORTED_URL`. Demo mode is unchanged: every URL gets the fixture and
+nothing is fetched.
+
+Pages are fetched only through the guarded `SafeFetcher` (HTTPS, public-address pinning,
+robots.txt, 3 MB response limit, bounded redirects). A redirect must stay on the
+source's host. HTML is reduced to visible text with scripts, styles, navigation, footers and
+forms removed; plain-text/Markdown READMEs are used as text. The text is bounded by
+`BS_PROJECT_PAGE_CHARS` (default 60,000 characters) and sent to Gemini as JSON data with a
+prompt that treats it as untrusted. The model returns, per part, evidence entries with a
+verbatim `quote` and an `observation`. The server keeps evidence only when the
+whitespace-normalised quote appears (case-sensitively) in the exact text sent to the model.
+Parts left with no verified quote are dropped and lines are renumbered; if none remain the
+job fails with `NO_BOM`. Fetch problems fail with `SOURCE_UNAVAILABLE` before any Gemini call
+(robots refusal, non-200 status, missing README, off-host redirect, no readable text).
+
+Page evidence has `source: "project_page"`, `quote`, `url` (the fetched document, e.g. the
+raw README) and `timestamp: null`. Video evidence now also reports `source: "video"` with
+`quote` and `url` null. Snapshots saved before this change have no `source` and still
+validate as video evidence. A verified quote shows that the page mentions the text; the
+part identity, quantity and suitability still need human review. A job uses one source;
+video and page evidence are not merged and conflicts between them are not detected yet.
+Code files other than the README are not read.
 
 Automated tests use a mocked HTTP transport. A credentialed smoke test on 2 Oct 2026
 successfully extracted four parts from YouTube Short `qSRrq_VZ4Fw` and reached
@@ -175,6 +218,53 @@ Auth/App Check are ready for public deployment. Firestore cloud access was verif
 2 Oct 2026 against `hackathon-510415` in Mumbai. Other developer machines need Application
 Default Credentials; see the setup guide.
 Live mode fails startup if `BS_GEMINI_API_KEY` is missing or empty.
+
+## Extraction quality evaluation
+
+`bharat_sourcer/evaluation.py` and `scripts/evaluate_extraction.py` score extracted BOMs
+against human-labelled cases. **No real labelled set exists yet**, so no extraction accuracy
+figure has been measured. The bundled `evaluation/example_cases.json` and
+`evaluation/example_predictions/` are invented, marked `"synthetic": true`, and only
+demonstrate the file format.
+
+A case set is JSON with a required `synthetic` flag, a `description`, optional
+`labelled_by`/`labelled_on`, and `cases`. Each case has an `id`, a supported YouTube `url`
+and `parts`. Each part has a canonical `name`, optional `aliases`, a `qty` (`null` when the
+labeller could not establish it) and optional `evidence_windows` (`MM:SS` start/end).
+Predictions are one `<case_id>.json` per case: `case_id`, `items` (saved `BomItem`s),
+and optional `source`, `extraction_model`, `error_code` and `synthetic`.
+
+Matching is deterministic, with no model involved. Names are NFKC/case-folded and split
+into alphanumeric tokens; simple trailing plurals are trimmed. A part matches exactly when
+tokens (or their joined form, so `ESP-32` = `ESP32`) equal its name or an alias. It matches
+by containment when all of a name's tokens appear in the prediction. Pairs are assigned one
+to one: exact first, then more specific names, then label and prediction order.
+`--exact-names` disables containment. Reported metrics, per case and micro-averaged:
+
+- recall (omissions) and precision (extras; repeated mentions of a matched part are
+  reported as duplicates and count as extras);
+- quantity agreement on matched parts whose label has a quantity, counting `null`
+  predictions as wrong and reporting them separately;
+- evidence hit rate: a matched part with labelled windows hits when any evidence
+  timestamp falls inside any window (`--evidence-tolerance-s` widens windows).
+
+`NO_BOM` errors score as an empty extraction. Other extraction errors are listed and
+excluded from the aggregate. Synthetic sets produce a "FORMAT CHECK ONLY" headline,
+`format-check.md/json` output and no accuracy label. Synthetic predictions cannot be scored
+against a real set.
+
+```powershell
+# Offline (default, no network): score saved predictions
+.venv/Scripts/python scripts/evaluate_extraction.py --cases evaluation/example_cases.json --predictions evaluation/example_predictions
+# Live: one billable Gemini extraction per case; refused for synthetic sets
+.venv/Scripts/python scripts/evaluate_extraction.py --cases path/to/labelled.json --live
+```
+
+Reports and live predictions are written to ignored `.data/evaluation/` and printed.
+Rerun live predictions offline by passing `--predictions .data/evaluation/predictions`.
+Limitations: name matching can't detect a wrong part with a matching name or a correct part
+described in different words, so review omissions and extras by hand. A part that is
+split across several predicted lines matches only one line. Small sets give noisy rates.
 
 ## Seller sourcing
 
@@ -460,10 +550,13 @@ backend/
     jobs.py         job state, atomic edits, fixture workflow
     storage.py      memory and transactional Firestore stores
     extraction.py   Gemini adapter, YouTube normalization, structured extraction
+    evaluation.py   labelled-case schema, deterministic BOM matching and metrics
+    project_pages.py  supported project URLs, readable page text, quote checks
     compat.py       declared-spec resolution, clarification and deterministic comparison
     sourcing/       grounded discovery, safe page fetching and JSON-LD verification
     main.py         API routes, errors, CORS
-  scripts/          OpenAPI export/check
+  scripts/          OpenAPI export/check, live checks, extraction evaluation
+  evaluation/       synthetic evaluation format example (not accuracy data)
   tests/            API and job concurrency tests
   pyproject.toml    backend dependencies and tooling
 ```
@@ -490,8 +583,8 @@ After changing public routes or schemas, regenerate and commit the shared contra
 See the [agreed feature roadmap](../docs/contracts/backend-roadmap.md) for priorities and
 the [Cloud Run guide](infra/cloud-run.md) for the shared frontend integration environment.
 
-- Validate extraction against real videos and a labelled BOM evaluation set.
-- Add project page/code extraction and evidence fusion.
+- Build a real labelled BOM evaluation set and run the extraction evaluation harness on it.
+- Fuse video and project-page evidence in one job and report conflicts; read code beyond READMEs.
 - Add durable queue dispatch and broaden seller format support.
 - Add seller trust checks, broader compatibility rules with module data, and shipping/tax costing.
 - Extend the shared contract with the frontend teammate as those features become available.

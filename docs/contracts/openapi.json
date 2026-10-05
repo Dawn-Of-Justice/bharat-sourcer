@@ -2,8 +2,8 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Bharat Sourcer API",
-    "description": "Demo or live YouTube extraction with optional Firestore job persistence.",
-    "version": "0.17.11"
+    "description": "Demo or live YouTube and project-page extraction with optional Firestore job persistence.",
+    "version": "0.18.0"
   },
   "paths": {
     "/v1/session/guest": {
@@ -2319,8 +2319,15 @@
       "Evidence": {
         "properties": {
           "timestamp": {
-            "type": "string",
-            "pattern": "^\\d{2,}:[0-5]\\d$",
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^\\d{2,}:[0-5]\\d$"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Timestamp"
           },
           "observation": {
@@ -2328,15 +2335,51 @@
             "maxLength": 1000,
             "minLength": 1,
             "title": "Observation"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "video",
+              "project_page"
+            ],
+            "title": "Source",
+            "default": "video"
+          },
+          "quote": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500,
+                "minLength": 3
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quote"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2083,
+                "minLength": 1,
+                "format": "uri"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url"
           }
         },
         "additionalProperties": false,
         "type": "object",
         "required": [
-          "timestamp",
           "observation"
         ],
-        "title": "Evidence"
+        "title": "Evidence",
+        "description": "Model-reported provenance for an extracted BOM line.\n\n`source` defaults to `video` so snapshots saved before project-page support still\nvalidate. Video evidence carries a timestamp. Project-page evidence carries the fetched\ndocument `url` and a `quote` the server found verbatim (whitespace-normalised) in it."
       },
       "HaveLine": {
         "properties": {

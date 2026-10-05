@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { ApiError, decideProposal, getJob, sendMessage, type BomItem, type ChatEdit, type ChatMessage, type Job } from './api'
+import { ApiError, decideProposal, evidenceText, getJob, sendMessage, type BomItem, type ChatEdit, type ChatMessage, type Job } from './api'
 
 function findLine(job: Job, lineId: string): BomItem | undefined {
   return job.items.find((item) => item.line_id === lineId)
@@ -37,7 +37,7 @@ function describeEdit(edit: ChatEdit, job: Job) {
 
 function Citation({ job, lineId }: { job: Job; lineId: string }) {
   const line = findLine(job, lineId)
-  return <details className="chat-citation"><summary>{line ? `${partLabel(job, lineId)} · ${line.raw_name}` : `Removed part · no longer in this BOM`}</summary><div className="citation-detail">{line?.evidence.length ? <><strong>Saved video observations</strong><ul>{line.evidence.map((entry, index) => <li key={`${entry.timestamp}-${index}`}>{entry.timestamp} — {entry.observation}</li>)}</ul><small>These observations were reported by the extraction model and need your review.</small></> : <p>No saved video evidence is available for this line.</p>}{line ? <button type="button" onClick={() => document.getElementById(`line-${lineId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })}>View in BOM ↑</button> : null}</div></details>
+  return <details className="chat-citation"><summary>{line ? `${partLabel(job, lineId)} · ${line.raw_name}` : `Removed part · no longer in this BOM`}</summary><div className="citation-detail">{line?.evidence.length ? <><strong>Saved evidence</strong><ul>{line.evidence.map((entry, index) => <li key={index}>{evidenceText(entry)}</li>)}</ul><small>These observations were reported by the extraction model and need your review.</small></> : <p>No saved evidence is available for this line.</p>}{line ? <button type="button" onClick={() => document.getElementById(`line-${lineId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })}>View in BOM ↑</button> : null}</div></details>
 }
 
 function Proposal({ job, message, token, onJob }: { job: Job; message: ChatMessage; token: string; onJob: (job: Job) => void }) {
