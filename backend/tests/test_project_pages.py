@@ -27,6 +27,11 @@ from bharat_sourcer.schemas import CreateJob, Evidence, Job
 from bharat_sourcer.sourcing.fetch import FetchError, Page, SafeFetcher
 
 INSTRUCTABLES = "https://www.instructables.com/Synthetic-Weather-Station/"
+INSTRUCTABLES_API = (
+    "https://www.instructables.com/json-api/showInstructableModel"
+    "?urlString=Synthetic-Weather-Station"
+)
+HACKSTER = "https://www.hackster.io/maker/synthetic-weather-station"
 HTML = "text/html; charset=utf-8"
 # Synthetic page: invented project text with markup that must not reach the model.
 SYNTHETIC_PAGE = """<!doctype html><html><head><title>Synthetic Weather Station</title>
@@ -247,7 +252,7 @@ def test_old_job_snapshot_still_validates():
 
 
 def test_page_extraction_sends_text_as_data_and_checks_quotes():
-    fetcher = FakeFetcher({INSTRUCTABLES: page(INSTRUCTABLES, SYNTHETIC_PAGE)})
+    fetcher = FakeFetcher({HACKSTER: page(HACKSTER, SYNTHETIC_PAGE)})
     seen = {}
 
     def handle(request):
@@ -258,8 +263,8 @@ def test_page_extraction_sends_text_as_data_and_checks_quotes():
         parts = payload["contents"][0]["parts"]
         assert "fileData" not in parts[0]
         document = json.loads(parts[0]["text"])
-        assert document["source_kind"] == "instructables"
-        assert document["document_url"] == INSTRUCTABLES
+        assert document["source_kind"] == "hackster"
+        assert document["document_url"] == HACKSTER
         assert "SCRIPT-ONLY" not in document["page_text"]
         # Injected page instructions stay inside the data payload, never the system prompt.
         assert "free laptop" in document["page_text"] and "free laptop" not in system
@@ -286,9 +291,9 @@ def test_page_extraction_sends_text_as_data_and_checks_quotes():
         )
 
     items = extractor(fetcher, handle).extract(
-        "https://instructables.com/Synthetic-Weather-Station"
+        "https://hackster.io/maker/synthetic-weather-station/"
     )
-    assert fetcher.calls == [(INSTRUCTABLES, True, PAGE_BYTES)]
+    assert fetcher.calls == [(HACKSTER, True, PAGE_BYTES)]
     assert [item.line_id for item in items] == ["L01", "L02"]
     assert [item.raw_name for item in items] == ["ESP32 development board", "BME280 sensor module"]
     assert items[1].qty is None
@@ -296,21 +301,21 @@ def test_page_extraction_sends_text_as_data_and_checks_quotes():
     assert len(evidence) == 1
     assert evidence[0].source == "project_page"
     assert evidence[0].quote == "BME280 sensor module"
-    assert str(evidence[0].url) == INSTRUCTABLES
+    assert str(evidence[0].url) == HACKSTER
     assert evidence[0].timestamp is None
 
 
 def test_unverified_quotes_only_is_no_bom():
-    fetcher = FakeFetcher({INSTRUCTABLES: page(INSTRUCTABLES, SYNTHETIC_PAGE)})
+    fetcher = FakeFetcher({HACKSTER: page(HACKSTER, SYNTHETIC_PAGE)})
     invented = {**ESP32, "evidence": [{"quote": "Arduino Mega 2560", "observation": "x"}]}
     with pytest.raises(ExtractionError) as captured:
-        extractor(fetcher, lambda request: gemini([invented])).extract(INSTRUCTABLES)
+        extractor(fetcher, lambda request: gemini([invented])).extract(HACKSTER)
     assert captured.value.code == "NO_BOM"
 
 
 def test_quote_beyond_text_bound_is_not_verified():
     body = "<p>" + "filler " * 2000 + "</p><p>Late part: 1x ESP32 development board</p>"
-    fetcher = FakeFetcher({INSTRUCTABLES: page(INSTRUCTABLES, body)})
+    fetcher = FakeFetcher({HACKSTER: page(HACKSTER, body)})
 
     def handle(request):
         document = json.loads(json.loads(request.content)["contents"][0]["parts"][0]["text"])
@@ -318,7 +323,7 @@ def test_quote_beyond_text_bound_is_not_verified():
         return gemini([ESP32])
 
     with pytest.raises(ExtractionError) as captured:
-        extractor(fetcher, handle, project_page_chars=5000).extract(INSTRUCTABLES)
+        extractor(fetcher, handle, project_page_chars=5000).extract(HACKSTER)
     assert captured.value.code == "NO_BOM"
 
 
@@ -355,29 +360,29 @@ def test_github_without_readme_is_unavailable():
     [
         (FetchError("Robots policy prevents verification"), "robots policy"),
         (FetchError("Non-public address rejected"), "could not be fetched"),
-        (page(INSTRUCTABLES, SYNTHETIC_PAGE, status=403), "could not be fetched"),
-        (page(INSTRUCTABLES, "<script>only()</script>"), "no readable text"),
-        (page(INSTRUCTABLES, "%PDF-1.7", content_type="application/pdf"), "no readable text"),
+        (page(HACKSTER, SYNTHETIC_PAGE, status=403), "refused automated access (HTTP 403)"),
+        (page(HACKSTER, SYNTHETIC_PAGE, status=429), "refused automated access (HTTP 429)"),
+        (page(HACKSTER, SYNTHETIC_PAGE, status=500), "could not be fetched"),
+        (page(HACKSTER, "<script>only()</script>"), "no readable text"),
+        (page(HACKSTER, "%PDF-1.7", content_type="application/pdf"), "no readable text"),
         (page("https://evil.test/landing", SYNTHETIC_PAGE), "unsupported site"),
     ],
 )
 def test_fetch_failures_are_sanitized_and_skip_gemini(response, message):
     with pytest.raises(ExtractionError) as captured:
-        extractor(FakeFetcher({INSTRUCTABLES: response})).extract(INSTRUCTABLES)
+        extractor(FakeFetcher({HACKSTER: response})).extract(HACKSTER)
     assert captured.value.code == "SOURCE_UNAVAILABLE"
     assert message in captured.value.message
 
 
 def test_page_provider_errors_use_page_wording():
-    fetcher = FakeFetcher({INSTRUCTABLES: page(INSTRUCTABLES, SYNTHETIC_PAGE)})
+    fetcher = FakeFetcher({HACKSTER: page(HACKSTER, SYNTHETIC_PAGE)})
     with pytest.raises(ExtractionError) as captured:
-        extractor(fetcher, lambda request: httpx.Response(500)).extract(INSTRUCTABLES)
+        extractor(fetcher, lambda request: httpx.Response(500)).extract(HACKSTER)
     assert captured.value.code == "UPSTREAM_ERROR"
     assert "project page" in captured.value.message
     with pytest.raises(ExtractionError) as captured:
-        extractor(fetcher, lambda request: gemini([{**ESP32, "evidence": []}])).extract(
-            INSTRUCTABLES
-        )
+        extractor(fetcher, lambda request: gemini([{**ESP32, "evidence": []}])).extract(HACKSTER)
     assert captured.value.code == "INVALID_EXTRACTION"
 
 
@@ -387,7 +392,7 @@ def test_default_fetcher_is_guarded():
 
 
 def test_live_api_accepts_project_page_and_rejects_other_hosts():
-    fetcher = FakeFetcher({INSTRUCTABLES: page(INSTRUCTABLES, SYNTHETIC_PAGE)})
+    fetcher = FakeFetcher({HACKSTER: page(HACKSTER, SYNTHETIC_PAGE)})
     app = create_app(
         Settings(_env_file=None, demo_mode=False, sourcing_enabled=False),
         extractor(fetcher, lambda request: gemini([ESP32])),
@@ -397,7 +402,7 @@ def test_live_api_accepts_project_page_and_rejects_other_hosts():
         assert rejected.status_code == 400
         assert rejected.json()["error"]["code"] == "UNSUPPORTED_URL"
         assert "GitHub repository" in rejected.json()["error"]["message"]
-        created = client.post("/v1/jobs", json={"url": INSTRUCTABLES}).json()
+        created = client.post("/v1/jobs", json={"url": HACKSTER}).json()
         headers = {"X-Job-Token": created["job_token"]}
         job = client.get(created["watch"], headers=headers).json()
         assert job["status"] == "awaiting_confirmation"
@@ -408,7 +413,7 @@ def test_live_api_accepts_project_page_and_rejects_other_hosts():
             "observation": "Supplies list",
             "source": "project_page",
             "quote": "1x ESP32 development board",
-            "url": INSTRUCTABLES,
+            "url": HACKSTER,
         }
 
 

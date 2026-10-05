@@ -1,7 +1,10 @@
-# Implemented API contract — v0.18.0
+# Implemented API contract — v0.18.1
 
 This directory is the handoff between backend and frontend. The architecture docs describe
 the target system; this contract describes the runnable local milestone.
+
+v0.18.1: Instructables extraction reads the project JSON; Hackster pages that refuse
+automated access fail with `SOURCE_UNAVAILABLE`. No schema changes.
 
 v0.18.0 accepts Instructables, Hackster and GitHub repository URLs in live mode.
 `items[].evidence[]` gains `source` (`video` default | `project_page`), optional `quote`
@@ -300,8 +303,9 @@ The health endpoint reports configuration, not database readiness.
 
 The server defaults to demo mode. `/healthz` reports `mode: "demo" | "live"`.
 Live mode accepts public YouTube video URLs and supported project pages: Instructables
-(`instructables.com/<path>`), Hackster (`hackster.io/<user>/<project>`) and GitHub repository
-READMEs (`github.com/<owner>/<repo>`). Other sources return 400 `UNSUPPORTED_URL`.
+(`instructables.com/<slug>/`, or legacy `/id/<slug>/`), Hackster (`hackster.io/<user>/<project>`)
+and GitHub repository READMEs (`github.com/<owner>/<repo>`). Other sources, including
+Instructables category or member paths, return 400 `UNSUPPORTED_URL`.
 The same routes and job-token flow apply in both modes.
 
 - `items[].qty` can now be **null**. Ask the user for a positive integer before confirming,
@@ -311,8 +315,10 @@ The same routes and job-token flow apply in both modes.
     Not independently verified. Older snapshots omit `source`; treat missing as `video`.
   - `source: "project_page"`: `{timestamp: null, observation, source, quote, url}`. `quote`
     was checked by the server to appear verbatim (whitespace-normalised) in the fetched
-    document at `url` (for GitHub, the raw README). Show it as a page citation, not a video
-    time. The quote proves the page says it, not that the identity or quantity is right.
+    document at `url` (for GitHub, the raw README; for Instructables, the project page, whose
+    content the server reads from the page's own public JSON model). Show it as a page
+    citation, not a video time. The quote proves the page says it, not that the identity
+    or quantity is right.
   Parts whose quotes could not be found on the page are dropped before review.
 - `items[].user_edited` marks manually added or updated lines. Existing evidence describes
   the original extraction, and may not support the user's replacement name or quantity.
@@ -357,7 +363,10 @@ Implemented domain and request-validation errors use:
 
 Background failures appear in the job snapshot (HTTP 200), with codes `UPSTREAM_QUOTA`,
 `UPSTREAM_ERROR`, `UPSTREAM_TIMEOUT`, `INVALID_EXTRACTION`, `NO_BOM`, `SOURCE_UNAVAILABLE`
-(project page could not be fetched, blocked by robots.txt, had no README or no readable text),
+(project page could not be fetched, blocked by robots.txt, refused automated access with
+HTTP 401/403/429/451/503, had no README or no readable text; Hackster project pages returned
+a Cloudflare 403 to the development sandbox on 5 Oct 2026, so expect this code for them
+unless production egress is accepted),
 `EXTRACTION_FAILED`,
 or `EXTRACTION_INTERRUPTED`.
 No raw upstream errors or credentials are exposed.

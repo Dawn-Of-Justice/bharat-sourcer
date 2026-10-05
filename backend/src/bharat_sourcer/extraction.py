@@ -12,10 +12,10 @@ from pydantic import Field, ValidationError
 from bharat_sourcer.config import Settings
 from bharat_sourcer.project_pages import (
     ProjectPageSource,
+    document_text,
     normalise,
     project_page_source,
     quote_found,
-    readable_text,
 )
 from bharat_sourcer.resilience import post_with_retry
 from bharat_sourcer.schemas import BomItem, Evidence, Model, Name, Quantity
@@ -169,6 +169,8 @@ Return JSON matching the supplied schema. Evidence will still need human review.
 """
 
 PAGE_BYTES = 3_000_000
+# Statuses that mean the site (or its bot protection) refused our request, not "not found".
+REFUSED_STATUSES = {401, 403, 429, 451, 503}
 
 log = logging.getLogger(__name__)
 
@@ -261,7 +263,7 @@ class GeminiExtractor:
         ]
 
     def _fetch(self, source: ProjectPageSource) -> tuple[str, str]:
-        """Return the fetched document URL and its bounded readable text."""
+        """Return the URL evidence cites and the document's bounded readable text."""
         unavailable = "The project page could not be fetched; check that it is public"
         for index, candidate in enumerate(source.fetch_urls):
             try:
@@ -278,15 +280,20 @@ class GeminiExtractor:
             if page.status != 200:
                 if source.kind == "github" and page.status == 404:
                     unavailable = "No README was found in this public GitHub repository"
+                elif page.status in REFUSED_STATUSES:
+                    unavailable = (
+                        f"The site refused automated access (HTTP {page.status}) to this "
+                        "project page; try a video or GitHub source instead"
+                    )
                 raise ExtractionError("SOURCE_UNAVAILABLE", unavailable)
             if (urlsplit(page.url).hostname or "").lower() not in source.hosts:
                 raise ExtractionError(
                     "SOURCE_UNAVAILABLE", "The project page redirected to an unsupported site"
                 )
-            text = readable_text(page, self.settings.project_page_chars)
+            text = document_text(source, page, self.settings.project_page_chars)
             if not text:
                 raise ExtractionError("SOURCE_UNAVAILABLE", "The project page had no readable text")
-            return page.url, text
+            return source.cite_url or page.url, text
         raise ExtractionError("SOURCE_UNAVAILABLE", unavailable)
 
     def _extract_page(self, source: ProjectPageSource) -> list[BomItem]:

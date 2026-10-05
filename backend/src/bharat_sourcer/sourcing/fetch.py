@@ -2,12 +2,13 @@
 
 import http.client
 import ipaddress
+import re
 import socket
 import ssl
 import time
 from dataclasses import dataclass
 from urllib.parse import urljoin, urlsplit
-from urllib.robotparser import RobotFileParser
+from urllib.robotparser import RobotFileParser, RuleLine
 
 USER_AGENT = "BharatSourcer/0.4 (+product-data-verification)"
 
@@ -53,6 +54,40 @@ def validate_url(url: str) -> tuple[str, str]:
         raise FetchError("Only public HTTPS URLs are supported") from exc
 
 
+class PatternRule:
+    """A robots.txt rule with RFC 9309 `*` wildcards and `$` end anchors."""
+
+    def __init__(self, rule: RuleLine):
+        # RuleLine stores the percent-quoted path, so `*` and `$` arrive as %2A and %24.
+        self.path = rule.path
+        self.allowance = rule.allowance
+        pattern = re.escape(rule.path).replace("%2A", ".*")
+        if pattern.endswith("%24"):
+            pattern = pattern[: -len("%24")] + r"\Z"
+        self.pattern = re.compile(pattern)
+
+    def applies_to(self, filename: str) -> bool:
+        return self.pattern.match(filename) is not None
+
+
+def robots_parser(text: str) -> RobotFileParser:
+    """Parse robots.txt closer to RFC 9309 than the standard library does alone.
+
+    The stdlib parser ends a group at blank or comment-only lines (dropping rules such as
+    Hackster's commented `User-Agent: *` group), matches rules literally and takes the
+    first matching rule. Here comment-only and blank lines are removed first, `*`/`$`
+    patterns are honoured and the longest matching rule wins (Allow on ties).
+    """
+    lines = [line for line in text.splitlines() if line.split("#", 1)[0].strip()]
+    parser = RobotFileParser()
+    parser.parse(lines)
+    entries = [*parser.entries, *([parser.default_entry] if parser.default_entry else [])]
+    for entry in entries:
+        rules = [PatternRule(rule) for rule in entry.rulelines]
+        entry.rulelines = sorted(rules, key=lambda rule: (-len(rule.path), not rule.allowance))
+    return parser
+
+
 class PinnedHTTPSConnection(http.client.HTTPSConnection):
     def __init__(self, host: str, address: str, timeout: float):
         super().__init__(host, timeout=timeout, context=ssl.create_default_context())
@@ -96,7 +131,9 @@ class SafeFetcher:
                 headers={
                     "User-Agent": USER_AGENT,
                     "Accept-Encoding": "identity",
-                    "Accept": "text/html,application/ld+json,text/plain;q=0.5",
+                    "Accept": (
+                        "text/html,application/ld+json,application/json;q=0.9,text/plain;q=0.5"
+                    ),
                 },
             )
             response = connection.getresponse()
@@ -126,11 +163,9 @@ class SafeFetcher:
         if origin not in self._robots:
             response = self.get(origin + "/robots.txt", robots=False, max_bytes=128_000)
             if response.status == 404:
-                parser = RobotFileParser()
-                parser.parse([])
+                parser = robots_parser("")
             elif response.status == 200:
-                parser = RobotFileParser()
-                parser.parse(response.body.decode("utf-8", errors="replace").splitlines())
+                parser = robots_parser(response.body.decode("utf-8", errors="replace"))
             else:
                 parser = None
             self._robots[origin] = parser

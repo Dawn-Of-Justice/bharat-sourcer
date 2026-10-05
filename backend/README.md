@@ -4,6 +4,14 @@ The integration deployment was observed on 5 October 2026 with Firebase account 
 guest authentication enabled. The frontend origin is included in CORS. The
 `BS_AUTH_ENABLED=false` setting shown below remains the default for a fresh local setup.
 
+v0.18.1 makes Instructables extraction work (their pages are client-rendered; the backend
+reads the project JSON the page itself loads, allowed by robots.txt), strips page
+boilerplate, and replaces Python's robots parser, which silently ignored some sites' rules
+and wildcards. Hackster blocks automated access (Cloudflare 403) and now returns a clear
+`SOURCE_UNAVAILABLE` message. Seller parsing was evaluated on 17 trimmed real Indian seller pages
+([findings](infra/seller-page-evaluation.md)); fixes cover inch notation in titles,
+label-unit supply ranges and percent-escape URL comparison.
+
 v0.18.0 accepts public Instructables, Hackster and GitHub repository URLs in live mode and
 extracts a BOM from the page text (README for GitHub). Page evidence carries a quote the
 server found verbatim in the fetched page, plus its URL. It also adds an offline extraction
@@ -168,25 +176,58 @@ Live mode also accepts these project URLs (HTTP or HTTPS; query and fragment are
 
 | Source | Accepted URL | Document fetched |
 | --- | --- | --- |
-| Instructables | `instructables.com/<path>` (non-root) | `https://www.instructables.com/<path>/` |
+| Instructables | `instructables.com/<slug>/` or legacy `/id/<slug>/` | `https://www.instructables.com/json-api/showInstructableModel?urlString=<slug>` (cited as `https://www.instructables.com/<slug>/`) |
 | Hackster | `hackster.io/<user>/<project>` | `https://www.hackster.io/<user>/<project>` |
 | GitHub | `github.com/<owner>/<repo>` (optional `.git`) | first of `README.md`, `readme.md`, `README.rst`, `README` at `https://raw.githubusercontent.com/<owner>/<repo>/HEAD/` |
 
-Other hosts, GitHub file/tree/gist URLs, Hackster section pages and reserved GitHub paths
-return HTTP 400 `UNSUPPORTED_URL`. Demo mode is unchanged: every URL gets the fixture and
+Other hosts, Instructables category/member/asset paths and multi-segment paths, GitHub
+file/tree/gist URLs, Hackster section pages and reserved GitHub paths return HTTP 400
+`UNSUPPORTED_URL`. Demo mode is unchanged: every URL gets the fixture and
 nothing is fetched.
 
 Pages are fetched only through the guarded `SafeFetcher` (HTTPS, public-address pinning,
 robots.txt, 3 MB response limit, bounded redirects). A redirect must stay on the
-source's host. HTML is reduced to visible text with scripts, styles, navigation, footers and
-forms removed; plain-text/Markdown READMEs are used as text. The text is bounded by
+source's host. HTML is reduced to visible text: scripts, styles, `nav`, `footer`, `aside`,
+forms, buttons, hidden elements, ARIA navigation/banner/complementary regions and
+`#comments`/`#related` blocks are removed, and a section whose heading is boilerplate
+("Comments", "Credits", "You might also like", "Related projects", "Share" and similar) is
+dropped up to the next heading of the same or higher level. Plain-text/Markdown READMEs are
+used as text.
+
+Instructables project pages are client-rendered: the server HTML is an empty React shell
+(title only), so scraping it yields no parts. The page loads its content from the public
+`/json-api/showInstructableModel` endpoint, which robots.txt allows; the backend fetches that
+JSON and builds the text the page renders: title, `Supplies`, then the introduction and
+`Step N: <title>` with each step body. Supplies come first, so the character budget trims late
+steps rather than the parts list. Comments and related projects are not in this document.
+Evidence `url` is the canonical project page, not the JSON endpoint. Drafts and responses
+without steps give "no readable text". The text is bounded by
 `BS_PROJECT_PAGE_CHARS` (default 60,000 characters) and sent to Gemini as JSON data with a
 prompt that treats it as untrusted. The model returns, per part, evidence entries with a
 verbatim `quote` and an `observation`. The server keeps evidence only when the
 whitespace-normalised quote appears (case-sensitively) in the exact text sent to the model.
 Parts left with no verified quote are dropped and lines are renumbered; if none remain the
 job fails with `NO_BOM`. Fetch problems fail with `SOURCE_UNAVAILABLE` before any Gemini call
-(robots refusal, non-200 status, missing README, off-host redirect, no readable text).
+(robots refusal, non-200 status, missing README, off-host redirect, no readable text). HTTP
+401/403/429/451/503 responses say the site refused automated access and include the status.
+
+robots.txt is parsed with the stdlib parser after removing blank and comment-only lines
+(which otherwise end a group early: Hackster's `User-Agent: *` group was being ignored), with
+RFC 9309 `*`/`$` patterns and longest-match precedence (Allow wins ties). Sites whose
+crawl-delay or request rate exceeds one request per second are still skipped.
+
+Live-site status, checked 5 Oct 2026 with plain GETs from the development sandbox:
+
+| Site | robots.txt for our user agent | Crawl-delay / rate | Fetch result |
+| --- | --- | --- | --- |
+| Instructables | project pages and the `json-api` model endpoint allowed (only `*.pdf`, `*.txt`, `*.html`, `/file/`, `/howto/`, `/image/` disallowed) | none for `*` (1 s only for Slurp) | JSON 200 for three projects; parsing covered by trimmed real fixtures |
+| Hackster | `/<user>/<project>` allowed (`/projects/*`, `/users/*`, `/search*`, `*/*/embed` disallowed) | none | HTTP 403 Cloudflare "Attention Required" for every project page tried, with any user agent; listing pages return 200 |
+
+Hackster extraction therefore fails with `SOURCE_UNAVAILABLE` ("refused automated access
+(HTTP 403)") from that network, and no workaround is attempted. Whether production egress
+is also blocked has not been checked. The Hackster parsing test uses a labelled synthetic
+page modelled on the public section layout, not a captured page. No live Gemini call was
+made for either site; only GitHub README extraction has passed a credentialed live check.
 
 Page evidence has `source: "project_page"`, `quote`, `url` (the fetched document, e.g. the
 raw README) and `timestamp: null`. Video evidence now also reports `source: "video"` with
@@ -301,6 +342,13 @@ single supply voltages and anything inside scripts are ignored. When sources dis
 or an explicit property value is invalid, the field stays unknown and the offer lists a
 `spec_conflicts` entry with every candidate value and source. Tables are read from the
 whole verified page, so a related-product table can create a conflict, never a value.
+
+Title matching treats inch notations (`0.96"`, `0.96″`, `0.91 in.`) as the same `inch`
+token, and offer/variant URLs compare percent-escapes case-insensitively. A supply range
+written without units is read only when the label states volts, e.g. "Operating Voltage
+(VDC): 3.3 ~ 5"; "Pixel Resolution" is accepted as a resolution label. These came from a
+labelled evaluation on 17 trimmed real seller pages; see
+[seller-page evaluation](infra/seller-page-evaluation.md).
 
 ## Part image fallbacks
 

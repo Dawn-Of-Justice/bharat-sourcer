@@ -1,0 +1,50 @@
+{
+  "_fixture": "Trimmed real response of https://www.instructables.com/json-api/showInstructableModel?urlString=Arduino-Obstacle-Avoiding-Robot (the data behind https://www.instructables.com/Arduino-Obstacle-Avoiding-Robot/), fetched 2026-10-05. Used only for parsing tests. Field names, nesting and the supplies/parts-list markup are kept as served; step prose is paraphrased and images, files and stats are removed. Original by arnavssgk4770 on Instructables, licensed Attribution-NonCommercial-ShareAlike (https://creativecommons.org/licenses/by-nc-sa/4.0/). Not verified parts data.",
+  "urlString": "Arduino-Obstacle-Avoiding-Robot",
+  "showUrl": "/Arduino-Obstacle-Avoiding-Robot/",
+  "title": "Arduino Obstacle Avoiding Robot ",
+  "type": "Step by Step",
+  "locale": "en_US",
+  "status": "PUBLISHED",
+  "license": {
+    "fullName": "Attribution-NonCommercial-ShareAlike",
+    "shortName": "by-nc-sa",
+    "url": "https://creativecommons.org/licenses/by-nc-sa/4.0/"
+  },
+  "author": {
+    "screenName": "arnavssgk4770"
+  },
+  "supplies": "<p>Arduino UNO: <a href=\"https://quartzcomponents.com/products/arduino-uno?variant=31898093846663\" rel=\"nofollow noopener noreferrer\">https://quartzcomponents.com/products/arduino-uno?variant=31898093846663</a></p><p>Dual Shaft DC Geared Motor 300 RPM (BO Motor) X 2: <a href=\"https://quartzcomponents.com/products/dual-shaft-dc-geared-motor-300-rpm?variant=31897794150535\" rel=\"nofollow noopener noreferrer\">https://quartzcomponents.com/products/dual-shaft-dc-geared-motor-300-rpm?variant=31897794150535</a></p><p>Geared DC Motor Wheel (Pack of 2): <a href=\"https://quartzcomponents.com/products/geared-dc-motor-wheel?variant=31898072842375\" rel=\"nofollow noopener noreferrer\">https://quartzcomponents.com/products/geared-dc-motor-wheel?variant=31898072842375</a></p><p>HC-SR04 Ultrasonic Sensor Module: <a href=\"https://quartzcomponents.com/products/hc-sr04-ultrasonic-sensor-module?variant=31897769410695\" rel=\"nofollow noopener noreferrer\">https://quartzcomponents.com/products/hc-sr04-ultrasonic-sensor-module?variant=31897769410695</a></p><p>Tower Pro SG90 Servo Motor - 9 gms Mini/Micro Servo Motor: <a href=\"https://quartzcomponents.com/products/tower-pro-sg90-servo-9-gms-mini-micro-servo-motor?variant=31898074218631\" rel=\"nofollow noopener noreferrer\">https://quartzcomponents.com/products/tower-pro-sg90-servo-9-gms-mini-micro-servo-motor?variant=31898074218631</a></p><p>L298N 2A Based Motor Driver Module: <a href=\"https://quartzcomponents.com/products/l298n-2a-based-motor-driver-module?variant=32115009519751\" rel=\"nofollow noopener noreferrer\">https://quartzcomponents.com/products/l298n-2a-based-motor-driver-module?variant=32115009519751</a></p><p>Castor Wheel: <a href=\"https://quartzcomponents.com/products/castor-wheel?variant=31898072252551\" rel=\"nofollow noopener noreferrer\">https://quartzcomponents.com/products/castor-wheel?variant=31898072252551</a></p><p>Jumper Wires: <a href=\"https://quartzcomponents.com/products/jumper-wire-combo-m-to-m-m-to-f-f-to-f?variant=35156414365849\" rel=\"nofollow noopener noreferrer\">https://quartzcomponents.com/products/jumper-wire-combo-m-to-m-m-to-f-f-to-f?variant=35156414365849</a></p><p>White Sponge Double-Sided Tape:<a href=\" https://quartzcomponents.com/products/white-sponge-double-sided-acrylic-foam-adhesive-tapes?variant=35143670169753\" rel=\"nofollow noopener noreferrer\"> https://quartzcomponents.com/products/white-sponge-double-sided-acrylic-foam-adhesive-tapes?variant=35143670169753</a></p><p>Small Breadboard: <a href=\"https://quartzcomponents.com/products/syb-170-mini-solderless-prototype-experiment-test-breadboard-1?_pos=444&amp;_sid=37f5ac07f&amp;_ss=r\" rel=\"nofollow noopener noreferrer\">https://quartzcomponents.com/products/syb-170-mini-solderless-prototype-experiment-test-breadboard-1?_pos=444&amp;_sid=37f5ac07f&amp;_ss=r</a></p><p>7.4 v battery (2 x 18650 battery in series ): <a href=\"https://quartzcomponents.com/products/18650-li-ion-1800mah-rechargeable-battery\" rel=\"nofollow noopener noreferrer\">https://quartzcomponents.com/products/18650-li-ion-1800mah-rechargeable-battery</a></p>",
+  "steps": [
+    {
+      "stepIndex": 0,
+      "title": "Arduino Obstacle Avoiding Robot ",
+      "body": "<p>[Paraphrased for this fixture] Introduces a robot that stops, backs up and looks left and right around obstacles.</p>"
+    },
+    {
+      "stepIndex": 1,
+      "title": "Making of Chassis",
+      "body": "<p>[Paraphrased for this fixture] Cut an MDF base, mark component positions and drill mounting holes.</p>"
+    },
+    {
+      "stepIndex": 2,
+      "title": "Assembling the Chasis",
+      "body": "<p>[Paraphrased for this fixture] Screw the UNO and motor driver to the chassis and tape the motors, castor and battery.</p>"
+    },
+    {
+      "stepIndex": 3,
+      "title": "Connections",
+      "body": "<p>[Paraphrased for this fixture] Lists the motor-driver, servo and ultrasonic-sensor pin connections to the UNO.</p>"
+    },
+    {
+      "stepIndex": 4,
+      "title": " Programming the Arduino Uno",
+      "body": "<p>[Paraphrased for this fixture] Install the Arduino IDE and upload the attached sketch.</p>"
+    },
+    {
+      "stepIndex": 5,
+      "title": "Final Touch to Robot",
+      "body": "<p>[Paraphrased for this fixture] Attach the breadboard and wheels, tidy the wires and test the robot.</p>"
+    }
+  ]
+}
