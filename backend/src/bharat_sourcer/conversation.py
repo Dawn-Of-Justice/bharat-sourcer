@@ -120,6 +120,7 @@ class GeminiAssistant:
         # Deliberately exclude external HTML, tokens and internal worker metadata.
         context = {
             "status": job.status,
+            "project": job.project.model_dump(mode="json") if job.project else None,
             "refresh_count": job.refresh_count,
             "sourcing_enabled": job.sourcing_enabled,
             "items": [item.model_dump(mode="json") for item in job.items],

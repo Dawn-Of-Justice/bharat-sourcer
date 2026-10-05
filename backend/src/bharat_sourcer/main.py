@@ -34,6 +34,7 @@ from bharat_sourcer.schemas import (
     SelectOffers,
     SendMessage,
     UpdateJobSpecs,
+    UpdateProject,
     now,
 )
 from bharat_sourcer.sourcing.research import GeminiResearch
@@ -134,7 +135,7 @@ def create_app(
 
     app = FastAPI(
         title="Bharat Sourcer API",
-        version="0.18.1",
+        version="0.19.0",
         description=(
             "Demo or live YouTube and project-page extraction with optional Firestore job "
             "persistence."
@@ -182,8 +183,8 @@ def create_app(
                         await asyncio.to_thread(service.get, parts[3], principal)
                     # Users must always be able to stop work after exhausting their quota.
                     # Image fallbacks have separate generation quotas; broken-image retries
-                    # must not consume the project action budget.
-                    if not request.url.path.endswith(("/pause", "/image")):
+                    # must not consume the project action budget; nor do title/description edits.
+                    if not request.url.path.endswith(("/pause", "/image", "/project")):
                         await asyncio.to_thread(access.charge, request, principal)
             except JobError as exc:
                 return JSONResponse(
@@ -338,6 +339,15 @@ def create_app(
         service.refresh_offers(job_id, x_job_token, body)
         dispatch(tasks, service.finish, job_id)
         return ConfirmationAccepted()
+
+    @app.post(
+        "/v1/jobs/{job_id}/project",
+        response_model=Job,
+        tags=["jobs"],
+        responses={404: {"model": ErrorResponse}, 422: {"model": ErrorResponse}},
+    )
+    def update_project(job_id: str, body: UpdateProject, x_job_token: JobToken = None):
+        return service.update_project(job_id, x_job_token, body)
 
     @app.post(
         "/v1/jobs/{job_id}/specs",

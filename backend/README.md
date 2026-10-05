@@ -4,6 +4,14 @@ The integration deployment was observed on 5 October 2026 with Firebase account 
 guest authentication enabled. The frontend origin is included in CORS. The
 `BS_AUTH_ENABLED=false` setting shown below remains the default for a fresh local setup.
 
+v0.19.0 makes extraction understand the project before listing parts: `job.project` holds
+an AI-written, owner-editable title and description, a non-editable summary of how the
+build works, and its power, controller, interfaces and assumptions. Missing quantities are
+decided from project context (`qty_source: inferred` with `qty_reason`) instead of
+blocking confirmation, and each part gets inferred requirements (`origin: inferred`, with
+a reason) that feed research. `POST /v1/jobs/{id}/project` edits the title/description;
+`GET /v1/projects` returns them. See [project understanding](../docs/contracts/project-understanding.md).
+
 v0.18.1 makes Instructables extraction work (their pages are client-rendered; the backend
 reads the project JSON the page itself loads, allowed by robots.txt), strips page
 boilerplate, and replaces Python's robots parser, which silently ignored some sites' rules
@@ -161,8 +169,8 @@ This first adapter does not yet use ADK or agentic video processing.
 
 Live responses have `demo: false` and `extraction_model`. Each extracted line carries
 model-reported `evidence` (timestamp and observation), which must be reviewed rather than
-treated as independently verified. Unknown quantities are `null`; confirmation requires
-the user to set a positive integer or remove the line. User edits retain the original
+treated as independently verified. Counts the source does not state are
+decided from project context and labelled `qty_source: inferred` with a `qty_reason`. User edits retain the original
 evidence and set `user_edited: true` so the UI can distinguish them.
 
 Errors transition the job to `failed` with a sanitized `error.code` and message. There

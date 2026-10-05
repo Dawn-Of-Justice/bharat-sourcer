@@ -88,9 +88,11 @@ def test_outgoing_request_and_validated_output():
         assert "maxItems" not in json.dumps(schema)
         return result([PART])
 
-    items = provider(handle).extract("https://youtu.be/abcdefghijk?t=12")
+    items = provider(handle).extract("https://youtu.be/abcdefghijk?t=12").items
     assert items[0].line_id == "L01"
-    assert items[0].qty is None
+    # No stated or suggested count: decided as one, labelled inferred.
+    assert (items[0].qty, items[0].qty_source) == (1, "inferred")
+    assert items[0].qty_reason
     assert items[0].evidence[0].timestamp == "01:12"
 
 
@@ -130,7 +132,7 @@ def test_timeout_is_sanitized():
     assert captured.value.code == "UPSTREAM_TIMEOUT"
 
 
-def test_live_api_requires_quantity_before_confirmation():
+def test_live_api_infers_missing_quantity_and_confirms():
     app = create_app(
         Settings(_env_file=None, demo_mode=False, sourcing_enabled=False),
         provider(lambda request: result([PART])),
@@ -146,8 +148,8 @@ def test_live_api_requires_quantity_before_confirmation():
         job = client.get(path, headers=headers).json()
         assert job["status"] == "awaiting_confirmation"
         assert job["extraction_model"] == "gemini-3.8-flash"
-        rejected = client.post(f"{path}/confirm", headers=headers, json={})
-        assert rejected.json()["error"]["code"] == "UNKNOWN_QUANTITY"
+        assert job["items"][0]["qty_source"] == "inferred"
+        assert job["items"][0]["qty"] == 1
         accepted = client.post(
             f"{path}/confirm",
             headers=headers,

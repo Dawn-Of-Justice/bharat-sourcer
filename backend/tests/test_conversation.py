@@ -72,8 +72,10 @@ def test_proposal_requires_acceptance_and_does_not_confirm():
     assert accepted.status == "awaiting_confirmation"
     assert accepted.report is None
     assert chat.decide(job_id, token, msg.message_id, ProposalDecision(action="accept")) == accepted
-    with pytest.raises(JobError):
-        jobs.confirm(job_id, token, ConfirmJob())
+    # A missing count no longer blocks confirmation; it is decided and labelled inferred.
+    jobs.confirm(job_id, token, ConfirmJob())
+    confirmed = jobs.get(job_id, token)
+    assert (confirmed.items[0].qty, confirmed.items[0].qty_source) == (1, "inferred")
 
 
 def test_stale_reject_and_conflicting_message():
@@ -170,7 +172,7 @@ def test_api_demo_auth_and_snapshot_stream():
 
     chunks = asyncio.run(read())
     assert chunks[0].startswith("event: snapshot\n")
-    assert json.loads(chunks[0].split("data: ")[1])["messages"] == job["messages"]
+    assert json.loads(chunks[0].split("data: ", 1)[1])["messages"] == job["messages"]
     assert token not in "".join(chunks)
     assert ": heartbeat\n\n" in chunks
 

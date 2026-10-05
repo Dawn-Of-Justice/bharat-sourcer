@@ -2,7 +2,7 @@ from datetime import UTC, datetime
 from typing import Annotated, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, HttpUrl, model_validator
+from pydantic import BaseModel, ConfigDict, Field, HttpUrl, StringConstraints, model_validator
 
 
 def now() -> datetime:
@@ -127,6 +127,38 @@ class PartRequirement(Model):
     value: str = Field(min_length=1, max_length=200)
     unit: str | None = Field(default=None, max_length=40)
     operator: Literal["equals", "at_least", "at_most"] = "equals"
+    # "inferred" values were proposed by the model from project context, not stated by
+    # the source or the user; they guide research and must stay reviewable.
+    origin: Literal["user", "inferred"] = "user"
+    reason: str | None = Field(default=None, max_length=300)
+
+
+ProjectTitle = Annotated[
+    str, StringConstraints(strip_whitespace=True, min_length=1, max_length=120)
+]
+ProjectDescription = Annotated[
+    str, StringConstraints(strip_whitespace=True, min_length=1, max_length=600)
+]
+
+
+class ProjectContext(Model):
+    """The model's reading of what the project is; AI-inferred, never verified.
+
+    `title` and `description` are written by the model and editable by the owner
+    (`*_source` records who wrote the current value). `summary` stays the model's own
+    understanding after analysing the source and is not editable.
+    """
+
+    title: ProjectTitle | None = None
+    title_source: Literal["ai", "user"] = "ai"
+    description: ProjectDescription | None = None
+    description_source: Literal["ai", "user"] = "ai"
+    summary: str | None = Field(default=None, min_length=1, max_length=1000)
+    power: str | None = Field(default=None, max_length=200)
+    controller: str | None = Field(default=None, max_length=200)
+    interfaces: list[str] = Field(default_factory=list, max_length=10)
+    assumptions: list[str] = Field(default_factory=list, max_length=10)
+    origin: Literal["ai_inferred"] = "ai_inferred"
 
 
 class ResearchFact(Model):
@@ -201,6 +233,9 @@ class BomItem(Model):
     raw_name: Name
     qty: Quantity | None = 1
     qty_unit: Literal["pcs"] = "pcs"
+    # stated: the source gives the count; inferred: decided from project context; user: edited.
+    qty_source: Literal["stated", "inferred", "user"] = "stated"
+    qty_reason: str | None = Field(default=None, max_length=300)
     user_has_it: bool = False
     evidence: list[Evidence] = Field(default_factory=list)
     user_edited: bool = False
@@ -496,11 +531,23 @@ class Report(Model):
     unselected_line_ids: list[str] = Field(default_factory=list)
 
 
+class UpdateProject(Model):
+    title: ProjectTitle | None = None
+    description: ProjectDescription | None = None
+
+    @model_validator(mode="after")
+    def require_field(self):
+        if self.title is None and self.description is None:
+            raise ValueError("Provide a title or a description")
+        return self
+
+
 class Job(Model):
     job_id: str
     status: Status = "queued"
     demo: bool = True
     input: CreateJob
+    project: ProjectContext | None = None
     created_at: datetime = Field(default_factory=now)
     updated_at: datetime = Field(default_factory=now)
     items: list[BomItem] = Field(default_factory=list)
