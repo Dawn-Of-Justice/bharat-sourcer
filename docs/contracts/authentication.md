@@ -1,7 +1,23 @@
 # Authentication and saved projects — v0.17
 
-Deployed in API v0.17.2 behind `BS_AUTH_ENABLED=false`. Authentication is not yet enabled in
-production. The existing frontend proxy needs the changes below before rollout.
+## Production activation — 5 October 2026
+
+API v0.17.2 authentication is now enabled (`BS_AUTH_ENABLED=true`) on revision
+`bharat-sourcer-integration-00026-fzl`, serving all traffic. The frontend production
+domain is authorized in Firebase and allowed by backend CORS. Activation was
+explicitly requested while the frontend deployment was still underway.
+
+Direct backend checks passed: unauthenticated job rejection, production CORS,
+secure guest cookie round trip, session, empty project list, usage counters,
+invalid bearer rejection and logout. No jobs or model calls were started.
+Run `backend/scripts/check_auth_live.py` from the backend directory to repeat.
+
+Frontend proxy/browser integration and real Google login/revocation tests remain
+pending. Trusted client-IP forwarding stays disabled until proxy handling is
+verified; IP quotas currently use the socket peer and can group proxy users.
+Account/guest quotas, project ownership and revoked-account checks are active.
+The earlier handoff below describes the preparation stage; its disabled-auth
+instructions are superseded by this activation record.
 
 ## Team handoff — 4 October 2026
 

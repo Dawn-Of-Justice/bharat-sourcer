@@ -3,12 +3,13 @@
 This directory is the handoff between backend and frontend. The architecture docs describe
 the target system; this contract describes the runnable local milestone.
 
-v0.17 adds [authentication, saved projects and guest limits](authentication.md),
-behind an opt-in setting. Production activation requires Firebase setup and frontend
-credential/cookie forwarding. Existing job-token integration remains the default.
+v0.17 adds [authentication, saved projects and guest limits](authentication.md).
+Production authentication was enabled on 5 October while the frontend deployment
+was underway. Send Firebase bearer credentials or a guest cookie through the proxy;
+legacy unowned projects must be claimed with their original token after sign-in.
 v0.17.1 adds personal remaining usage and accurate quota reset delays and is deployed.
 v0.17.2 deploys revoked-session and disabled-account checks with runtime Firebase
-account-read permission configured. Auth remains disabled pending frontend integration.
+account-read permission configured. Auth is enabled; real login and frontend checks remain.
 See the authentication handoff for error handling.
 
 v0.16 adds [general part research, flexible requirements and reviewed AI assessments](part-research.md).
