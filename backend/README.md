@@ -4,6 +4,11 @@ The integration deployment was observed on 5 October 2026 with Firebase account 
 guest authentication enabled. The frontend origin is included in CORS. The
 `BS_AUTH_ENABLED=false` setting shown below remains the default for a fresh local setup.
 
+v0.17.10 ranks grounded discovery sources before the per-part fetch limit: known Indian
+retailers and `.in` domains first, datasheet hosts and global distributors that block reads
+last. Production data showed most "no verified offers" parts had spent their five fetches
+on TTI, Mouser, DigiKey, LCSC and datasheet PDFs. Ranking only reorders grounded URLs.
+
 v0.17.9 lets chat propose spec/requirement changes for completed reports; they apply only
 after approval. See [chat actions](../docs/contracts/chat-actions.md).
 

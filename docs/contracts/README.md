@@ -1,7 +1,10 @@
-# Implemented API contract — v0.17.9
+# Implemented API contract — v0.17.10
 
 This directory is the handoff between backend and frontend. The architecture docs describe
 the target system; this contract describes the runnable local milestone.
+
+v0.17.10 prefers Indian retail pages within the existing per-part fetch limit; no schema
+changes.
 
 v0.17.9 adds optional `messages[].spec_proposal` for reviewed chat spec changes; see
 [chat actions](chat-actions.md). The frontend needs an Approve/Reject card for it.

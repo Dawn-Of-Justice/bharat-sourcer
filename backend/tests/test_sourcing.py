@@ -372,3 +372,20 @@ def test_failed_and_empty_discovery_are_distinct():
         SourcingService(EmptyDiscovery(), Fetcher()).source(item).sourcing_status
         == "no_verified_offers"
     )
+
+
+def test_discovery_gives_indian_retail_pages_the_limited_fetch_slots():
+    titles = ["tti.com", "mouser.com", "example.org", "robocraze.com", "www.flyrobo.in"]
+    chunks = [{"web": {"uri": f"https://{t}/p{i}", "title": t}} for i, t in enumerate(titles)]
+    chunks.append({"web": {"uri": "https://untitled.example/x"}})
+    candidate = {"finishReason": "STOP", "groundingMetadata": {"groundingChunks": chunks}}
+    discovery = GeminiDiscovery(
+        Settings(_env_file=None, gemini_api_key="test", sourcing_candidates_per_part=4),
+        httpx.MockTransport(lambda request: httpx.Response(200, json={"candidates": [candidate]})),
+    )
+    assert discovery.discover("LED").source_urls == [
+        "https://robocraze.com/p3",
+        "https://www.flyrobo.in/p4",
+        "https://example.org/p2",
+        "https://untitled.example/x",
+    ]
