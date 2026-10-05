@@ -4,6 +4,12 @@ The integration deployment was observed on 5 October 2026 with Firebase account 
 guest authentication enabled. The frontend origin is included in CORS. The
 `BS_AUTH_ENABLED=false` setting shown below remains the default for a fresh local setup.
 
+v0.17.8 fixes missing seller images: storefront placeholder images (such as Shopify's
+`no-image` asset, returned for every Robocraze product) are rejected, and a verified
+single-product page falls back to its `og:image`/`twitter:image` metadata (same-host
+`http` is upgraded to `https`). Offers saved before v0.15 have no `image_url`; refresh
+those parts to collect images.
+
 v0.17.7 reads seller specification tables and common JSON-LD property labels, and reports
 seller-source disagreements as `spec_conflicts` instead of silently dropping them.
 
@@ -179,7 +185,8 @@ variant URLs are rejected. This verifies seller-published data, not merchant hon
 delivery to the PIN, tax inclusion, electrical suitability or an independent stock check.
 If the verified Product JSON-LD includes an HTTPS image URL, it is returned as optional
 `image_url` for the frontend to display. The backend does not download or proxy seller
-images; missing or invalid image metadata does not affect the offer. All sellers are
+images; missing or invalid image metadata does not affect the offer. Placeholder assets are rejected; when the Product JSON-LD has no real
+image, the page's `og:image` is used only for single-product pages. All sellers are
 labelled `unverified`; no offer is selected automatically.
 
 Seller specifications come from three sources on the verified page, each recorded in

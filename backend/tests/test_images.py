@@ -189,3 +189,47 @@ def test_plural_part_names_use_category_illustrations():
     for name in ["Resistors", "Jumper wires", "Blue LEDs", "Ceramic capacitors"]:
         assert illustration(name).kind == "category", name
     assert illustration("Ledger board").kind == "placeholder"
+
+
+def product_page(image, meta="", extra_products=()):
+    products = [
+        {
+            "@type": "Product",
+            "name": "TTP223 touch module",
+            "image": image,
+            "offers": {"@type": "Offer", "price": "40", "priceCurrency": "INR"},
+        },
+        *extra_products,
+    ]
+    body = meta + "".join(
+        f'<script type="application/ld+json">{json.dumps(p)}</script>' for p in products
+    )
+    return Page(
+        url="https://seller.example/products/ttp223",
+        status=200,
+        headers={"content-type": "text/html"},
+        body=body.encode(),
+    )
+
+
+def test_storefront_placeholder_images_fall_back_to_page_og_image():
+    from bharat_sourcer.sourcing.listings import verify_page
+
+    placeholder = "//seller.example/cdn/shopifycloud/storefront/assets/no-image-2048-a2.gif"
+    meta = '<meta property="og:image" content="http://seller.example/cdn/shop/ttp223.png">'
+    page = product_page([placeholder, placeholder], meta)
+    offer = verify_page(page, "TTP223 touch module")
+    assert str(offer.image_url) == "https://seller.example/cdn/shop/ttp223.png"
+    assert [i.url for i in page_images(page, "TTP223 touch module")] == [
+        "https://seller.example/cdn/shop/ttp223.png"
+    ]
+
+
+def test_og_image_is_not_upgraded_cross_host_or_used_on_multi_product_pages():
+    from bharat_sourcer.sourcing.listings import verify_page
+
+    other_host = '<meta property="og:image" content="http://cdn.other.example/a.png">'
+    assert verify_page(product_page(None, other_host), "TTP223 touch module").image_url is None
+    same_host = '<meta property="og:image" content="https://seller.example/a.png">'
+    related = {"@type": "Product", "name": "Unrelated speaker"}
+    assert page_images(product_page(None, same_host, [related]), "TTP223 touch module") == []
