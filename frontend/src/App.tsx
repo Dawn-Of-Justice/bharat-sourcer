@@ -2,7 +2,7 @@ import Results from './Results'
 import { watchJob } from './stream'
 import { useAccount, Projects } from './Account'
 import { useEffect, useLayoutEffect, useRef, useState, type FormEvent } from 'react'
-import { ApiError, claimProject, evidenceText, pauseJob, resumeJob, confirmJob, createJob, getBackendMode, getJob, type BomItem, type Job } from './api'
+import { ApiError, claimProject, evidenceText, pauseJob, resumeJob, confirmJob, createJob, getJob, type BomItem, type Job } from './api'
 import ChatPanel from './ChatPanel'
 import Requirements, { validRequirements } from './Requirements'
 
@@ -50,7 +50,7 @@ type SourceType = LinkSource | 'audio'
 
 const previewCopy: Record<SourceType, { label: string; symbol: string; caption: string; firstStep: string; firstDetail: string; footnote: string; accessibleLabel: string }> = {
   youtube: { label: 'YouTube', symbol: '▶', caption: 'A project you want to make', firstStep: 'Parts found in the video', firstDetail: 'With moments you can revisit', footnote: 'Illustration of the workflow · No sample prices or grades', accessibleLabel: 'A YouTube project becomes a reviewable parts list and Indian seller options' },
-  article: { label: 'Article / blog', symbol: '▤', caption: 'A guide worth building from', firstStep: 'Parts mentioned in the guide', firstDetail: 'Review each part before sourcing', footnote: 'Preview concept · Live blog extraction is still in development', accessibleLabel: 'Preview concept for turning an article or blog guide into a reviewable parts list. Live blog extraction is not yet available.' },
+  article: { label: 'Article / blog', symbol: '▤', caption: 'A guide worth building from', firstStep: 'Parts mentioned in the guide', firstDetail: 'Review each part before sourcing', footnote: 'Instructables projects · Each part cites a quote from the guide', accessibleLabel: 'Turning an Instructables project into a reviewable parts list, with each part citing a quote from the guide.' },
   github: { label: 'GitHub', symbol: '</>', caption: 'An open-source build idea', firstStep: 'Parts noted in project files', firstDetail: 'Check the list against the repository', footnote: 'Reads the repository README · Each part cites a quote from it', accessibleLabel: 'Turning a GitHub repository README into a reviewable parts list, with each part citing a quote from the README.' },
   audio: { label: 'Audio', symbol: '♫', caption: 'A build idea, spoken aloud', firstStep: 'Parts from your description', firstDetail: 'Review what was understood', footnote: 'Preview concept · Audio upload is not available yet', accessibleLabel: 'Preview concept for turning an audio description into a reviewable parts list. Audio upload is not yet available.' },
 }
@@ -113,7 +113,7 @@ const sourceOptions: { id: SourceType; label: string; symbol: string }[] = [
 
 const sourceFields: Record<LinkSource, { label: string; placeholder: string }> = {
   youtube: { label: 'Paste a YouTube project link', placeholder: 'https://www.youtube.com/watch?v=...' },
-  article: { label: 'Paste a tutorial or blog link', placeholder: 'https://www.instructables.com/your-project/' },
+  article: { label: 'Paste an Instructables project link', placeholder: 'https://www.instructables.com/your-project/' },
   github: { label: 'Paste a GitHub repository link', placeholder: 'https://github.com/creator/project' },
 }
 
@@ -168,6 +168,10 @@ function Landing({ onCreated }: { onCreated: (id: string) => void }) {
       setError('Enter a full project URL, starting with https://.')
       return
     }
+    if (source === 'article' && !['instructables.com', 'www.instructables.com'].includes(parsed.hostname.toLowerCase())) {
+      setError('Live article extraction currently supports Instructables project links.')
+      return
+    }
     if (source === 'github' && !['github.com', 'www.github.com'].includes(parsed.hostname.toLowerCase())) {
       setError('Enter a github.com repository URL.')
       return
@@ -179,10 +183,6 @@ function Landing({ onCreated }: { onCreated: (id: string) => void }) {
     if (!account.requireIdentity()) return
     setSubmitting(true)
     try {
-      if (source === 'article' && await getBackendMode() !== 'demo') {
-        setError('Live analysis currently supports public YouTube videos and GitHub repositories. Article extraction is still being verified.')
-        return
-      }
       const job = await createJob(parsed.toString(), pin || undefined)
       sessionStorage.setItem(`bharat-sourcer:job:${job.job_id}`, job.job_token)
       onCreated(job.job_id)
@@ -206,10 +206,10 @@ function Landing({ onCreated }: { onCreated: (id: string) => void }) {
             <div className="input-callout" aria-hidden="true" ref={calloutRef}><span>Your build starts here</span><svg className={arrowPosition ? 'tab-arrow is-ready' : 'tab-arrow'} style={arrowPosition ?? undefined} viewBox="0 0 64 48" fill="none"><defs><marker id="landing-arrowhead" viewBox="0 0 16 16" refX="12" refY="8" markerWidth="16" markerHeight="16" markerUnits="userSpaceOnUse" orient="auto"><path d="M3 3 L12 8 L3 13" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" /></marker></defs><path className="draw-arrow" d="M8 7 C8 23 23 24 42 40" markerEnd="url(#landing-arrowhead)" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" fill="none" /></svg></div>
             <form className="source-form" onSubmit={submit}>
               <div className="source-options" role="group" aria-label="Choose a project source">{sourceOptions.map((option) => <button key={option.id} ref={(element) => { tabRefs.current[option.id] = element ?? undefined }} type="button" className={`source-option ${source === option.id ? 'selected' : ''}`} aria-pressed={source === option.id} onClick={() => chooseSource(option.id)}><span aria-hidden="true">{option.symbol}</span>{option.label}</button>)}</div>
-              {source === 'audio' ? <div className="audio-field"><label htmlFor="audio-file">Choose a build description or maker audio file</label><input id="audio-file" type="file" accept="audio/*" /><p>Audio transcription and uploads are planned; this file stays on your device for now.</p></div> : <><label htmlFor="source-url">{sourceFields[source].label}</label><div className="url-row"><span className={`url-icon url-icon-${source}`} aria-hidden="true">{source === 'youtube' ? <svg viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="4" fill="currentColor" /><path d="m10 9 6 3-6 3V9Z" fill="#fff" /></svg> : source === 'article' ? '▤' : '</>'}</span><input id="source-url" name="url" type="url" inputMode="url" autoComplete="url" placeholder={sourceFields[source].placeholder} value={sourceUrls[source]} onChange={(event) => setSourceUrls((current) => ({ ...current, [source]: event.target.value }))} required /></div>{source === 'article' ? <p className="source-note">Live article and blog extraction is still being verified. In backend demo mode, this link shows a labelled sample BOM.</p> : source === 'github' ? <p className="source-note">We read the repository README. Each part cites a quote from it; review the list before sourcing.</p> : null}</>}
+              {source === 'audio' ? <div className="audio-field"><label htmlFor="audio-file">Choose a build description or maker audio file</label><input id="audio-file" type="file" accept="audio/*" /><p>Audio transcription and uploads are planned; this file stays on your device for now.</p></div> : <><label htmlFor="source-url">{sourceFields[source].label}</label><div className="url-row"><span className={`url-icon url-icon-${source}`} aria-hidden="true">{source === 'youtube' ? <svg viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="4" fill="currentColor" /><path d="m10 9 6 3-6 3V9Z" fill="#fff" /></svg> : source === 'article' ? '▤' : '</>'}</span><input id="source-url" name="url" type="url" inputMode="url" autoComplete="url" placeholder={sourceFields[source].placeholder} value={sourceUrls[source]} onChange={(event) => setSourceUrls((current) => ({ ...current, [source]: event.target.value }))} required /></div>{source === 'article' ? <p className="source-note">We read the Instructables project and its supplies list. Each part cites a quote from it; review the list before sourcing.</p> : source === 'github' ? <p className="source-note">We read the repository README. Each part cites a quote from it; review the list before sourcing.</p> : null}</>}
               <div className={`form-bottom ${source === 'audio' ? 'audio-bottom' : ''}`}>
                 {source !== 'audio' ? <div className="pin-wrap"><label htmlFor="pin-code">Your PIN code <span>(optional)</span></label><input id="pin-code" name="pin" type="text" inputMode="numeric" maxLength={6} placeholder="e.g. 560001" value={pin} onChange={(event) => setPin(event.target.value.replace(/\D/g, ''))} /></div> : null}
-                <button className="primary-button" type="submit" disabled={submitting || source === 'audio'}>{submitting ? 'Starting…' : source === 'audio' ? 'Audio support coming soon' : source === 'article' ? 'Preview demo flow' : 'Find Indian parts'} {source !== 'audio' ? <ArrowIcon /> : null}</button>
+                <button className="primary-button" type="submit" disabled={submitting || source === 'audio'}>{submitting ? 'Starting…' : source === 'audio' ? 'Audio support coming soon' : 'Find Indian parts'} {source !== 'audio' ? <ArrowIcon /> : null}</button>
               </div>
               {error ? <p className="form-error" role="alert">{error}</p> : null}
             </form>

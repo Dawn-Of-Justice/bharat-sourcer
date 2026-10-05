@@ -18,7 +18,8 @@ server found verbatim in the fetched page, plus its URL. It also adds an offline
 evaluation harness (`scripts/evaluate_extraction.py`); no real labelled set exists yet,
 so no accuracy figure is claimed. A live check on 5 October 2026 extracted 21 quoted parts
 from the `scottbez1/smartknob` README in 10 seconds; the landing page now enables GitHub
-links. Instructables and Hackster remain gated in the UI until they pass a live check.
+links. A second live check extracted 13 quoted parts from an Instructables project in 7 seconds;
+the Article tab now accepts Instructables links. Hackster remains unsupported (Cloudflare 403).
 
 v0.17.11 posts a deterministic chat summary when a chat-approved refresh finishes and keeps
 a bounded `job.actions` history of proposal decisions. See [chat actions](../docs/contracts/chat-actions.md).
