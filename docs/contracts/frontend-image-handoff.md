@@ -2,7 +2,17 @@
 
 **Owner:** Salo (backend)  
 **Date:** 2026-10-03  
-**Status:** Seller product image URLs are implemented in backend v0.15. Part-level fallbacks and image generation remain planned.
+**Status:** Seller product image URLs are implemented in backend v0.15. Part-level fallbacks and opt-in generation are implemented in v0.17.4 (see below). The later sections are the original design; where they differ, the v0.17.4 section describes actual behavior.
+
+## Implemented in v0.17.4
+
+- `report.lines[].image_candidates`: optional list of `PartImage` (`url`, `kind`, `label`, `source_url`). Kind `source` = matching Product JSON-LD photo from a fetched page, shown with label "Product reference · visual only".
+- `GET /v1/jobs/{job_id}/parts/{line_id}/image` → `PartImages {candidates, fallback, generation_status}`. Candidates are ordered: offer seller images (`kind: seller`), then page references; first occurrence of a URL wins. Never generates.
+- `POST` same path with `{"failed_urls": [...]}` (≤10) removes images the browser failed to load. If no candidate remains and no category illustration applies, it may return a `kind: generated` JPEG data URL labelled "AI-generated illustration · not an exact product photo".
+- `fallback` is always present: an inline SVG data URL, `kind: category` (resistor, capacitor, LED, wire, LDR) or `placeholder`, visibly labelled "Illustration · not a product photo".
+- `generation_status`: `not_needed` (candidates or category art exist), `not_requested` (GET, generation disabled, no key, or demo job), `ready`, `pending` (another request holds the lease; retry later), `unavailable` (failed or over quota; retried after one hour).
+- Display order: first loadable candidate, else `fallback`. Always show `label`. Send the same `X-Job-Token`/auth as other job routes. Image POSTs do not count toward action quotas.
+- Differences from the original design: generated images are stored as data URLs in the image cache, not Cloud Storage; there is no `line.image` field and no manufacturer-image source yet; generation happens synchronously in the POST (up to ~75 s), not as a queued task.
 
 ## Goal and current frontend behavior
 

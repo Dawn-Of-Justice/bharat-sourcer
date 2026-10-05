@@ -41,19 +41,16 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     concurrency:
-      group: backend-gke-deploy
+      group: backend-cloud-run-deploy
       cancel-in-progress: false
     permissions:
       contents: read
       id-token: write
     env:
       GCP_PROJECT: hackathon-510415
-      GKE_LOCATION: asia-south1
-      GKE_CLUSTER: bharat-sourcer
-      GKE_NAMESPACE: default
-      GKE_DEPLOYMENT: bharat-sourcer-backend
-      GKE_CONTAINER: backend
-      IMAGE: asia-south1-docker.pkg.dev/hackathon-510415/bs/bharat-sourcer-backend
+      REGION: asia-south1
+      SERVICE: bharat-sourcer-integration
+      IMAGE: asia-south1-docker.pkg.dev/hackathon-510415/cloud-run-source-deploy/bharat-sourcer-integration
     steps:
       - uses: actions/checkout@v4
       - uses: google-github-actions/auth@v3
@@ -61,23 +58,26 @@ jobs:
           workload_identity_provider: projects/689415686498/locations/global/workloadIdentityPools/bharat-github/providers/backend
           service_account: bharat-sourcer-deploy@hackathon-510415.iam.gserviceaccount.com
       - uses: google-github-actions/setup-gcloud@v3
-      - uses: google-github-actions/get-gke-credentials@v2
-        with:
-          cluster_name: ${{ env.GKE_CLUSTER }}
-          location: ${{ env.GKE_LOCATION }}
-          project_id: ${{ env.GCP_PROJECT }}
       - name: Configure image registry
         run: gcloud auth configure-docker asia-south1-docker.pkg.dev --quiet
       - name: Build and push tested commit
         run: |
           docker build --tag "$IMAGE:$GITHUB_SHA" backend
           docker push "$IMAGE:$GITHUB_SHA"
-      - name: Rollout backend deployment in GKE
+      # Only the image changes; env vars, pinned secrets, runtime identity, scaling and
+      # Cloud Tasks settings stay as configured by scripts/deploy_integration.py.
+      - name: Deploy image to Cloud Run
         run: |
-          kubectl --namespace "$GKE_NAMESPACE" set image deployment/"$GKE_DEPLOYMENT" \
-            "$GKE_CONTAINER"="$IMAGE:$GITHUB_SHA"
-          kubectl --namespace "$GKE_NAMESPACE" rollout status deployment/"$GKE_DEPLOYMENT" --timeout=300s
-      - name: Verify deployed image
+          gcloud run services update "$SERVICE" --project "$GCP_PROJECT" --region "$REGION" \
+            --image "$IMAGE:$GITHUB_SHA" --quiet
+      - name: Verify deployed revision and API version
         run: |
-          deployed_image=$(kubectl --namespace "$GKE_NAMESPACE" get deployment "$GKE_DEPLOYMENT" -o "jsonpath={.spec.template.spec.containers[?(@.name=='$GKE_CONTAINER')].image}")
+          deployed_image=$(gcloud run services describe "$SERVICE" --project "$GCP_PROJECT" \
+            --region "$REGION" --format='value(spec.template.spec.containers[0].image)')
           test "$deployed_image" = "$IMAGE:$GITHUB_SHA"
+          url=$(gcloud run services describe "$SERVICE" --project "$GCP_PROJECT" \
+            --region "$REGION" --format='value(status.url)')
+          expected=$(python3 -c "import tomllib; print(tomllib.load(open('backend/pyproject.toml', 'rb'))['project']['version'])")
+          actual=$(curl -fsS "$url/openapi.json" | python3 -c "import json, sys; print(json.load(sys.stdin)['info']['version'])")
+          echo "Deployed $actual at $url"
+          test "$actual" = "$expected"

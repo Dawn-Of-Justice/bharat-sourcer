@@ -4,6 +4,10 @@ The integration deployment was observed on 5 October 2026 with Firebase account 
 guest authentication enabled. The frontend origin is included in CORS. The
 `BS_AUTH_ENABLED=false` setting shown below remains the default for a fresh local setup.
 
+v0.17.4 adds part image fallbacks: matching page product photos, labelled SVG category
+illustrations and opt-in AI illustrations with separate daily quotas. Image requests do not
+consume the project action quota. See the [image handoff](../docs/contracts/frontend-image-handoff.md).
+
 v0.17.3 preserves grounded discovery URLs when Gemini ends with MAX_TOKENS,
 while keeping downstream evidence verification and blocked-response rejection.
 See [the sourcing investigation](../docs/contracts/sourcing-incident-2026-10-05.md).
@@ -168,6 +172,28 @@ If the verified Product JSON-LD includes an HTTPS image URL, it is returned as o
 `image_url` for the frontend to display. The backend does not download or proxy seller
 images; missing or invalid image metadata does not affect the offer. All sellers are
 labelled `unverified`; no offer is selected automatically.
+
+## Part image fallbacks
+
+Images are presentation only; they never establish specifications, compatibility or
+identity. Each report line can carry up to ten `image_candidates`: Product JSON-LD photos
+from fetched seller pages whose product title matches the query, even when price/stock
+could not be verified. `GET /v1/jobs/{job_id}/parts/{line_id}/image` returns, in order,
+offer seller images, then those page references, deduplicated by URL, plus a `fallback`
+code-authored SVG (a category diagram for resistors, capacitors, LEDs, wires and LDRs,
+otherwise a generic placeholder), labelled "Illustration · not a product photo".
+
+`POST` on the same path accepts `{"failed_urls": [...]}` (max 10) for images the browser
+could not load and, when nothing else applies, may generate one AI illustration. Generation
+requires `BS_IMAGE_GENERATION_ENABLED=true`, `BS_GEMINI_API_KEY`, and a non-demo job.
+Results are 384px JPEG data URLs (≤150 KB) cached per owner, part name and model in
+memory or the Firestore `<collection>_images` collection. Limits: `BS_IMAGE_DAILY_LIMIT`
+(default 30) globally and 10 per owner per UTC day. A failure is cached for one hour;
+an atomic lease prevents duplicate concurrent generation. `GET` never generates.
+`generation_status` is `not_needed`, `not_requested`, `ready`, `pending` or `unavailable`.
+With authentication enabled, image requests still require identity, CSRF header and job
+ownership, but are exempt from the per-account action quota so broken-image retries
+cannot block project actions.
 
 General research accepts any part category, reads source text and text PDFs, and
 extracts quoted specifications and candidate assessments. Discovery searches globally
