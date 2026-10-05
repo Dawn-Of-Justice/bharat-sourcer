@@ -1,4 +1,30 @@
-# Reviewed chat actions (v0.12)
+# Reviewed chat actions (v0.12, spec proposals v0.17.9)
+
+## Spec and requirement proposals (v0.17.9)
+
+When a user states a required spec or requirement in chat for parts of a completed live
+report, the assistant message can contain `spec_proposal` (separate from `proposal` and
+`refresh_proposal`; a reply carries at most one of the three):
+
+```json
+{
+  "request": {"updates": [{"line_id": "L01", "specs": {"logic_v": 3.3}}]},
+  "status": "pending",
+  "base_fingerprint": "opaque report fingerprint"
+}
+```
+
+`request` has the same shape as the body of `POST /v1/jobs/{job_id}/specs`
+(`UpdateJobSpecs`). Show the parts and values with Approve/Reject, and explain that
+approval re-checks saved quotes against the new specs, clears those parts' selections
+and marks AI research assessments stale. Decide with the existing
+`POST /v1/jobs/{job_id}/messages/{message_id}/decision`. Acceptance applies exactly the
+same validation and changes as the specs endpoint; nothing is searched or charged.
+A changed report returns 409 `PROPOSAL_STALE`; invalid line IDs or specs are rejected
+before the proposal is shown (`CHAT_FAILED`). Values come only from what the user said;
+the assistant is instructed never to infer electrical specs.
+
+## Seller refresh proposals (v0.12)
 
 The current tracked frontend has not yet added a `refresh_proposal` type/card. Its
 chat currently shows assistant text and BOM edit proposals only. Update the chat UI
@@ -39,5 +65,5 @@ line IDs are validated before showing a proposal and again during approval.
 
 Draft edits and refresh cannot be proposed together. Unknown/invalid model
 actions produce `CHAT_FAILED` without changing sourcing. Existing pause/resume
-controls apply once approved sourcing begins. Agent proposals for spec edits,
-paused-plan changes, and other tools remain future work.
+controls apply once approved sourcing begins. Proposals for paused-plan
+changes and other tools remain future work.

@@ -1,7 +1,10 @@
-# Implemented API contract — v0.17.8
+# Implemented API contract — v0.17.9
 
 This directory is the handoff between backend and frontend. The architecture docs describe
 the target system; this contract describes the runnable local milestone.
+
+v0.17.9 adds optional `messages[].spec_proposal` for reviewed chat spec changes; see
+[chat actions](chat-actions.md). The frontend needs an Approve/Reject card for it.
 
 v0.17.8 returns real seller photos more often (placeholder rejection, `og:image` fallback);
 no schema changes. The frontend should also fall back to `report.lines[].image_candidates`

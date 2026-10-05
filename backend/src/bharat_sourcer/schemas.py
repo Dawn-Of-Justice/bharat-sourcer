@@ -317,11 +317,12 @@ class ChatReply(Model):
     edits: list[Edit] = Field(default_factory=list, max_length=20)
     resistor_question: ResistorQuestion | None = None
     refresh: RefreshOffers | None = None
+    spec_update: UpdateJobSpecs | None = None
 
     @model_validator(mode="after")
     def one_action(self):
-        if self.edits and self.refresh:
-            raise ValueError("Propose either draft edits or a refresh, not both")
+        if sum(bool(action) for action in (self.edits, self.refresh, self.spec_update)) > 1:
+            raise ValueError("Propose only one of draft edits, a refresh or a spec update")
         return self
 
 
@@ -338,6 +339,12 @@ class RefreshProposal(Model):
     refresh_count: int | None = None
 
 
+class SpecProposal(Model):
+    request: UpdateJobSpecs
+    status: Literal["pending", "accepted", "rejected"] = "pending"
+    base_fingerprint: str
+
+
 class ChatMessage(Model):
     message_id: str
     role: Literal["user", "assistant"]
@@ -346,6 +353,7 @@ class ChatMessage(Model):
     cited_line_ids: list[str] = Field(default_factory=list)
     proposal: ChatProposal | None = None
     refresh_proposal: RefreshProposal | None = None
+    spec_proposal: SpecProposal | None = None
     resistor_question: ResistorQuestion | None = None
 
 

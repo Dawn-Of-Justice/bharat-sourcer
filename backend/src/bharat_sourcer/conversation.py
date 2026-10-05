@@ -25,6 +25,7 @@ from bharat_sourcer.schemas import (
     RefreshProposal,
     ResistorInputs,
     SendMessage,
+    SpecProposal,
     now,
 )
 
@@ -167,6 +168,12 @@ class GeminiAssistant:
             "a refresh: explain that approval starts paid search and clears previous quotes "
             "and selections for those lines. Never claim a search has started or finished. "
             "Otherwise return refresh: null. Never combine refresh with edits. "
+            "When the user explicitly states a required spec or requirement for existing parts "
+            "in a completed live report, you may set spec_update {updates: [{line_id, specs "
+            "and/or requirements}]} using only values the user stated. This only proposes the "
+            "change: explain that approval re-checks quotes, clears those parts' selections and "
+            "marks AI research assessments stale. Never infer values from general knowledge. "
+            "Otherwise return spec_update: null. Never combine spec_update with edits or refresh. "
             "For resistor value questions, set resistor_question with an existing line_id, "
             "a tentative purpose and a focused question about circuit role and missing bounds. "
             "Never invent a resistance value or put a calculated value in edits. Use saved "
@@ -274,6 +281,8 @@ class ConversationService:
                 )
             if reply.refresh:
                 self.jobs.prepare_refresh(claimed.model_copy(deep=True), reply.refresh)
+            if reply.spec_update:
+                self.jobs.apply_spec_updates(claimed.job.model_copy(deep=True), reply.spec_update)
             if reply.resistor_question:
                 if reply.resistor_question.line_id not in {i.line_id for i in claimed.job.items}:
                     raise ValueError("Unknown resistor line")
@@ -303,6 +312,12 @@ class ConversationService:
                         )
                         if reply.refresh
                         else None,
+                        spec_proposal=SpecProposal(
+                            request=reply.spec_update,
+                            base_fingerprint=report_fingerprint(claimed.job),
+                        )
+                        if reply.spec_update
+                        else None,
                         proposal=ChatProposal(
                             edits=reply.edits, base_fingerprint=fingerprint(claimed.job)
                         )
@@ -322,21 +337,26 @@ class ConversationService:
         def apply(record):
             job = self.jobs._authorized(record, token)
             message = next((m for m in job.messages if m.message_id == message_id), None)
-            if message is None or (message.proposal is None and message.refresh_proposal is None):
+            proposal = message and (
+                message.refresh_proposal or message.spec_proposal or message.proposal
+            )
+            if proposal is None:
                 raise JobError(404, "PROPOSAL_NOT_FOUND", "Proposal not found")
-            proposal = message.refresh_proposal or message.proposal
+            on_report = message.refresh_proposal or message.spec_proposal
             target = "accepted" if decision.action == "accept" else "rejected"
             if proposal.status == target:
                 return
             if proposal.status != "pending":
                 raise JobError(409, "PROPOSAL_DECIDED", "Proposal already decided")
             if decision.action == "accept":
-                current = report_fingerprint(job) if message.refresh_proposal else fingerprint(job)
+                current = report_fingerprint(job) if on_report else fingerprint(job)
                 if current != proposal.base_fingerprint:
                     raise JobError(409, "PROPOSAL_STALE", "BOM changed; ask for a new proposal")
                 if message.refresh_proposal:
                     self.jobs.prepare_refresh(record, proposal.request)
                     proposal.refresh_count = job.refresh_count
+                elif message.spec_proposal:
+                    self.jobs.apply_spec_updates(job, proposal.request)
                 else:
                     self.jobs.edit_draft(job, ConfirmJob(edits=proposal.edits))
             proposal.status = target
