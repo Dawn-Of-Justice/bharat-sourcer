@@ -53,8 +53,52 @@ Approval returns 200 with a Job in `resolving`. The worker then sources the
 approved lines; use existing SSE snapshots, events and report lines for progress
 and results. The proposal becomes `accepted` and records the batch number in
 `refresh_count`. Accepted means authorized/queued, not successfully sourced.
-No separate assistant completion message is generated. Later refreshes can
-replace results, so this is not an immutable per-action result archive.
+
+### Refresh completion message
+
+When the approved batch ends, the worker appends one assistant message. It is
+generated deterministically from saved report lines; no model is called:
+
+```json
+{
+  "message_id": "derived from the proposal message_id",
+  "role": "assistant",
+  "text": "The approved seller refresh has finished. L01: 2 seller offers found; lowest seller-listed price INR 99.50 (stock: in_stock). L02: search failed. ...",
+  "cited_line_ids": ["L01", "L02"],
+  "completes_message_id": "<proposal message_id>",
+  "refresh_results": [
+    {"line_id": "L01", "sourcing_status": "offers_found", "offer_count": 2,
+     "lowest_listed_price_inr": "99.50", "lowest_listed_stock": "in_stock",
+     "price_source": "seller_published", "error_code": null}
+  ]
+}
+```
+
+The proposal's `refresh_proposal.result_message_id` then names this message. If the
+batch is interrupted and the job fails with `SOURCING_INTERRUPTED`, the message starts
+"The approved seller refresh was interrupted" instead. A paused batch produces no message
+until it resumes and finishes. Prices are seller-published snapshots, not verified or
+delivered totals; select offers in the report as usual. The message is written in the
+same transaction as the `done`/`failed` transition and its ID is derived from the
+proposal, so redelivered worker tasks never append it twice. `refresh_results` is a
+snapshot when the batch ended; later refreshes change the report but not this message.
+Refreshes started directly with `POST /v1/jobs/{job_id}/refresh` produce no message.
+
+### Action history
+
+`job.actions` is an append-only list (newest 50 kept) recording each decision and
+outcome: `kind` (`edit`, `refresh`, `spec_update`), proposal `message_id`, `status`,
+`created_at`, `line_ids`, a short `summary`, and for refreshes `refresh_count` and
+`result_message_id`. Statuses:
+
+- `rejected`: the user rejected the proposal; nothing changed.
+- `completed` for `edit`/`spec_update`: applied in the acceptance transaction.
+- `accepted` for `refresh`: queued; followed later by `completed` or `failed` when the
+  batch ends.
+
+Repeated identical decisions add no entries. Snapshots saved before this field existed
+load with an empty list. The history summarizes decisions; the report remains the
+source of current quotes.
 
 Approval and queuing are atomic. Repeated acceptance does not consume another
 batch. Recovery dispatches queued work if the HTTP background task is interrupted.

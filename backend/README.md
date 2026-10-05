@@ -4,6 +4,9 @@ The integration deployment was observed on 5 October 2026 with Firebase account 
 guest authentication enabled. The frontend origin is included in CORS. The
 `BS_AUTH_ENABLED=false` setting shown below remains the default for a fresh local setup.
 
+v0.17.11 posts a deterministic chat summary when a chat-approved refresh finishes and keeps
+a bounded `job.actions` history of proposal decisions. See [chat actions](../docs/contracts/chat-actions.md).
+
 v0.17.10 ranks grounded discovery sources before the per-part fetch limit: known Indian
 retailers and `.in` domains first, datasheet hosts and global distributors that block reads
 last. Production data showed most "no verified offers" parts had spent their five fetches
@@ -386,9 +389,21 @@ Chat has separate queued/thinking/idle/failed state, a 20-turn limit and one act
 Queued turns resume after restart. Expired reply leases fail visibly without an automatic
 generation replay; send a new message UUID to retry. Model HTTP calls use bounded transient
 retries and may incur costs. Demo chat returns a labelled static response without Gemini.
-Chat does not yet execute search tools, pause/cancel jobs, or edit completed reports;
-the existing spec/refresh endpoints still serve those report updates. Model answers are
-not independently verified; only line-reference existence and proposal validity are checked.
+Chat cannot run search tools directly or pause/cancel jobs; it only proposes reviewed
+draft edits, seller refreshes and spec updates. Model answers are not independently
+verified; only line-reference existence and proposal validity are checked.
+
+Every proposal decision appends an entry to `job.actions` (kind, proposal `message_id`,
+status, line IDs, timestamp and a short summary; the newest 50 are kept). Draft edits and
+spec updates apply in the decision transaction and are recorded as `completed`; refreshes
+are `accepted` until sourcing ends. When an approved refresh batch finishes (or is
+interrupted and fails), the worker appends one deterministic assistant message, without a
+model call, with `completes_message_id` set to the proposal and per-line `refresh_results`
+(offer count, or no verified offers, or failed, and the lowest seller-listed price). The
+proposal's `result_message_id` links back. Prices are seller-published, not verified totals.
+The message ID is derived from the proposal and written in the same transaction as the
+`done`/`failed` transition, so redelivered Cloud Tasks work never adds a second message.
+Refreshes started with `POST /v1/jobs/{id}/refresh` have no proposal and add no history.
 
 Frontend implementation details and a fetch/SSE client are in
 [the conversation integration guide](../docs/contracts/conversation.md).

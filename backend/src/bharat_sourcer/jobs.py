@@ -7,6 +7,7 @@ from datetime import timedelta
 from hashlib import sha256
 from uuid import UUID, uuid4
 
+from bharat_sourcer.actions import complete_refresh
 from bharat_sourcer.compat import assess, resolve_part
 from bharat_sourcer.costing import update_costs
 from bharat_sourcer.extraction import ExtractionError, Extractor, youtube_url
@@ -225,6 +226,8 @@ class JobService:
                         ),
                         message="Processing was interrupted or expired; create a new job to retry",
                     )
+                    if current.job.status == "sourcing":
+                        complete_refresh(current.job, failed=True)
                     self._transition(current.job, "failed", current.job.error.message)
 
                 self.store.mutate(job_id, expire)
@@ -770,6 +773,8 @@ class JobService:
                 "and missing fields. Seller trust, tax and shipping remain unverified."
             )
             update_costs(record.job.report)
+            # Same transaction as the transition, so redelivered work cannot repeat it.
+            complete_refresh(record.job)
             self._transition(record.job, "done", "Sourcing report ready for review.")
 
         self.store.mutate(job_id, complete)
