@@ -56,7 +56,7 @@ async function proxy(req, res, backendBase, integrationKey, fetchImpl) {
       body: req.method === 'POST' ? Buffer.concat(chunks) : undefined,
       redirect: 'manual',
     })
-    const responseHeaders = { 'Cache-Control': 'no-store' }
+    const responseHeaders = { 'Cache-Control': upstream.headers.get('cache-control') || 'no-store' }
     for (const name of ['content-type', 'retry-after']) {
       const value = upstream.headers.get(name)
       if (value) responseHeaders[name] = value
@@ -103,6 +103,18 @@ export function createServer({ backendBase, integrationKey, distDir = defaultDis
   if (!integrationKey) throw new Error('INTEGRATION_KEY is required')
   const root = path.resolve(distDir)
   return http.createServer((req, res) => {
+    if (req.url === '/config.js') {
+      if (req.method !== 'GET') return send(res, 405, 'Method not allowed')
+      const config = {
+        apiKey: process.env.FIREBASE_API_KEY,
+        authDomain: process.env.FIREBASE_AUTH_DOMAIN,
+        projectId: process.env.FIREBASE_PROJECT_ID,
+        appId: process.env.FIREBASE_APP_ID,
+      }
+      const body = 'window.__BS_FIREBASE_CONFIG=' + JSON.stringify(config).replaceAll('<', '\\u003c') + ';'
+      res.writeHead(200, { 'Content-Type': 'text/javascript; charset=utf-8', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' })
+      return res.end(body)
+    }
     const work = req.url?.startsWith('/api/')
       ? proxy(req, res, backend, integrationKey, fetchImpl)
       : staticFile(req, res, root)

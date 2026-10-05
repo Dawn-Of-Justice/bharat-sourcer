@@ -1,13 +1,10 @@
+import Results from './Results'
+import { watchJob } from './stream'
 import { useAccount, Projects } from './Account'
 import { useEffect, useLayoutEffect, useRef, useState, type FormEvent } from 'react'
-import { ApiError, pauseJob, resumeJob, confirmJob, createJob, getBackendMode, getJob, type BomItem, type Job } from './api'
+import { ApiError, claimProject, pauseJob, resumeJob, confirmJob, createJob, getBackendMode, getJob, type BomItem, type Job } from './api'
 import ChatPanel from './ChatPanel'
-
-const money = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' })
-
-function formatMoney(value: string) {
-  return money.format(Number(value))
-}
+import Requirements, { validRequirements } from './Requirements'
 
 function BrandMark() {
   return (
@@ -258,10 +255,11 @@ function Landing({ onCreated }: { onCreated: (id: string) => void }) {
   )
 }
 
-type ReviewRow = { item: BomItem; name: string; qty: string; owned: boolean; removed: boolean }
+type ReviewRow = { item: BomItem; name: string; qty: string; owned: boolean; removed: boolean; requirements: NonNullable<BomItem['requirements']> }
 
 function Review({ job, token, onConfirmed }: { job: Job; token: string; onConfirmed: () => void }) {
-  const [rows, setRows] = useState<ReviewRow[]>(() => job.items.map((item) => ({ item, name: item.raw_name, qty: item.qty?.toString() ?? '', owned: item.user_has_it, removed: false })))
+  const account = useAccount()
+  const [rows, setRows] = useState<ReviewRow[]>(() => job.items.map((item) => ({ item, name: item.raw_name, qty: item.qty?.toString() ?? '', owned: item.user_has_it, removed: false, requirements: item.requirements ?? [] })))
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
 
@@ -277,13 +275,18 @@ function Review({ job, token, onConfirmed }: { job: Job; token: string; onConfir
     if (retained.some((row) => !Number.isInteger(Number(row.qty)) || Number(row.qty) < 1 || Number(row.qty) > 10000 || !row.name.trim())) {
       setError('Every retained part needs a name and a quantity from 1 to 10,000.'); return
     }
+    if (retained.some(row => !validRequirements(row.requirements))) { setError('Every requirement needs a property and value, or remove the empty row.'); return }
+    if (account.identity && account.identity !== 'legacy' && account.identity.kind === 'guest' && retained.filter(row => !row.owned).length > account.identity.part_limit) {
+      setError(`Guests can source up to ${account.identity.part_limit} parts. Mark parts you already own, remove others, or sign in with Google for the account limit.`); return
+    }
     const edits: Parameters<typeof confirmJob>[2] = []
     for (const row of rows) {
       if (row.removed) { edits.push({ op: 'remove', line_id: row.item.line_id }); continue }
-      const updateEdit: { op: 'update'; line_id: string; raw_name?: string; qty?: number } = { op: 'update', line_id: row.item.line_id }
+      const updateEdit: { op: 'update'; line_id: string; raw_name?: string; qty?: number; requirements?: NonNullable<BomItem['requirements']> } = { op: 'update', line_id: row.item.line_id }
       if (row.name.trim() !== row.item.raw_name) updateEdit.raw_name = row.name.trim()
       if (Number(row.qty) !== row.item.qty) updateEdit.qty = Number(row.qty)
-      if (updateEdit.raw_name !== undefined || updateEdit.qty !== undefined) edits.push(updateEdit)
+      if (JSON.stringify(row.requirements) !== JSON.stringify(row.item.requirements ?? [])) updateEdit.requirements = row.requirements.map(({ name, value, unit, operator }) => ({ name: name.trim(), value: value.trim(), unit: unit?.trim() || null, operator }))
+      if (updateEdit.raw_name !== undefined || updateEdit.qty !== undefined || updateEdit.requirements !== undefined) edits.push(updateEdit)
       if (row.owned !== row.item.user_has_it) edits.push({ op: 'have_it', line_id: row.item.line_id, user_has_it: row.owned })
     }
     setBusy(true)
@@ -292,13 +295,7 @@ function Review({ job, token, onConfirmed }: { job: Job; token: string; onConfir
     finally { setBusy(false) }
   }
 
-  return <section className="job-panel"><span className="section-kicker">YOUR REVIEW</span><h2>Does this parts list look right?</h2><p className="job-panel-intro">AI extraction can miss or misname parts. Check each line before we search sellers.</p><form onSubmit={submit}><div className="review-list">{rows.map((row) => <div id={`line-${row.item.line_id}`} className={`review-row ${row.removed ? 'removed' : ''}`} key={row.item.line_id}><div className="review-fields"><label>Part name<input value={row.name} disabled={row.removed} onChange={(event) => update(row.item.line_id, { name: event.target.value })} /></label><label className="qty-field">Qty<input type="number" min="1" max="10000" value={row.qty} disabled={row.removed} onChange={(event) => update(row.item.line_id, { qty: event.target.value })} /></label></div><div className="review-row-bottom"><label className="check-label"><input type="checkbox" checked={row.owned} disabled={row.removed} onChange={(event) => update(row.item.line_id, { owned: event.target.checked })} /> I already have this</label><button type="button" className="remove-button" onClick={() => update(row.item.line_id, { removed: !row.removed })}>{row.removed ? 'Undo remove' : 'Remove'}</button></div>{row.item.evidence.length ? <div className="evidence-note">Video evidence: {row.item.evidence.map((entry) => `${entry.timestamp} — ${entry.observation}`).join(' · ')}</div> : null}{row.item.clarifications.length ? <div className="evidence-note">Still unclear: {row.item.clarifications.map((entry) => entry.question).join(' ')}</div> : null}</div>)}</div>{error ? <p className="form-error" role="alert">{error}</p> : null}<button className="primary-button job-action" disabled={busy} type="submit">{busy ? 'Confirming…' : 'Confirm BOM and find offers'} <ArrowIcon /></button></form></section>
-}
-
-function ProductImage({ url, name }: { url?: string | null; name: string }) {
-  const [failedUrl, setFailedUrl] = useState<string | null>(null)
-  const validUrl = url && (/^https?:/.test(url) || url === '/preview-part.svg') && failedUrl !== url
-  return <div className="product-image">{validUrl ? <img src={url} alt={name} loading="lazy" referrerPolicy="no-referrer" onError={() => setFailedUrl(url)} /> : <span>Image<br />unavailable</span>}</div>
+  return <section className="job-panel"><span className="section-kicker">YOUR REVIEW</span><h2>Does this parts list look right?</h2><p className="job-panel-intro">AI extraction can miss or misname parts. Check each line before we search sellers.</p>{account.identity && account.identity !== 'legacy' && account.identity.kind === 'guest' && <p className="guest-limit">Guest limit: source up to {account.identity.part_limit} parts in this build. You can mark owned parts without using this limit.</p>}<form onSubmit={submit}><div className="review-list">{rows.map((row) => <div id={`line-${row.item.line_id}`} className={`review-row ${row.removed ? 'removed' : ''}`} key={row.item.line_id}><div className="review-fields"><label>Part name<input value={row.name} disabled={row.removed} onChange={(event) => update(row.item.line_id, { name: event.target.value })} /></label><label className="qty-field">Qty<input type="number" min="1" max="10000" value={row.qty} disabled={row.removed} onChange={(event) => update(row.item.line_id, { qty: event.target.value })} /></label></div><div className="review-row-bottom"><label className="check-label"><input type="checkbox" checked={row.owned} disabled={row.removed} onChange={(event) => update(row.item.line_id, { owned: event.target.checked })} /> I already have this</label><button type="button" className="remove-button" onClick={() => update(row.item.line_id, { removed: !row.removed })}>{row.removed ? 'Undo remove' : 'Remove'}</button></div><Requirements value={row.requirements} disabled={row.removed} onChange={requirements => update(row.item.line_id, { requirements })} />{row.item.evidence.length ? <div className="evidence-note">Video evidence: {row.item.evidence.map((entry) => `${entry.timestamp} — ${entry.observation}`).join(' · ')}</div> : null}{row.item.clarifications.length ? <div className="evidence-note">Still unclear: {row.item.clarifications.map((entry) => entry.question).join(' ')}</div> : null}</div>)}</div>{error ? <p className="form-error" role="alert">{error}</p> : null}<button className="primary-button job-action" disabled={busy} type="submit">{busy ? 'Confirming…' : 'Confirm BOM and find offers'} <ArrowIcon /></button></form></section>
 }
 
 function AnalysisProgress({ job }: { job: Job }) {
@@ -322,11 +319,6 @@ function AnalysisProgress({ job }: { job: Job }) {
   </section>
 }
 
-function Results({ job }: { job: Job }) {
-  if (!job.report) return null
-  return <section className="job-panel"><span className="section-kicker">YOUR DESI BOM</span><h2>Explore the parts</h2>{job.demo ? <div className="demo-alert"><strong>Demo data</strong> · This is a fixed example. Extraction, seller checks, prices, and compatibility grades did not run.</div> : <p className="job-panel-intro">Seller prices are snapshots from product pages. Tax, shipping, and final payable cost are unknown.</p>}<div className="result-list">{job.report.lines.map((line) => <article id={`line-${line.item.line_id}`} className="result-row" key={line.item.line_id}><div className="result-title"><ProductImage url={line.offers.find(offer => offer.image_url)?.image_url} name={line.item.raw_name} /><span>{line.item.line_id}</span><div><h3>{line.item.raw_name}</h3><p>Qty {line.item.qty ?? 'unknown'}{line.item.user_has_it ? ' · Already owned' : ''}</p></div></div>{line.item.evidence.length ? <details className="result-evidence"><summary>Saved video evidence</summary><ul>{line.item.evidence.map((entry, index) => <li key={`${entry.timestamp}-${index}`}>{entry.timestamp} — {entry.observation}</li>)}</ul><small>Model-reported; review against the source video.</small></details> : null}{line.sourcing_status === 'offers_found' ? <div className="offers-list">{line.offers.map((offer) => <div className="offer" key={offer.url}><div><strong>{offer.seller}</strong><span>{formatMoney(offer.price_inr)} per piece · {offer.stock.replaceAll('_', ' ')} · checked {new Date(offer.checked_at).toLocaleDateString('en-IN')}</span>{offer.compatibility ? <small>{offer.compatibility.grade ? `Grade ${offer.compatibility.grade}: ` : 'Compatibility unknown: '}{offer.compatibility.reasons.join(' ')} {offer.compatibility.missing_fields.length ? `Missing: ${offer.compatibility.missing_fields.join(', ')}.` : ''}</small> : null}</div><a href={offer.url} target="_blank" rel="noopener noreferrer">Seller page <ArrowIcon diagonal /></a></div>)}</div> : <p className="result-status">{line.sourcing_status === 'already_owned' ? 'Already owned — no seller search needed.' : line.sourcing_status === 'no_verified_offers' ? (line.sourcing_error?.message || 'No seller page met the current verification checks.') : line.sourcing_error?.message || 'No seller search was run for this part.'}</p>}</article>)}</div>{job.report.parts_subtotal_inr ? <div className="subtotal"><span>Selected parts subtotal</span><strong>{formatMoney(job.report.parts_subtotal_inr)}</strong></div> : null}<p className="result-disclaimer">A listed offer is seller-reported, and a compatibility grade checks declared specifications only. Verify the product and build before ordering.</p></section>
-}
-
 function JobPage({ id }: { id: string }) {
   const account = useAccount()
   const token = (import.meta.env.DEV && new URLSearchParams(window.location.search).get('preview') === '1' ? 'dummy-token' : null) || (sessionStorage.getItem(`bharat-sourcer:job:${id}`) || '')
@@ -343,6 +335,24 @@ function JobPage({ id }: { id: string }) {
 
   useEffect(() => {
     if (!account.ready || (!token && (!account.identity || account.identity === 'legacy'))) return
+    if (new URLSearchParams(window.location.search).get('preview') !== '1') {
+      const controller = new AbortController()
+      void watchJob({
+        jobId: id,
+        token,
+        signal: controller.signal,
+        onSnapshot: next => {
+          setJob(previous => previous && Date.parse(next.updated_at) < Date.parse(previous.updated_at) ? previous : next)
+          setFatalError('')
+          setConnectionIssue('')
+        },
+        onError: (message, status) => {
+          if (status === 401 || status === 404) setFatalError(message)
+          else setConnectionIssue(message)
+        },
+      })
+      return () => controller.abort()
+    }
     let active = true
     let timer: ReturnType<typeof setTimeout>
     let retryDelay = 1500
@@ -374,7 +384,7 @@ function JobPage({ id }: { id: string }) {
 
   return <main id="main" className="job-page"><div className="container job-container">
     <div className="job-hero"><div className="eyebrow"><span className="eyebrow-line" /> YOUR BUILD PLAN</div><h1>From video to parts.</h1><p>Follow the analysis, review the draft, and inspect the result.</p></div>
-    {!account.ready ? <p role="status">Checking your session…</p> : (!token && (!account.identity || account.identity === 'legacy')) ? <section className="job-panel"><h2>Session access ended</h2><p>Sign in to the account that owns this project to continue. Older projects also need their original browser-session token.</p><button className="primary-button job-action" onClick={account.open}>Sign in to continue <ArrowIcon /></button></section> : fatalError ? <section className="job-panel"><h2>We couldn’t load this job</h2><p role="alert">{fatalError}</p><button className="primary-button job-action" onClick={() => { setFatalError(''); setRevision((value) => value + 1) }}>Try again <ArrowIcon /></button></section> : !job ? <section className="job-panel loading-panel" role="status"><span className="loading-indicator" /> Connecting to your job…{connectionIssue ? <p>{connectionIssue}</p> : null}</section> : <>
+    {!account.ready ? <p role="status">Checking your session…</p> : (!token && (!account.identity || account.identity === 'legacy')) ? <section className="job-panel"><h2>Session access ended</h2><p>Sign in to the account that owns this project to continue. Older projects also need their original browser-session token.</p><button className="primary-button job-action" onClick={account.open}>Sign in to continue <ArrowIcon /></button></section> : fatalError ? <section className="job-panel"><h2>We couldn’t load this job</h2><p role="alert">{fatalError}</p><button className="primary-button job-action" onClick={() => { setFatalError(''); setRevision((value) => value + 1) }}>Try again <ArrowIcon /></button>{token && account.identity && account.identity !== 'legacy' && account.identity.kind === 'account' && <div className="legacy-claim"><p>If this project was created before accounts were enabled in this browser, you can save it to your account using its original access token.</p><button className="nav-cta" disabled={actionBusy} onClick={async () => { setActionBusy(true); setActionError(''); try { await claimProject(id, token); setFatalError(''); setRevision(n => n + 1) } catch (cause) { setActionError(cause instanceof Error ? cause.message : 'Could not claim this project.') } finally { setActionBusy(false) } }}>Save older project to my account</button>{actionError && <p className="form-error" role="alert">{actionError}</p>}</div>}</section> : !job ? <section className="job-panel loading-panel" role="status"><span className="loading-indicator" /> Connecting to your job…{connectionIssue ? <p>{connectionIssue}</p> : null}</section> : <>
       <div className="job-status-bar" role="status" aria-live="polite"><span className={`status-pulse ${['done', 'failed', 'awaiting_confirmation'].includes(job.status) ? 'paused' : ''}`} /><strong>{statusLabel[job.status]}</strong><span>{job.demo ? 'Demo mode · sample data' : 'Live analysis'}</span></div>
       {connectionIssue ? <div className="connection-warning" role="status">{connectionIssue} Your saved BOM and conversation remain visible.</div> : null}
       {!job.demo && ['resolving', 'sourcing', 'paused'].includes(job.status) && <div className="guest-banner"><p>{job.status === 'paused' ? 'Your progress is saved. Resume when you are ready.' : 'You can pause sourcing without using your action quota.'}</p><button className="nav-cta" disabled={actionBusy || job.pause_requested && job.status !== 'paused'} onClick={async () => { setActionBusy(true); setActionError(''); try { await (job.status === 'paused' ? resumeJob(id, token) : pauseJob(id, token)); setRevision(n => n + 1) } catch (cause) { setActionError(cause instanceof Error ? cause.message : 'Could not update sourcing') } finally { setActionBusy(false) } }}>{job.pause_requested && job.status !== 'paused' ? 'Pausing after current part…' : actionBusy ? 'Updating…' : job.status === 'paused' ? 'Resume sourcing' : 'Pause sourcing'}</button></div>}
@@ -382,16 +392,12 @@ function JobPage({ id }: { id: string }) {
       <div className="job-content-grid"><div className="job-primary">
         {job.status === 'failed' ? <section className="job-panel"><h2>Analysis stopped</h2><p>{job.error?.message || 'Please start a new job and try again.'}</p></section> : null}
         {job.status === 'awaiting_confirmation' ? <Review key={JSON.stringify(job.items)} job={job} token={token} onConfirmed={() => setRevision((value) => value + 1)} /> : null}
-        {job.status === 'done' ? <Results job={job} /> : null}
+        {job.status === 'done' ? <Results job={job} token={token} onJob={applySnapshot} /> : null}
         {!['awaiting_confirmation', 'done', 'failed'].includes(job.status) ? <AnalysisProgress job={job} /> : null}
         {job.events.length ? <section className="activity-panel"><h2>Activity</h2><ol>{job.events.slice(-5).reverse().map((event) => <li key={event.seq}><span>{event.message}</span><time>{new Date(event.timestamp).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</time></li>)}</ol></section> : null}
       </div><ChatPanel job={job} token={token} onJob={applySnapshot} /></div>
     </>}
   </div></main>
-}
-
-function Footer() {
-  return <footer className="site-footer"><div className="container footer-inner"><div className="footer-brand"><BrandMark /><span>Bharat Sourcer<small>For the builders who ask “what if?”</small></span></div><p>Hackathon prototype · Built for the Google Cloud AI Builder Cup 2026</p><a href="#main">Back to top ↑</a></div></footer>
 }
 
 export default function App() {
@@ -400,5 +406,5 @@ export default function App() {
   function navigate(next: string) { if (import.meta.env.DEV && new URLSearchParams(window.location.search).get('preview') === '1') next += '?preview=1'; window.history.pushState({}, '', next); setPath(next.split('?')[0]); window.scrollTo({ top: 0, behavior: 'instant' }) }
   const account = useAccount()
   const jobId = path.startsWith('/job/') ? path.slice(5) : null
-  return <>{import.meta.env.DEV && new URLSearchParams(window.location.search).get('preview') === '1' && <div className="preview-toolbar"><strong>LOCAL DEMO · Sample data · No API calls</strong><a href="/?preview=1">Landing</a><a href="/projects?preview=1">My projects</a><a href="/job/ui-preview?preview=1">Review</a><a href="/job/ui-preview?preview=1&stage=sourcing">Parallel progress</a><a href="/job/ui-preview?preview=1&stage=done">Results</a></div>}<a className="skip-link" href="#main">Skip to content</a><Header onHome={() => navigate('/')} isHome={path === '/'} onProjects={() => navigate('/projects')} />{path === '/projects' ? <Projects onOpen={id => navigate(`/job/${encodeURIComponent(id)}`)} onNew={() => navigate('/')} /> : jobId ? <JobPage key={jobId + account.revision + (account.identity && account.identity !== 'legacy' ? account.identity.kind : 'none')} id={jobId} /> : <Landing onCreated={(id) => navigate(`/job/${encodeURIComponent(id)}`)} />}<Footer /></>
+  return <>{import.meta.env.DEV && new URLSearchParams(window.location.search).get('preview') === '1' && <div className="preview-toolbar"><strong>LOCAL DEMO · Sample data · No API calls</strong><a href="/?preview=1">Landing</a><a href="/projects?preview=1">My projects</a><a href="/job/ui-preview?preview=1">Review</a><a href="/job/ui-preview?preview=1&stage=sourcing">Parallel progress</a><a href="/job/ui-preview?preview=1&stage=done">Results</a></div>}<a className="skip-link" href="#main">Skip to content</a><Header onHome={() => navigate('/')} isHome={path === '/'} onProjects={() => navigate('/projects')} />{path === '/projects' ? <Projects onOpen={id => navigate(`/job/${encodeURIComponent(id)}`)} onNew={() => navigate('/')} /> : jobId ? <JobPage key={jobId + account.revision + (account.identity && account.identity !== 'legacy' ? account.identity.kind : 'none')} id={jobId} /> : <Landing onCreated={(id) => navigate(`/job/${encodeURIComponent(id)}`)} />}</>
 }

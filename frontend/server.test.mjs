@@ -108,3 +108,12 @@ test('proxy preserves separate cookies, quota delay, and no-store on identity re
   assert.equal(response.headers.get('cache-control'), 'no-store')
   assert.equal(await response.text(), '')
 })
+
+test('proxy preserves an upstream Cache-Control policy', async () => {
+  const base = await start(async () => Response.json({ projects: [] }, {
+    headers: { 'Cache-Control': 'private, max-age=30' },
+  }))
+  const response = await fetch(base + '/api/v1/projects')
+  assert.equal(response.status, 200)
+  assert.equal(response.headers.get('cache-control'), 'private, max-age=30')
+})

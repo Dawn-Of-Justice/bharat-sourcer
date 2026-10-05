@@ -6,10 +6,11 @@ This is a team integration environment for the v0.17.2 backend.
 ## Current deployment: v0.17.2
 
 5 October: authentication enabled on revision `bharat-sourcer-integration-00026-fzl`
-at 100% traffic, explicitly ahead of the frontend deployment completing. Production
-Firebase domain and CORS configured. Direct auth/session/cookie/usage/logout checks
-passed with no model calls. Real Google sign-in and frontend proxy integration remain
-to verify. Trusted proxy IP mode remains disabled pending proxy review.
+at 100% traffic. Production Firebase domain and CORS are configured. Direct
+auth/session/cookie/usage/logout checks passed with no model calls. A later guest
+session, project-list, usage and logout check passed through the frontend proxy.
+Real Google sign-in and two-account isolation remain to verify. Trusted proxy IP
+mode remains disabled pending proxy review.
 
 Verified healthy in live Firestore mode with integration-key enforcement. Revoked
 sessions and disabled/deleted account checks are deployed with authentication enabled.
