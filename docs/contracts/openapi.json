@@ -3,7 +3,7 @@
   "info": {
     "title": "Bharat Sourcer API",
     "description": "Demo or live YouTube extraction with optional Firestore job persistence.",
-    "version": "0.17.6"
+    "version": "0.17.7"
   },
   "paths": {
     "/v1/session/guest": {
@@ -3912,6 +3912,29 @@
         ],
         "title": "SessionUsage"
       },
+      "SpecConflict": {
+        "properties": {
+          "field": {
+            "type": "string",
+            "title": "Field"
+          },
+          "candidates": {
+            "items": {
+              "$ref": "#/components/schemas/SpecEvidence"
+            },
+            "type": "array",
+            "maxItems": 20,
+            "title": "Candidates"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "field"
+        ],
+        "title": "SpecConflict",
+        "description": "Seller sources disagree; the field is left unknown rather than picked."
+      },
       "SpecEvidence": {
         "properties": {
           "field": {
@@ -3928,7 +3951,8 @@
               "part_name",
               "user",
               "seller_title",
-              "seller_property"
+              "seller_property",
+              "seller_table"
             ],
             "title": "Source"
           },
@@ -4204,6 +4228,13 @@
             },
             "type": "array",
             "title": "Spec Evidence"
+          },
+          "spec_conflicts": {
+            "items": {
+              "$ref": "#/components/schemas/SpecConflict"
+            },
+            "type": "array",
+            "title": "Spec Conflicts"
           },
           "compatibility": {
             "anyOf": [

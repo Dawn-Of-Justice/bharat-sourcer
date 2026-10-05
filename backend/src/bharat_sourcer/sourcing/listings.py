@@ -7,8 +7,15 @@ from html.parser import HTMLParser
 from urllib.parse import parse_qs, urljoin, urlsplit
 
 from bharat_sourcer.compat import parse_name
-from bharat_sourcer.schemas import PartImage, PartSpecs, SpecEvidence, VerifiedOffer
+from bharat_sourcer.schemas import (
+    PartImage,
+    PartSpecs,
+    SpecConflict,
+    SpecEvidence,
+    VerifiedOffer,
+)
 from bharat_sourcer.sourcing.fetch import Page
+from bharat_sourcer.sourcing.specs import label_field, parse_value, table_specs
 
 
 class ProductScripts(HTMLParser):
@@ -220,44 +227,7 @@ def verify_page(page: Page, query: str) -> VerifiedOffer | None:
     stock = {"InStock": "in_stock", "OutOfStock": "out_of_stock", "PreOrder": "preorder"}.get(
         str(offer.get("availability", "")).rsplit("/", 1)[-1], "unknown"
     )
-    values = parse_name(title).model_dump(exclude_none=True)
-    evidence = {
-        field: SpecEvidence(field=field, value=str(value), source="seller_title", locator=page.url)
-        for field, value in values.items()
-    }
-    properties = product.get("additionalProperty", [])
-    if isinstance(properties, dict):
-        properties = [properties]
-    if isinstance(properties, list):
-        grouped = {}
-        for prop in properties[:100]:
-            if not isinstance(prop, dict) or not is_type(prop, "PropertyValue"):
-                continue
-            field = prop.get("name")
-            if (
-                isinstance(field, str)
-                and field in PartSpecs.model_fields
-                and prop.get("value") is not None
-            ):
-                grouped.setdefault(field, []).append(prop["value"])
-        for field, entries in grouped.items():
-            try:
-                parsed = [getattr(PartSpecs(**{field: entry}), field) for entry in entries]
-                if any(value != parsed[0] for value in parsed):
-                    raise ValueError("Conflicting property values")
-                if field in values and values[field] != parsed[0]:
-                    raise ValueError("Title conflicts with property")
-                values[field] = parsed[0]
-                evidence[field] = SpecEvidence(
-                    field=field, value=str(parsed[0]), source="seller_property", locator=page.url
-                )
-            except (ValueError, TypeError):
-                values.pop(field, None)
-                evidence.pop(field, None)
-    try:
-        specs = PartSpecs(**values)
-    except ValueError:
-        specs, evidence = PartSpecs(), {}
+    specs, evidence, conflicts = seller_specs(product, page, title)
     return VerifiedOffer(
         url=page.url,
         seller=urlsplit(page.url).hostname,
@@ -266,5 +236,56 @@ def verify_page(page: Page, query: str) -> VerifiedOffer | None:
         price_inr=f"{price:.2f}",
         stock=stock,
         specs=specs,
-        spec_evidence=list(evidence.values()),
+        spec_evidence=evidence,
+        spec_conflicts=conflicts,
     )
+
+
+INVALID = object()
+
+
+def seller_specs(product: dict, page: Page, title: str):
+    """Combine title, JSON-LD property and spec-table values; disagreement means unknown."""
+    candidates: dict[str, list[tuple[object, SpecEvidence]]] = {}
+
+    def add(field, value, source, shown=None):
+        shown = shown or str(value)
+        evidence = SpecEvidence(field=field, value=shown, source=source, locator=page.url)
+        candidates.setdefault(field, []).append((value, evidence))
+
+    for field, value in parse_name(title).model_dump(exclude_none=True).items():
+        add(field, value, "seller_title")
+    properties = product.get("additionalProperty", [])
+    if isinstance(properties, dict):
+        properties = [properties]
+    for prop in properties[:100] if isinstance(properties, list) else []:
+        if not isinstance(prop, dict) or not is_type(prop, "PropertyValue"):
+            continue
+        name, raw = prop.get("name"), prop.get("value")
+        if not isinstance(name, str) or raw is None:
+            continue
+        if name in PartSpecs.model_fields:
+            try:
+                add(name, getattr(PartSpecs(**{name: raw}), name), "seller_property")
+            except (ValueError, TypeError):
+                # An invalid explicit value is a contradiction, not an absence.
+                add(name, INVALID, "seller_property", shown=f"invalid: {str(raw)[:50]}")
+        elif field := label_field(name):
+            for key, value in parse_value(field, raw).items():
+                add(key, value, "seller_property")
+    for field, value, _label in table_specs(page.body.decode("utf-8", errors="replace")):
+        add(field, value, "seller_table")
+    values, evidence, conflicts = {}, [], []
+    priority = {"seller_property": 0, "seller_table": 1, "seller_title": 2}
+    for field, entries in candidates.items():
+        if len({str(value) for value, _ in entries}) > 1 or INVALID in [v for v, _ in entries]:
+            unique = list({(e.value, e.source): e for _, e in entries}.values())
+            conflicts.append(SpecConflict(field=field, candidates=unique[:20]))
+            continue
+        value, best = min(entries, key=lambda entry: priority[entry[1].source])
+        values[field] = value
+        evidence.append(best)
+    try:
+        return PartSpecs(**values), evidence, conflicts
+    except ValueError:
+        return PartSpecs(), [], conflicts

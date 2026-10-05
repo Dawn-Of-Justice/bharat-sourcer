@@ -38,7 +38,7 @@ and fixes readable-document budget handling. The live API version and health are
 | 1 | End-to-end conversational UI integration | BOM beside chat; citation navigation; proposal diff and accept/reject; SSE reconnect; explicit confirmation; integration smoke test |
 | 2 | User steering during sourcing | Pause/resume implemented in v0.11; reviewed edits to a paused sourcing plan and frontend controls remain |
 | 3 | More agent search and report tools | Refresh proposals implemented; spec changes, completion chat messages and per-action result history remain |
-| 4 | Broader seller-spec parsing | Read supported specification tables with field-level evidence; detect contradictions; unknown stays unknown; evaluate real sellers |
+| 4 | Broader seller-spec parsing | v0.17.7 reads spec tables and labelled JSON-LD properties with field-level evidence and reports contradictions. Remaining: evaluate against labelled real seller pages and extend labels only from that evidence |
 | 5 | Circuit context and more design rules | Establish resistor roles, topology and source-backed inputs; support additional roles only with validated calculations; attach suggestions to a specific physical component |
 | 6 | Permanent rule repair workflow | Capture bounded failure cases; generate candidate patch in isolation; regression/property tests; versioned release and rollback. Current runtime only quarantines and falls back; no automatic patch authoring/deployment |
 | 7 | Queue operations hardening | Durable dispatch, per-user quotas (v0.17), bounded sweep, per-job failure isolation and queue-age log signals (v0.17.6) implemented. Remaining: provision a log-based alert policy and raise max instances when load requires |
