@@ -1,7 +1,9 @@
-# Implemented API contract — v0.19.0
+# Implemented API contract — v0.19.1
 
 This directory is the handoff between backend and frontend. The architecture docs describe
 the target system; this contract describes the runnable local milestone.
+
+v0.19.1 makes inferred requirements measurable specs; no schema changes.
 
 v0.19.0 adds [project understanding](project-understanding.md): `job.project` with an
 AI-written, editable title and description plus a summary; inferred quantities

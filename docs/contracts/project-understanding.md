@@ -79,7 +79,7 @@ Recommended project card, replacing "www.youtube.com project" plus the raw URL:
 - `origin`: `user` (default) or `inferred` (proposed by the model from project context).
 - `reason`: why the requirement applies in this project, for inferred entries.
 
-Inferred requirements prefer ranges (`at_least` / `at_most`) and never name a brand or
+Inferred requirements are measurable specs with units (v0.19.1), prefer ranges (`at_least` / `at_most`) and never name a brand or
 exact model the source does not show. They feed seller research and AI assessments like
 user requirements do. The requirements list is replaced as a whole on update: send
 untouched inferred entries back with their `origin` and `reason`, and send edited entries
@@ -91,3 +91,11 @@ The review page already shows `project` (summary, power, controller, interfaces,
 assumptions), inferred quantity markers and AI-inferred build details. The title and
 description display, the project-list card change and the edit control are not yet built
 in the frontend.
+
+## Live check (5 October 2026, v0.19.0)
+
+A YouTube Short of an ESP32-S3 piezo drum trigger produced the title "ESP32-S3 USB-MIDI
+Piezo Drum Trigger", an accurate summary (piezo → resistor conditioning → ADC → native
+USB-MIDI, LED feedback), power and interfaces, and an inferred count of four jumper wires
+with a reason. Requirements were mostly descriptive ("type: piezo disc"), which v0.19.1's
+prompt addresses. One video does not establish accuracy.
