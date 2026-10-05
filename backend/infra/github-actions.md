@@ -29,9 +29,10 @@ pushes to `main` (or manual dispatch) after checks pass.
 
 - Triggered by changes in `frontend/` or `.github/workflows/frontend.yml`.
 - Checks: `npm ci`, `npm run test:server`, and `npm run build`.
-- Deployment: builds `frontend/Dockerfile`, pushes a commit-tagged Artifact
-  Registry image, updates the frontend Kubernetes deployment image in GKE, and
-  waits for rollout completion.
+- Deployment: builds `frontend/Dockerfile`, pushes a commit-tagged image to
+  `cloud-run-source-deploy`, and updates only the image of Cloud Run service
+  `bharat-sourcer-web`; its runtime config (backend URL, integration key, Firebase web
+  config) is unchanged. The job checks the running image and that `/` responds.
 
 ## Authentication and permissions
 
@@ -43,8 +44,11 @@ The workflow contains nonsecret project/provider identifiers directly.
 The backend deploy identity needs `roles/run.developer` on the service,
 `roles/artifactregistry.writer` on `cloud-run-source-deploy`, and
 `roles/iam.serviceAccountUser` on runtime identity `bharat-sourcer-api`; all are granted
-by `scripts/setup_github_deploy.py`. The frontend workflow still targets GKE and needs
-the same migration (owned by the frontend teammate).
+by `scripts/setup_github_deploy.py`. The frontend deploy additionally needs
+`roles/run.developer` on `bharat-sourcer-web`, `roles/iam.serviceAccountUser` on
+`bharat-sourcer-web@`, and `frontend.yml` in the provider's `workflow_ref` condition.
+Re-run `python scripts/setup_github_deploy.py` (from `backend/`, with an owner gcloud
+identity) once to apply them; until then the frontend deploy job fails at authentication.
 
 ## Setup and first run
 
