@@ -19,6 +19,7 @@ from bharat_sourcer.schemas import (
 from bharat_sourcer.sourcing.fetch import FetchError, SafeFetcher, validate_url
 from bharat_sourcer.sourcing.listings import page_images, variant_url, verify_page
 from bharat_sourcer.sourcing.research import Researcher
+from bharat_sourcer.usage import record_usage
 
 
 class DiscoveryError(Exception):
@@ -115,7 +116,9 @@ class GeminiDiscovery:
                     json=payload,
                 )
             response.raise_for_status()
-            candidate = response.json()["candidates"][0]
+            data = response.json()
+            record_usage("discovery", self.settings.gemini_model, data)
+            candidate = data["candidates"][0]
             finish_reason = candidate.get("finishReason")
             if finish_reason not in {"STOP", "MAX_TOKENS"}:
                 logging.getLogger(__name__).warning("DISCOVERY_REJECTED finish=%s", finish_reason)
