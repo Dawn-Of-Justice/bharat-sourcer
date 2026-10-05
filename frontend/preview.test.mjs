@@ -53,3 +53,17 @@ test('preview decision endpoint fails closed for unknown dummy proposals without
   assert.throws(() => previewRequest('/v1/jobs/ui-preview/messages/missing/decision', { method: 'POST', body: JSON.stringify({ action: 'accept' }) }), error => error.status === 404)
   assert.equal(requests, 0)
 })
+
+test('preview labels AI project understanding, inferred qty and inferred build details as dummy data', () => {
+  const { previewRequest } = load('./preview')
+  const job = previewRequest('/v1/jobs/ui-preview', {})
+  assert.equal(job.project.origin, 'ai_inferred')
+  assert.match(job.project.summary, /Dummy/)
+  const inferredQty = job.items.filter(item => item.qty_source === 'inferred')
+  assert.equal(inferredQty.length, 1)
+  assert.match(inferredQty[0].qty_reason, /Dummy/)
+  const inferredRequirements = job.items.flatMap(item => item.requirements ?? []).filter(item => item.origin === 'inferred')
+  assert.ok(inferredRequirements.length > 0)
+  assert.ok(inferredRequirements.every(item => /Dummy/.test(item.reason)))
+  assert.equal(requests, 0)
+})

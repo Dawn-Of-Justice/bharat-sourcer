@@ -29,7 +29,10 @@ export interface SpecUpdate { line_id: string; specs?: Record<string, string | n
 export interface RefreshLineResult { line_id: string; sourcing_status: ReportLine['sourcing_status']; offer_count?: number; lowest_listed_price_inr?: string | null; lowest_listed_stock?: 'in_stock' | 'out_of_stock' | 'preorder' | 'unknown' | null; price_source?: 'seller_published'; error_code?: string | null }
 export interface ActionRecord { kind: 'edit' | 'refresh' | 'spec_update'; message_id: string; status: 'accepted' | 'rejected' | 'completed' | 'failed'; created_at?: string; line_ids?: string[]; summary?: string; refresh_count?: number | null; result_message_id?: string | null }
 
-export interface PartRequirement { name: string; value: string; unit?: string | null; operator: 'equals' | 'at_least' | 'at_most' }
+// origin defaults to 'user'; 'inferred' rows were pre-filled by the model from project context, with a reason.
+export interface PartRequirement { name: string; value: string; unit?: string | null; operator: 'equals' | 'at_least' | 'at_most'; origin?: 'user' | 'inferred'; reason?: string | null }
+// The extraction model's reading of the whole project. AI-inferred; the user should check it.
+export interface ProjectUnderstanding { summary: string; power: string | null; controller: string | null; interfaces: string[]; assumptions: string[]; origin: 'ai_inferred' }
 export interface ResearchAssessment { status: 'potential_match' | 'needs_information' | 'not_suitable' | 'stale'; explanation: string; conditions: string[]; questions: string[]; checks?: { requirement: PartRequirement; status: 'meets' | 'does_not_meet' | 'unknown'; reason: string }[] }
 export interface ResearchCandidate { url: string; title: string; category: string; kind: 'seller' | 'manufacturer' | 'reference'; identity_quote: string; match: 'exact' | 'possible'; facts: { name: string; value: string; unit?: string | null; quote: string }[]; assessment: ResearchAssessment }
 export interface Evidence {
@@ -51,6 +54,9 @@ export interface BomItem {
   line_id: string
   raw_name: string
   qty: number | null
+  // 'inferred' means the source gave no count and the model filled qty (see qty_reason); defaults to 'stated'.
+  qty_source?: 'stated' | 'inferred' | 'user'
+  qty_reason?: string | null
   user_has_it: boolean
   user_edited: boolean
   evidence: Evidence[]
@@ -103,6 +109,7 @@ export interface Job {
   demo: boolean
   input: { url: string }
   items: BomItem[]
+  project?: ProjectUnderstanding | null
   events: { seq: number; status: JobStatus; message: string; timestamp: string }[]
   report: {
     summary: string

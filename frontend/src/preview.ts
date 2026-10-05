@@ -1,11 +1,18 @@
 import { ApiError } from './api'
-import type { ChatMessage, Job, JobStatus, BomItem } from './api'
+import type { ChatMessage, Job, JobStatus, BomItem, ProjectUnderstanding } from './api'
 
 const items: BomItem[] = ['Sample controller board', 'Sample sensor module', 'Jumper wires'].map((raw_name, index) => ({ line_id: 'L0' + (index + 1), raw_name, qty: index === 2 ? 10 : 1, user_has_it: false, user_edited: false, evidence: [], clarifications: [] }))
+// Dummy AI-inferred states: a quantity the source did not state and pre-filled build details, each with a reason.
+items[2] = { ...items[2], qty_source: 'inferred', qty_reason: 'Dummy reason: the sample source shows wiring but no count; 10 covers two sensors plus spares.' }
+items[0] = { ...items[0], requirements: [
+  { name: 'logic voltage', value: '3.3', unit: 'V', operator: 'equals', origin: 'inferred', reason: 'Dummy reason: the sample project powers the sensor from a 3.3 V rail.' },
+  { name: 'GPIO pins', value: '4', unit: null, operator: 'at_least', origin: 'inferred', reason: 'Dummy reason: one sensor and three indicator LEDs.' },
+] }
+const project: ProjectUnderstanding = { summary: 'Dummy preview project: a sample battery-powered sensor logger. Not extracted from a real source.', power: 'Sample 3.7 V Li-ion cell (dummy)', controller: 'Sample controller board (dummy)', interfaces: ['I2C', 'USB'], assumptions: ['Dummy assumption: the sensor runs at 3.3 V logic.', 'Dummy assumption: one sensor per build.'], origin: 'ai_inferred' }
 const phase = new URLSearchParams(window.location.search).get('stage')
 const status: JobStatus = phase === 'done' ? 'done' : phase === 'sourcing' ? 'sourcing' : 'awaiting_confirmation'
 const lines = items.map(item => ({ item, sourcing_status: 'offers_found' as const, sourcing_error: null, subtotal_inr: '199', offers: [{ url: '#demo-seller', seller: 'Sample seller (dummy)', title: item.raw_name, price_inr: '199', stock: 'sample_stock', checked_at: new Date().toISOString(), image_url: '/preview-part.svg', compatibility: null }] }))
-let job: Job = { job_id: 'ui-preview', status, updated_at: new Date().toISOString(), demo: true, input: { url: 'https://example.com/dummy-video' }, items, events: [], report: status === 'awaiting_confirmation' ? null : { summary: 'Dummy preview', lines: status === 'done' ? lines : [lines[2]], selected_parts_subtotal_inr: '0', parts_subtotal_inr: null, unselected_line_ids: [] }, error: null, messages: [], chat_state: 'idle', chat_error: null, actions: [] }
+let job: Job = { job_id: 'ui-preview', status, updated_at: new Date().toISOString(), demo: true, input: { url: 'https://example.com/dummy-video' }, items, project, events: [], report: status === 'awaiting_confirmation' ? null : { summary: 'Dummy preview', lines: status === 'done' ? lines : [lines[2]], selected_parts_subtotal_inr: '0', parts_subtotal_inr: null, unselected_line_ids: [] }, error: null, messages: [], chat_state: 'idle', chat_error: null, actions: [] }
 
 // Dummy chat states for the results stage: a pending spec proposal and an approved refresh with its completion message.
 if (status === 'done') {
@@ -41,7 +48,7 @@ export function previewRequest(path: string, options: RequestInit): unknown {
     const edits = JSON.parse(String(options.body)).edits
     for (const edit of edits) {
       if (edit.op === 'remove') job.items = job.items.filter(item => item.line_id !== edit.line_id)
-      else job.items = job.items.map(item => item.line_id !== edit.line_id ? item : { ...item, ...(edit.raw_name ? { raw_name: edit.raw_name } : {}), ...(edit.qty ? { qty: edit.qty } : {}), ...(edit.op === 'have_it' ? { user_has_it: edit.user_has_it } : {}) })
+      else job.items = job.items.map(item => item.line_id !== edit.line_id ? item : { ...item, ...(edit.raw_name ? { raw_name: edit.raw_name } : {}), ...(edit.qty ? { qty: edit.qty, qty_source: 'user' as const } : {}), ...(edit.requirements ? { requirements: edit.requirements } : {}), ...(edit.op === 'have_it' ? { user_has_it: edit.user_has_it } : {}) })
     }
     job = { ...job, status: 'sourcing', report: { summary: 'Dummy preview', lines: [], selected_parts_subtotal_inr: '0', parts_subtotal_inr: null, unselected_line_ids: [] } }
     return { status: 'resolving' }
