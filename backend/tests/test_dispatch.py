@@ -125,3 +125,55 @@ def test_oidc_requires_correct_identity_and_verified_email(monkeypatch):
 def test_unknown_work_is_acknowledged():
     jobs = JobService()
     assert work_once(jobs, ConversationService(jobs), Work(job_id=uuid4(), kind="workflow"))
+
+
+def sweep_app(monkeypatch, enqueue, **overrides):
+    monkeypatch.setattr(CloudDispatcher, "enqueue", enqueue)
+    monkeypatch.setattr(CloudDispatcher, "authorize", lambda self, header: header == "Bearer test")
+    settings = Settings(
+        _env_file=None,
+        **{
+            "dispatch_backend": "cloud_tasks",
+            "storage_backend": "firestore",
+            "gcp_project": "test",
+            "tasks_url": "https://worker.example",
+            "tasks_service_account": "worker@test",
+        }
+        | overrides,
+    )
+    store = MemoryJobStore()
+    jobs = JobService(Extractor(), store=store)
+    keys = [jobs.create(CreateJob(url="https://youtu.be/abcdefghijk"))[0].job_id for _ in range(3)]
+    client = TestClient(create_app(settings, store=store))
+    client.headers["Authorization"] = "Bearer test"
+    return client, store, keys
+
+
+def test_sweep_isolates_enqueue_failures_and_reports_counts(monkeypatch, caplog):
+    calls = []
+
+    def enqueue(self, key, kind, **kwargs):
+        calls.append(key)
+        if len(calls) == 1:
+            raise RuntimeError("simulated queue outage")
+
+    client, _, keys = sweep_app(monkeypatch, enqueue)
+    body = client.post("/internal/sweep").json()
+    assert sorted(calls) == sorted(keys)
+    assert body == {"status": "ok", "dispatched": 2, "failed": 1, "stale": 0, "truncated": False}
+    assert "TASK_ENQUEUE_FAILED" in caplog.text
+
+
+def test_sweep_is_bounded_and_flags_stale_work(monkeypatch, caplog):
+    calls = []
+    client, store, keys = sweep_app(
+        monkeypatch, lambda self, key, kind, **kwargs: calls.append(key), sweep_limit=2
+    )
+    for key in keys:
+        store.mutate(key, lambda r: setattr(r.job, "updated_at", now() - timedelta(hours=2)))
+    body = client.post("/internal/sweep").json()
+    assert len(calls) == 2
+    assert body["truncated"] is True
+    assert body["stale"] == 2
+    assert "QUEUE_AGE_EXCEEDED" in caplog.text
+    assert "SWEEP_TRUNCATED" in caplog.text

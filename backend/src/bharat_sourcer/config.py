@@ -26,6 +26,8 @@ class Settings(BaseSettings):
     tasks_queue: str = "bharat-sourcer"
     tasks_url: str | None = None
     tasks_service_account: str | None = None
+    sweep_limit: int = Field(default=200, ge=1, le=1000)
+    queue_age_alert_minutes: int = Field(default=30, ge=5, le=1440)
     storage_backend: Literal["memory", "firestore"] = "memory"
     gcp_project: str | None = None
     firestore_database: str = "(default)"

@@ -2,6 +2,7 @@ import asyncio
 import logging
 import secrets
 from contextlib import asynccontextmanager
+from datetime import timedelta
 
 from fastapi import BackgroundTasks, FastAPI, Request
 from fastapi.exceptions import RequestValidationError
@@ -33,6 +34,7 @@ from bharat_sourcer.schemas import (
     SelectOffers,
     SendMessage,
     UpdateJobSpecs,
+    now,
 )
 from bharat_sourcer.sourcing.research import GeminiResearch
 from bharat_sourcer.sourcing.service import GeminiDiscovery, SourcingService
@@ -132,7 +134,7 @@ def create_app(
 
     app = FastAPI(
         title="Bharat Sourcer API",
-        version="0.17.5",
+        version="0.17.6",
         description="Demo or live YouTube extraction with optional Firestore job persistence.",
         lifespan=lifespan,
         responses={422: {"model": ErrorResponse}, 503: {"model": ErrorResponse}},
@@ -414,15 +416,53 @@ def create_app(
     @app.post("/internal/sweep", include_in_schema=False)
     def internal_sweep(request: Request):
         authorize_worker(request)
-        for key in service.store.pending():
-            record = service.store.get(key)
-            if record is None:
-                continue
-            if record.job.status in {"queued", "extracting", "resolving", "sourcing"}:
-                dispatcher.enqueue(key, "workflow", sweep=True)
-            if record.job.chat_state in {"queued", "thinking"}:
-                dispatcher.enqueue(key, "chat", sweep=True)
-        return {"status": "ok"}
+        return sweep_pending()
+
+    def sweep_pending():
+        """Bounded redispatch; one failing job or enqueue never blocks the rest."""
+        log = logging.getLogger(__name__)
+        keys = service.store.pending(settings.sweep_limit + 1)
+        stats = {
+            "dispatched": 0,
+            "failed": 0,
+            "stale": 0,
+            "truncated": len(keys) > settings.sweep_limit,
+        }
+        threshold = now() - timedelta(minutes=settings.queue_age_alert_minutes)
+        for key in keys[: settings.sweep_limit]:
+            try:
+                record = service.store.get(key)
+                if record is None:
+                    continue
+                kinds = []
+                if record.job.status in {"queued", "extracting", "resolving", "sourcing"}:
+                    kinds.append("workflow")
+                if record.job.chat_state in {"queued", "thinking"}:
+                    kinds.append("chat")
+                if kinds and record.job.updated_at < threshold:
+                    stats["stale"] += 1
+                    age = int((now() - record.job.updated_at).total_seconds())
+                    log.warning(
+                        "QUEUE_AGE_EXCEEDED job=%s kinds=%s age_s=%d", key, ",".join(kinds), age
+                    )
+                for kind in kinds:
+                    try:
+                        dispatcher.enqueue(key, kind, sweep=True)
+                        stats["dispatched"] += 1
+                    except Exception as exc:
+                        stats["failed"] += 1
+                        log.error(
+                            "TASK_ENQUEUE_FAILED job=%s kind=%s type=%s",
+                            key,
+                            kind,
+                            type(exc).__name__,
+                        )
+            except (StorageError, GoogleAPICallError) as exc:
+                stats["failed"] += 1
+                log.error("SWEEP_READ_FAILED job=%s type=%s", key, type(exc).__name__)
+        if stats["truncated"]:
+            log.warning("SWEEP_TRUNCATED limit=%d", settings.sweep_limit)
+        return {"status": "ok"} | stats
 
     return app
 

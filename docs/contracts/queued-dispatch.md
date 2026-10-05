@@ -37,6 +37,22 @@ may still be repeated and charged again. This is at-least-once delivery.
 Paused jobs stay paused. No new seller search bypasses user approval. The scheduled
 scan enqueues pending work only; it does not run Gemini inside the scheduler request.
 
+## Sweep limits and stuck-work signals (v0.17.6)
+
+Each scheduled sweep handles at most `BS_SWEEP_LIMIT` pending jobs (default 200);
+jobs beyond the limit wait until earlier ones leave a pending state, so a sustained
+`SWEEP_TRUNCATED` warning means the limit or capacity must be raised. A failed read or
+enqueue for one job is
+logged (`SWEEP_READ_FAILED`, `TASK_ENQUEUE_FAILED`) and no longer aborts the sweep.
+The internal response reports `dispatched`, `failed`, `stale` and `truncated` counts.
+
+Pending work whose `updated_at` is older than `BS_QUEUE_AGE_ALERT_MINUTES` (default 30)
+logs `QUEUE_AGE_EXCEEDED job=<id> kinds=<workflow|chat> age_s=<seconds>`, and a capped
+sweep logs `SWEEP_TRUNCATED`. These are warning-level Cloud Logging entries. No alert
+policy is provisioned; to be paged, create a log-based alert on
+`textPayload:"QUEUE_AGE_EXCEEDED" OR textPayload:"SWEEP_TRUNCATED"` for the service.
+Public API shapes are unchanged.
+
 ## Operations
 
 Queue: `bharat-sourcer`, region `asia-south1`; max two concurrent deliveries and
