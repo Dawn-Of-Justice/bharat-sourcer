@@ -1,5 +1,10 @@
 # Connect the local frontend
 
+As of 5 October 2026, the integration backend has account and guest access enabled.
+The earlier job-token example below describes legacy jobs; current browser requests
+also need the Firebase bearer token or guest cookie. Use the same-origin frontend
+proxy for credentials and the server-held integration key. See [authentication](authentication.md).
+
 v0.16.1 can try one extra source search when the first provides no usable evidence.
 Keep showing sourcing progress until the line completes; extra latency is expected.
 Research source diagnostics can contain up to 32 entries across both rounds.
@@ -111,4 +116,5 @@ modify or scaffold the teammate's frontend.
 
 Before enabling account access, follow the [authentication handoff](authentication.md)
 for Firebase login, guest cookies, saved projects, claiming and proxy headers.
-Authentication is disabled by default; the examples below describe legacy token access.
+The examples above describe legacy token access. Authentication is enabled on the
+integration backend; use the account or guest flow for new projects.

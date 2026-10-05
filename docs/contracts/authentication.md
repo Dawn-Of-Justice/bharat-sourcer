@@ -4,16 +4,16 @@
 
 API v0.17.2 authentication is now enabled (`BS_AUTH_ENABLED=true`) on revision
 `bharat-sourcer-integration-00026-fzl`, serving all traffic. The frontend production
-domain is authorized in Firebase and allowed by backend CORS. Activation was
-explicitly requested while the frontend deployment was still underway.
+domain is authorized in Firebase and allowed by backend CORS.
 
 Direct backend checks passed: unauthenticated job rejection, production CORS,
 secure guest cookie round trip, session, empty project list, usage counters,
 invalid bearer rejection and logout. No jobs or model calls were started.
 Run `backend/scripts/check_auth_live.py` from the backend directory to repeat.
 
-Frontend proxy/browser integration and real Google login/revocation tests remain
-pending. Trusted client-IP forwarding stays disabled until proxy handling is
+The frontend proxy later passed guest session, project list, usage and logout checks.
+Real Google login, guest-to-account claim, two-account isolation and revocation tests
+remain pending. Trusted client-IP forwarding stays disabled until proxy handling is
 verified; IP quotas currently use the socket peer and can group proxy users.
 Account/guest quotas, project ownership and revoked-account checks are active.
 The earlier handoff below describes the preparation stage; its disabled-auth
@@ -170,7 +170,7 @@ does not fix revocation: prompt a new Google sign-in. Provider outages or missin
 backend IAM return 503 `IDENTITY_UNAVAILABLE`; preserve the session and offer retry.
 Neither response falls back to a guest session or admits paid work.
 
-This v0.17.2 change is deployed with authentication still disabled. The backend
+At the 4 October v0.17.2 deployment, authentication was still disabled. The backend
 runtime service account has `roles/firebaseauth.viewer` on `hackathon-510415`,
 which supplies `firebaseauth.users.get`; `prepare_auth.py` preserves this setup.
 Live user revocation testing remains pending auth-enabled staging. The lookup uses Application

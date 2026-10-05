@@ -1,3 +1,4 @@
+import { ApiError } from './api'
 import type { Job, JobStatus, BomItem } from './api'
 
 const items: BomItem[] = ['Sample controller board', 'Sample sensor module', 'Jumper wires'].map((raw_name, index) => ({ line_id: 'L0' + (index + 1), raw_name, qty: index === 2 ? 10 : 1, user_has_it: false, user_edited: false, evidence: [], clarifications: [] }))
@@ -7,6 +8,18 @@ const lines = items.map(item => ({ item, sourcing_status: 'offers_found' as cons
 let job: Job = { job_id: 'ui-preview', status, updated_at: new Date().toISOString(), demo: true, input: { url: 'https://example.com/dummy-video' }, items, events: [], report: status === 'awaiting_confirmation' ? null : { summary: 'Dummy preview', lines: status === 'done' ? lines : [lines[2]], selected_parts_subtotal_inr: '0', parts_subtotal_inr: null, unselected_line_ids: [] }, error: null, messages: [], chat_state: 'idle', chat_error: null }
 
 export function previewRequest(path: string, options: RequestInit): unknown {
+  if (path === '/v1/session/usage') return { daily_actions: { limit: 40, remaining: 36 }, daily_projects: { limit: 5, remaining: 4 }, minute_actions: { limit: 5, remaining: 5 } }
+  if (path.endsWith('/pause')) { job.status = 'paused'; return {} }
+  if (path.endsWith('/resume')) { job.status = 'sourcing'; return {} }
+  if (path === '/v1/session/logout') { sessionStorage.removeItem('bs-preview-account'); return undefined }
+  if (path === '/v1/session/guest') sessionStorage.setItem('bs-preview-account', 'guest')
+  if (path === '/v1/session' || path === '/v1/session/guest') {
+    const kind = sessionStorage.getItem('bs-preview-account')
+    if (!kind) throw new ApiError('Sign in to continue.', 401, 'IDENTITY_REQUIRED')
+    return { kind, expires_at: null, daily_action_limit: kind === 'guest' ? 5 : 40, part_limit: kind === 'guest' ? 3 : 10 }
+  }
+  if (path.startsWith('/v1/projects?')) return { projects: [{ job_id: job.job_id, url: job.input.url, status: job.status, created_at: job.updated_at, updated_at: job.updated_at, part_count: job.items.length }], next_cursor: null }
+  if (path.endsWith('/claim')) return { job_id: job.job_id }
   if (path === '/healthz') return { mode: 'demo' }
   if (path === '/v1/jobs' && options.method === 'POST') return { job_id: job.job_id, job_token: 'dummy-token', demo: true }
   if (path.endsWith('/confirm')) {

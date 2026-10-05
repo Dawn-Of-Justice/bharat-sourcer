@@ -7,9 +7,12 @@
     "dev": "vite --host 127.0.0.1",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview --host 127.0.0.1",
-    "test:server": "node --test server.test.mjs"
+    "test:server": "node --test server.test.mjs",
+    "test:preview": "node --test preview.test.mjs",
+    "test:integration": "node --test integration.test.mjs"
   },
   "dependencies": {
+    "firebase": "^12.19.0",
     "react": "^19.1.1",
     "react-dom": "^19.1.1"
   },

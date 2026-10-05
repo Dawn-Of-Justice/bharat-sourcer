@@ -1,5 +1,9 @@
 # Backend
 
+The integration deployment was observed on 5 October 2026 with Firebase account and
+guest authentication enabled. The frontend origin is included in CORS. The
+`BS_AUTH_ENABLED=false` setting shown below remains the default for a fresh local setup.
+
 v0.17.2 checks Firebase account status for disabled/deleted users and revoked
 sessions on each authenticated request. Provider outages fail closed with 503.
 The runtime identity needs `firebaseauth.users.get`; see the auth rollout guide.
