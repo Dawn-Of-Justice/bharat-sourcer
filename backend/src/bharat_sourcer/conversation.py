@@ -9,6 +9,7 @@ from uuid import uuid4
 import httpx
 from pydantic import BaseModel
 
+from bharat_sourcer.actions import record_action
 from bharat_sourcer.config import Settings
 from bharat_sourcer.extraction import generation_schema
 from bharat_sourcer.jobs import JobError, JobService
@@ -348,8 +349,10 @@ class ConversationService:
                 return
             if proposal.status != "pending":
                 raise JobError(409, "PROPOSAL_DECIDED", "Proposal already decided")
+            accepted_from = None
             if decision.action == "accept":
                 current = report_fingerprint(job) if on_report else fingerprint(job)
+                accepted_from = current
                 if current != proposal.base_fingerprint:
                     raise JobError(409, "PROPOSAL_STALE", "BOM changed; ask for a new proposal")
                 if message.refresh_proposal:
@@ -360,12 +363,60 @@ class ConversationService:
                 else:
                     self.jobs.edit_draft(job, ConfirmJob(edits=proposal.edits))
             proposal.status = target
+            self._record_decision(job, message, accepted_from)
             job.updated_at = now()
 
         record = self.store.mutate(job_id, apply)
         if record is None:
             raise JobError(404, "JOB_NOT_FOUND", "Job not found or token invalid")
         return record.job.model_copy(deep=True)
+
+    @staticmethod
+    def _record_decision(job: Job, message: ChatMessage, accepted_from: str | None) -> None:
+        """Append history for a decision; synchronous changes complete in the same step."""
+        if message.refresh_proposal:
+            proposal = message.refresh_proposal
+            line_ids = proposal.request.line_ids
+            kind = "refresh"
+            summary = (
+                f"Refresh batch {proposal.refresh_count} queued for " + ", ".join(line_ids)
+                if accepted_from
+                else "Refresh rejected; no search started."
+            )
+        elif message.spec_proposal:
+            line_ids = [update.line_id for update in message.spec_proposal.request.updates]
+            kind = "spec_update"
+            if not accepted_from:
+                summary = "Spec update rejected; nothing changed."
+            elif report_fingerprint(job) == accepted_from:
+                summary = "Spec update accepted; values already matched, nothing changed."
+            else:
+                summary = "Updated required specs for " + ", ".join(line_ids)
+        else:
+            line_ids = [e.line_id for e in message.proposal.edits if hasattr(e, "line_id")]
+            kind = "edit"
+            count = len(message.proposal.edits)
+            summary = (
+                f"Applied {count} draft BOM edit(s); confirm the BOM to continue."
+                if accepted_from
+                else "Draft edits rejected; BOM unchanged."
+            )
+        if accepted_from is None:
+            status = "rejected"
+        else:
+            # Refresh sourcing runs later; edits and spec updates are applied atomically here.
+            status = "accepted" if kind == "refresh" else "completed"
+        record_action(
+            job,
+            kind,
+            message.message_id,
+            status,
+            line_ids,
+            summary,
+            refresh_count=message.refresh_proposal.refresh_count
+            if message.refresh_proposal
+            else None,
+        )
 
     def resistor_advice(self, job_id: str, token: str | None, inputs: ResistorInputs) -> Job:
         # Authorize before invoking the calculator; no external I/O in transaction callbacks.

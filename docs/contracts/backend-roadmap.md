@@ -37,7 +37,7 @@ and fixes readable-document budget handling. The live API version and health are
 | --- | --- | --- |
 | 1 | End-to-end conversational UI integration | BOM beside chat; citation navigation; proposal diff and accept/reject; SSE reconnect; explicit confirmation; integration smoke test |
 | 2 | User steering during sourcing | Pause/resume implemented in v0.11; reviewed edits to a paused sourcing plan and frontend controls remain |
-| 3 | More agent search and report tools | Refresh proposals (v0.12) and reviewed spec/requirement proposals (v0.17.9) implemented; completion chat messages and per-action result history remain |
+| 3 | More agent search and report tools | Refresh proposals (v0.12), reviewed spec/requirement proposals (v0.17.9), deterministic refresh completion messages and a bounded per-action history implemented. Remaining: frontend display of completion messages and history; chat-proposed paused-plan edits |
 | 4 | Broader seller-spec parsing | v0.17.7 reads spec tables and labelled JSON-LD properties with field-level evidence and reports contradictions. Remaining: evaluate against labelled real seller pages and extend labels only from that evidence |
 | 5 | Circuit context and more design rules | Establish resistor roles, topology and source-backed inputs; support additional roles only with validated calculations; attach suggestions to a specific physical component |
 | 6 | Permanent rule repair workflow | Capture bounded failure cases; generate candidate patch in isolation; regression/property tests; versioned release and rollback. Current runtime only quarantines and falls back; no automatic patch authoring/deployment |

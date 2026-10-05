@@ -337,6 +337,21 @@ class RefreshProposal(Model):
     status: Literal["pending", "accepted", "rejected"] = "pending"
     base_fingerprint: str
     refresh_count: int | None = None
+    result_message_id: str | None = None
+
+
+class RefreshLineResult(Model):
+    """Snapshot of one refreshed line when its batch ended; later refreshes do not edit it."""
+
+    line_id: str
+    sourcing_status: Literal[
+        "not_run", "already_owned", "offers_found", "no_verified_offers", "failed"
+    ]
+    offer_count: int = Field(default=0, ge=0)
+    lowest_listed_price_inr: Money | None = None
+    lowest_listed_stock: Literal["in_stock", "out_of_stock", "preorder", "unknown"] | None = None
+    price_source: Literal["seller_published"] = "seller_published"
+    error_code: str | None = None
 
 
 class SpecProposal(Model):
@@ -355,6 +370,25 @@ class ChatMessage(Model):
     refresh_proposal: RefreshProposal | None = None
     spec_proposal: SpecProposal | None = None
     resistor_question: ResistorQuestion | None = None
+    completes_message_id: str | None = None
+    refresh_results: list[RefreshLineResult] = Field(default_factory=list, max_length=100)
+
+
+ActionKind = Literal["edit", "refresh", "spec_update"]
+ActionStatus = Literal["accepted", "rejected", "completed", "failed"]
+
+
+class ActionRecord(Model):
+    """One append-only history entry for a decided or finished chat action."""
+
+    kind: ActionKind
+    message_id: str
+    status: ActionStatus
+    created_at: datetime = Field(default_factory=now)
+    line_ids: list[str] = Field(default_factory=list, max_length=100)
+    summary: str = Field(default="", max_length=500)
+    refresh_count: int | None = None
+    result_message_id: str | None = None
 
 
 class PartResolution(Model):
@@ -463,6 +497,7 @@ class Job(Model):
     chat_state: Literal["idle", "queued", "thinking", "failed"] = "idle"
     chat_error: "ErrorDetail | None" = None
     resistor_advice: list[ResistorAdvice] = Field(default_factory=list)
+    actions: list[ActionRecord] = Field(default_factory=list)
 
 
 class CreatedJob(Model):
