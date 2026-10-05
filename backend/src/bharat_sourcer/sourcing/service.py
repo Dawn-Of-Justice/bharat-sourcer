@@ -29,6 +29,54 @@ class Discoverer(Protocol):
     def discover(self, query: str) -> SearchAttribution: ...
 
 
+# Grounding chunk titles are source domains. Ranking only reorders grounded URLs; it
+# never adds a URL or treats a seller as trusted.
+INDIAN_SELLERS = {
+    "robu.in",
+    "robocraze.com",
+    "quartzcomponents.com",
+    "evelta.com",
+    "electronicscomp.com",
+    "flyrobo.in",
+    "rytronics.in",
+    "compoindia.com",
+    "sharvielectronics.com",
+    "probots.co.in",
+    "thingbits.in",
+    "hubtronics.in",
+    "sunrobotics.in",
+    "zbotic.in",
+    "campuscomponent.com",
+    "roboelements.com",
+    "ktron.in",
+    "amazon.in",
+    "flipkart.com",
+    "in.element14.com",
+}
+# Datasheet hosts and global distributors that block automated reads or price in USD.
+LOW_PRIORITY = {
+    "alldatasheet.com",
+    "datasheet4u.com",
+    "datasheetspdf.com",
+    "datasheetarchive.com",
+    "mouser.com",
+    "digikey.com",
+    "tti.com",
+    "arrow.com",
+    "octopart.com",
+    "findchips.com",
+}
+
+
+def source_rank(web: dict) -> int:
+    domain = str(web.get("title") or "").strip().lower().removeprefix("www.")
+    if domain in INDIAN_SELLERS or domain.endswith(".in"):
+        return 0
+    if domain in LOW_PRIORITY or any(domain.endswith("." + d) for d in LOW_PRIORITY):
+        return 2
+    return 1
+
+
 class GeminiDiscovery:
     def __init__(self, settings: Settings, transport: httpx.BaseTransport | None = None):
         self.settings = settings
@@ -74,15 +122,16 @@ class GeminiDiscovery:
                 raise ValueError("Incomplete discovery")
             metadata = candidate.get("groundingMetadata", {})
             # URLs come only from Google's grounding metadata, never generated prose.
-            urls = list(
-                dict.fromkeys(
-                    chunk["web"]["uri"]
-                    for chunk in metadata.get("groundingChunks", [])
-                    if isinstance(chunk, dict)
-                    and isinstance(chunk.get("web"), dict)
-                    and isinstance(chunk["web"].get("uri"), str)
-                )
-            )
+            webs = [
+                chunk["web"]
+                for chunk in metadata.get("groundingChunks", [])
+                if isinstance(chunk, dict)
+                and isinstance(chunk.get("web"), dict)
+                and isinstance(chunk["web"].get("uri"), str)
+            ]
+            # Only a few pages are fetched; give Indian retail pages those slots first.
+            ranked = sorted(enumerate(webs), key=lambda pair: (source_rank(pair[1]), pair[0]))
+            urls = list(dict.fromkeys(web["uri"] for _, web in ranked))
             # Discovery consumes grounding metadata only. Truncated generated prose does
             # not invalidate complete source URLs; fetched evidence is verified separately.
             if finish_reason == "MAX_TOKENS":
