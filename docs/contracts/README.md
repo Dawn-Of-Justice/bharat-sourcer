@@ -1,7 +1,9 @@
-# Implemented API contract — v0.17.4
+# Implemented API contract — v0.17.5
 
 This directory is the handoff between backend and frontend. The architecture docs describe
 the target system; this contract describes the runnable local milestone.
+
+v0.17.5 uses category illustrations for plural part names; no schema changes.
 
 v0.17.4 adds [part image fallbacks](frontend-image-handoff.md#implemented-in-v0174):
 `report.lines[].image_candidates` and `GET`/`POST /v1/jobs/{job_id}/parts/{line_id}/image`.

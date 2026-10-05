@@ -4,6 +4,9 @@ The integration deployment was observed on 5 October 2026 with Firebase account 
 guest authentication enabled. The frontend origin is included in CORS. The
 `BS_AUTH_ENABLED=false` setting shown below remains the default for a fresh local setup.
 
+v0.17.5 matches plural part names ("Resistors", "Jumper wires") to category
+illustrations. Merges to `main` now deploy to Cloud Run automatically.
+
 v0.17.4 adds part image fallbacks: matching page product photos, labelled SVG category
 illustrations and opt-in AI illustrations with separate daily quotas. Image requests do not
 consume the project action quota. See the [image handoff](../docs/contracts/frontend-image-handoff.md).
