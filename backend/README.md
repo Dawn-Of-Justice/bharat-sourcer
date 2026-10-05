@@ -105,7 +105,8 @@ deliberately when upgrading dependencies, then rerun checks and regenerate OpenA
 ## Implemented workflow
 
 1. `POST /v1/jobs` accepts an HTTP(S) project URL and returns a job ID and secret job token.
-2. A background task loads a fixed BOM in demo mode, or extracts a public YouTube video in live mode.
+2. A background task loads a fixed BOM in demo mode, or in live mode extracts a public YouTube
+   video or a supported project page (Instructables, Hackster, GitHub repository README).
 3. `POST /v1/jobs/{id}/confirm` applies all edits atomically.
 4. In live mode, grounded search discovers seller pages and the verifier reads product offers.
 5. `GET /v1/jobs/{id}` returns state, errors, events and the incremental report.
@@ -129,9 +130,10 @@ BS_EXTRACTION_TIMEOUT_S=120
 ```
 
 Keep the real key in the ignored `.env` file. Restart the server, then submit a public
-YouTube `watch`, `youtu.be`, `shorts`, or `embed` URL. Other sources return HTTP 400 in
-live mode. The backend sends a canonical YouTube URL to Gemini; it does not fetch arbitrary
-URLs or download video locally. Live requests can incur Gemini usage charges.
+YouTube `watch`, `youtu.be`, `shorts`, or `embed` URL, or a supported project page (see
+[Project page extraction](#project-page-extraction)). Other sources return HTTP 400
+`UNSUPPORTED_URL` in live mode. The backend sends a canonical YouTube URL to Gemini; it does
+not download video locally or fetch arbitrary URLs. Live requests can incur Gemini usage charges.
 
 The adapter uses `generateContent`, structured JSON output, and local Pydantic validation.
 The default model appears in Google's [model catalog](https://ai.google.dev/gemini-api/docs/models).
@@ -151,6 +153,40 @@ are bounded transient retries as described below, with no demo fallbacks. HTTP r
 is configurable; output is limited to 8,192 tokens and validated to at most 100 parts.
 Compatibility is limited to declared-spec comparisons described below. Parts costing is available
 after offer selection; shipping, tax and the final payable total remain unknown.
+
+## Project page extraction
+
+Live mode also accepts these project URLs (HTTP or HTTPS; query and fragment are dropped):
+
+| Source | Accepted URL | Document fetched |
+| --- | --- | --- |
+| Instructables | `instructables.com/<path>` (non-root) | `https://www.instructables.com/<path>/` |
+| Hackster | `hackster.io/<user>/<project>` | `https://www.hackster.io/<user>/<project>` |
+| GitHub | `github.com/<owner>/<repo>` (optional `.git`) | first of `README.md`, `readme.md`, `README.rst`, `README` at `https://raw.githubusercontent.com/<owner>/<repo>/HEAD/` |
+
+Other hosts, GitHub file/tree/gist URLs, Hackster section pages and reserved GitHub paths
+return HTTP 400 `UNSUPPORTED_URL`. Demo mode is unchanged: every URL gets the fixture and
+nothing is fetched.
+
+Pages are fetched only through the guarded `SafeFetcher` (HTTPS, public-address pinning,
+robots.txt, 3 MB response limit, bounded redirects). A redirect must stay on the
+source's host. HTML is reduced to visible text with scripts, styles, navigation, footers and
+forms removed; plain-text/Markdown READMEs are used as text. The text is bounded by
+`BS_PROJECT_PAGE_CHARS` (default 60,000 characters) and sent to Gemini as JSON data with a
+prompt that treats it as untrusted. The model returns, per part, evidence entries with a
+verbatim `quote` and an `observation`. The server keeps evidence only when the
+whitespace-normalised quote appears (case-sensitively) in the exact text sent to the model.
+Parts left with no verified quote are dropped and lines are renumbered; if none remain the
+job fails with `NO_BOM`. Fetch problems fail with `SOURCE_UNAVAILABLE` before any Gemini call
+(robots refusal, non-200 status, missing README, off-host redirect, no readable text).
+
+Page evidence has `source: "project_page"`, `quote`, `url` (the fetched document, e.g. the
+raw README) and `timestamp: null`. Video evidence now also reports `source: "video"` with
+`quote` and `url` null. Snapshots saved before this change have no `source` and still
+validate as video evidence. A verified quote shows that the page mentions the text; the
+part identity, quantity and suitability still need human review. A job uses one source;
+video and page evidence are not merged and conflicts between them are not detected yet.
+Code files other than the README are not read.
 
 Automated tests use a mocked HTTP transport. A credentialed smoke test on 2 Oct 2026
 successfully extracted four parts from YouTube Short `qSRrq_VZ4Fw` and reached
@@ -508,6 +544,7 @@ backend/
     storage.py      memory and transactional Firestore stores
     extraction.py   Gemini adapter, YouTube normalization, structured extraction
     evaluation.py   labelled-case schema, deterministic BOM matching and metrics
+    project_pages.py  supported project URLs, readable page text, quote checks
     compat.py       declared-spec resolution, clarification and deterministic comparison
     sourcing/       grounded discovery, safe page fetching and JSON-LD verification
     main.py         API routes, errors, CORS
@@ -540,7 +577,7 @@ See the [agreed feature roadmap](../docs/contracts/backend-roadmap.md) for prior
 the [Cloud Run guide](infra/cloud-run.md) for the shared frontend integration environment.
 
 - Build a real labelled BOM evaluation set and run the extraction evaluation harness on it.
-- Add project page/code extraction and evidence fusion.
+- Fuse video and project-page evidence in one job and report conflicts; read code beyond READMEs.
 - Add durable queue dispatch and broaden seller format support.
 - Add seller trust checks, broader compatibility rules with module data, and shipping/tax costing.
 - Extend the shared contract with the frontend teammate as those features become available.

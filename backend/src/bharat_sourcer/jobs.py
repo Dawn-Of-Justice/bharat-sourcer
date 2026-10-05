@@ -10,7 +10,7 @@ from uuid import UUID, uuid4
 from bharat_sourcer.actions import complete_refresh
 from bharat_sourcer.compat import assess, resolve_part
 from bharat_sourcer.costing import update_costs
-from bharat_sourcer.extraction import ExtractionError, Extractor, youtube_url
+from bharat_sourcer.extraction import ExtractionError, Extractor, supported_source
 from bharat_sourcer.identity import Principal
 from bharat_sourcer.schemas import (
     AddLine,
@@ -74,9 +74,10 @@ class JobService:
     def create(
         self, request: CreateJob, principal: Principal | None = None, part_limit: int | None = None
     ) -> tuple[Job, str]:
+        kind = "demo"
         if self.extractor:
             try:
-                youtube_url(str(request.url))
+                kind, _ = supported_source(str(request.url))
             except ExtractionError as exc:
                 raise JobError(400, exc.code, exc.message) from exc
         job = Job(
@@ -87,7 +88,11 @@ class JobService:
             sourcing_enabled=self.sourcing is not None and self.extractor is not None,
         )
         token = secrets.token_urlsafe(32)
-        message = "Demo job queued." if job.demo else "Video queued."
+        message = {
+            "demo": "Demo job queued.",
+            "video": "Video queued.",
+            "project_page": "Project page queued.",
+        }[kind]
         self._transition(job, "queued", message)
         self.store.create(
             StoredJob(
