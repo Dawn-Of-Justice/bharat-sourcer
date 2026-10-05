@@ -1,7 +1,9 @@
-# Implemented API contract — v0.17.5
+# Implemented API contract — v0.17.6
 
 This directory is the handoff between backend and frontend. The architecture docs describe
 the target system; this contract describes the runnable local milestone.
+
+v0.17.6 hardens the internal queue sweep; no public schema changes.
 
 v0.17.5 uses category illustrations for plural part names; no schema changes.
 

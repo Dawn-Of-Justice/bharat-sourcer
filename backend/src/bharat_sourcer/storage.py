@@ -37,7 +37,7 @@ class JobStore(Protocol):
     def create(self, record: StoredJob) -> None: ...
     def get(self, job_id: str) -> StoredJob | None: ...
     def mutate(self, job_id: str, change: Callable[[StoredJob], None]) -> StoredJob | None: ...
-    def pending(self) -> list[str]: ...
+    def pending(self, limit: int | None = None) -> list[str]: ...
     def owned(self, owner: str, after: str, limit: int) -> list[StoredJob]: ...
     def consume(self, limits: dict[str, int]) -> bool: ...
     def usage_counts(self, keys: list[str]) -> dict[str, int]: ...
@@ -87,14 +87,14 @@ class MemoryJobStore:
                 self._records[job_id] = record.model_copy(deep=True)
             return record
 
-    def pending(self) -> list[str]:
+    def pending(self, limit: int | None = None) -> list[str]:
         with self._lock:
             return [
                 key
                 for key, record in self._records.items()
                 if record.job.status in {"queued", "extracting", "resolving", "sourcing"}
                 or record.job.chat_state in {"queued", "thinking"}
-            ]
+            ][:limit]
 
 
 class FirestoreJobStore:
@@ -172,21 +172,13 @@ class FirestoreJobStore:
 
         return apply(self.client.transaction())
 
-    def pending(self) -> list[str]:
+    def pending(self, limit: int | None = None) -> list[str]:
         from google.cloud.firestore_v1.base_query import FieldFilter
 
-        workflow_ids = [
-            snapshot.id
-            for snapshot in self.collection.where(
-                filter=FieldFilter(
-                    "job.status", "in", ["queued", "extracting", "resolving", "sourcing"]
-                )
-            ).stream()
-        ]
-        chat_ids = [
-            snapshot.id
-            for snapshot in self.collection.where(
-                filter=FieldFilter("job.chat_state", "in", ["queued", "thinking"])
-            ).stream()
-        ]
-        return list(dict.fromkeys(workflow_ids + chat_ids))
+        def ids(field, values):
+            query = self.collection.where(filter=FieldFilter(field, "in", values))
+            return [snapshot.id for snapshot in (query.limit(limit) if limit else query).stream()]
+
+        workflow_ids = ids("job.status", ["queued", "extracting", "resolving", "sourcing"])
+        chat_ids = ids("job.chat_state", ["queued", "thinking"])
+        return list(dict.fromkeys(workflow_ids + chat_ids))[:limit]

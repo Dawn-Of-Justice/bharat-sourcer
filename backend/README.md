@@ -4,6 +4,9 @@ The integration deployment was observed on 5 October 2026 with Firebase account 
 guest authentication enabled. The frontend origin is included in CORS. The
 `BS_AUTH_ENABLED=false` setting shown below remains the default for a fresh local setup.
 
+v0.17.6 bounds the scheduled queue sweep, isolates per-job enqueue failures and logs
+`QUEUE_AGE_EXCEEDED` for stuck work. See [durable dispatch](../docs/contracts/queued-dispatch.md).
+
 v0.17.5 matches plural part names ("Resistors", "Jumper wires") to category
 illustrations. Merges to `main` now deploy to Cloud Run automatically.
 
