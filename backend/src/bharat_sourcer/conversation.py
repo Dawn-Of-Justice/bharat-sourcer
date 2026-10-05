@@ -29,6 +29,7 @@ from bharat_sourcer.schemas import (
     SpecProposal,
     now,
 )
+from bharat_sourcer.usage import record_usage
 
 
 def fingerprint(job: Job) -> str:
@@ -99,7 +100,9 @@ class GeminiAssistant:
                 },
             )
         response.raise_for_status()
-        candidate = response.json()["candidates"][0]
+        data = response.json()
+        record_usage("chat_scope", self.settings.gemini_model, data)
+        candidate = data["candidates"][0]
         if candidate.get("finishReason") != "STOP":
             raise ValueError("Incomplete scope check")
         text = "".join(
@@ -204,7 +207,9 @@ class GeminiAssistant:
                 },
             )
         response.raise_for_status()
-        candidate = response.json()["candidates"][0]
+        data = response.json()
+        record_usage("chat_reply", self.settings.gemini_model, data)
+        candidate = data["candidates"][0]
         if candidate.get("finishReason") != "STOP":
             raise ValueError("Incomplete reply")
         return ChatReply.model_validate_json(

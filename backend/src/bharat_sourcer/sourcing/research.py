@@ -28,6 +28,7 @@ from bharat_sourcer.schemas import (
 )
 from bharat_sourcer.sourcing.fetch import Page
 from bharat_sourcer.sourcing.listings import ProductScripts
+from bharat_sourcer.usage import record_usage
 
 
 def clean(text: str) -> str:
@@ -332,7 +333,9 @@ class GeminiResearch:
                     json=payload,
                 )
             response.raise_for_status()
-            candidate = response.json()["candidates"][0]
+            data = response.json()
+            record_usage("research", self.settings.gemini_model, data)
+            candidate = data["candidates"][0]
             if candidate.get("finishReason") != "STOP":
                 raise ValueError("Incomplete research")
             draft = ResearchDraft.model_validate_json(

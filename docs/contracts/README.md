@@ -1,7 +1,9 @@
-# Implemented API contract — v0.19.1
+# Implemented API contract — v0.19.2
 
 This directory is the handoff between backend and frontend. The architecture docs describe
 the target system; this contract describes the runnable local milestone.
+
+v0.19.2 adds internal Gemini usage logging only; no API changes.
 
 v0.19.1 makes inferred requirements measurable specs; no schema changes.
 

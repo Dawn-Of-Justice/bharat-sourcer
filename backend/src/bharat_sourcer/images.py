@@ -17,6 +17,7 @@ from PIL import Image
 
 from bharat_sourcer.jobs import JobError
 from bharat_sourcer.schemas import PartImage, PartImages
+from bharat_sourcer.usage import record_usage
 
 GENERATION_PROMPT = (
     "Create a simple square catalog illustration on a light background of the component "
@@ -146,7 +147,9 @@ class PartImageService:
                 },
             )
             response.raise_for_status()
-        candidate = response.json()["candidates"][0]
+        data = response.json()
+        record_usage("image", self.settings.image_model, data)
+        candidate = data["candidates"][0]
         if candidate.get("finishReason") != "STOP":
             raise ValueError("Image generation did not complete")
         for part in candidate.get("content", {}).get("parts", []):

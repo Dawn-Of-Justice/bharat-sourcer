@@ -28,6 +28,7 @@ from bharat_sourcer.schemas import (
     Quantity,
 )
 from bharat_sourcer.sourcing.fetch import FetchError, Page, SafeFetcher
+from bharat_sourcer.usage import record_usage
 
 
 class ExtractionError(Exception):
@@ -349,6 +350,7 @@ class GeminiExtractor:
             if response.is_error:
                 raise ExtractionError("UPSTREAM_ERROR", f"Gemini could not process this {noun}")
             data = response.json()
+            record_usage(f"extraction_{noun.replace(' ', '_')}", self.settings.gemini_model, data)
             candidate = data["candidates"][0]
             if candidate.get("finishReason") != "STOP":
                 raise ValueError("Incomplete or blocked output")
