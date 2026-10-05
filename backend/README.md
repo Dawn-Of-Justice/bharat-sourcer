@@ -176,6 +176,53 @@ Auth/App Check are ready for public deployment. Firestore cloud access was verif
 Default Credentials; see the setup guide.
 Live mode fails startup if `BS_GEMINI_API_KEY` is missing or empty.
 
+## Extraction quality evaluation
+
+`bharat_sourcer/evaluation.py` and `scripts/evaluate_extraction.py` score extracted BOMs
+against human-labelled cases. **No real labelled set exists yet**, so no extraction accuracy
+figure has been measured. The bundled `evaluation/example_cases.json` and
+`evaluation/example_predictions/` are invented, marked `"synthetic": true`, and only
+demonstrate the file format.
+
+A case set is JSON with a required `synthetic` flag, a `description`, optional
+`labelled_by`/`labelled_on`, and `cases`. Each case has an `id`, a supported YouTube `url`
+and `parts`. Each part has a canonical `name`, optional `aliases`, a `qty` (`null` when the
+labeller could not establish it) and optional `evidence_windows` (`MM:SS` start/end).
+Predictions are one `<case_id>.json` per case: `case_id`, `items` (saved `BomItem`s),
+and optional `source`, `extraction_model`, `error_code` and `synthetic`.
+
+Matching is deterministic, with no model involved. Names are NFKC/case-folded and split
+into alphanumeric tokens; simple trailing plurals are trimmed. A part matches exactly when
+tokens (or their joined form, so `ESP-32` = `ESP32`) equal its name or an alias. It matches
+by containment when all of a name's tokens appear in the prediction. Pairs are assigned one
+to one: exact first, then more specific names, then label and prediction order.
+`--exact-names` disables containment. Reported metrics, per case and micro-averaged:
+
+- recall (omissions) and precision (extras; repeated mentions of a matched part are
+  reported as duplicates and count as extras);
+- quantity agreement on matched parts whose label has a quantity, counting `null`
+  predictions as wrong and reporting them separately;
+- evidence hit rate: a matched part with labelled windows hits when any evidence
+  timestamp falls inside any window (`--evidence-tolerance-s` widens windows).
+
+`NO_BOM` errors score as an empty extraction. Other extraction errors are listed and
+excluded from the aggregate. Synthetic sets produce a "FORMAT CHECK ONLY" headline,
+`format-check.md/json` output and no accuracy label. Synthetic predictions cannot be scored
+against a real set.
+
+```powershell
+# Offline (default, no network): score saved predictions
+.venv/Scripts/python scripts/evaluate_extraction.py --cases evaluation/example_cases.json --predictions evaluation/example_predictions
+# Live: one billable Gemini extraction per case; refused for synthetic sets
+.venv/Scripts/python scripts/evaluate_extraction.py --cases path/to/labelled.json --live
+```
+
+Reports and live predictions are written to ignored `.data/evaluation/` and printed.
+Rerun live predictions offline by passing `--predictions .data/evaluation/predictions`.
+Limitations: name matching can't detect a wrong part with a matching name or a correct part
+described in different words, so review omissions and extras by hand. A part that is
+split across several predicted lines matches only one line. Small sets give noisy rates.
+
 ## Seller sourcing
 
 New live jobs source confirmed parts by default. Set `BS_SOURCING_ENABLED=false` to keep
@@ -460,10 +507,12 @@ backend/
     jobs.py         job state, atomic edits, fixture workflow
     storage.py      memory and transactional Firestore stores
     extraction.py   Gemini adapter, YouTube normalization, structured extraction
+    evaluation.py   labelled-case schema, deterministic BOM matching and metrics
     compat.py       declared-spec resolution, clarification and deterministic comparison
     sourcing/       grounded discovery, safe page fetching and JSON-LD verification
     main.py         API routes, errors, CORS
-  scripts/          OpenAPI export/check
+  scripts/          OpenAPI export/check, live checks, extraction evaluation
+  evaluation/       synthetic evaluation format example (not accuracy data)
   tests/            API and job concurrency tests
   pyproject.toml    backend dependencies and tooling
 ```
@@ -490,7 +539,7 @@ After changing public routes or schemas, regenerate and commit the shared contra
 See the [agreed feature roadmap](../docs/contracts/backend-roadmap.md) for priorities and
 the [Cloud Run guide](infra/cloud-run.md) for the shared frontend integration environment.
 
-- Validate extraction against real videos and a labelled BOM evaluation set.
+- Build a real labelled BOM evaluation set and run the extraction evaluation harness on it.
 - Add project page/code extraction and evidence fusion.
 - Add durable queue dispatch and broaden seller format support.
 - Add seller trust checks, broader compatibility rules with module data, and shipping/tax costing.

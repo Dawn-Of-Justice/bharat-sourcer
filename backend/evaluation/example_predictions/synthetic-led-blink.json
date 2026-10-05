@@ -1,0 +1,33 @@
+{
+  "case_id": "synthetic-led-blink",
+  "synthetic": true,
+  "source": "saved",
+  "extraction_model": null,
+  "error_code": null,
+  "items": [
+    {
+      "line_id": "L01",
+      "raw_name": "Arduino Nano board",
+      "qty": 1,
+      "evidence": [{"timestamp": "00:12", "observation": "Synthetic example observation"}]
+    },
+    {
+      "line_id": "L02",
+      "raw_name": "Red LEDs",
+      "qty": 2,
+      "evidence": [{"timestamp": "00:50", "observation": "Synthetic example observation"}]
+    },
+    {
+      "line_id": "L03",
+      "raw_name": "220R resistor",
+      "qty": 3,
+      "evidence": [{"timestamp": "01:05", "observation": "Synthetic example observation"}]
+    },
+    {
+      "line_id": "L04",
+      "raw_name": "Jumper wires",
+      "qty": null,
+      "evidence": [{"timestamp": "01:10", "observation": "Synthetic example observation"}]
+    }
+  ]
+}

@@ -43,7 +43,7 @@ and fixes readable-document budget handling. The live API version and health are
 | 6 | Permanent rule repair workflow | Capture bounded failure cases; generate candidate patch in isolation; regression/property tests; versioned release and rollback. Current runtime only quarantines and falls back; no automatic patch authoring/deployment |
 | 7 | Queue operations hardening | Durable dispatch, per-user quotas (v0.17), bounded sweep, per-job failure isolation and queue-age log signals (v0.17.6) implemented. Remaining: provision a log-based alert policy and raise max instances when load requires |
 | 8 | Public launch controls | v0.17.2 deploys opt-in account/guest authorization, transactional quotas and revoked/disabled-account checks; Google provider is enabled. Frontend integration, real-login staging tests and auth activation remain, alongside retention, operational alerts and access review. See [authentication rollout](authentication.md) |
-| 9 | Extraction quality evaluation | Labelled real-video BOM set; measure omissions, quantities and evidence accuracy; avoid fixture-based accuracy claims |
+| 9 | Extraction quality evaluation | Offline harness implemented (`scripts/evaluate_extraction.py`): deterministic name/alias matching; recall, precision, quantity agreement and evidence-window hit rate; synthetic sets report only a format check. A real labelled-video BOM set is still needed before any accuracy figure can be stated |
 | 10 | Project page/code evidence | Extract supported project pages and code; show provenance/conflicts alongside video evidence |
 | 11 | Richer sourcing decisions | Seller trust checks, module-backed compatibility rules, delivery/tax/shipping inputs and final cost calculations |
 

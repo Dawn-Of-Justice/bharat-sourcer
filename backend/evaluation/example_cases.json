@@ -1,0 +1,39 @@
+{
+  "synthetic": true,
+  "description": "SYNTHETIC FORMAT EXAMPLE. Invented parts for a placeholder video id; not labels of any real video and not evidence of extraction accuracy.",
+  "labelled_by": null,
+  "labelled_on": null,
+  "cases": [
+    {
+      "id": "synthetic-led-blink",
+      "url": "https://www.youtube.com/watch?v=SYNTHETIC01",
+      "notes": "Shows each field: aliases, a known and an unknown quantity, evidence windows.",
+      "parts": [
+        {
+          "name": "Arduino Nano",
+          "aliases": ["Nano board", "ATmega328P Nano"],
+          "qty": 1,
+          "evidence_windows": [{"start": "00:05", "end": "00:20"}]
+        },
+        {
+          "name": "Red LED",
+          "aliases": ["5mm red LED"],
+          "qty": 3,
+          "evidence_windows": [{"start": "00:30", "end": "00:45"}]
+        },
+        {
+          "name": "220 ohm resistor",
+          "aliases": ["220R resistor"],
+          "qty": null,
+          "evidence_windows": []
+        },
+        {
+          "name": "Breadboard",
+          "aliases": [],
+          "qty": 1,
+          "evidence_windows": [{"start": "00:02", "end": "00:10"}]
+        }
+      ]
+    }
+  ]
+}
