@@ -23,6 +23,19 @@ export interface ChatMessage {
 export interface PartRequirement { name: string; value: string; unit?: string | null; operator: 'equals' | 'at_least' | 'at_most' }
 export interface ResearchAssessment { status: 'potential_match' | 'needs_information' | 'not_suitable' | 'stale'; explanation: string; conditions: string[]; questions: string[]; checks?: { requirement: PartRequirement; status: 'meets' | 'does_not_meet' | 'unknown'; reason: string }[] }
 export interface ResearchCandidate { url: string; title: string; category: string; kind: 'seller' | 'manufacturer' | 'reference'; identity_quote: string; match: 'exact' | 'possible'; facts: { name: string; value: string; unit?: string | null; quote: string }[]; assessment: ResearchAssessment }
+export interface Evidence {
+  timestamp?: string | null
+  observation: string
+  source?: 'video' | 'project_page'
+  quote?: string | null
+  url?: string | null
+}
+
+// Video evidence cites a timestamp; project-page evidence cites a server-checked quote.
+export function evidenceText(entry: Evidence) {
+  return entry.source === 'project_page' ? `Page quote “${entry.quote}” — ${entry.observation}` : `${entry.timestamp} — ${entry.observation}`
+}
+
 export interface PartResearch { status: 'ready' | 'no_evidence' | 'failed' | 'stale'; summary: string; checked_at?: string; questions?: string[]; sources?: { url: string; status: 'read' | 'unavailable'; reason?: string | null; reviewed?: boolean }[]; candidates?: ResearchCandidate[] }
 
 export interface BomItem {
@@ -31,7 +44,7 @@ export interface BomItem {
   qty: number | null
   user_has_it: boolean
   user_edited: boolean
-  evidence: { timestamp: string; observation: string }[]
+  evidence: Evidence[]
   clarifications: { field: string; question: string }[]
   requirements?: PartRequirement[]
 }

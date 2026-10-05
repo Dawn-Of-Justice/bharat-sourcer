@@ -1,7 +1,12 @@
-# Implemented API contract — v0.17.11
+# Implemented API contract — v0.18.0
 
 This directory is the handoff between backend and frontend. The architecture docs describe
 the target system; this contract describes the runnable local milestone.
+
+v0.18.0 accepts Instructables, Hackster and GitHub repository URLs in live mode.
+`items[].evidence[]` gains `source` (`video` default | `project_page`), optional `quote`
+and `url`; `timestamp` is now null for page evidence. New failure code
+`SOURCE_UNAVAILABLE`. Older snapshots stay valid.
 
 v0.17.11 adds optional `job.actions`, `messages[].refresh_results`,
 `messages[].completes_message_id` and `refresh_proposal.result_message_id`; see

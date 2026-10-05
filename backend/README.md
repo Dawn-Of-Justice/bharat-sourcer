@@ -4,6 +4,13 @@ The integration deployment was observed on 5 October 2026 with Firebase account 
 guest authentication enabled. The frontend origin is included in CORS. The
 `BS_AUTH_ENABLED=false` setting shown below remains the default for a fresh local setup.
 
+v0.18.0 accepts public Instructables, Hackster and GitHub repository URLs in live mode and
+extracts a BOM from the page text (README for GitHub). Page evidence carries a quote the
+server found verbatim in the fetched page, plus its URL. It also adds an offline extraction
+evaluation harness (`scripts/evaluate_extraction.py`); no real labelled set exists yet,
+so no accuracy figure is claimed. The frontend landing page still gates non-YouTube links
+until a live page smoke test passes.
+
 v0.17.11 posts a deterministic chat summary when a chat-approved refresh finishes and keeps
 a bounded `job.actions` history of proposal decisions. See [chat actions](../docs/contracts/chat-actions.md).
 
