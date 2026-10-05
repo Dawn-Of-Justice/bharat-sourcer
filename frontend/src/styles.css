@@ -234,6 +234,31 @@ svg { display: block; }
 .part-status { flex-shrink: 0; padding: 5px 8px; border-radius: 7px; background: #edf0e9; color: #65796d; font-size: 11px; }
 .offers_found .part-status, .already_owned .part-status { background: #def1e3; color: #286d51; }
 .failed .part-status, .no_verified_offers .part-status { background: #fff0df; color: #916034; }
+
+.requirements-editor { margin-top: 15px; padding: 15px; border: 1px solid #dce9df; border-radius: 10px; background: #f4f9f3; }
+.requirements-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; }
+.requirements-heading strong { color: #254c43; font-size: 13px; }
+.requirements-heading strong span { color: #789087; font-weight: 600; }
+.requirements-heading p { max-width: 480px; margin: 5px 0 0; color: #657a70; font-size: 11px; line-height: 1.55; }
+.add-requirement { display: inline-flex; align-items: center; justify-content: center; gap: 9px; flex-shrink: 0; min-height: 40px; padding: 5px 16px 5px 6px; border: 1px solid #1c6962; border-radius: 999px; background: #19766d; color: #fff; box-shadow: 0 4px 0 #0e554e; font-size: 12px; font-weight: 850; white-space: nowrap; transition: background .2s, transform .2s, box-shadow .2s; }
+.add-requirement-icon { display: grid; place-items: center; width: 27px; height: 27px; border-radius: 50%; background: #f0aa51; color: #143039; font-size: 20px; line-height: 1; font-weight: 700; }
+.add-requirement:hover:not(:disabled) { background: #0c6159; transform: translateY(-2px); box-shadow: 0 6px 0 #0e554e; }
+.add-requirement:active:not(:disabled) { transform: translateY(2px); box-shadow: 0 2px 0 #0e554e; }
+.requirement-row { display: grid; grid-template-columns: minmax(110px, 1.3fr) minmax(95px, .8fr) minmax(75px, .7fr) minmax(65px, .55fr) auto; align-items: end; gap: 9px; margin-top: 13px; padding-top: 13px; border-top: 1px solid #dce9df; }
+.requirement-row label { min-width: 0; color: #516b65; font-size: 11px; font-weight: 800; }
+.requirement-row input, .requirement-row select { display: block; width: 100%; height: 38px; margin-top: 6px; padding: 0 9px; border: 1px solid #cfdfd3; border-radius: 7px; background: #fff; color: #23463f; font: inherit; font-size: 12px; }
+.requirement-row input:focus, .requirement-row select:focus { outline: 2px solid #85beab; outline-offset: 1px; }
+.remove-requirement { min-height: 38px; padding: 0 8px; border: 0; background: transparent; color: #9a4b3d; font-size: 11px; font-weight: 750; cursor: pointer; }
+.add-requirement:disabled, .remove-requirement:disabled { opacity: .5; cursor: not-allowed; }
+.requirements-limit { display: block; margin-top: 9px; color: #657a70; }
+.requirements-after { margin-top: 15px; border-top: 1px solid #dce9df; padding-top: 12px; }
+.requirements-after > summary { width: fit-content; color: #176e60; font-size: 12px; font-weight: 800; cursor: pointer; }
+.requirements-after form > p { color: #657a70; font-size: 11px; line-height: 1.5; }
+@media (max-width: 650px) {
+  .requirements-heading { flex-direction: column; }
+  .requirement-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .remove-requirement { justify-self: start; }
+}
 @media (max-width: 600px) {
   .product-image { width: 64px; height: 64px; flex-basis: 64px; }
   .part-progress { align-items: flex-start; flex-direction: column; gap: 9px; }
