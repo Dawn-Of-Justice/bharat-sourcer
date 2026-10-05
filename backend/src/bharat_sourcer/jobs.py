@@ -354,88 +354,90 @@ class JobService:
             job, "resolving", "Offer refresh queued for " + ", ".join(request.line_ids)
         )
 
+    def apply_spec_updates(self, job: Job, request: UpdateJobSpecs) -> None:
+        """Validate and apply spec/requirement updates to a completed live report in place."""
+        if job.status != "done" or job.report is None or job.demo:
+            raise JobError(409, "INVALID_STATE", "Update specs in a completed live report")
+        items = {item.line_id: item for item in job.items}
+        lines = {line.item.line_id: line for line in job.report.lines}
+        seen, changed = set(), []
+        for update in request.updates:
+            key = update.line_id
+            if key in seen or key not in items or key not in lines:
+                raise JobError(422, "INVALID_EDIT", "Unknown or repeated line")
+            seen.add(key)
+            item = items[key]
+            try:
+                merged = PartSpecs(
+                    **(
+                        item.specs.model_dump()
+                        | (update.specs.model_dump(exclude_unset=True) if update.specs else {})
+                    )
+                )
+                requirements = (
+                    update.requirements if update.requirements is not None else item.requirements
+                )
+                candidate = item.model_copy(
+                    update={"specs": merged, "requirements": requirements}, deep=True
+                )
+                resolution = resolve_part(candidate)
+            except ValueError as exc:
+                raise JobError(422, "INVALID_SPECS", "Conflicting part specifications") from exc
+            if merged == item.specs and requirements == item.requirements:
+                continue
+            item.specs = merged
+            item.requirements = requirements
+            item.user_edited = True
+            item.clarifications = resolution.clarifications
+            line = lines[key]
+            line.item = item.model_copy(deep=True)
+            line.resolution = resolution
+            for offer in line.offers:
+                offer.compatibility = assess(resolution.specs, offer.specs)
+                offer.compatibility.references.append(str(offer.url))
+                offer.compatibility_status = offer.compatibility.status
+            line.selected_offer_url = None
+            line.price_inr = line.grade = None
+            line.changes_accepted = False
+            line.research_accepted = False
+            changed.append(key)
+        if changed:
+            # Every LLM assessment used project context; sibling edits can invalidate it.
+            for line in job.report.lines:
+                if line.research:
+                    line.research.status = "stale"
+                    line.research.summary = "Project requirements changed; refresh to reassess."
+                    for candidate in line.research.candidates:
+                        candidate.assessment.status = "stale"
+                        candidate.assessment.explanation = (
+                            "Project context changed. Refresh for a new AI assessment."
+                        )
+                        candidate.assessment.conditions = []
+                        candidate.assessment.checks = check_requirements(
+                            line.item.requirements, candidate.facts
+                        )
+                for offer in line.offers:
+                    if offer.research_assessment:
+                        offer.research_assessment.status = "stale"
+                        offer.research_assessment.explanation = (
+                            "Project context changed. Refresh for a new AI assessment."
+                        )
+                        offer.research_assessment.conditions = []
+                        offer.research_assessment.checks = []
+                if line.research_accepted:
+                    line.selected_offer_url = None
+                    line.price_inr = line.grade = None
+                    line.research_accepted = False
+                    line.changes_accepted = False
+            update_costs(job.report)
+            self._transition(job, "done", "Updated required specs for " + ", ".join(changed))
+
     def update_specs(self, job_id: str, token: str | None, request: UpdateJobSpecs) -> Job:
         self._validate_id(job_id)
 
         def change(record: StoredJob):
             job = self._authorized(record, token)
-            if job.status != "done" or job.report is None or job.demo:
-                raise JobError(409, "INVALID_STATE", "Update specs in a completed live report")
-            items = {item.line_id: item for item in job.items}
-            lines = {line.item.line_id: line for line in job.report.lines}
-            seen, changed = set(), []
-            for update in request.updates:
-                key = update.line_id
-                if key in seen or key not in items or key not in lines:
-                    raise JobError(422, "INVALID_EDIT", "Unknown or repeated line")
-                seen.add(key)
-                item = items[key]
-                try:
-                    merged = PartSpecs(
-                        **(
-                            item.specs.model_dump()
-                            | (update.specs.model_dump(exclude_unset=True) if update.specs else {})
-                        )
-                    )
-                    requirements = (
-                        update.requirements
-                        if update.requirements is not None
-                        else item.requirements
-                    )
-                    candidate = item.model_copy(
-                        update={"specs": merged, "requirements": requirements}, deep=True
-                    )
-                    resolution = resolve_part(candidate)
-                except ValueError as exc:
-                    raise JobError(422, "INVALID_SPECS", "Conflicting part specifications") from exc
-                if merged == item.specs and requirements == item.requirements:
-                    continue
-                item.specs = merged
-                item.requirements = requirements
-                item.user_edited = True
-                item.clarifications = resolution.clarifications
-                line = lines[key]
-                line.item = item.model_copy(deep=True)
-                line.resolution = resolution
-                for offer in line.offers:
-                    offer.compatibility = assess(resolution.specs, offer.specs)
-                    offer.compatibility.references.append(str(offer.url))
-                    offer.compatibility_status = offer.compatibility.status
-                line.selected_offer_url = None
-                line.price_inr = line.grade = None
-                line.changes_accepted = False
-                line.research_accepted = False
-                changed.append(key)
-            if changed:
-                # Every LLM assessment used project context; sibling edits can invalidate it.
-                for line in job.report.lines:
-                    if line.research:
-                        line.research.status = "stale"
-                        line.research.summary = "Project requirements changed; refresh to reassess."
-                        for candidate in line.research.candidates:
-                            candidate.assessment.status = "stale"
-                            candidate.assessment.explanation = (
-                                "Project context changed. Refresh for a new AI assessment."
-                            )
-                            candidate.assessment.conditions = []
-                            candidate.assessment.checks = check_requirements(
-                                line.item.requirements, candidate.facts
-                            )
-                    for offer in line.offers:
-                        if offer.research_assessment:
-                            offer.research_assessment.status = "stale"
-                            offer.research_assessment.explanation = (
-                                "Project context changed. Refresh for a new AI assessment."
-                            )
-                            offer.research_assessment.conditions = []
-                            offer.research_assessment.checks = []
-                    if line.research_accepted:
-                        line.selected_offer_url = None
-                        line.price_inr = line.grade = None
-                        line.research_accepted = False
-                        line.changes_accepted = False
-                update_costs(job.report)
-                self._transition(job, "done", "Updated required specs for " + ", ".join(changed))
+            self.apply_spec_updates(job, request)
 
         record = self.store.mutate(job_id, change)
         if record is None:

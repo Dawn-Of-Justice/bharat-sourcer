@@ -3,7 +3,7 @@
   "info": {
     "title": "Bharat Sourcer API",
     "description": "Demo or live YouTube extraction with optional Firestore job persistence.",
-    "version": "0.17.8"
+    "version": "0.17.9"
   },
   "paths": {
     "/v1/session/guest": {
@@ -1803,6 +1803,16 @@
             "anyOf": [
               {
                 "$ref": "#/components/schemas/RefreshProposal"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "spec_proposal": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SpecProposal"
               },
               {
                 "type": "null"
@@ -3970,6 +3980,34 @@
           "locator"
         ],
         "title": "SpecEvidence"
+      },
+      "SpecProposal": {
+        "properties": {
+          "request": {
+            "$ref": "#/components/schemas/UpdateJobSpecs"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "accepted",
+              "rejected"
+            ],
+            "title": "Status",
+            "default": "pending"
+          },
+          "base_fingerprint": {
+            "type": "string",
+            "title": "Base Fingerprint"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "request",
+          "base_fingerprint"
+        ],
+        "title": "SpecProposal"
       },
       "UpdateJobSpecs": {
         "properties": {

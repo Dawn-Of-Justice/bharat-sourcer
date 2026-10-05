@@ -4,6 +4,9 @@ The integration deployment was observed on 5 October 2026 with Firebase account 
 guest authentication enabled. The frontend origin is included in CORS. The
 `BS_AUTH_ENABLED=false` setting shown below remains the default for a fresh local setup.
 
+v0.17.9 lets chat propose spec/requirement changes for completed reports; they apply only
+after approval. See [chat actions](../docs/contracts/chat-actions.md).
+
 v0.17.8 fixes missing seller images: storefront placeholder images (such as Shopify's
 `no-image` asset, returned for every Robocraze product) are rejected, and a verified
 single-product page falls back to its `og:image`/`twitter:image` metadata (same-host
