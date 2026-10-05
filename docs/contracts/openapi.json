@@ -3,7 +3,7 @@
   "info": {
     "title": "Bharat Sourcer API",
     "description": "Demo or live YouTube extraction with optional Firestore job persistence.",
-    "version": "0.17.10"
+    "version": "0.17.11"
   },
   "paths": {
     "/v1/session/guest": {
@@ -1643,6 +1643,83 @@
   },
   "components": {
     "schemas": {
+      "ActionRecord": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "edit",
+              "refresh",
+              "spec_update"
+            ],
+            "title": "Kind"
+          },
+          "message_id": {
+            "type": "string",
+            "title": "Message Id"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "accepted",
+              "rejected",
+              "completed",
+              "failed"
+            ],
+            "title": "Status"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "line_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 100,
+            "title": "Line Ids"
+          },
+          "summary": {
+            "type": "string",
+            "maxLength": 500,
+            "title": "Summary",
+            "default": ""
+          },
+          "refresh_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Refresh Count"
+          },
+          "result_message_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Result Message Id"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "kind",
+          "message_id",
+          "status"
+        ],
+        "title": "ActionRecord",
+        "description": "One append-only history entry for a decided or finished chat action."
+      },
       "AddLine": {
         "properties": {
           "op": {
@@ -1828,6 +1905,25 @@
                 "type": "null"
               }
             ]
+          },
+          "completes_message_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completes Message Id"
+          },
+          "refresh_results": {
+            "items": {
+              "$ref": "#/components/schemas/RefreshLineResult"
+            },
+            "type": "array",
+            "maxItems": 100,
+            "title": "Refresh Results"
           }
         },
         "additionalProperties": false,
@@ -2453,6 +2549,13 @@
             },
             "type": "array",
             "title": "Resistor Advice"
+          },
+          "actions": {
+            "items": {
+              "$ref": "#/components/schemas/ActionRecord"
+            },
+            "type": "array",
+            "title": "Actions"
           }
         },
         "additionalProperties": false,
@@ -3021,6 +3124,85 @@
         ],
         "title": "ProposalDecision"
       },
+      "RefreshLineResult": {
+        "properties": {
+          "line_id": {
+            "type": "string",
+            "title": "Line Id"
+          },
+          "sourcing_status": {
+            "type": "string",
+            "enum": [
+              "not_run",
+              "already_owned",
+              "offers_found",
+              "no_verified_offers",
+              "failed"
+            ],
+            "title": "Sourcing Status"
+          },
+          "offer_count": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Offer Count",
+            "default": 0
+          },
+          "lowest_listed_price_inr": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^\\d+\\.\\d{2}$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lowest Listed Price Inr"
+          },
+          "lowest_listed_stock": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "in_stock",
+                  "out_of_stock",
+                  "preorder",
+                  "unknown"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lowest Listed Stock"
+          },
+          "price_source": {
+            "type": "string",
+            "const": "seller_published",
+            "title": "Price Source",
+            "default": "seller_published"
+          },
+          "error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Code"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "line_id",
+          "sourcing_status"
+        ],
+        "title": "RefreshLineResult",
+        "description": "Snapshot of one refreshed line when its batch ended; later refreshes do not edit it."
+      },
       "RefreshOffers": {
         "properties": {
           "line_ids": {
@@ -3069,6 +3251,17 @@
               }
             ],
             "title": "Refresh Count"
+          },
+          "result_message_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Result Message Id"
           }
         },
         "additionalProperties": false,

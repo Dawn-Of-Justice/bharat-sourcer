@@ -1,7 +1,11 @@
-# Implemented API contract — v0.17.10
+# Implemented API contract — v0.17.11
 
 This directory is the handoff between backend and frontend. The architecture docs describe
 the target system; this contract describes the runnable local milestone.
+
+v0.17.11 adds optional `job.actions`, `messages[].refresh_results`,
+`messages[].completes_message_id` and `refresh_proposal.result_message_id`; see
+[chat actions](chat-actions.md). Older snapshots stay valid.
 
 v0.17.10 prefers Indian retail pages within the existing per-part fetch limit; no schema
 changes.
