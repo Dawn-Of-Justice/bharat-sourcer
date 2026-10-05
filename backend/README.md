@@ -4,6 +4,9 @@ The integration deployment was observed on 5 October 2026 with Firebase account 
 guest authentication enabled. The frontend origin is included in CORS. The
 `BS_AUTH_ENABLED=false` setting shown below remains the default for a fresh local setup.
 
+v0.17.7 reads seller specification tables and common JSON-LD property labels, and reports
+seller-source disagreements as `spec_conflicts` instead of silently dropping them.
+
 v0.17.6 bounds the scheduled queue sweep, isolates per-job enqueue failures and logs
 `QUEUE_AGE_EXCEEDED` for stuck work. See [durable dispatch](../docs/contracts/queued-dispatch.md).
 
@@ -178,6 +181,17 @@ If the verified Product JSON-LD includes an HTTPS image URL, it is returned as o
 `image_url` for the frontend to display. The backend does not download or proxy seller
 images; missing or invalid image metadata does not affect the offer. All sellers are
 labelled `unverified`; no offer is selected automatically.
+
+Seller specifications come from three sources on the verified page, each recorded in
+`spec_evidence` with its `source`: the product title (`seller_title`), JSON-LD
+`additionalProperty` (`seller_property`) and two-cell spec table rows or `dt`/`dd` pairs
+(`seller_table`). Properties may use internal field names or a narrow set of common labels
+(for example "Operating Voltage", "Interface", "Driver IC", "Resolution", "I2C Address").
+Generic labels such as "Voltage" or "Frequency", alternatives such as "I2C / SPI",
+single supply voltages and anything inside scripts are ignored. When sources disagree,
+or an explicit property value is invalid, the field stays unknown and the offer lists a
+`spec_conflicts` entry with every candidate value and source. Tables are read from the
+whole verified page, so a related-product table can create a conflict, never a value.
 
 ## Part image fallbacks
 

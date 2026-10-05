@@ -1,7 +1,11 @@
-# Implemented API contract — v0.17.6
+# Implemented API contract — v0.17.7
 
 This directory is the handoff between backend and frontend. The architecture docs describe
 the target system; this contract describes the runnable local milestone.
+
+v0.17.7 adds optional `offers[].spec_conflicts` (field plus candidate `SpecEvidence`
+entries) and the `seller_table` evidence source. Show conflicts as "sellers disagree";
+the field remains unknown. Older snapshots stay valid.
 
 v0.17.6 hardens the internal queue sweep; no public schema changes.
 

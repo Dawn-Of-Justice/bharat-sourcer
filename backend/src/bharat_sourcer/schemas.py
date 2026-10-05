@@ -87,8 +87,15 @@ class PartSpecs(Model):
 class SpecEvidence(Model):
     field: str
     value: str
-    source: Literal["part_name", "user", "seller_title", "seller_property"]
+    source: Literal["part_name", "user", "seller_title", "seller_property", "seller_table"]
     locator: str
+
+
+class SpecConflict(Model):
+    """Seller sources disagree; the field is left unknown rather than picked."""
+
+    field: str
+    candidates: list[SpecEvidence] = Field(default_factory=list, max_length=20)
 
 
 class Clarification(Model):
@@ -369,6 +376,7 @@ class VerifiedOffer(Model):
     ] = "not_checked"
     specs: PartSpecs = Field(default_factory=PartSpecs)
     spec_evidence: list[SpecEvidence] = Field(default_factory=list)
+    spec_conflicts: list[SpecConflict] = Field(default_factory=list)
     compatibility: Compatibility | None = None
     research_assessment: ResearchAssessment | None = None
 
