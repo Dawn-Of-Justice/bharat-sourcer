@@ -1,7 +1,10 @@
-# Implemented API contract — v0.18.0
+# Implemented API contract — v0.18.1
 
 This directory is the handoff between backend and frontend. The architecture docs describe
 the target system; this contract describes the runnable local milestone.
+
+v0.18.1: Instructables extraction reads the project JSON; Hackster pages that refuse
+automated access fail with `SOURCE_UNAVAILABLE`. No schema changes.
 
 v0.18.0 accepts Instructables, Hackster and GitHub repository URLs in live mode.
 `items[].evidence[]` gains `source` (`video` default | `project_page`), optional `quote`

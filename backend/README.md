@@ -4,6 +4,14 @@ The integration deployment was observed on 5 October 2026 with Firebase account 
 guest authentication enabled. The frontend origin is included in CORS. The
 `BS_AUTH_ENABLED=false` setting shown below remains the default for a fresh local setup.
 
+v0.18.1 makes Instructables extraction work (their pages are client-rendered; the backend
+reads the project JSON the page itself loads, allowed by robots.txt), strips page
+boilerplate, and replaces Python's robots parser, which silently ignored some sites' rules
+and wildcards. Hackster blocks automated access (Cloudflare 403) and now returns a clear
+`SOURCE_UNAVAILABLE` message. Seller parsing was evaluated on 17 trimmed real Indian seller pages
+([findings](infra/seller-page-evaluation.md)); fixes cover inch notation in titles,
+label-unit supply ranges and percent-escape URL comparison.
+
 v0.18.0 accepts public Instructables, Hackster and GitHub repository URLs in live mode and
 extracts a BOM from the page text (README for GitHub). Page evidence carries a quote the
 server found verbatim in the fetched page, plus its URL. It also adds an offline extraction
