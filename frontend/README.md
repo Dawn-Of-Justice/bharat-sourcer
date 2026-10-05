@@ -61,7 +61,7 @@ API replies are labelled dummy data.
 
 ## Current behavior
 
-- The landing page offers fields for YouTube, tutorial/blog pages, GitHub repositories and audio files. YouTube submits to the live or demo API. Article and GitHub links can preview the fixed fixture only when the backend reports demo mode; the live backend does not extract them yet. Audio is a visible planned input and is not uploaded.
+- The landing page offers fields for YouTube, tutorial/blog pages, GitHub repositories and audio files. YouTube and GitHub repository links submit to the live or demo API (GitHub extraction reads the README; each part cites a checked quote). Article links can preview the fixed fixture only when the backend reports demo mode; live article extraction exists in the backend (Instructables, Hackster) but is not enabled in the UI until it passes a live check. Audio is a visible planned input and is not uploaded.
 - The job page keeps `X-Job-Token` in `sessionStorage` for legacy projects and reads `GET /v1/jobs/{id}` to reopen saved projects. It lets users correct quantities/names and mark owned or removed parts, then explicitly confirms the BOM. Live jobs receive fetch-based SSE snapshots.
 - The conversation panel renders persisted job messages beside the BOM, sends questions with client UUIDs, shows saved line evidence for citations, and lets users accept or reject proposed draft edits. Accepting does not confirm the BOM. Live updates reconnect with refreshed credentials and backoff.
 - Results show the backend's sourcing outcomes and checked seller offers. Demo data is conspicuously labelled. Seller prices are snapshots; tax, shipping and final payable total are not known.

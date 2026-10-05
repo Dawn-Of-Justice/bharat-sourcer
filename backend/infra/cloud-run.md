@@ -4,6 +4,14 @@ Project `hackathon-510415`, region `asia-south1`, service `bharat-sourcer-integr
 This is a team integration environment. Since v0.17.4, merges to `main` deploy here via
 GitHub Actions ([setup](github-actions.md)); `/openapi.json` reports the running version.
 
+## v0.18.0 deployment (5 October 2026)
+
+Backend and frontend both deployed automatically from `main` (first automated frontend
+deploy). Live project-page check: a guest job for `https://github.com/scottbez1/smartknob`
+reached `awaiting_confirmation` in 10 seconds with 21 parts, each citing a quote found in
+the fetched README. This verifies the fetch/extract/quote-check path for one repository,
+not extraction accuracy.
+
 ## v0.17.4 deployment (5 October 2026)
 
 First automated deploy: revision `bharat-sourcer-integration-00030`, image tagged with the
