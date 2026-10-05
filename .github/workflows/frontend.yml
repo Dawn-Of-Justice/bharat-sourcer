@@ -1,0 +1,79 @@
+name: Frontend
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/frontend.yml'
+  pull_request:
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/frontend.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run test:server
+      - run: npm run build
+
+  deploy:
+    needs: check
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    concurrency:
+      group: frontend-gke-deploy
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      GCP_PROJECT: hackathon-510415
+      GKE_LOCATION: asia-south1
+      GKE_CLUSTER: bharat-sourcer
+      GKE_NAMESPACE: default
+      GKE_DEPLOYMENT: bharat-sourcer-web
+      GKE_CONTAINER: web
+      IMAGE: asia-south1-docker.pkg.dev/hackathon-510415/bs/bharat-sourcer-frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: projects/689415686498/locations/global/workloadIdentityPools/bharat-github/providers/backend
+          service_account: bharat-sourcer-deploy@hackathon-510415.iam.gserviceaccount.com
+      - uses: google-github-actions/setup-gcloud@v3
+      - uses: google-github-actions/get-gke-credentials@v2
+        with:
+          cluster_name: ${{ env.GKE_CLUSTER }}
+          location: ${{ env.GKE_LOCATION }}
+          project_id: ${{ env.GCP_PROJECT }}
+      - name: Configure image registry
+        run: gcloud auth configure-docker asia-south1-docker.pkg.dev --quiet
+      - name: Build and push tested commit
+        run: |
+          docker build --tag "$IMAGE:$GITHUB_SHA" frontend
+          docker push "$IMAGE:$GITHUB_SHA"
+      - name: Rollout frontend deployment in GKE
+        run: |
+          kubectl --namespace "$GKE_NAMESPACE" set image deployment/"$GKE_DEPLOYMENT" \
+            "$GKE_CONTAINER"="$IMAGE:$GITHUB_SHA"
+          kubectl --namespace "$GKE_NAMESPACE" rollout status deployment/"$GKE_DEPLOYMENT" --timeout=300s
+      - name: Verify deployed image
+        run: |
+          deployed_image=$(kubectl --namespace "$GKE_NAMESPACE" get deployment "$GKE_DEPLOYMENT" -o "jsonpath={.spec.template.spec.containers[?(@.name=='$GKE_CONTAINER')].image}")
+          test "$deployed_image" = "$IMAGE:$GITHUB_SHA"

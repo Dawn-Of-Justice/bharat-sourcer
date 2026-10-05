@@ -41,16 +41,19 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     concurrency:
-      group: backend-cloud-run-integration
+      group: backend-gke-deploy
       cancel-in-progress: false
     permissions:
       contents: read
       id-token: write
     env:
       GCP_PROJECT: hackathon-510415
-      GCP_REGION: asia-south1
-      SERVICE: bharat-sourcer-integration
-      IMAGE: asia-south1-docker.pkg.dev/hackathon-510415/cloud-run-source-deploy/bharat-sourcer-integration
+      GKE_LOCATION: asia-south1
+      GKE_CLUSTER: bharat-sourcer
+      GKE_NAMESPACE: default
+      GKE_DEPLOYMENT: bharat-sourcer-backend
+      GKE_CONTAINER: backend
+      IMAGE: asia-south1-docker.pkg.dev/hackathon-510415/bs/bharat-sourcer-backend
     steps:
       - uses: actions/checkout@v4
       - uses: google-github-actions/auth@v3
@@ -58,31 +61,23 @@ jobs:
           workload_identity_provider: projects/689415686498/locations/global/workloadIdentityPools/bharat-github/providers/backend
           service_account: bharat-sourcer-deploy@hackathon-510415.iam.gserviceaccount.com
       - uses: google-github-actions/setup-gcloud@v3
+      - uses: google-github-actions/get-gke-credentials@v2
+        with:
+          cluster_name: ${{ env.GKE_CLUSTER }}
+          location: ${{ env.GKE_LOCATION }}
+          project_id: ${{ env.GCP_PROJECT }}
       - name: Configure image registry
         run: gcloud auth configure-docker asia-south1-docker.pkg.dev --quiet
       - name: Build and push tested commit
         run: |
           docker build --tag "$IMAGE:$GITHUB_SHA" backend
           docker push "$IMAGE:$GITHUB_SHA"
-      - name: Deploy image preserving runtime secrets and queue configuration
+      - name: Rollout backend deployment in GKE
         run: |
-          digest=$(gcloud artifacts docker images describe "$IMAGE:$GITHUB_SHA" --format='value(image_summary.digest)')
-          test -n "$digest"
-          gcloud run deploy "$SERVICE" \
-            --project="$GCP_PROJECT" --region="$GCP_REGION" \
-            --image="$IMAGE@$digest" \
-            --min=0 --min-instances=0 --max=1 --max-instances=1 \
-            --cpu-throttling --timeout=1800 --quiet
-      - name: Verify health and deployed API version
+          kubectl --namespace "$GKE_NAMESPACE" set image deployment/"$GKE_DEPLOYMENT" \
+            "$GKE_CONTAINER"="$IMAGE:$GITHUB_SHA"
+          kubectl --namespace "$GKE_NAMESPACE" rollout status deployment/"$GKE_DEPLOYMENT" --timeout=300s
+      - name: Verify deployed image
         run: |
-          base_url=$(gcloud run services describe "$SERVICE" --project="$GCP_PROJECT" --region="$GCP_REGION" --format='value(status.url)')
-          curl --fail --retry 5 --retry-all-errors --max-time 90 "$base_url/health"
-          curl --fail --retry 5 --retry-all-errors --max-time 90 "$base_url/openapi.json" -o /tmp/backend-openapi.json
-          python - <<'PY'
-          import json, tomllib
-          from pathlib import Path
-          expected = tomllib.loads(Path('backend/pyproject.toml').read_text())['project']['version']
-          actual = json.loads(Path('/tmp/backend-openapi.json').read_text())['info']['version']
-          assert actual == expected, (actual, expected)
-          print(f'Verified deployed API {actual}')
-          PY
+          deployed_image=$(kubectl --namespace "$GKE_NAMESPACE" get deployment "$GKE_DEPLOYMENT" -o "jsonpath={.spec.template.spec.containers[?(@.name=='$GKE_CONTAINER')].image}")
+          test "$deployed_image" = "$IMAGE:$GITHUB_SHA"
