@@ -3,7 +3,7 @@
   "info": {
     "title": "Bharat Sourcer API",
     "description": "Demo or live YouTube extraction with optional Firestore job persistence.",
-    "version": "0.17.3"
+    "version": "0.17.4"
   },
   "paths": {
     "/v1/session/guest": {
@@ -525,6 +525,168 @@
               }
             },
             "description": "Not Found"
+          }
+        }
+      }
+    },
+    "/v1/jobs/{job_id}/parts/{line_id}/image": {
+      "get": {
+        "tags": [
+          "images"
+        ],
+        "summary": "Get Image",
+        "operationId": "get_image_v1_jobs__job_id__parts__line_id__image_get",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Job Id"
+            }
+          },
+          {
+            "name": "line_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Line Id"
+            }
+          },
+          {
+            "name": "x-job-token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Job-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PartImages"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "images"
+        ],
+        "summary": "Fallback Image",
+        "operationId": "fallback_image_v1_jobs__job_id__parts__line_id__image_post",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Job Id"
+            }
+          },
+          {
+            "name": "line_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Line Id"
+            }
+          },
+          {
+            "name": "x-job-token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Job-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImageRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PartImages"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
           }
         }
       }
@@ -2126,6 +2288,21 @@
         "type": "object",
         "title": "Health"
       },
+      "ImageRequest": {
+        "properties": {
+          "failed_urls": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 10,
+            "title": "Failed Urls"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "ImageRequest"
+      },
       "Job": {
         "properties": {
           "job_id": {
@@ -2275,6 +2452,83 @@
           "input"
         ],
         "title": "Job"
+      },
+      "PartImage": {
+        "properties": {
+          "url": {
+            "type": "string",
+            "title": "Url"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "seller",
+              "source",
+              "category",
+              "generated",
+              "placeholder"
+            ],
+            "title": "Kind"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "source_url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2083,
+                "minLength": 1,
+                "format": "uri"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Url"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "url",
+          "kind",
+          "label"
+        ],
+        "title": "PartImage"
+      },
+      "PartImages": {
+        "properties": {
+          "candidates": {
+            "items": {
+              "$ref": "#/components/schemas/PartImage"
+            },
+            "type": "array",
+            "title": "Candidates"
+          },
+          "fallback": {
+            "$ref": "#/components/schemas/PartImage"
+          },
+          "generation_status": {
+            "type": "string",
+            "enum": [
+              "not_needed",
+              "not_requested",
+              "ready",
+              "pending",
+              "unavailable"
+            ],
+            "title": "Generation Status"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "fallback",
+          "generation_status"
+        ],
+        "title": "PartImages"
       },
       "PartRequirement": {
         "properties": {
@@ -2931,6 +3185,13 @@
             },
             "type": "array",
             "title": "Offers"
+          },
+          "image_candidates": {
+            "items": {
+              "$ref": "#/components/schemas/PartImage"
+            },
+            "type": "array",
+            "title": "Image Candidates"
           },
           "attribution": {
             "anyOf": [

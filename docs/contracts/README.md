@@ -1,7 +1,11 @@
-# Implemented API contract — v0.17.3
+# Implemented API contract — v0.17.4
 
 This directory is the handoff between backend and frontend. The architecture docs describe
 the target system; this contract describes the runnable local milestone.
+
+v0.17.4 adds [part image fallbacks](frontend-image-handoff.md#implemented-in-v0174):
+`report.lines[].image_candidates` and `GET`/`POST /v1/jobs/{job_id}/parts/{line_id}/image`.
+All fields are optional; older snapshots stay valid. AI generation is disabled by default.
 
 v0.17.3 fixes [discarded grounded sources on truncated discovery](sourcing-incident-2026-10-05.md).
 No frontend schema changes are required.

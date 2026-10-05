@@ -132,7 +132,7 @@ def create_app(
 
     app = FastAPI(
         title="Bharat Sourcer API",
-        version="0.17.3",
+        version="0.17.4",
         description="Demo or live YouTube extraction with optional Firestore job persistence.",
         lifespan=lifespan,
         responses={422: {"model": ErrorResponse}, 503: {"model": ErrorResponse}},
@@ -176,7 +176,9 @@ def create_app(
                     if len(parts) > 3:
                         await asyncio.to_thread(service.get, parts[3], principal)
                     # Users must always be able to stop work after exhausting their quota.
-                    if not request.url.path.endswith("/pause"):
+                    # Image fallbacks have separate generation quotas; broken-image retries
+                    # must not consume the project action budget.
+                    if not request.url.path.endswith(("/pause", "/image")):
                         await asyncio.to_thread(access.charge, request, principal)
             except JobError as exc:
                 return JSONResponse(
