@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "bharat-sourcer-backend"
-version = "0.19.2"
+version = "0.19.3"
 description = "Bharat Sourcer API and analysis workflow"
 requires-python = ">=3.12"
 dependencies = [

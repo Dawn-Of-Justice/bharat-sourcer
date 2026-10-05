@@ -4,6 +4,9 @@ The integration deployment was observed on 5 October 2026 with Firebase account 
 guest authentication enabled. The frontend origin is included in CORS. The
 `BS_AUTH_ENABLED=false` setting shown below remains the default for a fresh local setup.
 
+v0.19.3 counts grounding search queries in usage logs (Gemini 3 bills per query), logs the
+Gemini cost research, and defaults image generation to `gemini-3.1-flash-lite-image`.
+
 v0.19.2 logs Gemini token usage per call site (`GEMINI_USAGE` lines) and adds
 `scripts/usage_report.py`; see the [Gemini cost log](infra/gemini-cost.md).
 

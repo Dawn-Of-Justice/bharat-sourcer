@@ -50,18 +50,19 @@ for line in lines:
     totals = sites[f"{fields.get('site')} ({fields.get('model')})"]
     totals["calls"] += 1
     totals["grounded"] += bool(fields.get("grounded"))
-    for key in ("prompt", "output", "thoughts", "cached", "tool_prompt"):
+    for key in ("prompt", "output", "thoughts", "cached", "tool_prompt", "search_queries"):
         totals[key] += int(fields.get(key) or 0)
 
 print(
     f"{'site':40} {'calls':>6} {'grounded':>8} {'avg in':>9} {'avg out':>8} "
-    f"{'avg think':>9} {'cached%':>7}"
+    f"{'avg think':>9} {'cached%':>7} {'queries':>7}"
 )
 for site, t in sorted(sites.items(), key=lambda item: -item[1]["prompt"]):
     calls = t["calls"] or 1
     cached = 100 * t["cached"] / t["prompt"] if t["prompt"] else 0
     print(
         f"{site:40} {t['calls']:>6} {t['grounded']:>8} {t['prompt'] // calls:>9} "
-        f"{t['output'] // calls:>8} {t['thoughts'] // calls:>9} {cached:>6.0f}%"
+        f"{t['output'] // calls:>8} {t['thoughts'] // calls:>9} {cached:>6.0f}% "
+        f"{t['search_queries']:>7}"
     )
 print("Token counts only; multiply by current per-token and per-grounded-request prices.")

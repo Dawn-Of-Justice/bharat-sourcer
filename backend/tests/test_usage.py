@@ -18,7 +18,14 @@ def test_usage_line_has_tokens_grounding_and_modalities(capsys):
                 "totalTokenCount": 1550,
                 "promptTokensDetails": [{"modality": "VIDEO", "tokenCount": 900}],
             },
-            "candidates": [{"groundingMetadata": {"groundingChunks": [{"web": {}}]}}],
+            "candidates": [
+                {
+                    "groundingMetadata": {
+                        "groundingChunks": [{"web": {}}],
+                        "webSearchQueries": ["ttp223 buy india", "ttp223 robu"],
+                    }
+                }
+            ],
         },
     )
     line = capsys.readouterr().out.strip()

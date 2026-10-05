@@ -34,10 +34,10 @@ def record_usage(site: str, model: str, data: object) -> None:
     try:
         meta = data.get("usageMetadata") or {} if isinstance(data, dict) else {}
         candidates = data.get("candidates") or [] if isinstance(data, dict) else []
-        grounded = any(
-            isinstance(c, dict) and (c.get("groundingMetadata") or {}).get("groundingChunks")
-            for c in candidates
-        )
+        grounding = [c.get("groundingMetadata") or {} for c in candidates if isinstance(c, dict)]
+        grounded = any(g.get("groundingChunks") for g in grounding)
+        # Gemini 3 bills grounding per executed search query, so count them.
+        queries = sum(len(g.get("webSearchQueries") or []) for g in grounding)
         fields = {
             "site": site,
             "model": model,
@@ -48,6 +48,7 @@ def record_usage(site: str, model: str, data: object) -> None:
             "tool_prompt": meta.get("toolUsePromptTokenCount", 0),
             "total": meta.get("totalTokenCount", 0),
             "grounded": grounded,
+            "search_queries": queries,
             "by_modality": {
                 d.get("modality", "?"): d.get("tokenCount", 0)
                 for d in meta.get("promptTokensDetails") or []
