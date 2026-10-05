@@ -1,11 +1,26 @@
 import { ApiError } from './api'
-import type { Job, JobStatus, BomItem } from './api'
+import type { ChatMessage, Job, JobStatus, BomItem } from './api'
 
 const items: BomItem[] = ['Sample controller board', 'Sample sensor module', 'Jumper wires'].map((raw_name, index) => ({ line_id: 'L0' + (index + 1), raw_name, qty: index === 2 ? 10 : 1, user_has_it: false, user_edited: false, evidence: [], clarifications: [] }))
 const phase = new URLSearchParams(window.location.search).get('stage')
 const status: JobStatus = phase === 'done' ? 'done' : phase === 'sourcing' ? 'sourcing' : 'awaiting_confirmation'
 const lines = items.map(item => ({ item, sourcing_status: 'offers_found' as const, sourcing_error: null, subtotal_inr: '199', offers: [{ url: '#demo-seller', seller: 'Sample seller (dummy)', title: item.raw_name, price_inr: '199', stock: 'sample_stock', checked_at: new Date().toISOString(), image_url: '/preview-part.svg', compatibility: null }] }))
-let job: Job = { job_id: 'ui-preview', status, updated_at: new Date().toISOString(), demo: true, input: { url: 'https://example.com/dummy-video' }, items, events: [], report: status === 'awaiting_confirmation' ? null : { summary: 'Dummy preview', lines: status === 'done' ? lines : [lines[2]], selected_parts_subtotal_inr: '0', parts_subtotal_inr: null, unselected_line_ids: [] }, error: null, messages: [], chat_state: 'idle', chat_error: null }
+let job: Job = { job_id: 'ui-preview', status, updated_at: new Date().toISOString(), demo: true, input: { url: 'https://example.com/dummy-video' }, items, events: [], report: status === 'awaiting_confirmation' ? null : { summary: 'Dummy preview', lines: status === 'done' ? lines : [lines[2]], selected_parts_subtotal_inr: '0', parts_subtotal_inr: null, unselected_line_ids: [] }, error: null, messages: [], chat_state: 'idle', chat_error: null, actions: [] }
+
+// Dummy chat states for the results stage: a pending spec proposal and an approved refresh with its completion message.
+if (status === 'done') {
+  const at = (minutes: number) => new Date(Date.now() - minutes * 60000).toISOString()
+  const messages: ChatMessage[] = [
+    { message_id: 'preview-refresh', role: 'assistant', text: 'Dummy reply: I can re-check sellers for the sample sensor module. Approve below to start the search.', created_at: at(30), cited_line_ids: ['L02'], proposal: null, refresh_proposal: { request: { line_ids: ['L02'] }, status: 'accepted', base_fingerprint: 'dummy', refresh_count: 1, result_message_id: 'preview-refresh-result' } },
+    { message_id: 'preview-refresh-result', role: 'assistant', text: 'Dummy completion: the approved seller refresh has finished. Prices below are sample data, not real quotes.', created_at: at(25), cited_line_ids: ['L02'], proposal: null, completes_message_id: 'preview-refresh', refresh_results: [{ line_id: 'L02', sourcing_status: 'offers_found', offer_count: 2, lowest_listed_price_inr: '199.00', lowest_listed_stock: 'in_stock', price_source: 'seller_published', error_code: null }] },
+    { message_id: 'preview-spec', role: 'assistant', text: 'Dummy reply: you said the controller must run at 3.3 V logic. Approve below to save that spec.', created_at: at(5), cited_line_ids: ['L01'], proposal: null, spec_proposal: { request: { updates: [{ line_id: 'L01', specs: { logic_v: 3.3 }, requirements: [{ name: 'flash', value: '32', unit: 'KB', operator: 'at_least' }] }] }, status: 'pending', base_fingerprint: 'dummy' } },
+  ]
+  job.messages = messages
+  job.actions = [
+    { kind: 'refresh', message_id: 'preview-refresh', status: 'accepted', created_at: at(29), line_ids: ['L02'], summary: 'Dummy: seller refresh approved for 1 part.', refresh_count: 1, result_message_id: null },
+    { kind: 'refresh', message_id: 'preview-refresh', status: 'completed', created_at: at(25), line_ids: ['L02'], summary: 'Dummy: seller refresh finished for 1 part.', refresh_count: 1, result_message_id: 'preview-refresh-result' },
+  ]
+}
 
 export function previewRequest(path: string, options: RequestInit): unknown {
   if (path === '/v1/session/usage') return { daily_actions: { limit: 40, remaining: 36 }, daily_projects: { limit: 5, remaining: 4 }, minute_actions: { limit: 5, remaining: 5 } }
@@ -34,6 +49,19 @@ export function previewRequest(path: string, options: RequestInit): unknown {
   if (path.endsWith('/messages') && options.method === 'POST') {
     const input = JSON.parse(String(options.body))
     job.messages.push({ message_id: input.message_id, role: 'user', text: input.text, created_at: new Date().toISOString(), cited_line_ids: [], proposal: null }, { message_id: crypto.randomUUID(), role: 'assistant', text: 'Dummy reply: this preview does not contact the backend. Use the preview controls to switch analysis stages.', created_at: new Date().toISOString(), cited_line_ids: [], proposal: null })
+  }
+  if (path.endsWith('/decision')) {
+    const action = JSON.parse(String(options.body)).action as 'accept' | 'reject'
+    const message = job.messages.find(entry => path.includes('/messages/' + encodeURIComponent(entry.message_id) + '/'))
+    const proposal = message?.spec_proposal ?? message?.proposal ?? message?.refresh_proposal
+    if (!message || !proposal) throw new ApiError('Dummy preview: proposal not found.', 404, 'NOT_FOUND')
+    if (proposal.status !== 'pending') {
+      if (proposal.status !== (action === 'accept' ? 'accepted' : 'rejected')) throw new ApiError('Dummy preview: proposal already decided.', 409, 'PROPOSAL_DECIDED')
+    } else {
+      proposal.status = action === 'accept' ? 'accepted' : 'rejected'
+      job.actions = [...(job.actions ?? []), { kind: message.spec_proposal ? 'spec_update' : message.proposal ? 'edit' : 'refresh', message_id: message.message_id, status: action === 'accept' ? (message.refresh_proposal ? 'accepted' : 'completed') : 'rejected', created_at: new Date().toISOString(), line_ids: [], summary: 'Dummy preview decision; nothing was changed on a server.' }]
+    }
+    return structuredClone({ ...job, updated_at: new Date().toISOString() })
   }
   if (path === '/v1/jobs/ui-preview' || path.endsWith('/messages')) return structuredClone({ ...job, updated_at: new Date().toISOString() })
   throw new Error('This action is unavailable in the local preview. No API request was sent.')

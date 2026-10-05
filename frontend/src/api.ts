@@ -16,9 +16,18 @@ export interface ChatMessage {
   created_at: string
   cited_line_ids: string[]
   proposal: { edits: ChatEdit[]; status: 'pending' | 'accepted' | 'rejected'; base_fingerprint: string } | null
-  refresh_proposal?: { request: { line_ids: string[] }; status: 'pending' | 'accepted' | 'rejected'; base_fingerprint: string; refresh_count: number | null } | null
+  refresh_proposal?: { request: { line_ids: string[] }; status: 'pending' | 'accepted' | 'rejected'; base_fingerprint: string; refresh_count: number | null; result_message_id?: string | null } | null
+  spec_proposal?: { request: { updates: SpecUpdate[] }; status: 'pending' | 'accepted' | 'rejected'; base_fingerprint: string } | null
+  completes_message_id?: string | null
+  refresh_results?: RefreshLineResult[]
   resistor_question?: { line_id: string; purpose: string; question: string } | null
 }
+
+// Same shape as one entry of POST /v1/jobs/{id}/specs. Specs merge; requirements replace the list.
+export interface SpecUpdate { line_id: string; specs?: Record<string, string | number | boolean | null> | null; requirements?: PartRequirement[] | null }
+// Snapshot written by the worker when an approved refresh batch ends. Prices are seller-published, not verified totals.
+export interface RefreshLineResult { line_id: string; sourcing_status: ReportLine['sourcing_status']; offer_count?: number; lowest_listed_price_inr?: string | null; lowest_listed_stock?: 'in_stock' | 'out_of_stock' | 'preorder' | 'unknown' | null; price_source?: 'seller_published'; error_code?: string | null }
+export interface ActionRecord { kind: 'edit' | 'refresh' | 'spec_update'; message_id: string; status: 'accepted' | 'rejected' | 'completed' | 'failed'; created_at?: string; line_ids?: string[]; summary?: string; refresh_count?: number | null; result_message_id?: string | null }
 
 export interface PartRequirement { name: string; value: string; unit?: string | null; operator: 'equals' | 'at_least' | 'at_most' }
 export interface ResearchAssessment { status: 'potential_match' | 'needs_information' | 'not_suitable' | 'stale'; explanation: string; conditions: string[]; questions: string[]; checks?: { requirement: PartRequirement; status: 'meets' | 'does_not_meet' | 'unknown'; reason: string }[] }
@@ -106,6 +115,7 @@ export interface Job {
   messages: ChatMessage[]
   chat_state: 'idle' | 'queued' | 'thinking' | 'failed'
   chat_error: { code: string; message: string } | null
+  actions?: ActionRecord[]
 }
 
 type JobEdit =
