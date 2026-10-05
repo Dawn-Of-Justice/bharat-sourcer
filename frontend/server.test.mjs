@@ -36,6 +36,10 @@ test('proxy injects the server key and forwards only needed request headers', as
       'X-Integration-Key': 'browser-supplied-key',
       'X-Job-Token': 'job-token',
       Cookie: 'private-cookie',
+      Authorization: 'Bearer test-id-token',
+      'X-Requested-With': 'BharatSourcer',
+      Origin: 'https://frontend.example',
+      'X-Client-IP': 'spoofed',
     },
     body: '{"text":"hello"}',
   })
@@ -43,7 +47,11 @@ test('proxy injects the server key and forwards only needed request headers', as
   assert.equal(received.url, 'https://backend.example/v1/jobs/abc/messages')
   assert.equal(received.options.headers['X-Integration-Key'], 'server-only-key')
   assert.equal(received.options.headers['X-Job-Token'], 'job-token')
-  assert.equal(received.options.headers.Cookie, undefined)
+  assert.equal(received.options.headers.Cookie, 'private-cookie')
+  assert.equal(received.options.headers.Authorization, 'Bearer test-id-token')
+  assert.equal(received.options.headers['X-Requested-With'], 'BharatSourcer')
+  assert.equal(received.options.headers.Origin, 'https://frontend.example')
+  assert.equal(received.options.headers['X-Client-IP'], undefined)
   assert.equal(received.options.body.toString(), '{"text":"hello"}')
 })
 
@@ -84,4 +92,19 @@ test('serves the frontend and a labelled dummy API response', async () => {
   const job = await created.json()
   assert.equal(job.demo, true)
   assert.equal(job.items[0].raw_name, 'Sample board')
+})
+
+test('proxy preserves separate cookies, quota delay, and no-store on identity responses', async () => {
+  const base = await start(async () => {
+    const headers = new Headers({ 'Retry-After': '3600' })
+    headers.append('Set-Cookie', 'bs_guest=demo; HttpOnly; Secure; SameSite=Lax')
+    headers.append('Set-Cookie', 'another=value; Expires=Wed, 21 Oct 2026 07:28:00 GMT')
+    return new Response(null, { status: 204, headers })
+  })
+  const response = await fetch(base + '/api/v1/session/logout', { method: 'POST' })
+  assert.equal(response.status, 204)
+  assert.equal(response.headers.getSetCookie().length, 2)
+  assert.equal(response.headers.get('retry-after'), '3600')
+  assert.equal(response.headers.get('cache-control'), 'no-store')
+  assert.equal(await response.text(), '')
 })

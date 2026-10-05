@@ -1,5 +1,6 @@
+import { useAccount, Projects } from './Account'
 import { useEffect, useLayoutEffect, useRef, useState, type FormEvent } from 'react'
-import { ApiError, confirmJob, createJob, getBackendMode, getJob, type BomItem, type Job } from './api'
+import { ApiError, pauseJob, resumeJob, confirmJob, createJob, getBackendMode, getJob, type BomItem, type Job } from './api'
 import ChatPanel from './ChatPanel'
 
 const money = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' })
@@ -26,7 +27,8 @@ function ArrowIcon({ diagonal = false }: { diagonal?: boolean }) {
   )
 }
 
-function Header({ onHome, isHome }: { onHome: () => void; isHome: boolean }) {
+function Header({ onHome, isHome, onProjects }: { onHome: () => void; isHome: boolean; onProjects: () => void }) {
+  const account = useAccount()
   return (
     <header className="site-header">
       <div className="container header-inner">
@@ -40,7 +42,7 @@ function Header({ onHome, isHome }: { onHome: () => void; isHome: boolean }) {
             <a href="#why-it-matters">Why it matters</a>
           </nav>
         ) : null}
-        {!isHome ? <a className="nav-cta" href="/" onClick={(event) => { event.preventDefault(); onHome() }}>Back to start <ArrowIcon /></a> : null}
+        <div className="header-account"><button className="nav-cta" onClick={onProjects}>My projects</button><button className="account-link" onClick={account.open}>{account.identity && account.identity !== 'legacy' ? account.identity.kind === 'guest' ? 'Guest account' : 'Account' : 'Sign in'}</button></div>
       </div>
     </header>
   )
@@ -119,6 +121,7 @@ const sourceFields: Record<LinkSource, { label: string; placeholder: string }> =
 }
 
 function Landing({ onCreated }: { onCreated: (id: string) => void }) {
+  const account = useAccount()
   const [source, setSource] = useState<SourceType>('youtube')
   const calloutRef = useRef<HTMLDivElement>(null)
   const tabRefs = useRef<Partial<Record<SourceType, HTMLButtonElement>>>({})
@@ -176,6 +179,7 @@ function Landing({ onCreated }: { onCreated: (id: string) => void }) {
       setError('Enter a valid six-digit Indian PIN code, or leave it blank.')
       return
     }
+    if (!account.requireIdentity()) return
     setSubmitting(true)
     try {
       if (source !== 'youtube' && await getBackendMode() !== 'demo') {
@@ -212,7 +216,7 @@ function Landing({ onCreated }: { onCreated: (id: string) => void }) {
               </div>
               {error ? <p className="form-error" role="alert">{error}</p> : null}
             </form>
-            <div className="hero-reassurance"><span className="reassurance-check">✓</span> Review the parts before any seller search begins <span className="reassurance-separator">·</span> No account needed</div>
+            <div className="hero-reassurance"><span className="reassurance-check">✓</span> Review the parts before any seller search begins <span className="reassurance-separator">·</span> Sign in to keep track of your projects</div>
           </div>
           <HeroIllustration source={source} />
         </div>
@@ -324,18 +328,21 @@ function Results({ job }: { job: Job }) {
 }
 
 function JobPage({ id }: { id: string }) {
-  const token = (import.meta.env.DEV && new URLSearchParams(window.location.search).get('preview') === '1' ? 'dummy-token' : null) || sessionStorage.getItem(`bharat-sourcer:job:${id}`)
+  const account = useAccount()
+  const token = (import.meta.env.DEV && new URLSearchParams(window.location.search).get('preview') === '1' ? 'dummy-token' : null) || (sessionStorage.getItem(`bharat-sourcer:job:${id}`) || '')
   const [job, setJob] = useState<Job | null>(null)
   const [fatalError, setFatalError] = useState('')
   const [connectionIssue, setConnectionIssue] = useState('')
   const [revision, setRevision] = useState(0)
+  const [actionBusy, setActionBusy] = useState(false)
+  const [actionError, setActionError] = useState('')
 
   function applySnapshot(next: Job) {
     setJob((previous) => previous && Date.parse(next.updated_at) < Date.parse(previous.updated_at) ? previous : next)
   }
 
   useEffect(() => {
-    if (!token) return
+    if (!account.ready || (!token && (!account.identity || account.identity === 'legacy'))) return
     let active = true
     let timer: ReturnType<typeof setTimeout>
     let retryDelay = 1500
@@ -350,8 +357,8 @@ function JobPage({ id }: { id: string }) {
         timer = setTimeout(poll, 1500)
       } catch (cause) {
         if (!active) return
-        if (cause instanceof ApiError && cause.status === 404) {
-          setFatalError('This job is no longer available in this backend session, or its access token is invalid.')
+        if (cause instanceof ApiError && (cause.status === 404 || cause.status === 401)) {
+          setFatalError(cause.status === 401 ? 'Sign in again to access this project.' : 'This project is unavailable or belongs to another account.')
           return
         }
         setConnectionIssue('Connection interrupted. Reconnecting to your saved job…')
@@ -361,15 +368,17 @@ function JobPage({ id }: { id: string }) {
     }
     void poll()
     return () => { active = false; clearTimeout(timer) }
-  }, [id, token, revision])
+  }, [id, token, revision, account.ready, account.identity])
 
-  const statusLabel: Record<string, string> = { queued: 'Queued', extracting: 'Reading the video', awaiting_confirmation: 'Ready for your review', resolving: 'Preparing parts', sourcing: 'Checking seller pages', done: 'Analysis finished', failed: 'Analysis stopped' }
+  const statusLabel: Record<string, string> = { queued: 'Queued', extracting: 'Reading the video', awaiting_confirmation: 'Ready for your review', resolving: 'Preparing parts', sourcing: 'Checking seller pages', done: 'Analysis finished', failed: 'Analysis stopped', paused: 'Sourcing paused' }
 
   return <main id="main" className="job-page"><div className="container job-container">
     <div className="job-hero"><div className="eyebrow"><span className="eyebrow-line" /> YOUR BUILD PLAN</div><h1>From video to parts.</h1><p>Follow the analysis, review the draft, and inspect the result.</p></div>
-    {!token ? <section className="job-panel"><h2>Session access ended</h2><p>This job's private access token was kept in the browser session that created it. Start a new analysis to continue.</p><a className="primary-button job-action" href="/">Start again <ArrowIcon /></a></section> : fatalError ? <section className="job-panel"><h2>We couldn’t load this job</h2><p role="alert">{fatalError}</p><button className="primary-button job-action" onClick={() => { setFatalError(''); setRevision((value) => value + 1) }}>Try again <ArrowIcon /></button></section> : !job ? <section className="job-panel loading-panel" role="status"><span className="loading-indicator" /> Connecting to your job…{connectionIssue ? <p>{connectionIssue}</p> : null}</section> : <>
+    {!account.ready ? <p role="status">Checking your session…</p> : (!token && (!account.identity || account.identity === 'legacy')) ? <section className="job-panel"><h2>Session access ended</h2><p>Sign in to the account that owns this project to continue. Older projects also need their original browser-session token.</p><button className="primary-button job-action" onClick={account.open}>Sign in to continue <ArrowIcon /></button></section> : fatalError ? <section className="job-panel"><h2>We couldn’t load this job</h2><p role="alert">{fatalError}</p><button className="primary-button job-action" onClick={() => { setFatalError(''); setRevision((value) => value + 1) }}>Try again <ArrowIcon /></button></section> : !job ? <section className="job-panel loading-panel" role="status"><span className="loading-indicator" /> Connecting to your job…{connectionIssue ? <p>{connectionIssue}</p> : null}</section> : <>
       <div className="job-status-bar" role="status" aria-live="polite"><span className={`status-pulse ${['done', 'failed', 'awaiting_confirmation'].includes(job.status) ? 'paused' : ''}`} /><strong>{statusLabel[job.status]}</strong><span>{job.demo ? 'Demo mode · sample data' : 'Live analysis'}</span></div>
       {connectionIssue ? <div className="connection-warning" role="status">{connectionIssue} Your saved BOM and conversation remain visible.</div> : null}
+      {!job.demo && ['resolving', 'sourcing', 'paused'].includes(job.status) && <div className="guest-banner"><p>{job.status === 'paused' ? 'Your progress is saved. Resume when you are ready.' : 'You can pause sourcing without using your action quota.'}</p><button className="nav-cta" disabled={actionBusy || job.pause_requested && job.status !== 'paused'} onClick={async () => { setActionBusy(true); setActionError(''); try { await (job.status === 'paused' ? resumeJob(id, token) : pauseJob(id, token)); setRevision(n => n + 1) } catch (cause) { setActionError(cause instanceof Error ? cause.message : 'Could not update sourcing') } finally { setActionBusy(false) } }}>{job.pause_requested && job.status !== 'paused' ? 'Pausing after current part…' : actionBusy ? 'Updating…' : job.status === 'paused' ? 'Resume sourcing' : 'Pause sourcing'}</button></div>}
+      {actionError && <p className="form-error" role="alert">{actionError}</p>}
       <div className="job-content-grid"><div className="job-primary">
         {job.status === 'failed' ? <section className="job-panel"><h2>Analysis stopped</h2><p>{job.error?.message || 'Please start a new job and try again.'}</p></section> : null}
         {job.status === 'awaiting_confirmation' ? <Review key={JSON.stringify(job.items)} job={job} token={token} onConfirmed={() => setRevision((value) => value + 1)} /> : null}
@@ -389,6 +398,7 @@ export default function App() {
   const [path, setPath] = useState(window.location.pathname)
   useEffect(() => { const handlePop = () => setPath(window.location.pathname); window.addEventListener('popstate', handlePop); return () => window.removeEventListener('popstate', handlePop) }, [])
   function navigate(next: string) { if (import.meta.env.DEV && new URLSearchParams(window.location.search).get('preview') === '1') next += '?preview=1'; window.history.pushState({}, '', next); setPath(next.split('?')[0]); window.scrollTo({ top: 0, behavior: 'instant' }) }
+  const account = useAccount()
   const jobId = path.startsWith('/job/') ? path.slice(5) : null
-  return <>{import.meta.env.DEV && new URLSearchParams(window.location.search).get('preview') === '1' && <div className="preview-toolbar"><strong>LOCAL DEMO ? Dummy data ? No API calls</strong><a href="/?preview=1">Landing</a><a href="/job/ui-preview?preview=1">Review</a><a href="/job/ui-preview?preview=1&stage=sourcing">Parallel progress</a><a href="/job/ui-preview?preview=1&stage=done">Results</a></div>}<a className="skip-link" href="#main">Skip to content</a><Header onHome={() => navigate('/')} isHome={!jobId} />{jobId ? <JobPage id={jobId} /> : <Landing onCreated={(id) => navigate(`/job/${encodeURIComponent(id)}`)} />}<Footer /></>
+  return <>{import.meta.env.DEV && new URLSearchParams(window.location.search).get('preview') === '1' && <div className="preview-toolbar"><strong>LOCAL DEMO · Sample data · No API calls</strong><a href="/?preview=1">Landing</a><a href="/projects?preview=1">My projects</a><a href="/job/ui-preview?preview=1">Review</a><a href="/job/ui-preview?preview=1&stage=sourcing">Parallel progress</a><a href="/job/ui-preview?preview=1&stage=done">Results</a></div>}<a className="skip-link" href="#main">Skip to content</a><Header onHome={() => navigate('/')} isHome={path === '/'} onProjects={() => navigate('/projects')} />{path === '/projects' ? <Projects onOpen={id => navigate(`/job/${encodeURIComponent(id)}`)} onNew={() => navigate('/')} /> : jobId ? <JobPage key={jobId + account.revision + (account.identity && account.identity !== 'legacy' ? account.identity.kind : 'none')} id={jobId} /> : <Landing onCreated={(id) => navigate(`/job/${encodeURIComponent(id)}`)} />}<Footer /></>
 }

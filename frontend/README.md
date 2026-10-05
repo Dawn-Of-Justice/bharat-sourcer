@@ -54,7 +54,7 @@ An IAM administrator must enable direct browser access once:
 gcloud run services update bharat-sourcer-web --project=hackathon-510415 --region=asia-south1 --no-invoker-iam-check
 ```
 
-Application login is planned for a future update.
+Google sign-in and saved-project UI are implemented; real Firebase configuration and auth-enabled staging verification are still required before activation.
 For local checks without a live backend, run `npm run test:server`; its API replies are
 labelled dummy data.
 
@@ -72,3 +72,17 @@ This is the first frontend slice. Offer selection, targeted refresh, the YouTube
 
 Run npm run dev and open http://localhost:5173/?preview=1. The preview toolbar switches between landing, review, parallel progress, and results. API actions use in-memory dummy responses; the sample image is a local labelled illustration. Preview mode is development-only and requires preview=1 in the URL. Normal URLs retain the configured backend connection.
 
+
+## Accounts and saved projects (5 October 2026)
+
+- Google sign-in creates or reopens a Firebase account. The SDK refreshes ID tokens before API requests, including chat and polling. All browser requests include credentials; POSTs send `X-Requested-With: BharatSourcer`.
+- The account panel also supports explicit guest entry and logout. `/projects` lists owner-only saved projects with pagination and opens their existing job IDs without creating another job. Guest-to-account saving is explicit after sign-in and does not rerun analysis.
+- The proxy forwards Authorization, Cookie, Origin and X-Requested-With, preserves separate Set-Cookie headers and Retry-After, and forces no-store. It deliberately does not trust browser-supplied client-IP headers.
+- A 401 prompts sign-in recovery. Provider outages preserve the session. Quota errors show the retry time and leave saved work readable; the account panel reads personal usage when opened. Live sourcing can be paused/resumed.
+- AUTH_DISABLED keeps the previous job-token flow available and labels account saving as unavailable. Do not enable backend authentication until the staging checklist in `docs/contracts/authentication.md` passes.
+
+Copy `.env.example` to an ignored local env file and supply the four public Firebase web values from the project owner. These are Vite build-time values; the current Cloud Run deployment script does not yet supply them. Production deployment/configuration is not part of this local UI change. Authorize the frontend domain in Firebase and configure backend CORS before live testing. Google login requires a popup-capable browser. Guest cookies need HTTPS and a same-origin proxy, not direct cross-origin localhost requests.
+
+Use `http://127.0.0.1:5173/?preview=1` for **no-API local testing**, even if `.env.local` points at a live backend. Firebase initialization is disabled and all API methods use local sample responses. Click Sign in → Try demo account → My projects → Open project. Also try Continue as guest → My projects → Save my projects → Try demo account → Save to my account. The demo account marker lasts for the current tab session; project contents are in-memory fixtures and reset on reload. No real account is created.
+
+Validation: `npm run build`, `npm run test:server`, and `npm run test:preview`. The preview test executes the real preview/auth/API modules with network access forbidden. Real Google login, two-account isolation, revoked users, cookie expiry and responsive visual QA remain staging/browser checks. Existing legacy jobs still require their original token; a dedicated legacy-project migration UI is not yet provided.

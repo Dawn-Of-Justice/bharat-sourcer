@@ -1,7 +1,8 @@
+import { identityToken } from './auth'
 const API_BASE = (import.meta.env.PROD ? '/api' : (import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000')).replace(/\/$/, '')
 const INTEGRATION_KEY = import.meta.env.DEV ? import.meta.env.VITE_INTEGRATION_KEY : undefined
 
-export type JobStatus = 'queued' | 'extracting' | 'awaiting_confirmation' | 'resolving' | 'sourcing' | 'done' | 'failed'
+export type JobStatus = 'queued' | 'extracting' | 'awaiting_confirmation' | 'resolving' | 'sourcing' | 'done' | 'failed' | 'paused'
 
 export type ChatEdit =
   | { op: 'add'; raw_name: string; qty: number; specs?: Record<string, string | number | boolean | null> }
@@ -54,6 +55,7 @@ export interface ReportLine {
 export interface Job {
   job_id: string
   status: JobStatus
+  pause_requested?: boolean
   updated_at: string
   demo: boolean
   input: { url: string }
@@ -89,12 +91,17 @@ async function request<T>(path: string, options: RequestInit = {}, token?: strin
     const { previewRequest } = await import('./preview')
     return previewRequest(path, options) as T
   }
+  const bearer = await identityToken()
   let response: Response
   try {
     response = await fetch(`${API_BASE}${path}`, {
       ...options,
+      credentials: 'include',
+      cache: 'no-store',
       headers: {
         'Content-Type': 'application/json',
+        'X-Requested-With': 'BharatSourcer',
+        ...(bearer ? { Authorization: 'Bearer ' + bearer } : {}),
         ...(INTEGRATION_KEY ? { 'X-Integration-Key': INTEGRATION_KEY } : {}),
         ...(token ? { 'X-Job-Token': token } : {}),
         ...options.headers,
@@ -106,8 +113,12 @@ async function request<T>(path: string, options: RequestInit = {}, token?: strin
 
   if (!response.ok) {
     const data = await response.json().catch(() => null)
+    if (path !== '/v1/session' && response.status === 401 && data?.error?.code === 'IDENTITY_REQUIRED') window.dispatchEvent(new Event('bs-signin-required'))
+    const wait = Number(response.headers.get('Retry-After'))
+    if (response.status === 429) throw new ApiError('Usage limit reached. Your saved projects remain available.' + (wait > 0 ? ' Try again after ' + new Date(Date.now() + wait * 1000).toLocaleString() + '.' : ' Please try again later.'), 429, data?.error?.code)
     throw new ApiError(data?.error?.message || `Request failed (${response.status}).`, response.status, data?.error?.code)
   }
+  if (response.status === 204) return undefined as T
   return response.json() as Promise<T>
 }
 
@@ -147,3 +158,16 @@ export function decideProposal(id: string, token: string, messageId: string, act
     body: JSON.stringify({ action }),
   }, token)
 }
+
+export interface Session { kind: 'account' | 'guest'; expires_at: number | null; daily_action_limit: number; part_limit: number }
+export interface Project { job_id: string; url: string; status: string; created_at: string; updated_at: string; part_count: number }
+export const getSession = () => request<Session>('/v1/session')
+export const startGuest = () => request<Session>('/v1/session/guest', { method: 'POST' })
+export const logoutSession = () => request<void>('/v1/session/logout', { method: 'POST' })
+export const listProjects = (cursor?: string) => request<{ projects: Project[]; next_cursor: string | null }>('/v1/projects?limit=20' + (cursor ? '&cursor=' + encodeURIComponent(cursor) : ''))
+export const claimProject = (id: string, token?: string) => request('/v1/projects/' + encodeURIComponent(id) + '/claim', { method: 'POST', body: JSON.stringify(token ? { job_token: token } : {}) })
+
+export interface UsageWindow { limit: number; used: number; remaining: number; resets_at: number }
+export const getUsage = () => request<{ daily_actions: UsageWindow; daily_projects: UsageWindow; minute_actions: UsageWindow }>('/v1/session/usage')
+export const pauseJob = (id: string, token: string) => request('/v1/jobs/' + encodeURIComponent(id) + '/pause', { method: 'POST' }, token)
+export const resumeJob = (id: string, token: string) => request('/v1/jobs/' + encodeURIComponent(id) + '/resume', { method: 'POST' }, token)

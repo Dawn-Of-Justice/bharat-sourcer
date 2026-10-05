@@ -45,6 +45,9 @@ async function proxy(req, res, backendBase, integrationKey, fetchImpl) {
   if (req.headers['x-job-token']) headers['X-Job-Token'] = req.headers['x-job-token']
   if (req.headers.accept) headers.Accept = req.headers.accept
   if (req.headers['content-type']) headers['Content-Type'] = req.headers['content-type']
+  for (const name of ['Authorization', 'Cookie', 'X-Requested-With', 'Origin']) {
+    if (req.headers[name.toLowerCase()]) headers[name] = req.headers[name.toLowerCase()]
+  }
   const target = new URL(upstreamPath + parsed.search, backendBase)
   try {
     const upstream = await fetchImpl(target, {
@@ -58,6 +61,8 @@ async function proxy(req, res, backendBase, integrationKey, fetchImpl) {
       const value = upstream.headers.get(name)
       if (value) responseHeaders[name] = value
     }
+    const cookies = upstream.headers.getSetCookie()
+    if (cookies.length) responseHeaders['Set-Cookie'] = cookies
     res.writeHead(upstream.status, responseHeaders)
     if (upstream.body) await pipeline(Readable.fromWeb(upstream.body), res)
     else res.end()
