@@ -26,9 +26,9 @@ the assistant is instructed never to infer electrical specs.
 
 ## Seller refresh proposals (v0.12)
 
-The current tracked frontend has not yet added a `refresh_proposal` type/card. Its
-chat currently shows assistant text and BOM edit proposals only. Update the chat UI
-before expecting users to approve seller refresh proposals.
+The tracked frontend (`frontend/src/ChatPanel.tsx`) renders `refresh_proposal`,
+`spec_proposal`, refresh completion messages (`refresh_results`) and a collapsible
+`job.actions` history.
 
 The agent can propose a targeted seller refresh from a completed live report.
 Sending a chat message never starts that search. The returned assistant message

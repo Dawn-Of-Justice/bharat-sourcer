@@ -8,8 +8,9 @@ v0.18.0 accepts public Instructables, Hackster and GitHub repository URLs in liv
 extracts a BOM from the page text (README for GitHub). Page evidence carries a quote the
 server found verbatim in the fetched page, plus its URL. It also adds an offline extraction
 evaluation harness (`scripts/evaluate_extraction.py`); no real labelled set exists yet,
-so no accuracy figure is claimed. The frontend landing page still gates non-YouTube links
-until a live page smoke test passes.
+so no accuracy figure is claimed. A live check on 5 October 2026 extracted 21 quoted parts
+from the `scottbez1/smartknob` README in 10 seconds; the landing page now enables GitHub
+links. Instructables and Hackster remain gated in the UI until they pass a live check.
 
 v0.17.11 posts a deterministic chat summary when a chat-approved refresh finishes and keeps
 a bounded `job.actions` history of proposal decisions. See [chat actions](../docs/contracts/chat-actions.md).

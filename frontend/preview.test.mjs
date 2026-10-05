@@ -46,3 +46,10 @@ test('unsupported preview actions fail closed without falling through to live AP
   await assert.rejects(api.claimProject('unknown').then(() => api.getJob('unknown', '')), /unavailable in the local preview/)
   assert.equal(requests, 0)
 })
+
+test('preview decision endpoint fails closed for unknown dummy proposals without network', async () => {
+  const { previewRequest } = load('./preview')
+  assert.equal(previewRequest('/v1/jobs/ui-preview', {}).demo, true)
+  assert.throws(() => previewRequest('/v1/jobs/ui-preview/messages/missing/decision', { method: 'POST', body: JSON.stringify({ action: 'accept' }) }), error => error.status === 404)
+  assert.equal(requests, 0)
+})
