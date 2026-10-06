@@ -102,6 +102,7 @@ The API base URL has no `/api` suffix.
 credentials guidance and the integration acceptance checklist.
 [Gemini extras](gemini-extras.md): opt-in explain-aloud audio, clip zoom and parts-bin scan.
 [Seller trust labels and storefront JSON fast path](seller-trust.md): `offers[].trust` and new `verification` values.
+[Safety flags](safety-flags.md): deterministic MAINS / LIPO / HIGH_CURRENT / LEVEL_SHIFT banners on `job.safety_flags`.
 
 **New: [conversation integration guide](conversation.md).** Add chat beside the BOM,
 reviewable edit proposals and a live snapshot stream. Existing endpoints remain available.

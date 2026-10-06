@@ -12,6 +12,7 @@ from bharat_sourcer.compat import assess, resolve_part
 from bharat_sourcer.costing import update_costs
 from bharat_sourcer.extraction import ExtractionError, Extractor, supported_source
 from bharat_sourcer.identity import Principal
+from bharat_sourcer.safety import flags_for
 from bharat_sourcer.schemas import (
     AddLine,
     BomItem,
@@ -197,6 +198,7 @@ class JobService:
                 record.job.project = project
                 for item in record.job.items:
                     item.clarifications = resolve_part(item).clarifications
+                record.job.safety_flags = flags_for(record.job)
                 self._transition(record.job, "awaiting_confirmation", "Review parts and evidence.")
 
         self.store.mutate(job_id, complete)
@@ -450,6 +452,7 @@ class JobService:
                     line.research_accepted = False
                     line.changes_accepted = False
             update_costs(job.report)
+            job.safety_flags = flags_for(job)
             self._transition(job, "done", "Updated required specs for " + ", ".join(changed))
 
     def update_project(self, job_id: str, token: str | None, request: UpdateProject) -> Job:
@@ -464,6 +467,7 @@ class JobService:
             if request.description is not None:
                 project.description, project.description_source = request.description, "user"
             job.project = project
+            job.safety_flags = flags_for(job)
             job.updated_at = now()
 
         record = self.store.mutate(job_id, change)
@@ -645,6 +649,7 @@ class JobService:
                 raise JobError(
                     422, "INVALID_SPECS", "Name and part specifications conflict"
                 ) from exc
+        job.safety_flags = flags_for(job)
         if finalize:
             self._transition(job, "resolving", "Confirmed edits; preparing the report.")
         else:
