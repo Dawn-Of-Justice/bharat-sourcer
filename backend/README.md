@@ -282,18 +282,38 @@ Live mode fails startup if `BS_GEMINI_API_KEY` is missing or empty.
 
 ## Extraction quality evaluation
 
-`bharat_sourcer/evaluation.py` and `scripts/evaluate_extraction.py` score extracted BOMs
-against human-labelled cases. **No real labelled set exists yet**, so no extraction accuracy
-figure has been measured. The bundled `evaluation/example_cases.json` and
-`evaluation/example_predictions/` are invented, marked `"synthetic": true`, and only
-demonstrate the file format.
+`bharat_sourcer/evaluation.py` and `scripts/evaluate_extraction.py` score saved pipeline
+results against labelled cases. **No human-reviewed labelled set exists yet**, so no
+extraction accuracy figure has been measured. Two sets ship with the code:
+
+- `evaluation/example_cases.json` and `evaluation/example_predictions/`: invented, marked
+  `"synthetic": true`; they only demonstrate the file format.
+- `evaluation/gold/`: an **agent-drafted** gold set for the 15-project evaluation plan
+  (14 text projects transcribed from their public pages on 6 October 2026, plus 5
+  candidate YouTube videos with empty BOMs). Every file is labelled
+  `agent_draft_needs_human_review` or `needs_human_labelling`. It is not human gold; see
+  [evaluation gold set](../docs/contracts/evaluation-gold-set.md) for the format, review
+  workflow and status.
 
 A case set is JSON with a required `synthetic` flag, a `description`, optional
-`labelled_by`/`labelled_on`, and `cases`. Each case has an `id`, a supported YouTube `url`
-and `parts`. Each part has a canonical `name`, optional `aliases`, a `qty` (`null` when the
-labeller could not establish it) and optional `evidence_windows` (`MM:SS` start/end).
-Predictions are one `<case_id>.json` per case: `case_id`, `items` (saved `BomItem`s),
-and optional `source`, `extraction_model`, `error_code` and `synthetic`.
+`label_status`, `labelled_by`/`labelled_on`, and `cases`. Each case has an `id`, a `url`,
+a `source_type` (`video`, the default, needs a YouTube URL; `page` accepts any public
+http(s) project page) and `parts`. Each part has a canonical `name`, optional `aliases`, a
+`qty` (`null` when the labeller could not establish it), a `qty_unit` (`pcs` by default;
+`mm`/`cm`/`m` for lengths), optional `evidence_windows` (`MM:SS` start/end) and optional
+gold-format detail (`canonical_chip`, `module`, `category`, `notes`). Cases may also carry
+`must_flag` (`MAINS`, `LIPO`, `HIGH_CURRENT`, `LEVEL_SHIFT`) and `gold_substitutions`
+(`original`, `aliases`, `acceptable`, `required_changes`, an inclusive `grade_range` such as
+`["C", "X"]`, optional `case_ref` to the worked substitution cases). `--cases` also accepts
+a gold `index.json`; unlabelled projects are skipped and listed as `excluded_cases`.
+
+Predictions are one `<case_id>.json` per case: `case_id`, `items` (saved `BomItem`s), and
+optional `source`, `extraction_model`, `error_code` and `synthetic`. Later pipeline stages
+are optional and scored only when present (`null`/absent means "not produced"; an empty
+list is scored): `safety_flags` (`[{code, line_id?, reason?}]`), `substitutions`
+(`[{original, substitute?, grade?}]`), `offers` (`[{url, line_id?}]`, the URLs shown to the
+user) and `listings` (`[{url, http_status?, title_match?, inr_price?}]`, what the pipeline
+actually retrieved, with eval-time link checks).
 
 Matching is deterministic, with no model involved. Names are NFKC/case-folded and split
 into alphanumeric tokens; simple trailing plurals are trimmed. A part matches exactly when
@@ -304,28 +324,48 @@ to one: exact first, then more specific names, then label and prediction order.
 
 - recall (omissions) and precision (extras; repeated mentions of a matched part are
   reported as duplicates and count as extras);
-- quantity agreement on matched parts whose label has a quantity, counting `null`
-  predictions as wrong and reporting them separately;
+- quantity agreement on matched parts whose label has a quantity: piece counts must match
+  exactly, lengths within 10%; `null` predictions count as wrong and are reported
+  separately;
 - evidence hit rate: a matched part with labelled windows hits when any evidence
-  timestamp falls inside any window (`--evidence-tolerance-s` widens windows).
+  timestamp falls inside any window (`--evidence-tolerance-s` widens windows);
+- safety-flag recall overall and per code, with the plan's gate (every gold flag raised)
+  and the count of raised flags the gold does not require;
+- grade accuracy, exact (inside the gold range) and within one grade (A < B < C < D < X);
+  each gold substitution is paired with at most one predicted substitution by the same name
+  rules, and a missing or ungraded one counts as wrong;
+- hallucinated-URL rate (offers whose URL is not in `listings`, compared without case in
+  scheme/host, fragment or trailing slash) and link validity (listed offers with HTTP 200,
+  title match and INR price, among those whose three checks were recorded).
 
 `NO_BOM` errors score as an empty extraction. Other extraction errors are listed and
-excluded from the aggregate. Synthetic sets produce a "FORMAT CHECK ONLY" headline,
-`format-check.md/json` output and no accuracy label. Synthetic predictions cannot be scored
-against a real set.
+excluded from the aggregate, including the later stages. Synthetic sets produce a "FORMAT
+CHECK ONLY" headline and `format-check.*` output. Sets whose `label_status` is not
+`human_reviewed` (including legacy files without one) produce an "UNREVIEWED LABELS"
+headline, a printed warning and `unreviewed-check.*` output instead of an accuracy
+headline. Only human-reviewed sets write `report.*`. Each run writes `<stem>.md` (tables),
+`<stem>.json` (full report) and `<stem>-metrics.json` (aggregate and per-case metrics).
+Synthetic predictions cannot be scored against a real set.
 
 ```powershell
 # Offline (default, no network): score saved predictions
 .venv/Scripts/python scripts/evaluate_extraction.py --cases evaluation/example_cases.json --predictions evaluation/example_predictions
+# Agent-drafted gold set (unreviewed: prints a warning, no accuracy headline)
+.venv/Scripts/python scripts/evaluate_extraction.py --cases evaluation/gold/index.json --predictions path/to/predictions
 # Live: one billable Gemini extraction per case; refused for synthetic sets
 .venv/Scripts/python scripts/evaluate_extraction.py --cases path/to/labelled.json --live
 ```
 
 Reports and live predictions are written to ignored `.data/evaluation/` and printed.
 Rerun live predictions offline by passing `--predictions .data/evaluation/predictions`.
+Live mode only produces `items`; the other stage fields must come from saved job results.
+Many gold pages (Adafruit Learn, DroneBot, Random Nerd Tutorials, eater.net) are not yet
+supported inputs, so live extraction records `UNSUPPORTED_URL` for them.
 Limitations: name matching can't detect a wrong part with a matching name or a correct part
 described in different words, so review omissions and extras by hand. A part that is
-split across several predicted lines matches only one line. Small sets give noisy rates.
+split across several predicted lines matches only one line. Required-change recall,
+evidence-quote validity and compile rates from the plan are not computed. Small sets give
+noisy rates.
 
 ## Seller sourcing
 
@@ -654,7 +694,7 @@ backend/
     sourcing/       grounded discovery, safe page fetching and JSON-LD verification
     main.py         API routes, errors, CORS
   scripts/          OpenAPI export/check, live checks, extraction evaluation
-  evaluation/       synthetic evaluation format example (not accuracy data)
+  evaluation/       synthetic format example and agent-drafted gold set (not accuracy data)
   tests/            API and job concurrency tests
   pyproject.toml    backend dependencies and tooling
 ```
@@ -681,7 +721,8 @@ After changing public routes or schemas, regenerate and commit the shared contra
 See the [agreed feature roadmap](../docs/contracts/backend-roadmap.md) for priorities and
 the [Cloud Run guide](infra/cloud-run.md) for the shared frontend integration environment.
 
-- Build a real labelled BOM evaluation set and run the extraction evaluation harness on it.
+- Have two people review the agent-drafted gold set in `evaluation/gold/` (and label its
+  candidate videos), then run the extraction evaluation harness on it.
 - Fuse video and project-page evidence in one job and report conflicts; read code beyond READMEs.
 - Add durable queue dispatch and broaden seller format support.
 - Add seller trust checks, broader compatibility rules with module data, and shipping/tax costing.

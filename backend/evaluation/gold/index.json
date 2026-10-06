@@ -1,0 +1,142 @@
+{
+  "description": "AGENT DRAFT gold set for the evaluation plan's projects. Text projects were transcribed from public pages by an AI agent; video projects are unlabelled candidates. Not human gold: no accuracy claim may be made from it.",
+  "label_status": "agent_draft_needs_human_review",
+  "drafted_by": "Claude Code agent (stream mvp/eval), not a human labeller",
+  "drafted_on": "2026-10-06",
+  "notes": "Review workflow: docs/contracts/evaluation-gold-set.md. A file becomes human_reviewed only after two people label it independently and reconcile.",
+  "projects": [
+    {
+      "project_id": "adafruit-pi-hole-zero-w",
+      "file": "adafruit-pi-hole-zero-w.json",
+      "plan_row": 1,
+      "kind": "text",
+      "label_status": "agent_draft_needs_human_review"
+    },
+    {
+      "project_id": "adafruit-magtag-weather",
+      "file": "adafruit-magtag-weather.json",
+      "plan_row": 2,
+      "kind": "text",
+      "label_status": "agent_draft_needs_human_review"
+    },
+    {
+      "project_id": "adafruit-io-environmental-monitor",
+      "file": "adafruit-io-environmental-monitor.json",
+      "plan_row": 3,
+      "kind": "text",
+      "label_status": "agent_draft_needs_human_review"
+    },
+    {
+      "project_id": "adafruit-pyportal-weather-station",
+      "file": "adafruit-pyportal-weather-station.json",
+      "plan_row": 4,
+      "kind": "text",
+      "label_status": "agent_draft_needs_human_review"
+    },
+    {
+      "project_id": "adafruit-sousviduino",
+      "file": "adafruit-sousviduino.json",
+      "plan_row": 5,
+      "kind": "text",
+      "label_status": "agent_draft_needs_human_review"
+    },
+    {
+      "project_id": "adafruit-cheerlights-wreath",
+      "file": "adafruit-cheerlights-wreath.json",
+      "plan_row": 6,
+      "kind": "text",
+      "label_status": "agent_draft_needs_human_review"
+    },
+    {
+      "project_id": "adafruit-neopixel-levelshifter",
+      "file": "adafruit-neopixel-levelshifter.json",
+      "plan_row": 7,
+      "kind": "text",
+      "label_status": "agent_draft_needs_human_review"
+    },
+    {
+      "project_id": "dronebot-hc-sr04-arduino",
+      "file": "dronebot-hc-sr04-arduino.json",
+      "plan_row": 8,
+      "kind": "text",
+      "label_status": "agent_draft_needs_human_review"
+    },
+    {
+      "project_id": "dronebot-stepper-motors-arduino",
+      "file": "dronebot-stepper-motors-arduino.json",
+      "plan_row": 9,
+      "kind": "text",
+      "label_status": "agent_draft_needs_human_review"
+    },
+    {
+      "project_id": "ben-eater-8bit-computer",
+      "file": "ben-eater-8bit-computer.json",
+      "plan_row": 10,
+      "kind": "text",
+      "label_status": "agent_draft_needs_human_review"
+    },
+    {
+      "project_id": "hackster-infinity-mirror-clock",
+      "file": "hackster-infinity-mirror-clock.json",
+      "plan_row": 11,
+      "kind": "text",
+      "label_status": "agent_draft_needs_human_review"
+    },
+    {
+      "project_id": "rnt-esp32-bme280-web-server",
+      "file": "rnt-esp32-bme280-web-server.json",
+      "plan_row": 12,
+      "kind": "text",
+      "label_status": "agent_draft_needs_human_review"
+    },
+    {
+      "project_id": "rnt-esp32-hc-sr04",
+      "file": "rnt-esp32-hc-sr04.json",
+      "plan_row": 13,
+      "kind": "text",
+      "label_status": "agent_draft_needs_human_review"
+    },
+    {
+      "project_id": "instructables-plant-watering-system",
+      "file": "instructables-plant-watering-system.json",
+      "plan_row": 14,
+      "kind": "text",
+      "label_status": "agent_draft_needs_human_review"
+    },
+    {
+      "project_id": "video-greatscott-cocktail-machine",
+      "file": "video-greatscott-cocktail-machine.json",
+      "plan_row": 15,
+      "kind": "video",
+      "label_status": "needs_human_labelling"
+    },
+    {
+      "project_id": "video-greatscott-diy-tachometer",
+      "file": "video-greatscott-diy-tachometer.json",
+      "plan_row": null,
+      "kind": "video",
+      "label_status": "needs_human_labelling"
+    },
+    {
+      "project_id": "video-spiess-cat-feeder",
+      "file": "video-spiess-cat-feeder.json",
+      "plan_row": null,
+      "kind": "video",
+      "label_status": "needs_human_labelling"
+    },
+    {
+      "project_id": "video-spiess-volt-ampere-meter",
+      "file": "video-spiess-volt-ampere-meter.json",
+      "plan_row": null,
+      "kind": "video",
+      "label_status": "needs_human_labelling"
+    },
+    {
+      "project_id": "video-dronebot-hc-sr04",
+      "file": "video-dronebot-hc-sr04.json",
+      "plan_row": null,
+      "kind": "video",
+      "label_status": "needs_human_labelling"
+    }
+  ]
+}

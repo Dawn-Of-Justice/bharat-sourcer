@@ -1,0 +1,352 @@
+{
+  "project_id": "ben-eater-8bit-computer",
+  "plan_row": 10,
+  "title": "Build an 8-bit computer from scratch - complete parts list",
+  "creator": "Ben Eater",
+  "kind": "text",
+  "label_status": "agent_draft_needs_human_review",
+  "inputs": {
+    "url": "https://eater.net/8bit/parts"
+  },
+  "source": {
+    "url": "https://eater.net/8bit/parts",
+    "fetched_on": "2026-10-06",
+    "http_status": 200,
+    "robots_txt": "no robots.txt (the path returns the site's HTML page)",
+    "method": "one curl GET; parts list transcribed by hand from the fetched text"
+  },
+  "gold_bom": [
+    {
+      "name": "Breadboard",
+      "aliases": [],
+      "qty": 14,
+      "category": "prototyping"
+    },
+    {
+      "name": "22 AWG solid hook-up wire",
+      "aliases": [
+        "hook-up wire",
+        "22AWG wire"
+      ],
+      "qty": 1,
+      "category": "wire",
+      "notes": "One spool/kit."
+    },
+    {
+      "name": "1k ohm resistor",
+      "aliases": [
+        "1k resistor",
+        "1 kohm resistor"
+      ],
+      "qty": 10,
+      "category": "passive"
+    },
+    {
+      "name": "10k ohm resistor",
+      "aliases": [
+        "10k resistor"
+      ],
+      "qty": 9,
+      "category": "passive"
+    },
+    {
+      "name": "100k ohm resistor",
+      "aliases": [
+        "100k resistor"
+      ],
+      "qty": 1,
+      "category": "passive"
+    },
+    {
+      "name": "470 ohm resistor",
+      "aliases": [
+        "470R resistor"
+      ],
+      "qty": 24,
+      "category": "passive"
+    },
+    {
+      "name": "1M ohm resistor",
+      "aliases": [
+        "1M resistor",
+        "1 Mohm resistor"
+      ],
+      "qty": 1,
+      "category": "passive"
+    },
+    {
+      "name": "1M ohm potentiometer",
+      "aliases": [
+        "1M potentiometer"
+      ],
+      "qty": 1,
+      "category": "passive"
+    },
+    {
+      "name": "0.01uF capacitor",
+      "aliases": [
+        "10nF capacitor",
+        "0.01 uF capacitor"
+      ],
+      "qty": 6,
+      "category": "passive"
+    },
+    {
+      "name": "0.1uF capacitor",
+      "aliases": [
+        "100nF capacitor",
+        "0.1 uF capacitor"
+      ],
+      "qty": 16,
+      "category": "passive"
+    },
+    {
+      "name": "1uF capacitor",
+      "aliases": [
+        "1 uF capacitor"
+      ],
+      "qty": 1,
+      "category": "passive"
+    },
+    {
+      "name": "555 timer IC",
+      "aliases": [
+        "NE555",
+        "555"
+      ],
+      "qty": 4,
+      "canonical_chip": "NE555",
+      "category": "ic"
+    },
+    {
+      "name": "74LS00",
+      "aliases": [
+        "quad NAND gate"
+      ],
+      "qty": 2,
+      "canonical_chip": "74LS00",
+      "category": "ic"
+    },
+    {
+      "name": "74LS02",
+      "aliases": [
+        "quad NOR gate"
+      ],
+      "qty": 1,
+      "canonical_chip": "74LS02",
+      "category": "ic"
+    },
+    {
+      "name": "74LS04",
+      "aliases": [
+        "hex inverter"
+      ],
+      "qty": 5,
+      "canonical_chip": "74LS04",
+      "category": "ic"
+    },
+    {
+      "name": "74LS08",
+      "aliases": [
+        "quad AND gate"
+      ],
+      "qty": 3,
+      "canonical_chip": "74LS08",
+      "category": "ic"
+    },
+    {
+      "name": "74LS32",
+      "aliases": [
+        "quad OR gate"
+      ],
+      "qty": 1,
+      "canonical_chip": "74LS32",
+      "category": "ic"
+    },
+    {
+      "name": "74LS107",
+      "aliases": [
+        "dual JK flip-flop",
+        "74LS76"
+      ],
+      "qty": 1,
+      "canonical_chip": "74LS107",
+      "category": "ic",
+      "notes": "Videos use the 74LS76; the 74LS107 is equivalent with a different pinout."
+    },
+    {
+      "name": "74LS86",
+      "aliases": [
+        "quad XOR gate"
+      ],
+      "qty": 2,
+      "canonical_chip": "74LS86",
+      "category": "ic"
+    },
+    {
+      "name": "74LS138",
+      "aliases": [
+        "3-to-8 line decoder"
+      ],
+      "qty": 1,
+      "canonical_chip": "74LS138",
+      "category": "ic"
+    },
+    {
+      "name": "74LS139",
+      "aliases": [
+        "dual 2-to-4 line decoder"
+      ],
+      "qty": 1,
+      "canonical_chip": "74LS139",
+      "category": "ic"
+    },
+    {
+      "name": "74LS157",
+      "aliases": [
+        "quad 2-to-1 data selector"
+      ],
+      "qty": 4,
+      "canonical_chip": "74LS157",
+      "category": "ic"
+    },
+    {
+      "name": "74LS161",
+      "aliases": [
+        "4-bit synchronous binary counter"
+      ],
+      "qty": 2,
+      "canonical_chip": "74LS161",
+      "category": "ic"
+    },
+    {
+      "name": "74LS173",
+      "aliases": [
+        "4-bit D-type register"
+      ],
+      "qty": 8,
+      "canonical_chip": "74LS173",
+      "category": "ic"
+    },
+    {
+      "name": "74189",
+      "aliases": [
+        "64-bit RAM",
+        "74LS189"
+      ],
+      "qty": 2,
+      "canonical_chip": "74189",
+      "category": "ic"
+    },
+    {
+      "name": "74LS245",
+      "aliases": [
+        "octal bus transceiver"
+      ],
+      "qty": 6,
+      "canonical_chip": "74LS245",
+      "category": "ic"
+    },
+    {
+      "name": "74LS273",
+      "aliases": [
+        "octal D flip-flop"
+      ],
+      "qty": 1,
+      "canonical_chip": "74LS273",
+      "category": "ic"
+    },
+    {
+      "name": "74LS283",
+      "aliases": [
+        "4-bit binary full adder"
+      ],
+      "qty": 2,
+      "canonical_chip": "74LS283",
+      "category": "ic"
+    },
+    {
+      "name": "28C16 EEPROM",
+      "aliases": [
+        "AT28C16"
+      ],
+      "qty": 3,
+      "canonical_chip": "28C16",
+      "category": "ic"
+    },
+    {
+      "name": "Double-throw toggle switch",
+      "aliases": [
+        "toggle switch"
+      ],
+      "qty": 3,
+      "category": "switch"
+    },
+    {
+      "name": "6mm tactile switch",
+      "aliases": [
+        "momentary tact switch",
+        "push button"
+      ],
+      "qty": 3,
+      "category": "switch"
+    },
+    {
+      "name": "8-position DIP switch",
+      "aliases": [
+        "8 way DIP switch"
+      ],
+      "qty": 1,
+      "category": "switch"
+    },
+    {
+      "name": "4-position DIP switch",
+      "aliases": [
+        "4 way DIP switch"
+      ],
+      "qty": 1,
+      "category": "switch"
+    },
+    {
+      "name": "Red LED",
+      "aliases": [],
+      "qty": 44,
+      "category": "led"
+    },
+    {
+      "name": "Yellow LED",
+      "aliases": [],
+      "qty": 8,
+      "category": "led"
+    },
+    {
+      "name": "Green LED",
+      "aliases": [],
+      "qty": 12,
+      "category": "led"
+    },
+    {
+      "name": "Blue LED",
+      "aliases": [],
+      "qty": 21,
+      "category": "led"
+    },
+    {
+      "name": "Common cathode 7-segment display",
+      "aliases": [
+        "7-segment display"
+      ],
+      "qty": 4,
+      "category": "display"
+    }
+  ],
+  "gold_substitutions": [],
+  "must_flag": [],
+  "notes": "Transcribed from the 'Complete parts list' table (Qty / Description). No power supply is listed. 74LS vs 74HC substitution is a plan test point but has no worked case, so no gold grade is given.",
+  "ambiguities": [
+    "Similar names (74LS00/74LS02, red/yellow LED) stress one-to-one matching; numeric part names match only exactly or by containment.",
+    "Hook-up wire is one spool, counted as qty 1."
+  ],
+  "drafted_by": "Claude Code agent (stream mvp/eval), not a human labeller",
+  "reviewed_by": []
+}
