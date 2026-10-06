@@ -3243,6 +3243,177 @@
         "title": "CartPlans",
         "description": "Suggestions only: plans never change the user's selection."
       },
+      "CatalogCandidate": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "confidence": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Confidence"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "confidence"
+        ],
+        "title": "CatalogCandidate"
+      },
+      "CatalogMatch": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "matched",
+              "ambiguous",
+              "unmatched"
+            ],
+            "title": "Status"
+          },
+          "id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "category": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category"
+          },
+          "chip": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chip"
+          },
+          "confidence": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Confidence",
+            "default": 0
+          },
+          "candidates": {
+            "items": {
+              "$ref": "#/components/schemas/CatalogCandidate"
+            },
+            "type": "array",
+            "maxItems": 6,
+            "title": "Candidates"
+          },
+          "facts": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Facts"
+          },
+          "requirements": {
+            "items": {
+              "$ref": "#/components/schemas/PartRequirement"
+            },
+            "type": "array",
+            "maxItems": 20,
+            "title": "Requirements"
+          },
+          "lookalikes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Lookalikes"
+          },
+          "verify": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verify"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          },
+          "source_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Url"
+          },
+          "verified": {
+            "type": "boolean",
+            "title": "Verified",
+            "default": false
+          },
+          "origin": {
+            "type": "string",
+            "const": "curated_catalog",
+            "title": "Origin",
+            "default": "curated_catalog"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "title": "CatalogMatch",
+        "description": "Deterministic catalogue lookup of a part name; reference facts, not seller facts."
+      },
       "ChatMessage": {
         "properties": {
           "message_id": {
@@ -3455,6 +3626,68 @@
         ],
         "title": "ClipRange"
       },
+      "CompatFinding": {
+        "properties": {
+          "rule": {
+            "type": "string",
+            "title": "Rule"
+          },
+          "grade": {
+            "type": "string",
+            "enum": [
+              "A",
+              "B",
+              "C",
+              "D",
+              "X"
+            ],
+            "title": "Grade"
+          },
+          "area": {
+            "type": "string",
+            "enum": [
+              "wiring",
+              "code",
+              "power",
+              "safety",
+              "verify"
+            ],
+            "title": "Area"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "change": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Change"
+          },
+          "basis": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Basis"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "rule",
+          "grade",
+          "area",
+          "message"
+        ],
+        "title": "CompatFinding",
+        "description": "One deterministic rule result; `grade` is the floor this finding imposes."
+      },
       "Compatibility": {
         "properties": {
           "status": {
@@ -3518,6 +3751,65 @@
             },
             "type": "array",
             "title": "References"
+          },
+          "method": {
+            "type": "string",
+            "enum": [
+              "declared_specs",
+              "catalog_rules"
+            ],
+            "title": "Method",
+            "default": "declared_specs"
+          },
+          "grade_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Grade Label"
+          },
+          "findings": {
+            "items": {
+              "$ref": "#/components/schemas/CompatFinding"
+            },
+            "type": "array",
+            "title": "Findings"
+          },
+          "what_changes": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/WhatChanges"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "required_catalog_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Required Catalog Id"
+          },
+          "offered_catalog_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Offered Catalog Id"
           }
         },
         "additionalProperties": false,
@@ -4911,6 +5203,16 @@
             },
             "type": "array",
             "title": "Clarifications"
+          },
+          "catalog": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CatalogMatch"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "additionalProperties": false,
@@ -7190,7 +7492,8 @@
               "user",
               "seller_title",
               "seller_property",
-              "seller_table"
+              "seller_table",
+              "catalog"
             ],
             "title": "Source"
           },
@@ -7714,6 +8017,48 @@
           "price_inr"
         ],
         "title": "VerifiedOffer"
+      },
+      "WhatChanges": {
+        "properties": {
+          "wiring": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Wiring"
+          },
+          "code": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Code"
+          },
+          "power": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Power"
+          },
+          "safety": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Safety"
+          },
+          "verify": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Verify"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "WhatChanges"
       },
       "ZoomRequest": {
         "properties": {

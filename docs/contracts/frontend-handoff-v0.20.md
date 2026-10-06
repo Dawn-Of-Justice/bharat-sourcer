@@ -28,6 +28,7 @@ General rules that apply to every item:
 | 6 | Export buttons, share control, public share page | M | [export-and-share.md](export-and-share.md) |
 | 7 | Explain aloud, zoom, parts-bin scan (only when enabled) | M | [gemini-extras.md](gemini-extras.md) |
 | 8 | Landing page: Adafruit Learn and maker-blog links | XS | [multi-source-intake.md](multi-source-intake.md) |
+| 9 | Compatibility grade chips, "what changes" drawer, catalogue match | M | [compatibility-rules.md](compatibility-rules.md) |
 
 ## 1. Render code evidence (needed now)
 
@@ -143,8 +144,35 @@ The backend now accepts Adafruit Learn guides and a fixed list of maker tutorial
 page's Article tab currently accepts only Instructables hostnames; widen it to the
 supported list. Hackster still returns `SOURCE_UNAVAILABLE`.
 
+## 9. Compatibility grades — `compatibility` on offers, `resolution.catalog` on lines
+
+Offers can now get grades A, B, C, D or X from deterministic rules against a curated
+parts catalogue.
+
+- **Grade chip** on each offer, with icon and text:
+  - A ✓ "Works as is"
+  - B ⇄ "Small setting change"
+  - C ⚠ "Wiring or power changes"
+  - D ◐ "Different part, similar result"
+  - X ⛔ "Don't use"
+
+  With no grade (`null`), show "Not enough information" and list `missing_fields` in
+  plain words. Expect this often: sellers rarely state enough facts for A or B.
+- **"What changes" drawer** from the chip: `what_changes` grouped under Wiring, Code,
+  Power, Safety and Verify on arrival, then each of the `findings` with its own grade
+  badge. Put safety items first, in bold.
+- **Labelling:** when `method` is `catalog_rules`, show "Checked by rules against a
+  curated catalogue (unverified reference data) and the seller's declared specs". Never
+  call a grade verified. A `basis` item ending in `:catalog` reads "typical module value,
+  not stated by this seller".
+- **Catalogue match on the BOM line:** when `resolution.catalog.status` is `matched`, show
+  "Recognised as <name>" with the facts on expand and `verify` as a check-on-arrival
+  note. When `ambiguous`, show "Which one is it?" with the candidate names; the user picks
+  one by editing the part name. Offer `requirements` as "Suggested requirements
+  (catalogue reference)" for the user to adopt.
+- Grade C and D offers are visible but can't be selected yet; selection still needs A or B.
+
 ## Not in this release
 
-The compatibility rules engine (catalogue-backed grades A, B, C, D and X with "what
-changes" findings) is still being built and will ship in a later release with its own
-contract. Items that need owner approval are in [`roadmap.md`](../../roadmap.md).
+Code diffs and compile checks (M9) are not built. Items that need owner approval are in
+[`roadmap.md`](../../roadmap.md).

@@ -14,7 +14,8 @@ extra `sources` per job, and flags conflicts, look-alikes and per-line confidenc
 GSTIN checksum, HTTPS, policies, price anomalies) and adds a Shopify/WooCommerce JSON fast path.
 [Export and share](../docs/contracts/export-and-share.md) adds CSV, printable HTML and revocable
 read-only share links. [Gemini extras](../docs/contracts/gemini-extras.md) (explain aloud, clip zoom,
-parts-bin scan) ship disabled. The [evaluation gold set](../docs/contracts/evaluation-gold-set.md) is an
+parts-bin scan) ship disabled. A curated [parts catalogue and rules engine](../docs/contracts/compatibility-rules.md)
+resolves BOM names and grades offers A, B, C, D or X with "what changes" findings. The [evaluation gold set](../docs/contracts/evaluation-gold-set.md) is an
 unreviewed agent draft; no accuracy figure is claimed. Items needing owner approval are in
 [`roadmap.md`](../roadmap.md).
 
