@@ -2,7 +2,7 @@ import Results from './Results'
 import { watchJob } from './stream'
 import { useAccount, Projects } from './Account'
 import { useEffect, useLayoutEffect, useRef, useState, type FormEvent } from 'react'
-import { ApiError, claimProject, evidenceText, pauseJob, resumeJob, confirmJob, createJob, getJob, type BomItem, type Job } from './api'
+import { ApiError, claimProject, evidenceText, pauseJob, resumeJob, confirmJob, createJob, getJob, updateProject, type BomItem, type Job } from './api'
 import ChatPanel from './ChatPanel'
 import Requirements, { requirementPayload, validRequirements } from './Requirements'
 
@@ -262,6 +262,28 @@ function ProjectCard({ project }: { project?: Job['project'] }) {
   return <div className="project-card"><span className="inferred-tag">AI understanding of the project — check it</span><strong>What we understood</strong><p>{project.summary}</p>{facts.length > 0 && <p>{facts.map(([label, value]) => `${label}: ${value}`).join(' · ')}</p>}{project.assumptions?.length > 0 && <ul>{project.assumptions.map((entry, index) => <li key={index}>{entry}</li>)}</ul>}<small>Inferred quantities and build details below come from this reading. Correct anything that is wrong before confirming.</small></div>
 }
 
+function ProjectHeading({ job, token, onJob }: { job: Job; token: string; onJob: (job: Job) => void }) {
+  const [editing, setEditing] = useState(false)
+  const [title, setTitle] = useState(job.project?.title ?? '')
+  const [description, setDescription] = useState(job.project?.description ?? '')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  const project = job.project
+  async function save(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const changes: { title?: string; description?: string } = {}
+    if (title.trim() !== (project?.title ?? '')) changes.title = title.trim()
+    if (description.trim() !== (project?.description ?? '')) changes.description = description.trim()
+    if (!Object.keys(changes).length) { setEditing(false); return }
+    if (Object.values(changes).some(value => !value)) { setError('Title and description cannot be blank.'); return }
+    setBusy(true); setError('')
+    try { onJob(await updateProject(job.job_id, token, changes)); setEditing(false) }
+    catch (cause) { setError(cause instanceof Error ? cause.message : 'Could not save project details.') }
+    finally { setBusy(false) }
+  }
+  return <section className="project-heading"><div><h1>{project?.title || 'From video to parts.'}</h1>{project?.description && <p>{project.description}</p>}{project?.title_source === 'ai' || project?.description_source === 'ai' ? <small>AI-written project details · review and edit as needed.</small> : null}</div>{!editing ? <button type="button" className="nav-cta" onClick={() => { setTitle(project?.title ?? ''); setDescription(project?.description ?? ''); setEditing(true) }}>Edit title and description</button> : <form onSubmit={save}><label>Project title<input value={title} maxLength={120} onChange={event => setTitle(event.target.value)} /></label><label>Description<textarea value={description} maxLength={600} onChange={event => setDescription(event.target.value)} /></label><div><button className="nav-cta" type="submit" disabled={busy}>{busy ? 'Saving…' : 'Save details'}</button><button className="remove-button" type="button" disabled={busy} onClick={() => { setEditing(false); setError('') }}>Cancel</button></div>{error && <p className="form-error" role="alert">{error}</p>}</form>}</section>
+}
+
 type ReviewRow = { item: BomItem; name: string; qty: string; owned: boolean; removed: boolean; requirements: NonNullable<BomItem['requirements']> }
 
 function Review({ job, token, onConfirmed }: { job: Job; token: string; onConfirmed: () => void }) {
@@ -394,6 +416,7 @@ function JobPage({ id }: { id: string }) {
     {!account.ready ? <p role="status">Checking your session…</p> : (!token && (!account.identity || account.identity === 'legacy')) ? <section className="job-panel"><h2>Session access ended</h2><p>Sign in to the account that owns this project to continue. Older projects also need their original browser-session token.</p><button className="primary-button job-action" onClick={account.open}>Sign in to continue <ArrowIcon /></button></section> : fatalError ? <section className="job-panel"><h2>We couldn’t load this job</h2><p role="alert">{fatalError}</p><button className="primary-button job-action" onClick={() => { setFatalError(''); setRevision((value) => value + 1) }}>Try again <ArrowIcon /></button>{token && account.identity && account.identity !== 'legacy' && account.identity.kind === 'account' && <div className="legacy-claim"><p>If this project was created before accounts were enabled in this browser, you can save it to your account using its original access token.</p><button className="nav-cta" disabled={actionBusy} onClick={async () => { setActionBusy(true); setActionError(''); try { await claimProject(id, token); setFatalError(''); setRevision(n => n + 1) } catch (cause) { setActionError(cause instanceof Error ? cause.message : 'Could not claim this project.') } finally { setActionBusy(false) } }}>Save older project to my account</button>{actionError && <p className="form-error" role="alert">{actionError}</p>}</div>}</section> : !job ? <section className="job-panel loading-panel" role="status"><span className="loading-indicator" /> Connecting to your job…{connectionIssue ? <p>{connectionIssue}</p> : null}</section> : <>
       <div className="job-status-bar" role="status" aria-live="polite"><span className={`status-pulse ${['done', 'failed', 'awaiting_confirmation'].includes(job.status) ? 'paused' : ''}`} /><strong>{statusLabel[job.status]}</strong><span>{job.demo ? 'Demo mode · sample data' : 'Live analysis'}</span></div>
       {connectionIssue ? <div className="connection-warning" role="status">{connectionIssue} Your saved BOM and conversation remain visible.</div> : null}
+      <ProjectHeading key={job.project?.title_source + ':' + job.project?.title + ':' + job.project?.description} job={job} token={token} onJob={applySnapshot} />
       {!job.demo && ['resolving', 'sourcing', 'paused'].includes(job.status) && <div className="guest-banner"><p>{job.status === 'paused' ? 'Your progress is saved. Resume when you are ready.' : 'You can pause sourcing without using your action quota.'}</p><button className="nav-cta" disabled={actionBusy || job.pause_requested && job.status !== 'paused'} onClick={async () => { setActionBusy(true); setActionError(''); try { await (job.status === 'paused' ? resumeJob(id, token) : pauseJob(id, token)); setRevision(n => n + 1) } catch (cause) { setActionError(cause instanceof Error ? cause.message : 'Could not update sourcing') } finally { setActionBusy(false) } }}>{job.pause_requested && job.status !== 'paused' ? 'Pausing after current part…' : actionBusy ? 'Updating…' : job.status === 'paused' ? 'Resume sourcing' : 'Pause sourcing'}</button></div>}
       {actionError && <p className="form-error" role="alert">{actionError}</p>}
       <div className="job-content-grid"><div className="job-primary">

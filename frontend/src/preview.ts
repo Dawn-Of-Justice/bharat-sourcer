@@ -8,10 +8,10 @@ items[0] = { ...items[0], requirements: [
   { name: 'logic voltage', value: '3.3', unit: 'V', operator: 'equals', origin: 'inferred', reason: 'Dummy reason: the sample project powers the sensor from a 3.3 V rail.' },
   { name: 'GPIO pins', value: '4', unit: null, operator: 'at_least', origin: 'inferred', reason: 'Dummy reason: one sensor and three indicator LEDs.' },
 ] }
-const project: ProjectUnderstanding = { summary: 'Dummy preview project: a sample battery-powered sensor logger. Not extracted from a real source.', power: 'Sample 3.7 V Li-ion cell (dummy)', controller: 'Sample controller board (dummy)', interfaces: ['I2C', 'USB'], assumptions: ['Dummy assumption: the sensor runs at 3.3 V logic.', 'Dummy assumption: one sensor per build.'], origin: 'ai_inferred' }
+const project: ProjectUnderstanding = { title: 'Demo: Sensor logger', title_source: 'ai', description: 'Dummy battery-powered sensor logger for UI preview.', description_source: 'ai', summary: 'Dummy preview project: a sample battery-powered sensor logger. Not extracted from a real source.', power: 'Sample 3.7 V Li-ion cell (dummy)', controller: 'Sample controller board (dummy)', interfaces: ['I2C', 'USB'], assumptions: ['Dummy assumption: the sensor runs at 3.3 V logic.', 'Dummy assumption: one sensor per build.'], origin: 'ai_inferred' }
 const phase = new URLSearchParams(window.location.search).get('stage')
 const status: JobStatus = phase === 'done' ? 'done' : phase === 'sourcing' ? 'sourcing' : 'awaiting_confirmation'
-const lines = items.map(item => ({ item, sourcing_status: 'offers_found' as const, sourcing_error: null, subtotal_inr: '199', offers: [{ url: '#demo-seller', seller: 'Sample seller (dummy)', title: item.raw_name, price_inr: '199', stock: 'sample_stock', checked_at: new Date().toISOString(), image_url: '/preview-part.svg', compatibility: null }] }))
+const lines = items.map(item => ({ item, sourcing_status: 'offers_found' as const, sourcing_error: null, subtotal_inr: '199', offers: [{ url: '#demo-seller', seller: 'Sample seller (dummy)', title: item.raw_name, price_inr: '199', stock: 'sample_stock', checked_at: new Date().toISOString(), image_url: '/preview-part.svg', compatibility: null, spec_conflicts: item.line_id === 'L01' ? [{ field: 'logic_v', candidates: [{ field: 'logic_v', value: '3.3 V', source: 'seller_title' as const, locator: 'dummy title' }, { field: 'logic_v', value: '5 V', source: 'seller_table' as const, locator: 'dummy table' }] }] : [] }] }))
 let job: Job = { job_id: 'ui-preview', status, updated_at: new Date().toISOString(), demo: true, input: { url: 'https://example.com/dummy-video' }, items, project, events: [], report: status === 'awaiting_confirmation' ? null : { summary: 'Dummy preview', lines: status === 'done' ? lines : [lines[2]], selected_parts_subtotal_inr: '0', parts_subtotal_inr: null, unselected_line_ids: [] }, error: null, messages: [], chat_state: 'idle', chat_error: null, actions: [] }
 
 // Dummy chat states for the results stage: a pending spec proposal and an approved refresh with its completion message.
@@ -40,10 +40,16 @@ export function previewRequest(path: string, options: RequestInit): unknown {
     if (!kind) throw new ApiError('Sign in to continue.', 401, 'IDENTITY_REQUIRED')
     return { kind, expires_at: null, daily_action_limit: kind === 'guest' ? 5 : 40, part_limit: kind === 'guest' ? 3 : 10 }
   }
-  if (path.startsWith('/v1/projects?')) return { projects: [{ job_id: job.job_id, url: job.input.url, status: job.status, created_at: job.updated_at, updated_at: job.updated_at, part_count: job.items.length }], next_cursor: null }
+  if (path.startsWith('/v1/projects?')) return { projects: [{ job_id: job.job_id, url: job.input.url, status: job.status, created_at: job.updated_at, updated_at: job.updated_at, part_count: job.items.length, title: job.project?.title, description: job.project?.description, summary: job.project?.summary }], next_cursor: null }
   if (path.endsWith('/claim')) return { job_id: job.job_id }
   if (path === '/healthz') return { mode: 'demo' }
   if (path === '/v1/jobs' && options.method === 'POST') return { job_id: job.job_id, job_token: 'dummy-token', demo: true }
+  if (path === '/v1/jobs/ui-preview/project' && options.method === 'POST') {
+    const changes = JSON.parse(String(options.body)) as { title?: string; description?: string }
+    job.project = { ...job.project!, ...changes, ...(changes.title ? { title_source: 'user' } : {}), ...(changes.description ? { description_source: 'user' } : {}) }
+    return structuredClone({ ...job, updated_at: new Date().toISOString() })
+  }
+  if (/^\/v1\/jobs\/ui-preview\/parts\/L0[1-3]\/image$/.test(path)) return { candidates: [], fallback: { url: '/preview-part.svg', kind: 'category', label: 'Dummy illustration · not a product photo' }, generation_status: 'not_needed' }
   if (path.endsWith('/confirm')) {
     const edits = JSON.parse(String(options.body)).edits
     for (const edit of edits) {

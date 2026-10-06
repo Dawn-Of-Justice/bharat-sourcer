@@ -67,3 +67,14 @@ test('preview labels AI project understanding, inferred qty and inferred build d
   assert.ok(inferredRequirements.every(item => /Dummy/.test(item.reason)))
   assert.equal(requests, 0)
 })
+
+test('preview saves project details and serves a labelled part fallback without network', async () => {
+  const saved = await api.updateProject('ui-preview', 'dummy-token', { title: 'My sample build', description: 'Dummy edited description' })
+  assert.equal(saved.project.title, 'My sample build')
+  assert.equal(saved.project.title_source, 'user')
+  assert.equal((await api.listProjects()).projects[0].title, 'My sample build')
+  const images = await api.getPartImages('ui-preview', 'dummy-token', 'L01')
+  assert.equal(images.fallback.kind, 'category')
+  assert.match(images.fallback.label, /Dummy illustration/)
+  assert.equal(requests, 0)
+})

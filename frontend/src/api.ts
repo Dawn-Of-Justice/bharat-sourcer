@@ -32,7 +32,7 @@ export interface ActionRecord { kind: 'edit' | 'refresh' | 'spec_update'; messag
 // origin defaults to 'user'; 'inferred' rows were pre-filled by the model from project context, with a reason.
 export interface PartRequirement { name: string; value: string; unit?: string | null; operator: 'equals' | 'at_least' | 'at_most'; origin?: 'user' | 'inferred'; reason?: string | null }
 // The extraction model's reading of the whole project. AI-inferred; the user should check it.
-export interface ProjectUnderstanding { summary: string; power: string | null; controller: string | null; interfaces: string[]; assumptions: string[]; origin: 'ai_inferred' }
+export interface ProjectUnderstanding { title?: string | null; title_source?: 'ai' | 'user' | null; description?: string | null; description_source?: 'ai' | 'user' | null; summary: string; power: string | null; controller: string | null; interfaces: string[]; assumptions: string[]; origin: 'ai_inferred' }
 export interface ResearchAssessment { status: 'potential_match' | 'needs_information' | 'not_suitable' | 'stale'; explanation: string; conditions: string[]; questions: string[]; checks?: { requirement: PartRequirement; status: 'meets' | 'does_not_meet' | 'unknown'; reason: string }[] }
 export interface ResearchCandidate { url: string; title: string; category: string; kind: 'seller' | 'manufacturer' | 'reference'; identity_quote: string; match: 'exact' | 'possible'; facts: { name: string; value: string; unit?: string | null; quote: string }[]; assessment: ResearchAssessment }
 export interface Evidence {
@@ -76,6 +76,7 @@ export interface ReportLine {
     price_inr: string
     stock: string
     checked_at: string
+    spec_conflicts?: { field: string; candidates: { field: string; value: string; source: 'part_name' | 'user' | 'seller_title' | 'seller_property' | 'seller_table'; locator: string }[] }[]
     compatibility: {
       status: string
       grade: string | null
@@ -188,6 +189,18 @@ export function getJob(id: string, token: string) {
   return request<Job>(`/v1/jobs/${encodeURIComponent(id)}`, {}, token)
 }
 
+export function updateProject(id: string, token: string, changes: { title?: string; description?: string }) {
+  return request<Job>(`/v1/jobs/${encodeURIComponent(id)}/project`, { method: 'POST', body: JSON.stringify(changes) }, token)
+}
+
+export interface PartImages { candidates: PartImage[]; fallback: PartImage; generation_status: 'not_needed' | 'not_requested' | 'ready' | 'pending' | 'unavailable' }
+export function getPartImages(id: string, token: string, lineId: string) {
+  return request<PartImages>(`/v1/jobs/${encodeURIComponent(id)}/parts/${encodeURIComponent(lineId)}/image`, {}, token)
+}
+export function reportFailedImages(id: string, token: string, lineId: string, failedUrls: string[]) {
+  return request<PartImages>(`/v1/jobs/${encodeURIComponent(id)}/parts/${encodeURIComponent(lineId)}/image`, { method: 'POST', body: JSON.stringify({ failed_urls: failedUrls.slice(0, 10) }) }, token)
+}
+
 export function confirmJob(id: string, token: string, edits: JobEdit[]) {
   return request<{ status: 'resolving' }>(`/v1/jobs/${encodeURIComponent(id)}/confirm`, {
     method: 'POST',
@@ -210,7 +223,7 @@ export function decideProposal(id: string, token: string, messageId: string, act
 }
 
 export interface Session { kind: 'account' | 'guest'; expires_at: number | null; daily_action_limit: number; part_limit: number }
-export interface Project { job_id: string; url: string; status: string; created_at: string; updated_at: string; part_count: number }
+export interface Project { job_id: string; url: string; status: string; created_at: string; updated_at: string; part_count: number; title?: string | null; description?: string | null; summary?: string | null }
 export const getSession = () => request<Session>('/v1/session')
 export const startGuest = () => request<Session>('/v1/session/guest', { method: 'POST' })
 export const logoutSession = () => request<void>('/v1/session/logout', { method: 'POST' })
