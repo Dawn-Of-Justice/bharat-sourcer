@@ -11,7 +11,7 @@ function resetTime(window: UsageWindow) {
 }
 
 function projectTitle(project: Project) {
-  if (localPreview) return 'Sample maker project'
+  if (project.title) return project.title
   try { return new URL(project.url).hostname + ' project' } catch { return 'Saved project' }
 }
 
@@ -156,7 +156,7 @@ export function Projects({ onOpen, onNew }: { onOpen: (id: string) => void; onNe
       {identity.kind === 'guest' && <div className="guest-banner"><p>You’re browsing as a guest. Sign in to keep your projects in an account.</p><button className="nav-cta" onClick={open}>Save my projects</button></div>}
       {error && <div role="alert"><p>{error}</p><button className="nav-cta" onClick={() => setRetry(n => n + 1)}>Retry</button></div>}
       {!error && loadedOwner === ownerKey && !projects.length && <section className="projects-empty"><span className="empty-symbol">+</span><h2>Your first build starts here.</h2><p>Bring a project link. Review the parts, ask questions, and return whenever you’re ready.</p><button className="primary-button" onClick={onNew}>Start a project</button></section>}
-      {loadedOwner === ownerKey && <><div className="project-grid">{projects.map(project => <button className="project-card" key={project.job_id} onClick={() => onOpen(project.job_id)}><div className="project-card-top"><span className="project-icon">↗</span><span className="project-status">{project.status.replaceAll('_', ' ')}</span></div><h2>{projectTitle(project)}</h2><p className="project-source">{project.url}</p><div className="project-meta"><span>{project.part_count} parts</span><span>Updated {new Date(project.updated_at).toLocaleDateString('en-IN')}</span></div><div className="project-open">Open project <span>→</span></div></button>)}</div>{cursor && <button className="nav-cta" disabled={moreBusy} onClick={() => void loadMore()}>{moreBusy ? 'Loading…' : 'Load more projects'}</button>}{moreError && <p role="alert">{moreError} <button className="nav-cta" onClick={() => void loadMore()}>Retry loading more</button></p>}<p className="account-footnote">Opening a saved project does not run analysis or refresh seller prices.</p></>}
+        {loadedOwner === ownerKey && <><div className="project-grid">{projects.map(project => <button className="project-card" key={project.job_id} onClick={() => onOpen(project.job_id)}><div className="project-card-top"><span className="project-icon">↗</span><span className="project-status">{project.status.replaceAll('_', ' ')}</span></div><h2>{projectTitle(project)}</h2><p className="project-source">{project.description || project.url}</p>{project.description && <small className="project-url">{project.url}</small>}<div className="project-meta"><span>{project.part_count} parts</span><span>Updated {new Date(project.updated_at).toLocaleDateString('en-IN')}</span></div><div className="project-open">Open project <span>→</span></div></button>)}</div>{cursor && <button className="nav-cta" disabled={moreBusy} onClick={() => void loadMore()}>{moreBusy ? 'Loading…' : 'Load more projects'}</button>}{moreError && <p role="alert">{moreError} <button className="nav-cta" onClick={() => void loadMore()}>Retry loading more</button></p>}<p className="account-footnote">Opening a saved project does not run analysis or refresh seller prices.</p></>}
     </>}
   </main>
 }
