@@ -1,0 +1,181 @@
+{
+ "_fixture": {
+  "url": "https://sharvielectronics.com/wp-json/wc/store/v1/products?search=ldr&per_page=10",
+  "fetched_on": "2026-10-07",
+  "note": "Recorded live response, trimmed to the fields the adapter reads. Prices are search hints only, never verified offers."
+ },
+ "status": 200,
+ "content_type": "application/json; charset=UTF-8",
+ "body": [
+  {
+   "id": 189079,
+   "name": "BN75S6 75 Watts Spade Nickel-Plated Long-Life Bit -SOLDRON",
+   "permalink": "https://sharvielectronics.com/product/bn75s6-75-watts-spade-nickel-plated-long-life-bit-soldron/",
+   "type": "simple",
+   "prices": {
+    "price": "78555",
+    "currency_code": "INR",
+    "currency_minor_unit": 2
+   },
+   "is_in_stock": true,
+   "images": [
+    {
+     "src": "https://sharvielectronics.com/wp-content/uploads/2026/07/BN75S6-75-Watts-Spade-Nickel-Plated-Long-Life-Bit-SOLDRON-Sharvielectronics.jpg"
+    }
+   ]
+  },
+  {
+   "id": 188098,
+   "name": "Soldron Ultra Pro 878D 2-IN-1 Hot Air Soldering Station",
+   "permalink": "https://sharvielectronics.com/product/soldron-ultra-pro-878d-2-in-1-hot-air-soldering-station/",
+   "type": "simple",
+   "prices": {
+    "price": "911233",
+    "currency_code": "INR",
+    "currency_minor_unit": 2
+   },
+   "is_in_stock": true,
+   "images": [
+    {
+     "src": "https://sharvielectronics.com/wp-content/uploads/2026/06/Soldron-Ultra-Pro-878D-2-IN-1-Hot-Air-Soldering-Station-Sharvielectronics.jpg"
+    }
+   ]
+  },
+  {
+   "id": 177955,
+   "name": "SID60A 60W Professional Digital Temperature Adjustable Soldering Iron -Soldron",
+   "permalink": "https://sharvielectronics.com/product/sid60a-60w-professional-digital-temperature-adjustable-soldering-iron-soldron/",
+   "type": "simple",
+   "prices": {
+    "price": "134845",
+    "currency_code": "INR",
+    "currency_minor_unit": 2
+   },
+   "is_in_stock": true,
+   "images": [
+    {
+     "src": "https://sharvielectronics.com/wp-content/uploads/2026/04/SID80A-80W-Professional-Digital-Temperature-Adjustable-Soldering-Iron-Soldron-Sharvielectronics-1.jpg"
+    }
+   ]
+  },
+  {
+   "id": 177952,
+   "name": "SID80A 80W Professional Digital Temperature Adjustable Soldering Iron -Soldron",
+   "permalink": "https://sharvielectronics.com/product/sid80a-80w-professional-digital-temperature-adjustable-soldering-iron-soldron/",
+   "type": "simple",
+   "prices": {
+    "price": "139245",
+    "currency_code": "INR",
+    "currency_minor_unit": 2
+   },
+   "is_in_stock": true,
+   "images": [
+    {
+     "src": "https://sharvielectronics.com/wp-content/uploads/2026/04/SID80A-80W-Professional-Digital-Temperature-Adjustable-Soldering-Iron-Soldron-Sharvielectronics-1.jpg"
+    }
+   ]
+  },
+  {
+   "id": 174434,
+   "name": "KCD4-203YB 6Pin 3 Position Joystick Switch Forward Stop Back For Children Toy Cars",
+   "permalink": "https://sharvielectronics.com/product/kcd4-203yb-6pin-3-position-joystick-switch-forward-stop-back-for-children-toy-cars/",
+   "type": "simple",
+   "prices": {
+    "price": "7475",
+    "currency_code": "INR",
+    "currency_minor_unit": 2
+   },
+   "is_in_stock": true,
+   "images": [
+    {
+     "src": "https://sharvielectronics.com/wp-content/uploads/2026/04/KCD4-203YB-6Pin-3-Position-Joystick-Switch-Forward-Stop-Back-For-Children-Toy-Cars-Sharvielectronics-1.jpg"
+    }
+   ]
+  },
+  {
+   "id": 171166,
+   "name": "8898 80 Watt Portable Dual Hot Air Soldering Station -Soldron",
+   "permalink": "https://sharvielectronics.com/product/8898-80-watt-portable-dual-hot-air-soldering-station-soldron/",
+   "type": "simple",
+   "prices": {
+    "price": "798945",
+    "currency_code": "INR",
+    "currency_minor_unit": 2
+   },
+   "is_in_stock": true,
+   "images": [
+    {
+     "src": "https://sharvielectronics.com/wp-content/uploads/2026/03/8898-Portable-Dual-Hot-Air-Soldering-Station-Sharvielectronics.jpg"
+    }
+   ]
+  },
+  {
+   "id": 147084,
+   "name": "SP-150A &#8211; 150 Watt Solder Pot &#8211; Soldron",
+   "permalink": "https://sharvielectronics.com/product/sp-150a-150-watt-solder-pot-soldron/",
+   "type": "simple",
+   "prices": {
+    "price": "288945",
+    "currency_code": "INR",
+    "currency_minor_unit": 2
+   },
+   "is_in_stock": true,
+   "images": [
+    {
+     "src": "https://sharvielectronics.com/wp-content/uploads/2025/08/PS-150A-150-Watt-Solder-Pot-Soldron-Sharvielectronics.jpg"
+    }
+   ]
+  },
+  {
+   "id": 144894,
+   "name": "SP-MINI-0100 &#8211; 230V 100W Mini Solder Pot &#8211; Soldron",
+   "permalink": "https://sharvielectronics.com/product/sp-mini-0100-230v-100w-mini-solder-pot-soldron/",
+   "type": "simple",
+   "prices": {
+    "price": "268945",
+    "currency_code": "INR",
+    "currency_minor_unit": 2
+   },
+   "is_in_stock": true,
+   "images": [
+    {
+     "src": "https://sharvielectronics.com/wp-content/uploads/2025/04/SP-MINI-0100-100W-Mini-Solder-Pot-Soldron-Sharvielectronics.jpg"
+    }
+   ]
+  },
+  {
+   "id": 144535,
+   "name": "SBS3 Deluxe Spade Soldering Bit &#8211; SOLDRON",
+   "permalink": "https://sharvielectronics.com/product/sbs3-deluxe-spade-soldering-bit-soldron/",
+   "type": "simple",
+   "prices": {
+    "price": "28555",
+    "currency_code": "INR",
+    "currency_minor_unit": 2
+   },
+   "is_in_stock": true,
+   "images": [
+    {
+     "src": "https://sharvielectronics.com/wp-content/uploads/2025/07/SOLDRON-Soldering-Bit-Sharvielectronics.jpg"
+    }
+   ]
+  },
+  {
+   "id": 143738,
+   "name": "Soldron SBN1 Black Ceramic Coated Deluxe Fine Needle Bit for Soldron 936/938/960/878D/740 Stations",
+   "permalink": "https://sharvielectronics.com/product/soldron-sbn1-black-ceramic-coated-deluxe-fine-needle-bit-for-soldron-936-938-960-878d-740-stations/",
+   "type": "simple",
+   "prices": {
+    "price": "17000",
+    "currency_code": "INR",
+    "currency_minor_unit": 2
+   },
+   "is_in_stock": true,
+   "images": [
+    {
+     "src": "https://sharvielectronics.com/wp-content/uploads/2020/10/1.png"
+    }
+   ]
+  }
+ ]
+}

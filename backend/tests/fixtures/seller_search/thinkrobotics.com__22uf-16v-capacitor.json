@@ -1,0 +1,35 @@
+{
+ "_fixture": {
+  "url": "https://thinkrobotics.com/search/suggest.json?q=22uf%2016v%20capacitor&resources%5Btype%5D=product&resources%5Blimit%5D=10",
+  "fetched_on": "2026-10-07",
+  "note": "Recorded live response, trimmed to the fields the adapter reads. Prices are search hints only, never verified offers."
+ },
+ "status": 200,
+ "content_type": "application/json; charset=utf-8",
+ "body": {
+  "resources": {
+   "results": {
+    "products": [
+     {
+      "title": "Ceramic Capacitor Box (100 pieces, 20 Values)",
+      "handle": "assorted-capacitor-box-100-pieces-20-values",
+      "url": "/products/assorted-capacitor-box-100-pieces-20-values?_pos=1&_psq=22uf+16v+capacitor&_psid=3eb36b859&_ss=e",
+      "price": "39.99",
+      "image": "https://cdn.shopify.com/s/files/1/0014/4313/5560/products/Picture80_420x_f38c4879-fd9f-4add-9318-30e9cdff5101.png?v=1631278423",
+      "available": false,
+      "vendor": "ThinkRobotics"
+     },
+     {
+      "title": "16 Key Way Channel TTP229 Capacitive Touch Switch",
+      "handle": "16-key-way-channel-ttp229-capactive-touch-switch",
+      "url": "/products/16-key-way-channel-ttp229-capactive-touch-switch?_pos=2&_psq=22uf+16v+capacitor&_psid=3eb36b859&_ss=e",
+      "price": "115.00",
+      "image": "https://cdn.shopify.com/s/files/1/0014/4313/5560/products/20190405_112612.jpg?v=1619612188",
+      "available": false,
+      "vendor": "ThinkRobotics"
+     }
+    ]
+   }
+  }
+ }
+}

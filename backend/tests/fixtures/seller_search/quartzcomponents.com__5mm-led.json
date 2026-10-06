@@ -1,0 +1,107 @@
+{
+ "_fixture": {
+  "url": "https://quartzcomponents.com/search/suggest.json?q=5mm%20led&resources%5Btype%5D=product&resources%5Blimit%5D=10",
+  "fetched_on": "2026-10-07",
+  "note": "Recorded live response, trimmed to the fields the adapter reads. Prices are search hints only, never verified offers."
+ },
+ "status": 200,
+ "content_type": "application/json; charset=utf-8",
+ "body": {
+  "resources": {
+   "results": {
+    "products": [
+     {
+      "title": "RGB LED 5mm with 2 pin - Auto Flashing",
+      "handle": "rgb-led-5mm-with-2-pin",
+      "url": "/products/rgb-led-5mm-with-2-pin?_pos=1&_psq=5mm+led&_psid=252e91289&_ss=e",
+      "price": "3.00",
+      "image": "https://cdn.shopify.com/s/files/1/0300/6424/6919/files/RGB_LED_5mm_with_2_pin_-_Auto_Flashing_1.jpg?v=1773815080",
+      "available": true,
+      "vendor": "SLG037"
+     },
+     {
+      "title": "SMD3535RGB Neon Flexible Strip Light WS2811 12V DC Waterproof LED light for Decoration- 5 Meter",
+      "handle": "pixel-neon-6-12-ws2811-12v",
+      "url": "/products/pixel-neon-6-12-ws2811-12v?_pos=2&_psq=5mm+led&_psid=252e91289&_ss=e",
+      "price": "1854.00",
+      "image": "https://cdn.shopify.com/s/files/1/0300/6424/6919/files/SMD3535RGB-Neon-Flexible-Strip-Light-WS2811-12V-DC-Waterproof-LED-light-for-Decoration.jpg?v=1697180749",
+      "available": true,
+      "vendor": "TEW053"
+     },
+     {
+      "title": "WS2812B Neopixel LED Strip 60LED/MTR - 5V IP20 Addressable LED Strip (5 Meter Pack)",
+      "handle": "led-strip-ws2812b-non-waterproof-60led-mtr",
+      "url": "/products/led-strip-ws2812b-non-waterproof-60led-mtr?_pos=3&_psq=5mm+led&_psid=252e91289&_ss=e",
+      "price": "775.00",
+      "image": "https://cdn.shopify.com/s/files/1/0300/6424/6919/products/LED-STRIP-WS2812B_addbe2a3-8005-4807-81ec-2b672ae208c6.jpg?v=1681122592",
+      "available": true,
+      "vendor": "TEW053"
+     },
+     {
+      "title": "Orange 9mm 12v 5 inch Pixel Led Serial Decoration Light - 5 meters - 50 Leds",
+      "handle": "orange-9mm-12v-5-high-quality-pixel-led-light-in-serial-for-decoration",
+      "url": "/products/orange-9mm-12v-5-high-quality-pixel-led-light-in-serial-for-decoration?_pos=4&_psq=5mm+led&_psid=252e91289&_ss=e",
+      "price": "93.00",
+      "image": "https://cdn.shopify.com/s/files/1/0300/6424/6919/products/Orange-Pixel-Led-Light-9mm.jpg?v=1681824000",
+      "available": true,
+      "vendor": "TEW053"
+     },
+     {
+      "title": "5mm F5 Piranha LED White Round Head Super Bright Light Emitting Diode",
+      "handle": "5mm-f5-piranha-led-white-round-head-super-bright-light-emitting-diode",
+      "url": "/products/5mm-f5-piranha-led-white-round-head-super-bright-light-emitting-diode?_pos=5&_psq=5mm+led&_psid=252e91289&_ss=e",
+      "price": "9.00",
+      "image": "https://cdn.shopify.com/s/files/1/0300/6424/6919/files/Piranha-LED.jpg?v=1683277782",
+      "available": true,
+      "vendor": "Lin"
+     },
+     {
+      "title": "Pink 9mm 12v 5 inch Pixel Led Serial Decoration Light - 5 meters - 50 Leds",
+      "handle": "pink-9mm-12v-5-high-quality-pixel-led-light-in-serial-for-decoration",
+      "url": "/products/pink-9mm-12v-5-high-quality-pixel-led-light-in-serial-for-decoration?_pos=6&_psq=5mm+led&_psid=252e91289&_ss=e",
+      "price": "93.00",
+      "image": "https://cdn.shopify.com/s/files/1/0300/6424/6919/products/9mm-Pixel-Led-Light.jpg?v=1681824007",
+      "available": true,
+      "vendor": "TEW053"
+     },
+     {
+      "title": "RGB LED Common Cathode Crystal Clear - 5mm",
+      "handle": "rgb-led-5mm-common-cathode",
+      "url": "/products/rgb-led-5mm-common-cathode?_pos=7&_psq=5mm+led&_psid=252e91289&_ss=e",
+      "price": "4.00",
+      "image": "https://cdn.shopify.com/s/files/1/0300/6424/6919/files/RGBLED-5mm-CommonCathode.jpg?v=1775130462",
+      "available": true,
+      "vendor": "MIC059"
+     },
+     {
+      "title": "5mm LED - Green Color",
+      "handle": "green-5mm-led",
+      "url": "/products/green-5mm-led?_pos=8&_psq=5mm+led&_psid=252e91289&_ss=e",
+      "price": "2.00",
+      "image": "https://cdn.shopify.com/s/files/1/0300/6424/6919/products/5MM-GREEN-LED.jpg?v=1644574874",
+      "available": true,
+      "vendor": "SLG037"
+     },
+     {
+      "title": "5mm Red LED 1000pcs Pack - High Brightness Through Hole Indicator Light",
+      "handle": "5mm-red-led-1000pcs-pack-high-brightness-through-hole-indicator-light",
+      "url": "/products/5mm-red-led-1000pcs-pack-high-brightness-through-hole-indicator-light?_pos=9&_psq=5mm+led&_psid=252e91289&_ss=e",
+      "price": "850.00",
+      "image": "https://cdn.shopify.com/s/files/1/0300/6424/6919/files/5mmRedLED1000pcsPack-HighBrightnessThroughHoleIndicatorLight_2.jpg?v=1771850087",
+      "available": true,
+      "vendor": "MIC059"
+     },
+     {
+      "title": "5mm LED - Red Color",
+      "handle": "red-5mm-led",
+      "url": "/products/red-5mm-led?_pos=10&_psq=5mm+led&_psid=252e91289&_ss=e",
+      "price": "2.00",
+      "image": "https://cdn.shopify.com/s/files/1/0300/6424/6919/products/5mm-LED-Red-Color.jpg?v=1653481738",
+      "available": true,
+      "vendor": "SLG037"
+     }
+    ]
+   }
+  }
+ }
+}

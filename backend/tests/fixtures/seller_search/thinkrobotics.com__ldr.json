@@ -1,0 +1,107 @@
+{
+ "_fixture": {
+  "url": "https://thinkrobotics.com/search/suggest.json?q=ldr&resources%5Btype%5D=product&resources%5Blimit%5D=10",
+  "fetched_on": "2026-10-07",
+  "note": "Recorded live response, trimmed to the fields the adapter reads. Prices are search hints only, never verified offers."
+ },
+ "status": 200,
+ "content_type": "application/json; charset=utf-8",
+ "body": {
+  "resources": {
+   "results": {
+    "products": [
+     {
+      "title": "Photosensitive Analog Grayscale Light Sensor (LDR)",
+      "handle": "photosensitive-analog-grayscale-light-sensor-ldr",
+      "url": "/products/photosensitive-analog-grayscale-light-sensor-ldr?_pos=1&_psq=ldr&_psid=fab6a3783&_ss=e",
+      "price": "99.99",
+      "image": "https://cdn.shopify.com/s/files/1/0014/4313/5560/products/Hba8166861ff24fbbbd52aef588a8a644Z.jpg?v=1640591013",
+      "available": true,
+      "vendor": "ThinkRobotics"
+     },
+     {
+      "title": "ALS-PT19 Analog Light Sensor",
+      "handle": "als-pt19-analog-light-sensor",
+      "url": "/products/als-pt19-analog-light-sensor?_pos=2&_psq=ldr&_psid=fab6a3783&_ss=e",
+      "price": "329.99",
+      "image": "https://cdn.shopify.com/s/files/1/0014/4313/5560/products/WhatsAppImage2022-05-10at2.25.03PM_1.jpg?v=1652172978",
+      "available": true,
+      "vendor": "ThinkRobotics"
+     },
+     {
+      "title": "TSL2561 Digital Luminosity / Lux / Light Sensor",
+      "handle": "tsl2561-digital-luminosity-lux-light-sensor",
+      "url": "/products/tsl2561-digital-luminosity-lux-light-sensor?_pos=3&_psq=ldr&_psid=fab6a3783&_ss=e",
+      "price": "459.99",
+      "image": "https://cdn.shopify.com/s/files/1/0014/4313/5560/products/TSL2561-1.jpg?v=1577796130",
+      "available": true,
+      "vendor": "ThinkRobotics"
+     },
+     {
+      "title": "GL5516 Photoresistor or LDR (Pack of 10)",
+      "handle": "ldr-5516-photoresistor",
+      "url": "/products/ldr-5516-photoresistor?_pos=4&_psq=ldr&_psid=fab6a3783&_ss=e",
+      "price": "52.99",
+      "image": "https://cdn.shopify.com/s/files/1/0014/4313/5560/products/IMG_4606.jpg?v=1577794091",
+      "available": true,
+      "vendor": "ThinkRobotics"
+     },
+     {
+      "title": "VEML7700 Ambient Light Sensor Module",
+      "handle": "veml7700-ambient-light-sensor-module",
+      "url": "/products/veml7700-ambient-light-sensor-module?_pos=5&_psq=ldr&_psid=fab6a3783&_ss=e",
+      "price": "949.99",
+      "image": "https://cdn.shopify.com/s/files/1/0014/4313/5560/products/VEML7700-1.jpg?v=1631525831",
+      "available": true,
+      "vendor": "ThinkRobotics"
+     },
+     {
+      "title": "TOF (time of flight) Laser Range Sensor",
+      "handle": "tof-laser-range-sensord",
+      "url": "/products/tof-laser-range-sensord?_pos=6&_psq=ldr&_psid=fab6a3783&_ss=e",
+      "price": "2549.99",
+      "image": "https://cdn.shopify.com/s/files/1/0014/4313/5560/files/tof-laser-range-sensor-d-1.jpg?v=1735798795",
+      "available": true,
+      "vendor": "Waveshare"
+     },
+     {
+      "title": "TOF MINI Laser Range Sensor, Based On Time-of-Flight (TOF) Technology, Built-in Controller And Ranging Algorithm",
+      "handle": "tof-mini-range-sensor-time-of-flight-uart-laser-distance-sensor",
+      "url": "/products/tof-mini-range-sensor-time-of-flight-uart-laser-distance-sensor?_pos=7&_psq=ldr&_psid=fab6a3783&_ss=e",
+      "price": "599.99",
+      "image": "https://cdn.shopify.com/s/files/1/0014/4313/5560/files/tof-mini-range-sensor-1.jpg?v=1789976222",
+      "available": true,
+      "vendor": "Waveshare"
+     },
+     {
+      "title": "Meskernel LDK-40 Small Laser Range Sensor (40m)",
+      "handle": "meskernel-ldk-40-small-laser-range-sensor-40m",
+      "url": "/products/meskernel-ldk-40-small-laser-range-sensor-40m?_pos=8&_psq=ldr&_psid=fab6a3783&_ss=e",
+      "price": "8299.99",
+      "image": "https://cdn.shopify.com/s/files/1/0014/4313/5560/files/abf6169bd7bc151b0dbc335185.jpg_4e_500w_500h.src_95Q.webp?v=1717523462",
+      "available": true,
+      "vendor": "Meskernel"
+     },
+     {
+      "title": "TOF MINIS Laser Range Sensor with RS485, Time-of-Flight tech",
+      "handle": "tof-minis-laser-range-sensor-with-rs485-time-of-flight-tech",
+      "url": "/products/tof-minis-laser-range-sensor-with-rs485-time-of-flight-tech?_pos=9&_psq=ldr&_psid=fab6a3783&_ss=e",
+      "price": "1949.99",
+      "image": "https://cdn.shopify.com/s/files/1/0014/4313/5560/files/tof-minis-range-sensor-1_d24aaa69-2b7e-442e-b0e5-cc616930abcc.jpg?v=1787813207",
+      "available": true,
+      "vendor": "Waveshare"
+     },
+     {
+      "title": "TEMT6000 Professional Light Sensor Module",
+      "handle": "temt6000-professional-light-sensor-module",
+      "url": "/products/temt6000-professional-light-sensor-module?_pos=10&_psq=ldr&_psid=fab6a3783&_ss=e",
+      "price": "74.99",
+      "image": "https://cdn.shopify.com/s/files/1/0014/4313/5560/products/20190404_144009.jpg?v=1577796125",
+      "available": true,
+      "vendor": "ThinkRobotics"
+     }
+    ]
+   }
+  }
+ }
+}

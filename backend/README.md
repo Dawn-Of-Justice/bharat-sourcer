@@ -397,6 +397,18 @@ new jobs extraction-only. Existing jobs retain the sourcing flag recorded at cre
 Demo jobs never call search or fetch sellers. Up to ten unowned parts are searched per
 job (`BS_SOURCING_MAX_PARTS`), with five candidate pages per part by default.
 
+Sourcing is staged to save cost. First, curated Indian sellers' own catalogues are searched
+for free (Shopify `suggest.json`, WooCommerce Store API; only where robots.txt allows) and up
+to `BS_SELLER_SEARCH_FETCH_BUDGET` (8) candidates are fetched and verified, stopping at 3
+in-stock offers from 2 sellers. A judge hook then rates the verified offers (stub: any
+verified INR offer is `compatible`). Paid Gemini grounded discovery runs only when no offer is
+accepted and in stock. Lines report `stages`, `gemini_calls` and a `seller_search` summary;
+identical parts in a job are sourced once. Requests are paced per host, cached, retried on
+429/503 with `Retry-After`, and stopped on bot-protection challenges (robu.in is
+Cloudflare-blocked), which are reported and never circumvented. `BS_SELLER_SEARCH_ENABLED=false`
+restores grounded-first discovery. See [seller search](../docs/contracts/seller-search.md);
+live check: `python scripts/check_seller_search.py` (no Gemini).
+
 Discovery uses Gemini Google Search grounding without a seller allow-list. Candidate
 URLs come from grounding metadata, never generated prose. The verifier follows HTTPS
 redirects, rejects non-public IPs at every hop, pins the checked address for TLS requests,
