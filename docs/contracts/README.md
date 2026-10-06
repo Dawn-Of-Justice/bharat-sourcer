@@ -97,6 +97,7 @@ and `/openapi.json` are public. `/health` is the cloud-safe liveness path.
 The API base URL has no `/api` suffix.
 
 [Backend roadmap](backend-roadmap.md) tracks agreed features still to implement.
+[Export and share](export-and-share.md): CSV, printable HTML report and revocable read-only share links.
 [Frontend quickstart](frontend-quickstart.md) includes local configuration, request code,
 credentials guidance and the integration acceptance checklist.
 

@@ -37,6 +37,7 @@ from bharat_sourcer.schemas import (
     UpdateProject,
     now,
 )
+from bharat_sourcer.sharing import add_share_routes
 from bharat_sourcer.sourcing.research import GeminiResearch
 from bharat_sourcer.sourcing.service import GeminiDiscovery, SourcingService
 from bharat_sourcer.storage import FirestoreJobStore, JobStore, MemoryJobStore, StorageError
@@ -150,6 +151,7 @@ def create_app(
     access = Access(settings, service, identity_verifier)
     app.state.access = access
     add_access_routes(app, access)
+    add_share_routes(app, service, access)
 
     @app.exception_handler(StorageError)
     @app.exception_handler(GoogleAPICallError)
@@ -175,7 +177,7 @@ def create_app(
                 )
         if settings.auth_enabled and request.url.path.startswith("/v1/"):
             try:
-                if request.method == "POST" and request.url.path.startswith("/v1/jobs"):
+                if request.method in {"POST", "DELETE"} and request.url.path.startswith("/v1/jobs"):
                     access.csrf(request)
                     principal = await asyncio.to_thread(access.identity, request)
                     parts = request.url.path.split("/")
@@ -183,8 +185,9 @@ def create_app(
                         await asyncio.to_thread(service.get, parts[3], principal)
                     # Users must always be able to stop work after exhausting their quota.
                     # Image fallbacks have separate generation quotas; broken-image retries
-                    # must not consume the project action budget; nor do title/description edits.
-                    if not request.url.path.endswith(("/pause", "/image", "/project")):
+                    # must not consume the project action budget; nor do title/description edits
+                    # or creating/revoking a read-only share link (no work is started).
+                    if not request.url.path.endswith(("/pause", "/image", "/project", "/share")):
                         await asyncio.to_thread(access.charge, request, principal)
             except JobError as exc:
                 return JSONResponse(
@@ -210,7 +213,7 @@ def create_app(
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins,
-        allow_methods=["GET", "POST"],
+        allow_methods=["GET", "POST", "DELETE"],
         allow_headers=[
             "Content-Type",
             "X-Job-Token",
