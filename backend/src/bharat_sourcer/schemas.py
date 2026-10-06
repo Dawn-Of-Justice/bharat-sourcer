@@ -222,7 +222,9 @@ class ResearchSource(Model):
 
 
 class PartResearch(Model):
-    status: Literal["ready", "no_evidence", "failed", "stale"]
+    # "skipped": no Gemini review ran, because a verified in-stock compatible offer made it
+    # unnecessary or the job budget was reached (see `summary`).
+    status: Literal["ready", "no_evidence", "failed", "stale", "skipped"]
     summary: str
     candidates: list[ResearchCandidate] = Field(default_factory=list, max_length=8)
     sources: list[ResearchSource] = Field(default_factory=list, max_length=32)
@@ -830,6 +832,28 @@ class SourceReport(Model):
     error: "ErrorDetail | None" = None
 
 
+class CostEstimate(Model):
+    """Estimated Gemini spend for this job from logged token counts and a dated price table.
+
+    An estimate for budgeting, not a bill: grounding queries are priced as if the monthly
+    free tier were used up. `run_usd` is the current sourcing run, which the budget limits.
+    """
+
+    method: Literal["estimated_from_token_counts"] = "estimated_from_token_counts"
+    total_usd: float = Field(default=0, ge=0)
+    run_usd: float = Field(default=0, ge=0)
+    budget_usd: float | None = None
+    budget_reached: bool = False
+    calls: int = Field(default=0, ge=0)
+    search_queries: int = Field(default=0, ge=0)
+    calls_by_site: dict[str, int] = Field(default_factory=dict)
+    usd_by_site: dict[str, float] = Field(default_factory=dict)
+    # Shared-cache hits by namespace (discovery, judge, page, seller_search, research).
+    cache_hits: dict[str, int] = Field(default_factory=dict)
+    prices_checked: str | None = None
+    updated_at: datetime = Field(default_factory=now)
+
+
 class Job(Model):
     job_id: str
     status: Status = "queued"
@@ -854,6 +878,7 @@ class Job(Model):
     actions: list[ActionRecord] = Field(default_factory=list)
     safety_flags: list[SafetyFlag] = Field(default_factory=list)
     source_reports: list[SourceReport] = Field(default_factory=list, max_length=4)
+    cost_estimate: CostEstimate | None = None
 
 
 class CreatedJob(Model):

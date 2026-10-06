@@ -42,6 +42,7 @@ from bharat_sourcer.schemas import (
     now,
 )
 from bharat_sourcer.sharing import add_share_routes
+from bharat_sourcer.sourcing.cache import build_cache
 from bharat_sourcer.sourcing.research import GeminiResearch
 from bharat_sourcer.sourcing.service import GeminiDiscovery, SourcingService
 from bharat_sourcer.sourcing.trust import TrustChecker
@@ -68,6 +69,8 @@ def create_app(
             if settings.storage_backend == "firestore"
             else MemoryJobStore()
         )
+    # Cross-job cache for paid sourcing results, beside the job store (cost-controls.md).
+    shared_cache = build_cache(settings, store)
     service = JobService(
         live_extractor,
         settings.gemini_model if live_extractor else None,
@@ -76,7 +79,9 @@ def create_app(
         sourcing=(
             SourcingService(
                 GeminiDiscovery(settings),
-                researcher=GeminiResearch(settings) if settings.research_enabled else None,
+                researcher=GeminiResearch(settings, cache=shared_cache)
+                if settings.research_enabled
+                else None,
                 followup_enabled=settings.research_followup_enabled,
                 trust=TrustChecker() if settings.seller_trust_enabled else None,
             )
@@ -86,6 +91,7 @@ def create_app(
         sourcing_max_parts=settings.sourcing_max_parts,
         sourcing_lease_seconds=settings.sourcing_lease_s,
         sourcing_parallelism=settings.sourcing_parallelism,
+        gemini_budget_usd=settings.job_gemini_budget_usd,
     )
 
     conversation = ConversationService(
@@ -151,6 +157,7 @@ def create_app(
         responses={422: {"model": ErrorResponse}, 503: {"model": ErrorResponse}},
     )
     app.state.job_service = service
+    app.state.shared_cache = shared_cache
     images = PartImageService(settings, service)
     app.state.image_service = images
     app.state.conversation_service = conversation

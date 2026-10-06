@@ -38,6 +38,7 @@ from bharat_sourcer.schemas import (
 from bharat_sourcer.sourcing.research import check_requirements
 from bharat_sourcer.sourcing.service import SourcingService
 from bharat_sourcer.storage import JobStore, MemoryJobStore, StoredJob
+from bharat_sourcer.usage import BUDGET_MESSAGE, JobLedger, attribute
 
 
 class JobError(Exception):
@@ -59,7 +60,10 @@ class JobService:
         sourcing_max_parts: int = 10,
         sourcing_lease_seconds: int = 1800,
         sourcing_parallelism: int = 1,
+        gemini_budget_usd: float | None = None,
     ):
+        # Per-sourcing-run ceiling on estimated Gemini spend; None disables the guard.
+        self.gemini_budget_usd = gemini_budget_usd
         self.extractor = extractor
         self.model = model
         self.store = store or MemoryJobStore()
@@ -165,6 +169,8 @@ class JobService:
         items = []
         project = None
         reports = []
+        # Extraction counts toward the job's total; the budget limits sourcing runs only.
+        ledger = JobLedger(job_id, previous=claimed.job.cost_estimate)
         try:
             if claimed.job.demo:
                 items = [
@@ -179,9 +185,10 @@ class JobService:
                 )
             else:
                 job_input = claimed.job.input
-                result = extract_sources(
-                    self.extractor, [str(url) for url in [job_input.url, *job_input.sources]]
-                )
+                with attribute(ledger):
+                    result = extract_sources(
+                        self.extractor, [str(url) for url in [job_input.url, *job_input.sources]]
+                    )
                 items, project, reports = result.items, result.project, result.sources
         except Exception as exc:
             error = (
@@ -197,6 +204,10 @@ class JobService:
                 return
             record.run_id = None
             record.lease_until = None
+            if ledger.calls:
+                estimate = ledger.snapshot()
+                estimate.run_usd, estimate.budget_usd = 0.0, None
+                record.job.cost_estimate = estimate
             if error:
                 record.job.error = ErrorDetail(code=error.code, message=error.message)
                 self._transition(record.job, "failed", error.message)
@@ -377,6 +388,18 @@ class JobService:
         update_costs(job.report)
         job.error = None
         job.refresh_count += 1
+        # Known offer pages are re-fetched first; paid rediscovery runs only if all are gone.
+        known = record.refresh_urls or {}  # an interrupted refresh keeps its known URLs
+        known = {
+            key: [str(offer.url) for offer in previous[key].offers]
+            if key in previous and previous[key].offers
+            else known.get(key, [])
+            for key in request.line_ids
+        }
+        record.refresh_urls = {key: urls for key, urls in known.items() if urls} or None
+        if job.cost_estimate:
+            # Each refresh is a new sourcing run with its own budget.
+            job.cost_estimate.run_usd, job.cost_estimate.budget_reached = 0.0, False
         record.sourcing_scope = request.line_ids.copy()
         record.run_id = None
         record.lease_until = None
@@ -740,6 +763,14 @@ class JobService:
             if item.line_id not in completed and (scope is None or item.line_id in scope)
         ]
 
+        ledger = JobLedger(job_id, self.gemini_budget_usd, previous=claimed.job.cost_estimate)
+        known_urls = claimed.refresh_urls or {}
+
+        def save_cost(record: StoredJob) -> None:
+            # The lease makes this run the only writer, so the running ledger is authoritative.
+            if ledger.calls or ledger.cache_hits or record.job.cost_estimate:
+                record.job.cost_estimate = ledger.snapshot()
+
         def source_item(item, limited):
             if limited:
                 return ReportLine(
@@ -749,7 +780,25 @@ class JobService:
                         code="SOURCING_LIMIT", message="Per-job sourcing limit reached"
                     ),
                 )
+            # Context variables do not cross the pool, so attribute inside the worker.
+            with attribute(ledger, item.line_id):
+                return attributed_source(item)
+
+        def attributed_source(item):
             try:
+                refresh_known = getattr(self.sourcing, "refresh_known", None)
+                if refresh_known and known_urls.get(item.line_id):
+                    refreshed = refresh_known(item, claimed.job.items, known_urls[item.line_id])
+                    if refreshed is not None:
+                        return refreshed
+                if ledger.exhausted():
+                    return ReportLine(
+                        item=item,
+                        sourcing_status="not_run",
+                        sourcing_error=ErrorDetail(
+                            code="JOB_BUDGET_REACHED", message=BUDGET_MESSAGE
+                        ),
+                    )
                 project_source = getattr(self.sourcing, "source_for_project", None)
                 if project_source:
                     return project_source(item, claimed.job.items)
@@ -800,6 +849,7 @@ class JobService:
                             if item.line_id in lines
                         ]
                         update_costs(record.job.report)
+                        save_cost(record)
                         record.lease_until = now() + timedelta(seconds=self.sourcing_lease_seconds)
                         self._transition(
                             record.job, "sourcing", f"Checked sourcing for {result.item.line_id}."
@@ -828,10 +878,17 @@ class JobService:
                 return
             record.run_id = None
             record.lease_until = None
+            record.refresh_urls = None
+            save_cost(record)
             record.job.report.summary = (
                 "Sourcing finished. Compatibility compares declared specs only; review evidence "
                 "and missing fields. Seller trust, tax and shipping remain unverified."
             )
+            if ledger.budget_reached:
+                record.job.report.summary += (
+                    " Some parts skipped paid search to stay within the job budget; refresh "
+                    "them to continue."
+                )
             reassess_report(record.job.report, record.job.project)
             update_costs(record.job.report)
             # Same transaction as the transition, so redelivered work cannot repeat it.
