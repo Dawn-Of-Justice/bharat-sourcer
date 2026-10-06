@@ -402,6 +402,20 @@ Lines are checkpointed in Firestore as sourcing progresses. An expired sourcing 
 queues unfinished work once, preserving completed lines and the sourcing limit. A second
 interruption fails with `SOURCING_INTERRUPTED`. Per-line errors remain explicit in the report.
 
+## Gemini extras (off by default)
+
+`gemini_extras.py` adds three opt-in features, each behind its own flag
+(`BS_EXPLAIN_ENABLED`, `BS_ZOOM_ENABLED`, `BS_SCAN_ENABLED`) and per-owner daily quota:
+`POST /v1/jobs/{id}/explain` (deterministic script from saved data, optional translation,
+TTS audio as base64 WAV, cached per script and language), `POST
+/v1/jobs/{id}/items/{line_id}/zoom` (high-resolution re-read of a 10–20 s YouTube clip
+around the item's timestamp) and `POST /v1/jobs/{id}/scan` (base64 photo, processed in
+memory and never stored, matched to BOM lines with `box_2d`). Zoom and scan only run
+while the BOM is awaiting confirmation and only produce reviewable chat proposals.
+`GET /v1/jobs/{id}/extras` reports flags, remaining quota and zoom candidates. Demo jobs
+get labelled samples without Gemini calls. See
+[the contract](../docs/contracts/gemini-extras.md).
+
 ## Offer selection and costs
 
 `POST /v1/jobs/{job_id}/selections` accepts a batch of `{line_id, offer_url, accept_changes}`

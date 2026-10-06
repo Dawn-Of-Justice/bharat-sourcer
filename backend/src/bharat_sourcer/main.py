@@ -15,6 +15,7 @@ from bharat_sourcer.config import Settings
 from bharat_sourcer.conversation import Assistant, ConversationService, GeminiAssistant
 from bharat_sourcer.dispatch import CloudDispatcher, Work, work_once
 from bharat_sourcer.extraction import Extractor, GeminiExtractor
+from bharat_sourcer.gemini_extras import GeminiExtras, add_extras_routes
 from bharat_sourcer.identity import Principal
 from bharat_sourcer.images import PartImageService
 from bharat_sourcer.jobs import JobError, JobService
@@ -150,6 +151,9 @@ def create_app(
     access = Access(settings, service, identity_verifier)
     app.state.access = access
     add_access_routes(app, access)
+    extras = GeminiExtras(settings, service)
+    app.state.extras = extras
+    add_extras_routes(app, extras)
 
     @app.exception_handler(StorageError)
     @app.exception_handler(GoogleAPICallError)
@@ -184,7 +188,10 @@ def create_app(
                     # Users must always be able to stop work after exhausting their quota.
                     # Image fallbacks have separate generation quotas; broken-image retries
                     # must not consume the project action budget; nor do title/description edits.
-                    if not request.url.path.endswith(("/pause", "/image", "/project")):
+                    # Gemini extras (explain, zoom, scan) are charged by their own quotas.
+                    if not request.url.path.endswith(
+                        ("/pause", "/image", "/project", "/explain", "/zoom", "/scan")
+                    ):
                         await asyncio.to_thread(access.charge, request, principal)
             except JobError as exc:
                 return JSONResponse(

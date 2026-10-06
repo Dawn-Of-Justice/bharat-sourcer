@@ -15,6 +15,10 @@ record the source URL and the date you read it.
 | `chat_scope` | `conversation.py` `in_scope` | 1 per chat message | last messages + project context | none |
 | `chat_reply` | `conversation.py` `reply` | 1 per allowed chat message | saved job context (items, report, 12 messages) | none |
 | `image` | `images.py` | 0 unless generation enabled (≤10/owner/day) | short prompt | image output |
+| `explain_translate` | `gemini_extras.py` `_speak` | 0 unless `BS_EXPLAIN_ENABLED`; 1 per uncached non-English explanation | ≤ 900-char script | none |
+| `explain_tts` | `gemini_extras.py` `_speak` | 0 unless `BS_EXPLAIN_ENABLED`; 1 per uncached explanation | transcript | audio output (`BS_TTS_MODEL`) |
+| `clip_zoom` | `gemini_extras.py` `zoom` | 0 unless `BS_ZOOM_ENABLED`; 1 per user click | 15 s YouTube clip, 2 fps, high resolution | none |
+| `parts_scan` | `gemini_extras.py` `scan` | 0 unless `BS_SCAN_ENABLED`; 1 per uploaded photo | ≤ 1536 px JPEG + BOM names | none |
 
 A 10-part live job is roughly 1 extraction + 10 discovery + 10–20 research calls
 (21–31 calls), plus 2 per chat message. All text calls use `BS_GEMINI_MODEL`
@@ -105,6 +109,29 @@ Sources: [pricing](https://ai.google.dev/gemini-api/docs/pricing) (page last mod
    disabled in production (`BS_IMAGE_GENERATION_ENABLED=false`).
    *Done:* v0.19.3 defaults to `gemini-3.1-flash-lite-image` (~$0.034 per 1K image).
    Untested live; enable generation only after one check.
+
+### 2026-10-06: new opt-in call sites (explain aloud, clip zoom, parts-bin scan)
+
+Added in `gemini_extras.py`, all **off by default** with per-owner daily quotas
+(`BS_EXPLAIN_DAILY_LIMIT` 10, `BS_ZOOM_DAILY_LIMIT` 10, `BS_SCAN_DAILY_LIMIT` 5) and a
+per-feature global cap (`BS_EXTRAS_GLOBAL_DAILY_LIMIT` 200). Contract and frontend needs:
+[gemini-extras.md](../../docs/contracts/gemini-extras.md). No live call was made; these
+are **estimates** from the 2026-10-05 prices above, to be replaced by
+`usage_report.py` numbers:
+
+- `clip_zoom`: 15 s × 2 fps × 280 tokens/frame (high resolution, per the media
+  resolution docs) ≈ 8.4K + ~0.4K audio input, ~0.7K output incl. thinking ≈ **$0.009**
+  per call (doubles in 2027). `fps: 1` would halve the frame tokens; keep 2 until a
+  harness shows markings read as well at 1.
+- `parts_scan`: one ≤ 1536 px image (~1–1.5K tokens) + BOM names, 1–2K output ≈
+  **$0.006–0.009**.
+- `explain_translate`: ~0.5K in, 1–1.5K out ≈ **$0.005**, only for non-English.
+- `explain_tts`: `gemini-3.8-flash-tts` pricing is **not verified** (the architecture
+  docs mark it "⚠️ verify"; it is not in the 2026-10-05 research). At earlier Flash TTS
+  list prices ($0.50 in / $10 out per 1M, ~25 audio tokens/s) a 60 s explanation is
+  ~$0.015. Check [pricing](https://ai.google.dev/gemini-api/docs/pricing) before enabling.
+- Explanations are cached per script and language, so repeats cost $0.
+- Worst case per owner per day at default quotas ≈ $0.34.
 
 **Next measurement:** after a few days of traffic on v0.19.3, run
 `scripts/usage_report.py` and record per-site token and query averages here before
