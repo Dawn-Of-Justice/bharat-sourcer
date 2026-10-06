@@ -1,0 +1,37 @@
+{
+  "source_url": "https://zbotic.in/wp-json/wc/store/v1/products?search=drv8825&per_page=2",
+  "fetched": "2026-10-06",
+  "note": "Trimmed recorded response for offline parsing tests only. Prices and stock are historical snapshots, never current or verified seller facts. Recorded from the search endpoint (first result kept); tests serve it for the slug lookup, which returns the same product shape.",
+  "content_type": "application/json; charset=UTF-8",
+  "response": [
+    {
+      "id": 448392,
+      "name": "DRV8825 Stepper Motor Driver with Aluminum Heat Sink.( Lower current limiting resistance)",
+      "slug": "drv8825-stepper-motor-driver-with-aluminum-heat-sink-2",
+      "type": "simple",
+      "permalink": "https://zbotic.in/product/drv8825-stepper-motor-driver-with-aluminum-heat-sink-2/",
+      "sku": "AI2879",
+      "prices": {
+        "price": "10384",
+        "regular_price": "10384",
+        "sale_price": "10384",
+        "price_range": null,
+        "currency_code": "INR",
+        "currency_symbol": "₹",
+        "currency_minor_unit": 2,
+        "currency_decimal_separator": ".",
+        "currency_thousand_separator": ",",
+        "currency_prefix": "₹",
+        "currency_suffix": ""
+      },
+      "is_purchasable": true,
+      "is_in_stock": false,
+      "images": [
+        {
+          "id": 516188,
+          "src": "https://cdn.zbotic.in/wp-content/uploads/2023/08/z8mcnro7.png"
+        }
+      ]
+    }
+  ]
+}

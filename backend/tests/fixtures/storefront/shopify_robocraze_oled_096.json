@@ -1,0 +1,33 @@
+{
+  "source_url": "https://robocraze.com/products/0-96in-oled-display-module-4pin.json",
+  "fetched": "2026-10-06",
+  "note": "Trimmed recorded response for offline parsing tests only. Prices and stock are historical snapshots, never current or verified seller facts.",
+  "content_type": "application/json; charset=utf-8",
+  "response": {
+    "product": {
+      "id": 6802919063705,
+      "title": "0.96 Inch OLED Display Module SPI/I2C 4pin Blue Color",
+      "handle": "0-96in-oled-display-module-4pin",
+      "vendor": "Robocraze",
+      "product_type": "OLED Display",
+      "created_at": "2021-05-27T20:06:01+05:30",
+      "published_at": "2021-05-27T20:06:01+05:30",
+      "variants": [
+        {
+          "id": 40192586645657,
+          "product_id": 6802919063705,
+          "title": "Default Title",
+          "price": "172.00",
+          "sku": "TIFDP0001",
+          "price_currency": "INR",
+          "option1": "Default Title"
+        }
+      ],
+      "image": {
+        "id": 53546588799200,
+        "product_id": 6802919063705,
+        "src": "https://cdn.shopify.com/s/files/1/0559/1970/6265/files/0.96_Inch_OLED_Display_Module_SPI_I2C_4pin_Blue_Color.png?v=1775822123"
+      }
+    }
+  }
+}

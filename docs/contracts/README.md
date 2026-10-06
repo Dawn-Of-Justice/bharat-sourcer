@@ -99,6 +99,7 @@ The API base URL has no `/api` suffix.
 [Backend roadmap](backend-roadmap.md) tracks agreed features still to implement.
 [Frontend quickstart](frontend-quickstart.md) includes local configuration, request code,
 credentials guidance and the integration acceptance checklist.
+[Seller trust labels and storefront JSON fast path](seller-trust.md): `offers[].trust` and new `verification` values.
 
 **New: [conversation integration guide](conversation.md).** Add chat beside the BOM,
 reviewable edit proposals and a live snapshot stream. Existing endpoints remain available.
