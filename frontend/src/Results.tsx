@@ -3,7 +3,7 @@ import { evidenceText, getPartImages, reportFailedImages, refreshOffers, selectO
 import Requirements, { requirementPayload, validRequirements } from './Requirements'
 
 const money = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' })
-const price = (value: string) => money.format(Number(value))
+const price = (value: string | number) => money.format(Number(value))
 const secureLink = (url: string) => /^https:\/\/[^\s]+$/i.test(url) ? url : undefined
 
 type DisplayImage = { url: string; label: string }
@@ -91,7 +91,7 @@ function PartCard({ job, line, index, token, onJob, refreshable, refreshSelected
     <summary className="part-card-summary">
       <ProductImage job={job} line={line} token={token} />
       <div className="part-card-heading"><small className="part-number">PART {String(index + 1).padStart(2, '0')}</small><h3>{line.item.raw_name}</h3><div className="part-basics"><span>Qty {line.item.qty ?? 'unknown'}{line.item.qty_source === 'inferred' && <small title={line.item.qty_reason ?? 'Suggested from the project'}> · suggested</small>}</span><span>{status}</span>{line.selected_offer_url && <span className="selected-badge">Quote selected</span>}</div></div>
-      <span className="part-expand"><span className="when-closed">View details</span><span className="when-open">Close details</span><span className="disclosure-chevron" aria-hidden="true">⌄</span></span>
+      <span className="part-expand"><span className="when-closed">View details</span><span className="when-open">Close details</span><span className="disclosure-chevron" aria-hidden="true" /></span>
     </summary>
     <div className="part-card-content">
       <RequirementReview key={JSON.stringify(line.item.requirements ?? [])} job={job} line={line} token={token} onJob={onJob} />
@@ -130,6 +130,15 @@ export default function Results({ job, token, onJob }: { job: Job; token: string
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState('')
   if (!job.report) return null
+  const neededLines = job.report.lines.filter(line => !line.item.user_has_it)
+  const listedPrices = neededLines.map(line => {
+    const qty = line.item.qty
+    const prices = line.offers.map(offer => Number(offer.price_inr)).filter(value => Number.isFinite(value) && value > 0)
+    return qty && prices.length ? Math.min(...prices) * qty : null
+  })
+  const quotedParts = listedPrices.filter((value): value is number => value !== null)
+  const listedEstimate = quotedParts.reduce((sum, value) => sum + value, 0)
+  const selectedParts = neededLines.filter(line => line.subtotal_inr !== null)
   const refreshable = !job.demo && job.status === 'done' && (job.refresh_count ?? 0) < 2
   async function refresh() {
     setRefreshing(true); setError('')
@@ -137,5 +146,5 @@ export default function Results({ job, token, onJob }: { job: Job; token: string
     catch (cause) { setError(cause instanceof Error ? cause.message : 'Could not start a seller refresh. Check the saved job before retrying.') }
     finally { setRefreshing(false) }
   }
-  return <section className="job-panel"><span className="section-kicker">YOUR DESI BOM</span><h2>Explore the parts</h2>{job.demo ? <div className="demo-alert"><strong>Demo data</strong> · Fixed sample. Extraction, seller checks, prices and compatibility were not verified.</div> : <p className="job-panel-intro">Seller quotes are snapshots. Tax, shipping and the final payable cost are unknown.</p>}<p className="parts-expand-hint">Choose a part to see seller quotes, build details, and source notes.</p><div className="result-list">{job.report.lines.map((line, index) => <PartCard key={line.item.line_id} job={job} line={line} index={index} token={token} onJob={onJob} refreshable={refreshable} refreshSelected={refreshIds.includes(line.item.line_id)} onRefreshChange={selected => setRefreshIds(current => selected ? [...current, line.item.line_id] : current.filter(id => id !== line.item.line_id))} />)}</div>{!job.demo && <div className="subtotal"><span>{job.report.parts_subtotal_inr ? 'Selected parts subtotal' : 'Partial selected parts subtotal'}</span><strong>{price(job.report.parts_subtotal_inr ?? job.report.selected_parts_subtotal_inr)}</strong></div>}{refreshable && <div className="refresh-controls"><p>New seller search may use paid analysis. Selected parts lose their old quotes; other parts stay saved. {2 - (job.refresh_count ?? 0)} of 2 refresh batches remain.</p><button className="nav-cta" disabled={!refreshIds.length || refreshIds.length > 10 || refreshing} onClick={() => void refresh()}>{refreshing ? 'Starting search…' : `Refresh ${refreshIds.length} selected ${refreshIds.length === 1 ? 'part' : 'parts'}`}</button>{refreshIds.length > 10 && <p>Select at most 10 parts per batch.</p>}{error && <p className="form-error" role="alert">{error}</p>}</div>}<p className="result-disclaimer">Research is AI assessed from source quotes. Seller prices, stock and compatibility claims need your review before ordering. Selecting a quote does not purchase anything.</p></section>
+  return <section className="job-panel"><span className="section-kicker">YOUR DESI BOM</span><h2>Explore the parts</h2>{job.demo ? <div className="demo-alert"><strong>Demo data</strong> · Fixed sample. Extraction, seller checks, prices and compatibility were not verified.</div> : <p className="job-panel-intro">Seller quotes are snapshots. Tax, shipping and the final payable cost are unknown.</p>}<p className="parts-expand-hint">Choose a part to see seller quotes, build details, and source notes.</p><div className="result-list">{job.report.lines.map((line, index) => <PartCard key={line.item.line_id} job={job} line={line} index={index} token={token} onJob={onJob} refreshable={refreshable} refreshSelected={refreshIds.includes(line.item.line_id)} onRefreshChange={selected => setRefreshIds(current => selected ? [...current, line.item.line_id] : current.filter(id => id !== line.item.line_id))} />)}</div><section className="cost-summary" aria-label="Cost summary"><div className="cost-summary-main"><div><span className="cost-label">{job.demo ? 'Sample listed price estimate' : 'Listed price estimate'}</span><small>{quotedParts.length} of {neededLines.length} needed parts have priced seller quotes</small></div><strong>{quotedParts.length ? price(listedEstimate) : '—'}</strong></div><p>Uses the lowest listed quote for each priced part and its quantity. {quotedParts.length < neededLines.length ? 'Some parts are missing, so this is a partial estimate. ' : ''}Stock, tax and shipping still need checking.</p>{!job.demo && <div className="cost-summary-selected"><span>{selectedParts.length ? `Selected quote subtotal · ${selectedParts.length} ${selectedParts.length === 1 ? 'part' : 'parts'}` : 'No quotes selected yet'}<small>{selectedParts.length ? 'Only quotes you select count toward this subtotal.' : 'Open a part and select a quote to build your own subtotal.'}</small></span>{selectedParts.length > 0 && <strong>{price(job.report.selected_parts_subtotal_inr)}</strong>}</div>}</section>{refreshable && <div className="refresh-controls"><p>New seller search may use paid analysis. Selected parts lose their old quotes; other parts stay saved. {2 - (job.refresh_count ?? 0)} of 2 refresh batches remain.</p><button className="nav-cta" disabled={!refreshIds.length || refreshIds.length > 10 || refreshing} onClick={() => void refresh()}>{refreshing ? 'Starting search…' : `Refresh ${refreshIds.length} selected ${refreshIds.length === 1 ? 'part' : 'parts'}`}</button>{refreshIds.length > 10 && <p>Select at most 10 parts per batch.</p>}{error && <p className="form-error" role="alert">{error}</p>}</div>}<p className="result-disclaimer">Research is AI assessed from source quotes. Seller prices, stock and compatibility claims need your review before ordering. Selecting a quote does not purchase anything.</p></section>
 }
