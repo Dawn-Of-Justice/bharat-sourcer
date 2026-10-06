@@ -16,7 +16,7 @@ import httpx
 from PIL import Image
 
 from bharat_sourcer.jobs import JobError
-from bharat_sourcer.schemas import PartImage, PartImages
+from bharat_sourcer.schemas import LineImage, PartImage, PartImages
 from bharat_sourcer.usage import record_usage
 
 GENERATION_PROMPT = (
@@ -70,6 +70,42 @@ def illustration(name: str, category=True) -> PartImage:
         kind=kind,
         label="Category illustration" if kind == "category" else "Representative illustration",
     )
+
+
+def line_image(line) -> LineImage:
+    """One image per report line, in a fixed order; never evidence of identity or specs.
+
+    1. the selected offer's seller photo, else the recommended offer's;
+    2. any other verified offer photo on the line;
+    3. a page reference image (`image_candidates`, e.g. a project-page product photo);
+    4. the labelled category (or generic) illustration.
+    """
+    offers = {str(offer.url): offer for offer in line.offers}
+    for url, kind, label in (
+        (line.selected_offer_url, "selected_offer", "Seller photo of the selected offer"),
+        (line.recommended_offer_url, "recommended_offer", "Seller photo of the recommended offer"),
+    ):
+        offer = offers.get(str(url)) if url is not None else None
+        if offer is not None and offer.image_url is not None:
+            return LineImage(url=str(offer.image_url), kind=kind, label=label, source_url=offer.url)
+    for offer in line.offers:
+        if offer.image_url is not None:
+            return LineImage(
+                url=str(offer.image_url),
+                kind="offer",
+                label="Seller photo of another listing · may differ from the chosen offer",
+                source_url=offer.url,
+            )
+    for image in line.image_candidates:
+        if image.kind in {"seller", "source"}:
+            return LineImage(
+                url=image.url,
+                kind="reference",
+                label="Reference image · not necessarily the exact product",
+                source_url=image.source_url,
+            )
+    fallback = illustration(line.item.raw_name)
+    return LineImage(url=fallback.url, kind=fallback.kind, label=fallback.label)
 
 
 class ImageCache:
@@ -184,6 +220,10 @@ class PartImageService:
         )
         candidates = []
         if line:
+            chosen = {
+                str(url) for url in (line.selected_offer_url, line.recommended_offer_url) if url
+            }
+            offers = sorted(line.offers, key=lambda o: str(o.url) not in chosen)
             candidates = [
                 PartImage(
                     url=str(o.image_url),
@@ -191,7 +231,7 @@ class PartImageService:
                     label="Seller image · visual reference only",
                     source_url=o.url,
                 )
-                for o in line.offers
+                for o in offers
                 if o.image_url
             ]
             candidates += line.image_candidates

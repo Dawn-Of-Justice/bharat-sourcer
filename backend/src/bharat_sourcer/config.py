@@ -48,6 +48,9 @@ class Settings(BaseSettings):
     research_followup_enabled: bool = True
     research_pages_per_part: int = Field(default=3, ge=1, le=5)
     research_page_chars: int = Field(default=12000, ge=2000, le=20000)
+    # Recommendation basket: estimated ₹ cost of one more seller (an extra shipping fee plus
+    # hassle); orders split across sellers only when that saves more than this.
+    recommend_seller_penalty_inr: int = Field(default=60, ge=0, le=1000)
     # Opt-in Gemini extras (gemini_extras.py); each has its own per-owner daily quota.
     explain_enabled: bool = False
     explain_daily_limit: int = Field(default=10, ge=1, le=200)

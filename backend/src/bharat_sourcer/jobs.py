@@ -4,6 +4,7 @@ import secrets
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import timedelta
+from decimal import Decimal
 from hashlib import sha256
 from uuid import UUID, uuid4
 
@@ -13,6 +14,13 @@ from bharat_sourcer.costing import update_costs
 from bharat_sourcer.extraction import ExtractionError, Extractor
 from bharat_sourcer.identity import Principal
 from bharat_sourcer.intake import extract_sources, validate_sources
+from bharat_sourcer.recommend import (
+    SELLER_PENALTY_INR,
+    apply_recommendations,
+    carry_selection,
+    clear_selection,
+    release_recommendations,
+)
 from bharat_sourcer.safety import flags_for
 from bharat_sourcer.schemas import (
     AddLine,
@@ -59,6 +67,7 @@ class JobService:
         sourcing_max_parts: int = 10,
         sourcing_lease_seconds: int = 1800,
         sourcing_parallelism: int = 1,
+        seller_penalty_inr: Decimal = SELLER_PENALTY_INR,
     ):
         self.extractor = extractor
         self.model = model
@@ -68,6 +77,7 @@ class JobService:
         self.sourcing_max_parts = sourcing_max_parts
         self.sourcing_lease_seconds = sourcing_lease_seconds
         self.sourcing_parallelism = max(1, min(sourcing_parallelism, 4))
+        self.seller_penalty_inr = Decimal(seller_penalty_inr)
 
     @staticmethod
     def _transition(job: Job, status: Status, message: str) -> None:
@@ -354,7 +364,9 @@ class JobService:
         lines = []
         for item in job.items:
             if item.line_id in wanted:
-                lines.append(ReportLine(item=item.model_copy(deep=True), sourcing_status="not_run"))
+                fresh = ReportLine(item=item.model_copy(deep=True), sourcing_status="not_run")
+                carry_selection(previous.get(item.line_id), fresh)
+                lines.append(fresh)
             elif item.line_id in previous:
                 lines.append(previous[item.line_id])
             else:
@@ -425,10 +437,7 @@ class JobService:
             for offer in line.offers:
                 offer.compatibility = assess_offer(resolution, offer, job.project, job.items, item)
                 offer.compatibility_status = offer.compatibility.status
-            line.selected_offer_url = None
-            line.price_inr = line.grade = None
-            line.changes_accepted = False
-            line.research_accepted = False
+            clear_selection(line)
             changed.append(key)
         if changed:
             # Every LLM assessment used project context; sibling edits can invalidate it.
@@ -454,11 +463,9 @@ class JobService:
                         offer.research_assessment.conditions = []
                         offer.research_assessment.checks = []
                 if line.research_accepted:
-                    line.selected_offer_url = None
-                    line.price_inr = line.grade = None
-                    line.research_accepted = False
-                    line.changes_accepted = False
-            update_costs(job.report)
+                    clear_selection(line)
+            # Recommended lines are recomputed; user choices are restored only if still valid.
+            apply_recommendations(job.report, self.seller_penalty_inr)
             job.safety_flags = flags_for(job)
             self._transition(job, "done", "Updated required specs for " + ", ".join(changed))
 
@@ -515,6 +522,7 @@ class JobService:
                     line.price_inr = line.grade = None
                     line.changes_accepted = False
                     line.research_accepted = False
+                    line.selection_source, line.user_offer_url = "user", None
                     continue
                 offer = next((o for o in line.offers if o.url == selection.offer_url), None)
                 if offer is None:
@@ -564,6 +572,7 @@ class JobService:
                 line.grade = None if reviewed else compat.grade
                 line.changes_accepted = bool(compat and compat.grade == "B")
                 line.research_accepted = reviewed
+                line.selection_source, line.user_offer_url = "user", offer.url
             update_costs(job.report)
             job.updated_at = now()
 
@@ -793,6 +802,7 @@ class JobService:
                         if record.run_id != run_id or record.job.status != "sourcing":
                             return
                         lines = {line.item.line_id: line for line in record.job.report.lines}
+                        carry_selection(lines.get(result.item.line_id), result)
                         lines[result.item.line_id] = result
                         record.job.report.lines = [
                             lines[item.line_id]
@@ -832,8 +842,10 @@ class JobService:
                 "Sourcing finished. Compatibility compares declared specs only; review evidence "
                 "and missing fields. Seller trust, tax and shipping remain unverified."
             )
+            release_recommendations(record.job.report)
             reassess_report(record.job.report, record.job.project)
-            update_costs(record.job.report)
+            # Recommend and apply a default selection per line (user choices are kept).
+            apply_recommendations(record.job.report, self.seller_penalty_inr)
             # Same transaction as the transition, so redelivered work cannot repeat it.
             complete_refresh(record.job)
             self._transition(record.job, "done", "Sourcing report ready for review.")

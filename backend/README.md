@@ -4,6 +4,8 @@ The integration deployment was observed on 5 October 2026 with Firebase account 
 guest authentication enabled. The frontend origin is included in CORS. The
 `BS_AUTH_ENABLED=false` setting shown below remains the default for a fresh local setup.
 
+Unreleased (recommendations): when sourcing completes the backend scores every offer, picks one per line with a basket that consolidates sellers (a configurable `BS_RECOMMEND_SELLER_PENALTY_INR`, default ₹60, per extra seller), applies it as the selection where the selection rules allow (`selection_source: "recommended"`), and exposes a seller-grouped `report.order_plan` plus one resolved `line_image` per line. User choices are never overwritten. See [recommendations](../docs/contracts/recommendations.md).
+
 v0.20.0 closes most of the planned MVP gaps. Deterministic [safety flags](../docs/contracts/safety-flags.md)
 (MAINS, LIPO, HIGH_CURRENT, LEVEL_SHIFT) appear on every job. [Costing](../docs/contracts/costing.md) adds
 GST detection, dated seller shipping policies, a per-seller breakdown with known/estimated/unknown

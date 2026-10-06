@@ -1,15 +1,32 @@
-"""Cart plan suggestions over verified offers, and user import reference prices.
+"""Cart plan alternatives over verified offers, and user import reference prices.
 
-Plans are computed on request and never stored or applied: the user's selection stays as
-it is. Search is exhaustive for small BOMs and a bounded greedy/local search otherwise.
+`GET /plans` computes alternatives on request and never applies them: cheapest and fewest
+sellers (A/B offers that could be selected now) plus the recommended basket, the same
+computation that `recommend.apply_recommendations` applies when sourcing completes and
+exposes as `report.order_plan`. Search is exhaustive for small BOMs and a bounded
+greedy/local search otherwise (shared with recommend.py).
 """
 
-from datetime import timedelta
 from decimal import Decimal
 from itertools import product
 
-from bharat_sourcer.costing import Pick, cost_picks, group, seller_charges, update_costs
+from bharat_sourcer.costing import (
+    Pick,
+    cost_picks,
+    group,
+    money,
+    packs_for,
+    seller_charges,
+    update_costs,
+)
 from bharat_sourcer.jobs import JobError, JobService
+from bharat_sourcer.recommend import (
+    SELLER_PENALTY_INR,
+    build_basket,
+    eligible,
+    fewest_start,
+    improve,
+)
 from bharat_sourcer.schemas import (
     CartPlan,
     CartPlans,
@@ -17,43 +34,26 @@ from bharat_sourcer.schemas import (
     Job,
     PlanPick,
     Report,
-    ReportLine,
     SetImportReferences,
-    VerifiedOffer,
     now,
 )
-from bharat_sourcer.sourcing.research import check_requirements
 from bharat_sourcer.storage import StoredJob
 
 MAX_COMBINATIONS = 20_000
-MAX_PASSES = 10
 RULES = [
-    "Only offers that could be selected now: in stock, checked within 24 hours, grade A or B "
-    "and meeting any declared requirements. Research-only matches need explicit approval and "
-    "are left out.",
+    "Cheapest and fewest sellers: only offers that could be selected now: in stock, checked "
+    "within 24 hours, grade A or B and meeting any declared requirements. Research-only "
+    "matches need explicit approval and are left out.",
     "One offer per seller per line: the cheapest listed price.",
+    "Quantities are rounded up to whole packs when the listing states a pack size.",
     "Cheapest: fewest unknown cost components first, then the lowest estimated total.",
     "Fewest sellers: fewest distinct sellers first, then as Cheapest.",
+    "Recommended: the automatic basket (recommendations.md): user selections stay fixed; "
+    "other lines use acceptable offers by score, minimising the estimated landed total plus "
+    "a per-extra-seller penalty. It can include offers whose compatibility is still unknown.",
     "Totals use the same GST and shipping estimates as the report costing; plans are "
     "suggestions and do not change selections. Grade B picks need accept_changes.",
 ]
-
-
-def eligible(line: ReportLine, offer: VerifiedOffer) -> bool:
-    if offer.stock != "in_stock" or offer.checked_at < now() - timedelta(hours=24):
-        return False
-    if offer.compatibility is None or offer.compatibility.grade not in {"A", "B"}:
-        return False
-    if line.item.requirements:
-        candidate = (
-            next((c for c in line.research.candidates if c.url == offer.url), None)
-            if line.research and line.research.status == "ready"
-            else None
-        )
-        checks = check_requirements(line.item.requirements, candidate.facts if candidate else [])
-        if any(check.status != "meets" for check in checks):
-            return False
-    return True
 
 
 def options(report: Report):
@@ -69,17 +69,18 @@ def options(report: Report):
                 line_id=line.item.line_id,
                 seller=offer.seller,
                 unit_price=Decimal(offer.price_inr),
-                qty=line.item.qty,
+                qty=packs_for(line.item.qty, offer),
                 tax_included=offer.tax_included,
                 family=line.item.specs.family,
                 offer_url=str(offer.url),
             )
             key = pick.seller.lower()
-            if key not in best or pick.unit_price < best[key].unit_price:
+            cost = pick.unit_price * pick.qty
+            if key not in best or cost < best[key].unit_price * best[key].qty:
                 best[key] = pick
                 offers[(pick.line_id, pick.offer_url)] = offer
         if best:
-            choices.append(sorted(best.values(), key=lambda p: (p.unit_price, p.seller)))
+            choices.append(sorted(best.values(), key=lambda p: (p.unit_price * p.qty, p.seller)))
         else:
             uncovered.append(line.item.line_id)
     return choices, offers, uncovered
@@ -104,43 +105,6 @@ def fewest_key(picks):
     return score(picks)
 
 
-def improve(start: list[Pick], choices: list[list[Pick]], key) -> list[Pick]:
-    current, best = list(start), key(tuple(start))
-    for _ in range(MAX_PASSES):
-        changed = False
-        for index, alternatives in enumerate(choices):
-            for alternative in alternatives:
-                trial = current.copy()
-                trial[index] = alternative
-                value = key(tuple(trial))
-                if value < best:
-                    current, best, changed = trial, value, True
-        if not changed:
-            break
-    return current
-
-
-def fewest_start(choices: list[list[Pick]]) -> list[Pick]:
-    """Greedy set cover: the seller covering most remaining lines, then the cheapest."""
-    remaining, chosen = set(range(len(choices))), set()
-    while remaining:
-        coverage: dict[str, list[int]] = {}
-        for index in remaining:
-            for pick in choices[index]:
-                coverage.setdefault(pick.seller.lower(), []).append(index)
-        seller = min(
-            coverage,
-            key=lambda s: (
-                -len(coverage[s]),
-                sum(p.unit_price for i in coverage[s] for p in choices[i] if p.seller.lower() == s),
-                s,
-            ),
-        )
-        chosen.add(seller)
-        remaining -= set(coverage[seller])
-    return [next(p for p in alts if p.seller.lower() in chosen) for alts in choices]
-
-
 def search(choices: list[list[Pick]]):
     combinations = 1
     for alternatives in choices:
@@ -153,46 +117,104 @@ def search(choices: list[list[Pick]]):
     return "greedy", cheapest, fewest
 
 
-def plans_for(job: Job) -> CartPlans:
+def plan_pick(pick: Pick, offer, qty: int | None) -> PlanPick:
+    grade = offer.compatibility.grade if offer is not None and offer.compatibility else None
+    return PlanPick(
+        line_id=pick.line_id,
+        offer_url=pick.offer_url,
+        seller=pick.seller,
+        price_inr=money(pick.unit_price),
+        grade=None if grade == "X" else grade,
+        changes_required=grade == "B",
+        qty=qty,
+        packs=pick.qty,
+    )
+
+
+def recommended_plan(report: Report, penalty: Decimal, selected: set) -> CartPlan | None:
+    """The automatic basket as an alternative; user selections are part of it, fixed."""
+    basket = build_basket(report, penalty)
+    lines = {line.item.line_id: line for line in report.lines}
+    picks: list[Pick] = list(basket.fixed)
+    offers = {
+        pick.line_id: next(
+            (o for o in lines[pick.line_id].offers if str(o.url) == pick.offer_url), None
+        )
+        for pick in basket.fixed
+    }
+    for line_id, entry in basket.chosen.items():
+        offers[line_id] = entry.offer
+        picks.append(
+            Pick(
+                line_id=line_id,
+                seller=entry.offer.seller,
+                unit_price=Decimal(entry.offer.price_inr),
+                qty=entry.packs,
+                tax_included=entry.offer.tax_included,
+                family=lines[line_id].item.specs.family,
+                offer_url=str(entry.offer.url),
+            )
+        )
+    if not picks:
+        return None
+    order = {line.item.line_id: index for index, line in enumerate(report.lines)}
+    picks.sort(key=lambda p: order[p.line_id])
+    covered = {p.line_id for p in picks}
+    uncovered = [
+        line.item.line_id
+        for line in report.lines
+        if not line.item.user_has_it and line.item.line_id not in covered
+    ]
+    return CartPlan(
+        kind="recommended",
+        picks=[plan_pick(p, offers[p.line_id], lines[p.line_id].item.qty) for p in picks],
+        seller_count=len(group(picks)),
+        costing=cost_picks(picks, uncovered, basis="plan"),
+        matches_selection={(p.line_id, p.offer_url) for p in picks} == selected,
+    )
+
+
+def plans_for(job: Job, penalty: Decimal = SELLER_PENALTY_INR) -> CartPlans:
     report = job.report
     if job.status != "done" or report is None or job.demo:
         raise JobError(409, "INVALID_STATE", "Plans need a completed live report")
     choices, offers, uncovered = options(report)
-    if not choices:
-        return CartPlans(uncovered_line_ids=uncovered, rules=RULES)
-    method, cheapest, fewest = search(choices)
     selected = {
         (line.item.line_id, str(line.selected_offer_url))
         for line in report.lines
         if line.selected_offer_url is not None
     }
-    plans = []
-    for kind, picks in (("cheapest", cheapest), ("fewest_sellers", fewest)):
-        grades = {p.line_id: offers[(p.line_id, p.offer_url)].compatibility.grade for p in picks}
-        plans.append(
-            CartPlan(
-                kind=kind,
-                picks=[
-                    PlanPick(
-                        line_id=p.line_id,
-                        offer_url=p.offer_url,
-                        seller=p.seller,
-                        price_inr=f"{p.unit_price:.2f}",
-                        grade=grades[p.line_id],
-                        changes_required=grades[p.line_id] == "B",
-                    )
-                    for p in picks
-                ],
-                seller_count=len(group(picks)),
-                costing=cost_picks(picks, uncovered, basis="plan"),
-                matches_selection={(p.line_id, p.offer_url) for p in picks} == selected,
+    plans, method = [], "none"
+    if choices:
+        method, cheapest, fewest = search(choices)
+        qty = {line.item.line_id: line.item.qty for line in report.lines}
+        for kind, picks in (("cheapest", cheapest), ("fewest_sellers", fewest)):
+            plans.append(
+                CartPlan(
+                    kind=kind,
+                    picks=[
+                        plan_pick(p, offers[(p.line_id, p.offer_url)], qty[p.line_id])
+                        for p in picks
+                    ],
+                    seller_count=len(group(picks)),
+                    costing=cost_picks(picks, uncovered, basis="plan"),
+                    matches_selection={(p.line_id, p.offer_url) for p in picks} == selected,
+                )
             )
-        )
-    return CartPlans(plans=plans, method=method, uncovered_line_ids=uncovered, rules=RULES)
+    recommended = recommended_plan(report, penalty, selected)
+    if recommended is not None:
+        plans.append(recommended)
+    return CartPlans(
+        plans=plans,
+        method=method,
+        uncovered_line_ids=uncovered,
+        rules=RULES,
+        seller_penalty_inr=money(penalty),
+    )
 
 
 def cart_plans(service: JobService, job_id: str, token) -> CartPlans:
-    return plans_for(service.get(job_id, token))
+    return plans_for(service.get(job_id, token), service.seller_penalty_inr)
 
 
 def set_import_references(
