@@ -1,4 +1,9 @@
-"""Evaluate BOM extraction against a labelled case set.
+"""Evaluate BOM extraction against a labelled case set or gold index.
+
+--cases accepts a case-set JSON or a gold index (evaluation/gold/index.json); unlabelled
+gold projects are skipped. Predictions may also carry safety_flags, substitutions, offers
+and listings, which add safety-flag recall, grade accuracy, hallucinated-URL rate and link
+validity to the report.
 
 Offline (default, no network): score saved prediction files, one ``<case_id>.json`` per
 case in --predictions, e.g. from an earlier --live run.
@@ -10,7 +15,10 @@ Live (--live): call GeminiExtractor once per case with BS_GEMINI_API_KEY. This i
 Gemini usage charges (with bounded HTTP retries). Predictions are saved under the output
 directory so the run can be re-scored offline. Synthetic sets are refused in live mode.
 
-Reports are written to backend/.data/evaluation/ (ignored by git) and printed to stdout.
+Reports are written to backend/.data/evaluation/ (ignored by git) and printed to stdout:
+<stem>.md (readable tables), <stem>.json (full report) and <stem>-metrics.json. The stem is
+format-check for synthetic sets, unreviewed-check when labels are not human-reviewed (a
+warning is printed and no accuracy headline is produced) and report otherwise.
 """
 
 import argparse
@@ -22,6 +30,7 @@ from bharat_sourcer.evaluation import (
     evaluate,
     load_cases,
     load_prediction,
+    metrics_json,
     render_markdown,
     report_json,
 )
@@ -29,15 +38,23 @@ from bharat_sourcer.evaluation import (
 BACKEND = Path(__file__).resolve().parents[1]
 
 parser = argparse.ArgumentParser(description="Evaluate BOM extraction against labelled cases")
-parser.add_argument("--cases", type=Path, required=True, help="Labelled case set JSON")
+parser.add_argument(
+    "--cases", type=Path, required=True, help="Labelled case set JSON or gold index.json"
+)
 parser.add_argument("--predictions", type=Path, help="Directory of saved <case_id>.json")
 parser.add_argument("--live", action="store_true", help="Run paid Gemini extraction per case")
 parser.add_argument("--out", type=Path, default=BACKEND / ".data" / "evaluation")
 parser.add_argument("--evidence-tolerance-s", type=int, default=0)
 parser.add_argument("--exact-names", action="store_true", help="Disable name-containment matches")
 args = parser.parse_args()
+# Labels and predictions may contain non-ASCII text (e.g. "1kΩ"); never crash on a narrow
+# console encoding.
+sys.stdout.reconfigure(errors="backslashreplace")
 
-cases = load_cases(args.cases)
+try:
+    cases = load_cases(args.cases)
+except (OSError, ValueError) as exc:
+    sys.exit(f"Cannot load {args.cases}: {exc}")
 predictions: dict[str, Prediction] = {}
 
 if args.live:
@@ -88,10 +105,18 @@ try:
 except ValueError as exc:
     sys.exit(str(exc))
 
-stem = "format-check" if report.synthetic else "report"
+if report.synthetic:
+    stem = "format-check"
+elif report.accuracy_claim_allowed:
+    stem = "report"
+else:
+    stem = "unreviewed-check"
 args.out.mkdir(parents=True, exist_ok=True)
 markdown = render_markdown(report)
 (args.out / f"{stem}.md").write_text(markdown, encoding="utf-8")
 (args.out / f"{stem}.json").write_text(report_json(report), encoding="utf-8")
+(args.out / f"{stem}-metrics.json").write_text(metrics_json(report), encoding="utf-8")
 print(markdown)
-print(f"Saved {args.out / (stem + '.md')} and {args.out / (stem + '.json')}")
+if report.warning:
+    print(f"WARNING: {report.warning}", file=sys.stderr)
+print(f"Saved {stem}.md, {stem}.json and {stem}-metrics.json in {args.out}")

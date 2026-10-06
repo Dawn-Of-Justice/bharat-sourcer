@@ -1,0 +1,95 @@
+{
+  "project_id": "dronebot-hc-sr04-arduino",
+  "plan_row": 8,
+  "title": "Using the HC-SR04 Ultrasonic Distance Sensor with Arduino",
+  "creator": "DroneBot Workshop",
+  "kind": "text",
+  "label_status": "agent_draft_needs_human_review",
+  "inputs": {
+    "url": "https://dronebotworkshop.com/hc-sr04-ultrasonic-distance-sensor-arduino/",
+    "video_url": "https://www.youtube.com/watch?v=6F1B_N6LuKw"
+  },
+  "source": {
+    "url": "https://dronebotworkshop.com/hc-sr04-ultrasonic-distance-sensor-arduino/",
+    "fetched_on": "2026-10-06",
+    "http_status": 200,
+    "robots_txt": "allowed (robots.txt disallows only /wp-admin/, /mailstat/ and a stats CSV)",
+    "method": "one curl GET; parts list transcribed by hand from the fetched text"
+  },
+  "gold_bom": [
+    {
+      "name": "Arduino Uno",
+      "aliases": [],
+      "qty": 1,
+      "canonical_chip": "ATmega328P",
+      "category": "mcu_board"
+    },
+    {
+      "name": "HC-SR04 ultrasonic sensor",
+      "aliases": [
+        "HC-SR04",
+        "ultrasonic distance sensor"
+      ],
+      "qty": 2,
+      "category": "sensor",
+      "notes": "Two in the 'Using Multiple HC-SR04 Sensors' demo."
+    },
+    {
+      "name": "DHT22 temperature humidity sensor",
+      "aliases": [
+        "DHT22",
+        "AM2302"
+      ],
+      "qty": 1,
+      "canonical_chip": "DHT22",
+      "category": "sensor",
+      "notes": "Used in the 'Getting Improved Accuracy' demos."
+    },
+    {
+      "name": "Breadboard",
+      "aliases": [
+        "solderless breadboard"
+      ],
+      "qty": 1,
+      "category": "prototyping"
+    },
+    {
+      "name": "Jumper wires",
+      "aliases": [
+        "hookup wires"
+      ],
+      "qty": null,
+      "category": "wire"
+    }
+  ],
+  "gold_substitutions": [
+    {
+      "original": "DHT22 temperature humidity sensor",
+      "aliases": [
+        "DHT22"
+      ],
+      "acceptable": [
+        "DHT11"
+      ],
+      "required_changes": [
+        "#define DHTTYPE DHT11",
+        "lower range and resolution"
+      ],
+      "grade_range": [
+        "D",
+        "D"
+      ],
+      "case_ref": 11,
+      "notes": "The author also says the cheaper DHT-11 works with less accuracy."
+    }
+  ],
+  "must_flag": [],
+  "notes": "The page's Parts List says 'COMING SOON!', so parts come from prose (and the video, which this draft did not use). HC-SR04 on a Raspberry Pi needs resistors; the Pi variant is not part of this build.",
+  "ambiguities": [
+    "HC-SR04 quantity: 1 for most demos, 2 for the dual demo; gold uses 2.",
+    "Breadboard and jumper wires are implied by 'solderless breadboard' and diagrams.",
+    "A DHT22 pull-up resistor is not mentioned; not included."
+  ],
+  "drafted_by": "Claude Code agent (stream mvp/eval), not a human labeller",
+  "reviewed_by": []
+}

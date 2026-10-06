@@ -1,0 +1,137 @@
+{
+  "project_id": "hackster-infinity-mirror-clock",
+  "plan_row": 11,
+  "title": "Infinity Mirror Wall Clock in IKEA Picture Frame",
+  "creator": "rundhall (Hackster)",
+  "kind": "text",
+  "label_status": "agent_draft_needs_human_review",
+  "inputs": {
+    "url": "https://www.hackster.io/rundhall/infinity-mirror-wall-clock-in-ikea-picture-frame-700125",
+    "video_url": "https://www.youtube.com/watch?v=wGD5nREJQyU"
+  },
+  "source": {
+    "url": "https://www.hackster.io/rundhall/infinity-mirror-wall-clock-in-ikea-picture-frame-700125",
+    "fetched_on": "2026-10-06",
+    "http_status": 200,
+    "robots_txt": "allowed for project pages (Disallow rules cover /api/graphql, auth and /users)",
+    "method": "one curl GET; parts list transcribed by hand from the fetched text"
+  },
+  "gold_bom": [
+    {
+      "name": "IKEA RIBBA picture frame 23x23 cm",
+      "aliases": [
+        "IKEA RIBBA frame",
+        "picture frame"
+      ],
+      "qty": 1,
+      "category": "enclosure"
+    },
+    {
+      "name": "WS2812B LED strip 74 LEDs/m",
+      "aliases": [
+        "WS2812B LED strip",
+        "addressable RGB LED strip"
+      ],
+      "qty": 1,
+      "canonical_chip": "WS2812B",
+      "category": "led",
+      "notes": "1 m strip; 14 LEDs cut off, 60 used."
+    },
+    {
+      "name": "NodeMCU v3 ESP8266",
+      "aliases": [
+        "NodeMCU",
+        "ESP8266 NodeMCU"
+      ],
+      "qty": 1,
+      "canonical_chip": "ESP8266",
+      "module": "NodeMCU v3 (LoLin)",
+      "category": "mcu_board"
+    },
+    {
+      "name": "5V phone charger",
+      "aliases": [
+        "phone charger",
+        "USB power adapter"
+      ],
+      "qty": 1,
+      "category": "power_supply"
+    },
+    {
+      "name": "USB phone cable",
+      "aliases": [
+        "USB cable"
+      ],
+      "qty": 1,
+      "category": "cable"
+    },
+    {
+      "name": "470uF capacitor",
+      "aliases": [
+        "470 uF capacitor",
+        "electrolytic capacitor"
+      ],
+      "qty": 1,
+      "category": "passive",
+      "notes": "Prose says 450uF; list says 470 uF."
+    },
+    {
+      "name": "Electronics housing",
+      "aliases": [
+        "housing for electronics"
+      ],
+      "qty": 1,
+      "category": "enclosure"
+    },
+    {
+      "name": "Mirror 23x23 cm",
+      "aliases": [
+        "mirror"
+      ],
+      "qty": 1,
+      "category": "optics"
+    },
+    {
+      "name": "Glass plate 23x23 cm",
+      "aliases": [
+        "glass plate"
+      ],
+      "qty": 1,
+      "category": "optics"
+    }
+  ],
+  "gold_substitutions": [
+    {
+      "original": "WS2812B LED strip 74 LEDs/m",
+      "aliases": [
+        "WS2812B LED strip"
+      ],
+      "acceptable": [
+        "Same strip + 74AHCT125 level shifter + 5 V 5 A SMPS (230 V input)"
+      ],
+      "required_changes": [
+        "3.3 V data: add 74AHCT125 and 300-500 ohm series resistor",
+        "PSU sizing 60 mA x LEDs",
+        "setBrightness"
+      ],
+      "grade_range": [
+        "A",
+        "C"
+      ],
+      "case_ref": 8,
+      "notes": "Case 8: A as built, optional C upgrade with the shifter."
+    }
+  ],
+  "must_flag": [
+    "LEVEL_SHIFT",
+    "HIGH_CURRENT"
+  ],
+  "notes": "Fetched with HTTP 200 on 2026-10-06 (the backend's own fetcher still gets Cloudflare 403). Components table transcribed; a soldering iron is a tool.",
+  "ambiguities": [
+    "Case 8 computes 74 LEDs x 60 mA = 4.4 A; only 60 LEDs are used (3.6 A).",
+    "An infinity mirror normally needs a one-way (semi-transparent) front; the page lists a glass plate and a mirror only.",
+    "A small proto PCB is mentioned in the story but not listed."
+  ],
+  "drafted_by": "Claude Code agent (stream mvp/eval), not a human labeller",
+  "reviewed_by": []
+}
