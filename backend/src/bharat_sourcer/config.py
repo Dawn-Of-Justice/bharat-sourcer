@@ -48,6 +48,13 @@ class Settings(BaseSettings):
     research_followup_enabled: bool = True
     research_pages_per_part: int = Field(default=3, ge=1, le=5)
     research_page_chars: int = Field(default=12000, ge=2000, le=20000)
+    # Spec judge (sourcing/judge.py): one call per BOM line with candidates, Flash-Lite class.
+    judge_enabled: bool = True
+    judge_model: str = Field(default="gemini-3.1-flash-lite", pattern=r"^[a-zA-Z0-9.-]+$")
+    judge_thinking_level: Literal["low", "medium", "high"] | None = "low"
+    judge_max_candidates: int = Field(default=8, ge=1, le=8)
+    judge_snippet_chars: int = Field(default=800, ge=200, le=1500)
+    judge_cache_ttl_s: int = Field(default=7 * 86400, ge=0, le=30 * 86400)
     # Opt-in Gemini extras (gemini_extras.py); each has its own per-owner daily quota.
     explain_enabled: bool = False
     explain_daily_limit: int = Field(default=10, ge=1, le=200)

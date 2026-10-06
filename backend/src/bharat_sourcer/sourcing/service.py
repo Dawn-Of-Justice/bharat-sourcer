@@ -10,14 +10,25 @@ from bharat_sourcer.config import Settings
 from bharat_sourcer.resilience import post_with_retry
 from bharat_sourcer.schemas import (
     BomItem,
+    BuyableSpec,
     ErrorDetail,
     PartResearch,
+    ProjectContext,
     ReportLine,
     ResearchSource,
     SearchAttribution,
 )
 from bharat_sourcer.sourcing.fetch import FetchError, SafeFetcher, validate_url
-from bharat_sourcer.sourcing.listings import page_images, variant_url, verify_page
+from bharat_sourcer.sourcing.judge import Judge, review_candidates
+from bharat_sourcer.sourcing.listings import (
+    meta_offer,
+    page_images,
+    title_matches,
+    variant_url,
+    verify_page,
+)
+from bharat_sourcer.sourcing.matching import build_candidate
+from bharat_sourcer.sourcing.part_spec import buyable_spec
 from bharat_sourcer.sourcing.platforms import storefront_offer
 from bharat_sourcer.sourcing.research import Researcher
 from bharat_sourcer.sourcing.trust import TrustChecker
@@ -175,20 +186,28 @@ class SourcingService:
         researcher: Researcher | None = None,
         followup_enabled: bool = False,
         trust: TrustChecker | None = None,
+        judge: Judge | None = None,
     ):
         self.discovery = discovery
         self.fetcher = fetcher
         self.researcher = researcher
         self.followup_enabled = followup_enabled
         self.trust = trust
+        self.judge = judge
 
     def source(self, item: BomItem) -> ReportLine:
         return self.source_for_project(item, [item])
 
-    def source_for_project(self, item: BomItem, project_items: list[BomItem]) -> ReportLine:
+    def source_for_project(
+        self,
+        item: BomItem,
+        project_items: list[BomItem],
+        project: ProjectContext | None = None,
+    ) -> ReportLine:
         attempted = set()
         fetcher = self.fetcher or SafeFetcher()
-        first = self._source_attempt(item, project_items, fetcher, attempted)
+        spec = buyable_spec(item, project)
+        first = self._source_attempt(item, project_items, fetcher, attempted, "", spec, project)
         if not (
             self.followup_enabled
             and first.research
@@ -211,7 +230,9 @@ class SourcingService:
             "access restrictions. Keep the original part identity and requirements. "
             "Previously attempted domains: " + json.dumps(domains[:8]) + ". Part: "
         )
-        second = self._source_attempt(item, project_items, fetcher, attempted, followup)
+        second = self._source_attempt(
+            item, project_items, fetcher, attempted, followup, spec, project
+        )
         if second.offers or (
             second.research and second.research.status in {"ready", "no_evidence"}
         ):
@@ -264,6 +285,18 @@ class SourcingService:
         fetcher,
         attempted: set[str],
         query_prefix: str = "",
+        spec: BuyableSpec | None = None,
+        project: ProjectContext | None = None,
+    ) -> ReportLine:
+        spec = spec or buyable_spec(item, project)
+        line = self._source_once(
+            item, project_items, fetcher, attempted, query_prefix, spec, project
+        )
+        line.buyable_spec = spec
+        return line
+
+    def _source_once(
+        self, item, project_items, fetcher, attempted, query_prefix, spec, project
     ) -> ReportLine:
         resolution = resolve_part(item)
         if item.user_has_it:
@@ -284,6 +317,7 @@ class SourcingService:
             )
         offers = []
         seen = set()
+        candidates = []
         pages, sources = [], []
         fetched, rejected, blocked = 0, 0, 0
         for url in attribution.source_urls:
@@ -313,12 +347,17 @@ class SourcingService:
                             reason=None if page.status == 200 else f"HTTP {page.status}",
                         )
                     )
-                offer = verify_page(page, resolution.query)
+                # With a judge, pages are verified without a relevance gate; the judge
+                # decides relevance afterwards. Without one, the legacy title gate applies.
+                query = None if self.judge else resolution.query
+                offer_page = page
+                offer = verify_page(page, query)
                 if offer is None:
-                    variant = variant_url(page, resolution.query)
+                    variant = variant_url(page, query)
                     if variant:
                         variant_page = fetcher.get(variant)
-                        offer = verify_page(variant_page, resolution.query)
+                        offer = verify_page(variant_page, query)
+                        offer_page = variant_page if offer else page
                         if variant_page.url not in {p.url for p in pages}:
                             pages.append(variant_page)
                             sources.append(
@@ -332,12 +371,19 @@ class SourcingService:
                             )
                 if offer is None:
                     # Shopify/WooCommerce public product JSON when the page has no JSON-LD.
-                    offer = storefront_offer(page, resolution.query, fetcher)
+                    offer = storefront_offer(page, query, fetcher)
+                if offer is None:
+                    # Seller-declared OpenGraph/microdata price (one INR value only).
+                    offer = meta_offer(page, query)
+                if self.judge:
+                    # A variant group without a single price still goes to the judge.
+                    candidate = build_candidate(offer_page, offer)
+                    if candidate and candidate.url not in {c.url for c in candidates}:
+                        candidates.append(candidate)
+                    continue
                 if offer is None:
                     rejected += 1
                 if offer and str(offer.url) not in seen:
-                    offer.compatibility = assess_offer(resolution, offer)
-                    offer.compatibility_status = offer.compatibility.status
                     seen.add(str(offer.url))
                     offers.append(offer)
             except (FetchError, ValueError, RecursionError):
@@ -349,6 +395,23 @@ class SourcingService:
                         )
                     )
                 continue
+        if self.judge:
+            judged = review_candidates(spec, project, candidates, self.judge)
+            if judged is None:
+                # Judge unavailable: fall back to the legacy title gate, unjudged.
+                judged = [
+                    c.offer
+                    for c in candidates
+                    if c.offer and title_matches(resolution.query, c.offer.title)
+                ]
+            rejected += len(candidates) - len(judged)
+            for offer in judged:
+                if str(offer.url) not in seen:
+                    seen.add(str(offer.url))
+                    offers.append(offer)
+        for offer in offers:
+            offer.compatibility = assess_offer(resolution, offer)
+            offer.compatibility_status = offer.compatibility.status
         if self.trust and offers:
             try:
                 self.trust.label_offers(offers, pages)

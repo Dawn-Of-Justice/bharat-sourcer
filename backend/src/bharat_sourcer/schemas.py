@@ -293,6 +293,70 @@ class ItemConflict(Model):
     values: list[ConflictValue] = Field(default_factory=list, max_length=6)
 
 
+PartCategory = Literal[
+    "resistor",
+    "capacitor_electrolytic",
+    "capacitor_ceramic",
+    "led",
+    "ldr",
+    "wire",
+    "diode",
+    "transistor",
+    "ic",
+    "module",
+    "board",
+    "sensor",
+    "connector",
+    "switch",
+    "battery",
+    "other",
+]
+ShortText = Annotated[str, Field(min_length=1, max_length=120)]
+
+
+class SpecParam(Model):
+    """One buyable parameter. `si_value` is filled by the server's unit normaliser."""
+
+    name: str = Field(min_length=1, max_length=60)
+    value: str = Field(min_length=1, max_length=80)
+    operator: Literal["equals", "at_least", "at_most", "between"] = "equals"
+    value_max: str | None = Field(default=None, max_length=80)
+    unit: str | None = Field(default=None, max_length=10)
+    si_value: float | None = Field(default=None, allow_inf_nan=False)
+    si_value_max: float | None = Field(default=None, allow_inf_nan=False)
+    # Required params must match a listing; others only add confidence.
+    required: bool = True
+    # stated: the source names it; inferred: decided from project context, with a reason.
+    origin: Literal["stated", "inferred", "user"] = "inferred"
+    reason: str | None = Field(default=None, max_length=300)
+
+
+class BuyableSpec(Model):
+    """What to buy for a BOM line, stated the way Indian sellers list parts.
+
+    `ai_inferred` specs come from the extraction call (one call per job, not per line);
+    `seed` specs are the deterministic fallback built from the part name only. Every
+    inferred value carries a reason and the whole spec is editable (`origin: user`).
+    """
+
+    origin: Literal["seed", "ai_inferred", "user"] = "seed"
+    category: PartCategory = "other"
+    mount: Literal["tht", "smd", "any"] = "any"
+    mount_origin: Literal["stated", "inferred", "user", "default"] = "default"
+    mount_reason: str | None = Field(default=None, max_length=300)
+    params: list[SpecParam] = Field(default_factory=list, max_length=12)
+    # Names of required params; derived by the server from `params[].required`.
+    must: list[str] = Field(default_factory=list, max_length=12)
+    # Descriptive words ("clear", "bare"): they add confidence but never block a match.
+    prefer: list[ShortText] = Field(default_factory=list, max_length=10)
+    exclude: list[ShortText] = Field(default_factory=list, max_length=12)
+    synonyms: list[ShortText] = Field(default_factory=list, max_length=10)
+    queries: list[ShortText] = Field(default_factory=list, max_length=4)
+    needs_value: bool = False
+    needs_value_reason: str | None = Field(default=None, max_length=300)
+    reasons: list[str] = Field(default_factory=list, max_length=6)
+
+
 class BomItem(Model):
     line_id: str
     raw_name: Name
@@ -313,6 +377,8 @@ class BomItem(Model):
     # (user-added, renamed or saved before confidence existed).
     confidence: Literal["verified", "likely", "check"] | None = None
     confidence_reason: str | None = Field(default=None, max_length=300)
+    # AI-inferred or user-edited buying spec; None means sourcing uses a seed spec.
+    buyable_spec: BuyableSpec | None = None
 
 
 class UpdateLine(Model):
@@ -322,11 +388,18 @@ class UpdateLine(Model):
     qty: Quantity | None = None
     specs: PartSpecs | None = None
     requirements: list[PartRequirement] | None = Field(default=None, max_length=20)
+    # Replaces the line's buying spec; saved with origin "user".
+    buyable_spec: BuyableSpec | None = None
 
     @model_validator(mode="after")
     def require_change(self):
-        if all(v is None for v in (self.raw_name, self.qty, self.specs, self.requirements)):
-            raise ValueError("An update requires raw_name, qty, specs or requirements")
+        if all(
+            v is None
+            for v in (self.raw_name, self.qty, self.specs, self.requirements, self.buyable_spec)
+        ):
+            raise ValueError(
+                "An update requires raw_name, qty, specs, requirements or buyable_spec"
+            )
         return self
 
 
@@ -581,6 +654,34 @@ class SellerTrust(Model):
     checked_at: datetime = Field(default_factory=now)
 
 
+class MatchClaim(Model):
+    claim: str = Field(min_length=1, max_length=200)
+    # Verbatim from the listing text the judge was shown; checked by the server.
+    quote: str = Field(min_length=3, max_length=300)
+
+
+class OfferMatch(Model):
+    """How well a listing matches the line's buyable spec. A judgement, not a verification.
+
+    `llm_judge` verdicts keep only claims whose quotes appear verbatim in the listing;
+    `deterministic_shortcut` is used only when structured data states every spec param.
+    """
+
+    status: Literal["exact", "compatible", "partial", "mismatch"]
+    score: float = Field(ge=0, le=1)
+    matched: list[str] = Field(default_factory=list, max_length=12)
+    missing: list[str] = Field(default_factory=list, max_length=12)
+    conflicts: list[str] = Field(default_factory=list, max_length=12)
+    reasons: list[str] = Field(default_factory=list, max_length=6)
+    claims: list[MatchClaim] = Field(default_factory=list, max_length=8)
+    # Claims returned by the model whose quote was not found in the listing.
+    dropped_claims: int = Field(default=0, ge=0)
+    variant: str | None = Field(default=None, max_length=300)
+    pack_qty: int | None = Field(default=None, ge=1, le=100000)
+    method: Literal["llm_judge", "deterministic_shortcut"] = "llm_judge"
+    model: str | None = None
+
+
 class VerifiedOffer(Model):
     url: HttpUrl
     seller: str
@@ -591,7 +692,11 @@ class VerifiedOffer(Model):
     stock: Literal["in_stock", "out_of_stock", "preorder", "unknown"] = "unknown"
     checked_at: datetime = Field(default_factory=now)
     verification: Literal[
-        "seller_structured_data", "shopify_storefront_json", "woocommerce_store_api"
+        "seller_structured_data",
+        "shopify_storefront_json",
+        "woocommerce_store_api",
+        # Seller-declared OpenGraph product meta tags or microdata (one INR price).
+        "seller_meta_tags",
     ] = "seller_structured_data"
     seller_trust: Literal["unverified"] = "unverified"
     # Seller-declared only (JSON-LD or fixed page phrases); None means unknown or conflicting.
@@ -607,6 +712,10 @@ class VerifiedOffer(Model):
     compatibility: Compatibility | None = None
     research_assessment: ResearchAssessment | None = None
     trust: SellerTrust | None = None
+    # Spec match for this line (None: not judged, e.g. the judge is disabled).
+    match: OfferMatch | None = None
+    # Pieces per listing when the listing is a pack ("pack of 10"); None: not stated.
+    pack_qty: int | None = Field(default=None, ge=1, le=100000)
 
 
 class SearchAttribution(Model):
@@ -758,6 +867,8 @@ class ReportLine(Model):
         "not_run", "already_owned", "offers_found", "no_verified_offers", "failed"
     ]
     resolution: PartResolution | None = None
+    # The spec this line was sourced with (item spec, or a seed spec from the name).
+    buyable_spec: BuyableSpec | None = None
     offers: list[VerifiedOffer] = Field(default_factory=list)
     image_candidates: list[PartImage] = Field(default_factory=list)
     attribution: SearchAttribution | None = None

@@ -2,6 +2,8 @@
 
 import json
 import re
+from dataclasses import dataclass
+from dataclasses import field as dataclass_field
 from decimal import Decimal, InvalidOperation
 from html.parser import HTMLParser
 from urllib.parse import parse_qs, urljoin, urlsplit
@@ -66,7 +68,14 @@ def is_type(value: dict, expected: str) -> bool:
     )
 
 
-def title_matches(query: str, title: str) -> bool:
+def title_matches(query: str | None, title: str) -> bool:
+    """Legacy relevance gate, used only when no spec judge is configured or it failed.
+
+    ``query=None`` means relevance is decided later by the spec judge (`judge.py`), so
+    extraction functions shared with that path accept every title.
+    """
+    if query is None:
+        return True
     aliases = {
         "microcontroller": "",
         "development": "",
@@ -81,6 +90,8 @@ def title_matches(query: str, title: str) -> bool:
     def tokens(text):
         # Sellers write sizes as 0.96", 0.96″ or "0.91 in."; all mean the same inch token.
         text = re.sub(r"(\d)\s*(?:″|”|\"|inch(?:es)?\b|in\.)", r"\1 inch ", text.lower())
+        # One spelling for units, so "22µF" and "22uF" are the same token.
+        text = text.replace("µ", "u").replace("μ", "u").replace("ω", "ohm")
         plurals = {
             "resistors": "resistor",
             "leds": "led",
@@ -228,9 +239,143 @@ def variant_url(page: Page, query: str) -> str | None:
     return target
 
 
-def verify_page(page: Page, query: str) -> VerifiedOffer | None:
-    if page.status != 200 or "text/html" not in page.headers.get("content-type", ""):
+def sane_price(raw: object) -> Decimal | None:
+    try:
+        price = Decimal(str(raw))
+    except (InvalidOperation, ValueError):
         return None
+    if not price.is_finite() or price <= 0 or price > 10_000_000:
+        return None
+    if price != price.quantize(Decimal("0.01")):
+        return None
+    return price
+
+
+STOCK = {
+    "instock": "in_stock",
+    "in stock": "in_stock",
+    "outofstock": "out_of_stock",
+    "out of stock": "out_of_stock",
+    "oos": "out_of_stock",
+    "soldout": "out_of_stock",
+    "preorder": "preorder",
+}
+
+
+def stock_of(raw: object) -> str:
+    key = str(raw or "").rsplit("/", 1)[-1].strip().lower().replace("_", "")
+    return STOCK.get(key, STOCK.get(key.replace(" ", ""), "unknown"))
+
+
+@dataclass
+class OfferOption:
+    """One INR price the page's structured data declares (a variant or the only offer)."""
+
+    price: Decimal
+    stock: str
+    name: str | None = None
+    sku: str | None = None
+    url: str | None = None
+    source: dict = dataclass_field(default_factory=dict, repr=False)
+
+
+@dataclass
+class ExtractedProduct:
+    """A single Product with its declared INR offers; relevance is not judged here."""
+
+    page: Page
+    product: dict
+    title: str
+    options: list[OfferOption]
+    meta_images: list[str]
+
+    def resolved(self) -> OfferOption | None:
+        """The one offer this page unambiguously sells, or None for a variant group."""
+        if len(self.options) == 1:
+            option = self.options[0]
+            # A different variant URL requires its own page verification.
+            if option.url and not same_url(option.url, self.page.url):
+                return None
+            return option
+        # The page's own URL names the variant it sells; anything else is for the judge,
+        # which picks a variant (or confirms that every variant matches the spec).
+        own = [o for o in self.options if o.url and same_url(o.url, self.page.url)]
+        return own[0] if len(own) == 1 else None
+
+    def offer(self, option: OfferOption) -> VerifiedOffer:
+        url = self.page.url
+        if option.url and not same_url(option.url, self.page.url):
+            target, page = urlsplit(urljoin(self.page.url, option.url)), urlsplit(self.page.url)
+            if target.scheme == "https" and target.hostname == page.hostname:
+                url = target.geturl()
+        specs, evidence, conflicts = seller_specs(self.product, self.page, self.title)
+        tax_included, tax_evidence = detect_tax_included(
+            option.source, self.page.body.decode("utf-8", errors="replace")
+        )
+        return VerifiedOffer(
+            url=url,
+            seller=urlsplit(self.page.url).hostname,
+            title=self.title,
+            image_url=product_image_url(self.product, self.page.url, self.meta_images),
+            price_inr=f"{option.price:.2f}",
+            stock=option.stock,
+            specs=specs,
+            spec_evidence=evidence,
+            spec_conflicts=conflicts,
+            tax_included=tax_included,
+            tax_evidence=tax_evidence,
+        )
+
+
+def offer_options(offers: object, currency: str | None = None) -> list[OfferOption] | None:
+    """Flatten Offer / Offer list / AggregateOffer; None when a price range is unresolvable."""
+    if isinstance(offers, dict):
+        offers = [offers]
+    if not isinstance(offers, list):
+        return []
+    options: list[OfferOption] = []
+    for entry in offers[:50]:
+        if not isinstance(entry, dict):
+            continue
+        entry_currency = entry.get("priceCurrency") or currency
+        if is_type(entry, "AggregateOffer"):
+            nested = entry.get("offers")
+            if nested:
+                inner = offer_options(nested, entry_currency)
+                if inner is None:
+                    return None
+                options.extend(inner)
+                continue
+            low, high = sane_price(entry.get("lowPrice")), sane_price(entry.get("highPrice"))
+            if low is None or (high is not None and high != low):
+                # A price range without its offers cannot be attributed to a variant.
+                return None
+            raw_price = low
+        elif is_type(entry, "Offer"):
+            raw_price = entry.get("price")
+        else:
+            continue
+        price = sane_price(raw_price)
+        if price is None or entry_currency != "INR":
+            continue
+        item = entry.get("itemOffered") if isinstance(entry.get("itemOffered"), dict) else {}
+        name = entry.get("name") or item.get("name")
+        sku = entry.get("sku") or item.get("sku")
+        url = entry.get("url")
+        options.append(
+            OfferOption(
+                price=price,
+                stock=stock_of(entry.get("availability")),
+                name=name[:300] if isinstance(name, str) else None,
+                sku=str(sku)[:100] if isinstance(sku, (str, int)) else None,
+                url=url if isinstance(url, str) and len(url) <= 2048 else None,
+                source=entry,
+            )
+        )
+    return options
+
+
+def page_products(page: Page) -> tuple[list[dict], ProductScripts]:
     parser = ProductScripts()
     parser.feed(page.body.decode("utf-8", errors="replace"))
     products = []
@@ -239,47 +384,123 @@ def verify_page(page: Page, query: str) -> VerifiedOffer | None:
             products.extend(node for node in nodes(json.loads(script)) if is_type(node, "Product"))
         except (ValueError, RecursionError):
             continue
-    # Category pages and unresolved variant groups are not single-product offers.
+    return products, parser
+
+
+def extract_product(page: Page) -> ExtractedProduct | None:
+    """The page's single JSON-LD Product with its INR offers (several variants allowed)."""
+    if page.status != 200 or "text/html" not in page.headers.get("content-type", ""):
+        return None
+    products, parser = page_products(page)
+    # Category pages list several products; they are not product pages.
     if len(products) != 1:
         return None
     product = products[0]
     title = product.get("name")
-    if not isinstance(title, str) or len(title) > 500 or not title_matches(query, title):
+    if not isinstance(title, str) or not title.strip() or len(title) > 500:
         return None
-    offers = product.get("offers", [])
-    if isinstance(offers, dict):
-        offers = [offers]
-    if not isinstance(offers, list) or len(offers) != 1 or not isinstance(offers[0], dict):
+    options = offer_options(product.get("offers", []))
+    if not options:
         return None
-    offer = offers[0]
-    if not is_type(offer, "Offer") or offer.get("priceCurrency") != "INR":
+    return ExtractedProduct(page, product, title, options, parser.meta_images)
+
+
+def verify_page(page: Page, query: str | None = None) -> VerifiedOffer | None:
+    """Verified price/stock for an unambiguous product page.
+
+    With a query string this keeps the legacy title gate (used when no spec judge runs).
+    With ``query=None`` relevance is not judged here; the spec judge decides it.
+    """
+    extracted = extract_product(page)
+    if extracted is None or not title_matches(query, extracted.title):
         return None
-    if offer.get("url"):
-        # A different variant URL requires its own page verification.
-        if not same_url(str(offer["url"]), page.url):
-            return None
-    try:
-        price = Decimal(str(offer["price"]))
-        if not price.is_finite() or price <= 0 or price > 10_000_000:
-            return None
-        if price != price.quantize(Decimal("0.01")):
-            return None
-    except (KeyError, InvalidOperation, ValueError):
+    option = extracted.resolved()
+    return extracted.offer(option) if option else None
+
+
+class MetaPrices(HTMLParser):
+    """OpenGraph product meta tags and schema.org microdata price properties."""
+
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.prices: list[str] = []
+        self.currencies: list[str] = []
+        self.stock: list[str] = []
+        self.titles: list[str] = []
+        self.images: list[str] = []
+        self.in_title = False
+        self.doc_title: list[str] = []
+
+    def handle_starttag(self, tag, attrs):
+        values = dict(attrs)
+        key = (values.get("property") or values.get("name") or "").lower()
+        prop = (values.get("itemprop") or "").lower()
+        content = values.get("content")
+        if tag == "title":
+            self.in_title = True
+        if content is None and prop in {"price", "pricecurrency", "availability"}:
+            content = values.get("href") if prop == "availability" else None
+        if not isinstance(content, str) or len(self.prices) > 20:
+            return
+        if key in {"product:price:amount", "og:price:amount"} or prop == "price":
+            self.prices.append(content.strip())
+        elif key in {"product:price:currency", "og:price:currency"} or prop == "pricecurrency":
+            self.currencies.append(content.strip().upper())
+        elif key in {"product:availability", "og:availability"} or prop == "availability":
+            self.stock.append(content)
+        elif key == "og:title" or (prop == "name" and tag == "meta"):
+            self.titles.append(content.strip())
+        elif key in {"og:image:secure_url", "og:image"}:
+            self.images.append(content)
+
+    def handle_endtag(self, tag):
+        if tag == "title":
+            self.in_title = False
+
+    def handle_data(self, data):
+        if self.in_title:
+            self.doc_title.append(data)
+
+
+def meta_offer(page: Page, query: str | None = None) -> VerifiedOffer | None:
+    """Fallback for pages whose Product JSON-LD has no offers (or no JSON-LD at all).
+
+    Uses only seller-declared `product:price:*` / `og:price:*` meta tags or microdata
+    `itemprop=price`: one distinct price, declared INR. Shopify pages are skipped because
+    their meta price belongs to whichever variant is selected (the storefront JSON path
+    handles them).
+    """
+    if page.status != 200 or "text/html" not in page.headers.get("content-type", ""):
         return None
-    stock = {"InStock": "in_stock", "OutOfStock": "out_of_stock", "PreOrder": "preorder"}.get(
-        str(offer.get("availability", "")).rsplit("/", 1)[-1], "unknown"
-    )
+    products, _ = page_products(page)
+    if len(products) > 1 or any(offer_options(p.get("offers", [])) for p in products):
+        return None
+    from bharat_sourcer.sourcing.platforms import detect_platform
+
+    if detect_platform(page) == "shopify":
+        return None
+    parser = MetaPrices()
+    parser.feed(page.body.decode("utf-8", errors="replace"))
+    prices = {sane_price(raw) for raw in parser.prices}
+    if len(prices) != 1 or None in prices or set(parser.currencies) != {"INR"}:
+        return None
+    price = prices.pop()
+    product = products[0] if products else {}
+    title = product.get("name") if isinstance(product.get("name"), str) else None
+    title = title or next(iter(parser.titles), None) or " ".join("".join(parser.doc_title).split())
+    if not title or len(title) > 500 or not title_matches(query, title):
+        return None
+    stocks = {stock_of(raw) for raw in parser.stock} - {"unknown"}
     specs, evidence, conflicts = seller_specs(product, page, title)
-    tax_included, tax_evidence = detect_tax_included(
-        offer, page.body.decode("utf-8", errors="replace")
-    )
+    tax_included, tax_evidence = detect_tax_included({}, page.body.decode("utf-8", "replace"))
     return VerifiedOffer(
         url=page.url,
         seller=urlsplit(page.url).hostname,
         title=title,
-        image_url=product_image_url(product, page.url, parser.meta_images),
+        image_url=product_image_url(product, page.url, parser.images[:5]),
         price_inr=f"{price:.2f}",
-        stock=stock,
+        stock=stocks.pop() if len(stocks) == 1 else "unknown",
+        verification="seller_meta_tags",
         specs=specs,
         spec_evidence=evidence,
         spec_conflicts=conflicts,

@@ -42,6 +42,7 @@ from bharat_sourcer.schemas import (
     now,
 )
 from bharat_sourcer.sharing import add_share_routes
+from bharat_sourcer.sourcing.judge import GeminiJudge
 from bharat_sourcer.sourcing.research import GeminiResearch
 from bharat_sourcer.sourcing.service import GeminiDiscovery, SourcingService
 from bharat_sourcer.sourcing.trust import TrustChecker
@@ -79,6 +80,7 @@ def create_app(
                 researcher=GeminiResearch(settings) if settings.research_enabled else None,
                 followup_enabled=settings.research_followup_enabled,
                 trust=TrustChecker() if settings.seller_trust_enabled else None,
+                judge=GeminiJudge(settings) if settings.judge_enabled else None,
             )
             if settings.sourcing_enabled and not settings.demo_mode
             else None
