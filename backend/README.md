@@ -187,7 +187,8 @@ Errors transition the job to `failed` with a sanitized `error.code` and message.
 are bounded transient retries as described below, with no demo fallbacks. HTTP read timeout
 is configurable; output is limited to 8,192 tokens and validated to at most 100 parts.
 Compatibility is limited to declared-spec comparisons described below. Parts costing is available
-after offer selection; shipping, tax and the final payable total remain unknown.
+after offer selection, with labelled GST and shipping estimates; the final payable total is never
+claimed.
 
 ## Project page extraction
 
@@ -492,6 +493,18 @@ contains the partial sum; `parts_subtotal_inr` is available only once all unowne
 have selections. `unselected_line_ids` identifies gaps. Shipping, tax and `total_inr`
 stay null. Costs are snapshots of seller quotes, not checkout totals or live guarantees.
 
+`report.costing` adds a per-seller estimate: listed parts (known), GST added for ex-GST prices
+(an assumed 18%, not tax advice), shipping from a dated, sourced seller policy table
+(`src/bharat_sourcer/data/seller_policies.json`), and a total, each `known`, `estimated` or
+`unknown` with its assumptions. Unknown sellers or unstated fees mean unknown shipping, never
+zero. Offers carry seller-declared `tax_included`/`tax_evidence` (JSON-LD
+`valueAddedTaxIncluded` or fixed page phrases; conflicts stay unknown). An optional import
+comparison (heading 9804 duty, IGST, placeholder courier, dated FX in `data/tax_rates.json`)
+appears when lines have a USD reference price (`POST /v1/jobs/{job_id}/import-references`, or
+a quote-checked USD price fact from research). `GET /v1/jobs/{job_id}/plans` suggests
+"cheapest" and "fewest sellers" carts without changing selections. See the
+[costing contract](../docs/contracts/costing.md).
+
 ## Refresh stale or failed offers
 
 Send `POST /v1/jobs/{job_id}/refresh` with the job token and `{"line_ids":["L01"]}`.
@@ -725,5 +738,6 @@ the [Cloud Run guide](infra/cloud-run.md) for the shared frontend integration en
   candidate videos), then run the extraction evaluation harness on it.
 - Fuse video and project-page evidence in one job and report conflicts; read code beyond READMEs.
 - Add durable queue dispatch and broaden seller format support.
-- Add seller trust checks, broader compatibility rules with module data, and shipping/tax costing.
+- Add seller trust checks and broader compatibility rules with module data; verify the import
+  duty, courier and seller-policy assumptions used by costing.
 - Extend the shared contract with the frontend teammate as those features become available.

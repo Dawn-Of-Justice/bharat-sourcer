@@ -19,7 +19,9 @@ from bharat_sourcer.gemini_extras import GeminiExtras, add_extras_routes
 from bharat_sourcer.identity import Principal
 from bharat_sourcer.images import PartImageService
 from bharat_sourcer.jobs import JobError, JobService
+from bharat_sourcer.plans import cart_plans, set_import_references
 from bharat_sourcer.schemas import (
+    CartPlans,
     ConfirmationAccepted,
     ConfirmJob,
     CreatedJob,
@@ -34,6 +36,7 @@ from bharat_sourcer.schemas import (
     ResistorInputs,
     SelectOffers,
     SendMessage,
+    SetImportReferences,
     UpdateJobSpecs,
     UpdateProject,
     now,
@@ -337,6 +340,24 @@ def create_app(
     )
     def select_offers(job_id: str, body: SelectOffers, x_job_token: JobToken = None):
         return service.select_offers(job_id, x_job_token, body)
+
+    @app.get(
+        "/v1/jobs/{job_id}/plans",
+        response_model=CartPlans,
+        tags=["jobs"],
+        responses={404: {"model": ErrorResponse}, 409: {"model": ErrorResponse}},
+    )
+    def get_plans(job_id: str, x_job_token: JobToken = None):
+        return cart_plans(service, job_id, x_job_token)
+
+    @app.post(
+        "/v1/jobs/{job_id}/import-references",
+        response_model=Job,
+        tags=["jobs"],
+        responses={404: {"model": ErrorResponse}, 409: {"model": ErrorResponse}},
+    )
+    def import_references(job_id: str, body: SetImportReferences, x_job_token: JobToken = None):
+        return set_import_references(service, job_id, x_job_token, body)
 
     @app.post(
         "/v1/jobs/{job_id}/refresh",

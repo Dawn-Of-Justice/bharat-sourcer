@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from typing import Annotated, Literal
 from uuid import UUID
 
@@ -496,7 +496,9 @@ class VerifiedOffer(Model):
         "seller_structured_data", "shopify_storefront_json", "woocommerce_store_api"
     ] = "seller_structured_data"
     seller_trust: Literal["unverified"] = "unverified"
-    tax_included: None = None
+    # Seller-declared only (JSON-LD or fixed page phrases); None means unknown or conflicting.
+    tax_included: bool | None = None
+    tax_evidence: str | None = Field(default=None, max_length=300)
     shipping_inr: None = None
     compatibility_status: Literal[
         "not_checked", "unknown", "compatible", "changes_required", "incompatible"
@@ -532,6 +534,126 @@ class ImageRequest(Model):
     failed_urls: list[str] = Field(default_factory=list, max_length=10)
 
 
+CostStatus = Literal["known", "estimated", "unknown"]
+SignedMoney = Annotated[str, Field(pattern=r"^-?\d+\.\d{2}$")]
+
+
+class CostAmount(Model):
+    """An auditable amount; `unknown` has no amount, only the parts that could be estimated."""
+
+    amount_inr: Money | None = None
+    status: CostStatus = "unknown"
+    partial_inr: Money | None = None
+    assumptions: list[str] = Field(default_factory=list)
+
+
+class ShippingPolicyRef(Model):
+    seller: str
+    free_above_inr: Money | None = None
+    free_when: Literal["above", "at_or_above"] = "above"
+    flat_fee_inr: Money | None = None
+    fee_plus_gst: bool = False
+    unverified: bool = False
+    source_url: HttpUrl | None = None
+    checked_on: date | None = None
+    note: str | None = None
+
+
+class SellerCost(Model):
+    seller: str
+    line_ids: list[str] = Field(default_factory=list)
+    parts: CostAmount
+    gst: CostAmount
+    shipping: CostAmount
+    total: CostAmount
+    free_shipping_gap_inr: Money | None = None
+    policy: ShippingPolicyRef | None = None
+
+
+class ImportReference(Model):
+    """Unit price from a US/global distributor, used only for the import comparison."""
+
+    price_usd: Money
+    source: Literal["user", "research_fact"] = "user"
+    source_url: HttpUrl | None = None
+    quote: str | None = Field(default=None, max_length=1000)
+
+
+class ImportBaseline(Model):
+    line_ids: list[str] = Field(default_factory=list)
+    complete: bool = False
+    goods_usd: Money
+    fx_usd_inr: str
+    goods_inr: CostAmount
+    courier_inr: CostAmount
+    duty_inr: CostAmount
+    landed_inr: CostAmount
+    formula: str
+    sources: list[str] = Field(default_factory=list)
+
+
+class SavingsEstimate(Model):
+    amount_inr: SignedMoney
+    status: Literal["estimated"] = "estimated"
+    assumptions: list[str] = Field(default_factory=list)
+
+
+class CostBreakdown(Model):
+    """Estimated cost of chosen offers; never a final payable or checkout total."""
+
+    basis: Literal["selected_offers", "plan"] = "selected_offers"
+    complete: bool = False
+    sellers: list[SellerCost] = Field(default_factory=list)
+    parts: CostAmount
+    gst: CostAmount
+    shipping: CostAmount
+    total: CostAmount
+    excluded_line_ids: list[str] = Field(default_factory=list)
+    import_baseline: ImportBaseline | None = None
+    savings_vs_import: SavingsEstimate | None = None
+    rates_checked_on: date | None = None
+    disclaimer: str = (
+        "Estimate from seller-published prices and dated policy and tax assumptions; "
+        "not a final payable total. Check the seller's checkout."
+    )
+
+
+class PlanPick(Model):
+    line_id: str
+    offer_url: HttpUrl
+    seller: str
+    price_inr: Money
+    grade: Literal["A", "B"]
+    changes_required: bool = False
+
+
+class CartPlan(Model):
+    kind: Literal["cheapest", "fewest_sellers"]
+    picks: list[PlanPick] = Field(default_factory=list)
+    seller_count: int = 0
+    costing: CostBreakdown
+    matches_selection: bool = False
+
+
+class CartPlans(Model):
+    """Suggestions only: plans never change the user's selection."""
+
+    plans: list[CartPlan] = Field(default_factory=list)
+    method: Literal["exhaustive", "greedy", "none"] = "none"
+    uncovered_line_ids: list[str] = Field(default_factory=list)
+    rules: list[str] = Field(default_factory=list)
+
+
+class SetImportReference(Model):
+    line_id: str
+    price_usd: Money | None = None
+    source_url: HttpUrl | None = None
+
+
+class SetImportReferences(Model):
+    references: list[SetImportReference] = Field(min_length=1, max_length=100)
+
+
 class ReportLine(Model):
     item: BomItem
     sourcing_status: Literal[
@@ -549,6 +671,7 @@ class ReportLine(Model):
     grade: Literal["A", "B"] | None = None
     changes_accepted: bool = False
     research_accepted: bool = False
+    import_reference: ImportReference | None = None
 
 
 class Report(Model):
@@ -561,6 +684,7 @@ class Report(Model):
     shipping_inr: None = None
     tax_inr: None = None
     unselected_line_ids: list[str] = Field(default_factory=list)
+    costing: CostBreakdown | None = None
 
 
 class SafetyTrigger(Model):

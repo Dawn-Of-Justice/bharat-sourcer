@@ -16,6 +16,7 @@ from bharat_sourcer.schemas import (
 )
 from bharat_sourcer.sourcing.fetch import Page
 from bharat_sourcer.sourcing.specs import label_field, label_unit, parse_value, table_specs
+from bharat_sourcer.sourcing.tax import detect_tax_included
 
 
 class ProductScripts(HTMLParser):
@@ -269,6 +270,9 @@ def verify_page(page: Page, query: str) -> VerifiedOffer | None:
         str(offer.get("availability", "")).rsplit("/", 1)[-1], "unknown"
     )
     specs, evidence, conflicts = seller_specs(product, page, title)
+    tax_included, tax_evidence = detect_tax_included(
+        offer, page.body.decode("utf-8", errors="replace")
+    )
     return VerifiedOffer(
         url=page.url,
         seller=urlsplit(page.url).hostname,
@@ -279,6 +283,8 @@ def verify_page(page: Page, query: str) -> VerifiedOffer | None:
         specs=specs,
         spec_evidence=evidence,
         spec_conflicts=conflicts,
+        tax_included=tax_included,
+        tax_evidence=tax_evidence,
     )
 
 

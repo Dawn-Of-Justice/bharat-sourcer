@@ -27,6 +27,7 @@ where = ["src"]
 
 [tool.setuptools.package-data]
 "bharat_sourcer.sourcing" = ["*.json"]
+bharat_sourcer = ["data/*.json"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
