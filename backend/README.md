@@ -21,6 +21,13 @@ resolves BOM names and grades offers A, B, C, D or X with "what changes" finding
 unreviewed agent draft; no accuracy figure is claimed. Items needing owner approval are in
 [`roadmap.md`](../roadmap.md).
 
+Cost controls (unreleased, branch `mvp/cost`): a cross-job shared cache
+(`sourcing/cache.py`), research skipped when a verified in-stock compatible offer exists,
+capped research text, refresh that re-fetches known offer pages before any paid search, a
+per-run Gemini budget (`BS_JOB_GEMINI_BUDGET_USD`, default $0.25), low thinking for
+classifier-like call sites and an estimated `job.cost_estimate`. See
+[cost controls](../docs/contracts/cost-controls.md).
+
 v0.19.3 counts grounding search queries in usage logs (Gemini 3 bills per query), logs the
 Gemini cost research, and defaults image generation to `gemini-3.1-flash-lite-image`.
 
@@ -540,8 +547,10 @@ New quotes must be selected again. Confirmed parts, specs and evidence remain un
 Each job supports two accepted refresh batches, each within the configured sourcing part
 limit. The counter and requested scope persist in Firestore. Invalid or concurrent requests
 do not consume the budget. A repeated POST after completion starts a new batch, so clients
-must check job status and `refresh_count` before retrying a lost response. Refresh can incur
-paid search calls. It does not reset the automatic recovery budget. Interrupted refresh
+must check job status and `refresh_count` before retrying a lost response. A refreshed line
+first re-fetches its previous offer pages (no Gemini search) and keeps them when at least
+one offer is not out of stock; only otherwise does refresh incur paid search calls. Each
+refresh run gets a fresh Gemini budget. It does not reset the automatic recovery budget. Interrupted refresh
 reuses completed lines and resumes only unfinished requested lines.
 
 ## Automatic recovery

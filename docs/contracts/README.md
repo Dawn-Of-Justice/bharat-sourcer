@@ -10,6 +10,10 @@ conflicts, look-alikes and confidence, seller trust labels, export and share lin
 compatibility grades A–D/X, and disabled-by-default Gemini extras. All new fields are optional. Frontend work is listed in
 the [v0.20 frontend handoff](frontend-handoff-v0.20.md).
 
+Unreleased (`mvp/cost`): [cost controls](cost-controls.md) add optional
+`job.cost_estimate`, research status `skipped` and line error `JOB_BUDGET_REACHED`
+(refresh the line to retry). All additive.
+
 v0.19.2 adds internal Gemini usage logging only; no API changes.
 
 v0.19.1 makes inferred requirements measurable specs; no schema changes.

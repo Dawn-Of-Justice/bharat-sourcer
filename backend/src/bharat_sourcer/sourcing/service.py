@@ -6,7 +6,7 @@ from urllib.parse import urlsplit, urlunsplit
 import httpx
 
 from bharat_sourcer.compat import assess_offer, resolve_part
-from bharat_sourcer.config import Settings
+from bharat_sourcer.config import Settings, site_generation
 from bharat_sourcer.resilience import post_with_retry
 from bharat_sourcer.schemas import (
     BomItem,
@@ -19,7 +19,7 @@ from bharat_sourcer.schemas import (
 from bharat_sourcer.sourcing.fetch import FetchError, SafeFetcher, validate_url
 from bharat_sourcer.sourcing.listings import page_images, variant_url, verify_page
 from bharat_sourcer.sourcing.platforms import storefront_offer
-from bharat_sourcer.sourcing.research import Researcher
+from bharat_sourcer.sourcing.research import Researcher, needs_followup, review_or_skip
 from bharat_sourcer.sourcing.trust import TrustChecker
 from bharat_sourcer.usage import record_usage
 
@@ -106,7 +106,11 @@ class GeminiDiscovery:
             },
             "contents": [{"role": "user", "parts": [{"text": json.dumps({"part": query})}]}],
             "tools": [{"google_search": {}}],
-            "generationConfig": {"maxOutputTokens": 2048},
+            # Low thinking by default: discovery only needs grounding metadata (cost-controls.md).
+            "generationConfig": {
+                "maxOutputTokens": 2048,
+                **site_generation(self.settings, "discovery"),
+            },
         }
         try:
             with httpx.Client(timeout=45, transport=self.transport) as client:
@@ -189,12 +193,7 @@ class SourcingService:
         attempted = set()
         fetcher = self.fetcher or SafeFetcher()
         first = self._source_attempt(item, project_items, fetcher, attempted)
-        if not (
-            self.followup_enabled
-            and first.research
-            and first.research.status == "no_evidence"
-            and not first.offers
-        ):
+        if not (self.followup_enabled and needs_followup(first)):
             return first
         # One additional discovery, never a recursive retry. Existing per-call budgets apply.
         domains = sorted(
@@ -256,6 +255,45 @@ class SourcingService:
                 "Review research candidates and source diagnostics for available evidence.",
             )
         return result
+
+    def refresh_known(
+        self, item: BomItem, project_items: list[BomItem], urls: list[str]
+    ) -> ReportLine | None:
+        """Refresh without rediscovery: re-fetch known offer pages (free) for price and stock.
+
+        Returns None when every known page is gone or out of stock; the caller then runs
+        full sourcing. Research runs only after the probe keeps the line, so a fallback
+        never pays for a review twice.
+        """
+        captured: list[tuple] = []
+
+        class Capture:
+            def research(self, *args):
+                captured.append(args)
+                return PartResearch(status="skipped", summary="Pending review.")
+
+        probe = SourcingService(
+            KnownUrls(urls), self.fetcher, Capture() if self.researcher else None, False, self.trust
+        )
+        line = probe._source_attempt(item, project_items, self.fetcher or SafeFetcher(), set())
+        if not any(offer.stock != "out_of_stock" for offer in line.offers):
+            return None
+        if self.researcher and captured:
+            try:
+                line.research = self.researcher.research(*captured[0])
+            except Exception:
+                line.research = PartResearch(
+                    status="failed",
+                    sources=captured[0][2],
+                    summary="Part research failed; verified offers remain available.",
+                )
+            candidates = {str(c.url): c for c in line.research.candidates}
+            for offer in line.offers:
+                if str(offer.url) in candidates:
+                    offer.research_assessment = candidates[str(offer.url)].assessment.model_copy(
+                        deep=True
+                    )
+        return line
 
     def _source_attempt(
         self,
@@ -358,7 +396,9 @@ class SourcingService:
         research = None
         if self.researcher:
             try:
-                research = self.researcher.research(item, pages, sources[:16], project_items)
+                research = review_or_skip(
+                    self.researcher, item, pages, sources[:16], project_items, offers
+                )
             except Exception:
                 research = PartResearch(
                     status="failed",
@@ -399,3 +439,13 @@ class SourcingService:
                 ),
             ),
         )
+
+
+class KnownUrls:
+    """A discoverer that returns already-known offer URLs and makes no search call."""
+
+    def __init__(self, urls: list[str]):
+        self.urls = list(dict.fromkeys(urls))
+
+    def discover(self, query: str) -> SearchAttribution:
+        return SearchAttribution(source_urls=self.urls)

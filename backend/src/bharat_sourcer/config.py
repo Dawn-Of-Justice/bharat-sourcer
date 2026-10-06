@@ -1,7 +1,36 @@
+import re
+from datetime import date
 from typing import Literal
 
 from pydantic import Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+ThinkingLevel = Literal["low", "medium", "high"]
+
+# USD per 1M tokens (output includes thinking) and per executed grounding search query.
+# Source: https://ai.google.dev/gemini-api/docs/pricing (page last modified 2026-10-01, read
+# 2026-10-05; see backend/infra/gemini-cost-research-2026-10-05.md). Entries are dated so
+# estimates follow the 2027-01-01 price change. These are budgeting estimates, not bills:
+# the 5,000 free grounding queries per month are ignored, so search cost is an upper bound.
+GEMINI_PRICES: dict[str, list[tuple[date, dict[str, float]]]] = {
+    "gemini-3.8-flash": [
+        (date(2026, 1, 1), {"input": 0.75, "output": 3.75, "cached": 0.075}),
+        (date(2027, 1, 1), {"input": 1.50, "output": 7.50, "cached": 0.15}),
+    ],
+    "gemini-3.5-flash-lite": [(date(2026, 1, 1), {"input": 0.30, "output": 2.50, "cached": 0.03})],
+    "gemini-3.1-flash-lite": [(date(2026, 1, 1), {"input": 0.25, "output": 1.50, "cached": 0.025})],
+    "gemini-2.5-flash-lite": [(date(2026, 1, 1), {"input": 0.10, "output": 0.40, "cached": 0.01})],
+}
+GEMINI_SEARCH_QUERY_USD = 0.014  # $14 per 1,000 executed queries after the free tier
+GEMINI_PRICES_CHECKED = "2026-10-05"
+# Lower thinking where the task is classification or short structured output. Research
+# keeps the model default (medium) until the evaluation harness shows low holds quality.
+DEFAULT_SITE_THINKING: dict[str, ThinkingLevel] = {
+    "chat_scope": "low",
+    "discovery": "low",
+    "judge": "low",
+    "spec": "low",
+}
 
 
 class Settings(BaseSettings):
@@ -51,6 +80,17 @@ class Settings(BaseSettings):
     # Recommendation basket: estimated ₹ cost of one more seller (an extra shipping fee plus
     # hassle); orders split across sellers only when that saves more than this.
     recommend_seller_penalty_inr: int = Field(default=60, ge=0, le=1000)
+    # Total document text per research call across all pages (an input-token cap).
+    research_total_chars: int = Field(default=24000, ge=4000, le=100000)
+    # Cost controls (docs/contracts/cost-controls.md). Per-site overrides are JSON objects,
+    # e.g. BS_GEMINI_SITE_MODELS='{"chat_scope": "gemini-3.1-flash-lite"}'. Setting
+    # BS_GEMINI_SITE_THINKING replaces the whole default map.
+    gemini_site_models: dict[str, str] = Field(default_factory=dict)
+    gemini_site_thinking: dict[str, ThinkingLevel] = Field(
+        default_factory=lambda: dict(DEFAULT_SITE_THINKING)
+    )
+    job_gemini_budget_usd: float = Field(default=0.25, ge=0, le=10)
+    cache_enabled: bool = True
     # Opt-in Gemini extras (gemini_extras.py); each has its own per-owner daily quota.
     explain_enabled: bool = False
     explain_daily_limit: int = Field(default=10, ge=1, le=200)
@@ -87,4 +127,17 @@ class Settings(BaseSettings):
             )
         if self.storage_backend == "firestore" and not self.gcp_project:
             raise ValueError("BS_GCP_PROJECT is required for Firestore storage")
+        if any(not re.fullmatch(r"[a-zA-Z0-9.-]+", m) for m in self.gemini_site_models.values()):
+            raise ValueError("Invalid per-site Gemini model name")
         return self
+
+
+def site_model(settings: Settings, site: str) -> str:
+    """The model for one call site (BS_GEMINI_SITE_MODELS, else BS_GEMINI_MODEL)."""
+    return settings.gemini_site_models.get(site) or settings.gemini_model
+
+
+def site_generation(settings: Settings, site: str) -> dict:
+    """generationConfig additions for one call site; empty means the model defaults."""
+    level = settings.gemini_site_thinking.get(site)
+    return {"thinkingConfig": {"thinkingLevel": level}} if level else {}

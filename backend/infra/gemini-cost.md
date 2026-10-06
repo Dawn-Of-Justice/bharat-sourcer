@@ -136,3 +136,61 @@ are **estimates** from the 2026-10-05 prices above, to be replaced by
 **Next measurement:** after a few days of traffic on v0.19.3, run
 `scripts/usage_report.py` and record per-site token and query averages here before
 changing thinking levels, models or tiers.
+
+### 2026-10-07: cost controls (cache, research rules, refresh, budget, accounting)
+
+Branch `mvp/cost`; contract: [cost-controls.md](../../docs/contracts/cost-controls.md).
+No live call was made. Prices are the 2026-10-05 entry above
+([pricing](https://ai.google.dev/gemini-api/docs/pricing), page last modified 2026-10-01);
+they are now a dated table in `config.py` (`GEMINI_PRICES`, switching to the 2027 prices on
+2027-01-01) and every `GEMINI_USAGE` line carries `usd_est`, `job_id` and `line_id`.
+
+Done:
+
+- **Shared cross-job cache** (`sourcing/cache.py`): namespaces `discovery` (7 d), `judge`
+  (7 d), `page` (8 h), `seller_search` (6 h), `research` (7 d); memory or Firestore
+  `<collection>_cache`. Part names are normalised so `33kΩ`/`33K` share entries. Hits log
+  `GEMINI_CACHE_HIT` and `usage_report.py` estimates the saving per namespace.
+- **Research:** skipped when a verified in-stock compatible offer exists; total document
+  text capped at 24,000 chars (was up to 3 × 12,000 = 36,000); quote-checked evidence
+  reused from the cache; follow-up search only with no offer and no candidate; stable
+  prefix order (instructions → project context → part → documents).
+- **Thinking:** `thinkingLevel: low` by default for `chat_scope`, `discovery`, `judge`,
+  `spec` (`BS_GEMINI_SITE_THINKING`); per-site models via `BS_GEMINI_SITE_MODELS`.
+  Research keeps medium until the evaluation harness shows low holds quality.
+- **Refresh without rediscovery:** known offer URLs are re-fetched first; grounded search
+  only when all are gone or out of stock.
+- **Budget guard:** `BS_JOB_GEMINI_BUDGET_USD` (default $0.25) per sourcing run.
+- **Accounting:** `job.cost_estimate` (total, current run, calls/USD by site, queries,
+  cache hits); `usage_report.py` prints estimated USD per site, per job and cache savings
+  (`--job` filters one job).
+
+**Estimates per 6-line job** (`gemini-3.8-flash` 2026 prices; assumptions: discovery
+≈ 600 input + 1,400 output/thinking tokens at medium, ≈ 600 at low, and 2.5 queries per
+call, 2 with the consolidated query; research ≈ 13K input / 2K output before, ≈ 10.5K
+input after the text cap; judge ≈ 3K / 0.3K at low thinking; spec 1 batched call ≈ 4K /
+1K). These are not measurements; replace them with `usage_report.py` numbers.
+
+| Pipeline | Gemini calls | Grounded queries | Est. USD |
+| --- | --- | --- | --- |
+| Before (real failed job): 6 discovery + 6 research + 3 follow-ups (discovery + research each) | ~18 | ~22 | ~$0.51 |
+| Staged, cold cache: free seller search for all 6; 6 judge + 1 spec; paid discovery for ~2 lines; research for ~2 lines without a sufficient offer; ~1 follow-up | ~13 | ~6 | ~$0.17 |
+| Staged, warm cache (same parts within 7 days): discovery and research hits; ~half the judge verdicts hit (page content changes) | ~4 | 0 | ~$0.02 |
+| Refresh of one line whose known offer is still in stock and compatible | 0 | 0 | $0 (was ~$0.05) |
+
+Breakdown before: discovery 6 × ($0.0057 tokens + 2.5 × $0.014) ≈ $0.24; research
+6 × $0.017 ≈ $0.10; follow-ups 3 × ($0.040 + $0.017) ≈ $0.17. After (cold): judge
+6 × $0.0034 ≈ $0.02; spec ≈ $0.007; discovery 2 × ($0.0027 + 2 × $0.014) ≈ $0.06;
+research 2 × $0.0155 ≈ $0.03; one follow-up (discovery + research) ≈ $0.05. The budget guard caps any run at about
+$0.25 plus the calls in flight. The free grounding tier (5,000 queries a month) would make
+real bills lower than these figures while it lasts.
+
+**Owner decisions pending:**
+
+1. **Firestore TTL policy** on `expires_at` for the `<collection>_cache` collection
+   (infra change, needs approval). Without it, expired cache documents are ignored on read
+   but stay in storage. The existing `_usage` and `_audio` collections would benefit from
+   the same policy.
+2. Whether to A/B `thinkingLevel: low` for research and the Flex tier for Cloud-Tasks
+   research (grounding on Flex is still unconfirmed).
+3. The default budget ($0.25 per run): about 5 cold paid discoveries plus research.
