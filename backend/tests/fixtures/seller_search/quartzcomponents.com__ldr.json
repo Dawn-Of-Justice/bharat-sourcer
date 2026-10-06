@@ -1,0 +1,107 @@
+{
+ "_fixture": {
+  "url": "https://quartzcomponents.com/search/suggest.json?q=ldr&resources%5Btype%5D=product&resources%5Blimit%5D=10",
+  "fetched_on": "2026-10-07",
+  "note": "Recorded live response, trimmed to the fields the adapter reads. Prices are search hints only, never verified offers."
+ },
+ "status": 200,
+ "content_type": "application/json; charset=utf-8",
+ "body": {
+  "resources": {
+   "results": {
+    "products": [
+     {
+      "title": "LDR Sensor (Light Dependent Resistor) - 5mm",
+      "handle": "ldr-light-dependent-resistor-5mm",
+      "url": "/products/ldr-light-dependent-resistor-5mm?_pos=1&_psq=ldr&_psid=e13cf51cf&_ss=e",
+      "price": "5.00",
+      "image": "https://cdn.shopify.com/s/files/1/0300/6424/6919/files/LDR-sensor-5mm.jpg?v=1737206357",
+      "available": true,
+      "vendor": "REP047"
+     },
+     {
+      "title": "LDR Sensor Module - Photosensitive Light Detection Sensor Module",
+      "handle": "photosensitive-light-detection-sensor",
+      "url": "/products/photosensitive-light-detection-sensor?_pos=2&_psq=ldr&_psid=e13cf51cf&_ss=e",
+      "price": "29.00",
+      "image": "https://cdn.shopify.com/s/files/1/0300/6424/6919/files/LDR_Sensor_Module_-_Photosensitive_Light_Detection_Sensor_Module_1.jpg?v=1771070896",
+      "available": true,
+      "vendor": "REP047"
+     },
+     {
+      "title": "LDR Light Sensor Module with Day/Night Invert Logic",
+      "handle": "ldr-light-sensor-module-with-day-night-invert-logic",
+      "url": "/products/ldr-light-sensor-module-with-day-night-invert-logic?_pos=3&_psq=ldr&_psid=e13cf51cf&_ss=e",
+      "price": "38.00",
+      "image": "https://cdn.shopify.com/s/files/1/0300/6424/6919/files/LDR_Light_Sensor_Module_with_Day_Night_Invert_Logic.jpg?v=1753955961",
+      "available": true,
+      "vendor": "EGL015"
+     },
+     {
+      "title": "ADXL345 3-Axis Digital Accelerometer Sensor Module",
+      "handle": "adxl345-3-axis-digital-accelerometer-sensor",
+      "url": "/products/adxl345-3-axis-digital-accelerometer-sensor?_pos=4&_psq=ldr&_psid=e13cf51cf&_ss=e",
+      "price": "285.00",
+      "image": "https://cdn.shopify.com/s/files/1/0300/6424/6919/products/ADXL345-Accelerometer.jpg?v=1646474129",
+      "available": true,
+      "vendor": "REP047"
+     },
+     {
+      "title": "Photodiode - 3mm IR Receiver LED",
+      "handle": "photodiode-3mm-ir-receiver-led",
+      "url": "/products/photodiode-3mm-ir-receiver-led?_pos=5&_psq=ldr&_psid=e13cf51cf&_ss=e",
+      "price": "6.00",
+      "image": "https://cdn.shopify.com/s/files/1/0300/6424/6919/products/Photodiode.jpg?v=1654256749",
+      "available": true,
+      "vendor": "Lin"
+     },
+     {
+      "title": "Ultrasonic Sensor Module - HC-SR04",
+      "handle": "hc-sr04-ultrasonic-sensor-module",
+      "url": "/products/hc-sr04-ultrasonic-sensor-module?_pos=6&_psq=ldr&_psid=e13cf51cf&_ss=e",
+      "price": "72.00",
+      "image": "https://cdn.shopify.com/s/files/1/0300/6424/6919/products/Ultrasonic-Sensor-Module-HC-SR04.jpg?v=1680597073",
+      "available": true,
+      "vendor": "MFG058"
+     },
+     {
+      "title": "12mm LDR Light Dependent Resistor",
+      "handle": "12mm-ldr-light-dependent-resistor",
+      "url": "/products/12mm-ldr-light-dependent-resistor?_pos=7&_psq=ldr&_psid=e13cf51cf&_ss=e",
+      "price": "34.00",
+      "image": "https://cdn.shopify.com/s/files/1/0300/6424/6919/files/12mm-LDR.jpg?v=1684148229",
+      "available": true,
+      "vendor": "Lin"
+     },
+     {
+      "title": "MPU6050 3-Axis Gyroscope/Accelerometer Sensor Module",
+      "handle": "mpu6050-gyroscope-accelerometer-sensor",
+      "url": "/products/mpu6050-gyroscope-accelerometer-sensor?_pos=8&_psq=ldr&_psid=e13cf51cf&_ss=e",
+      "price": "127.00",
+      "image": "https://cdn.shopify.com/s/files/1/0300/6424/6919/files/MPU6050_3-Axis_Gyroscope_Accelerometer_Sensor_Module_1.jpg?v=1791289988",
+      "available": true,
+      "vendor": "Lin"
+     },
+     {
+      "title": "GY-511 LSM303DLHC 3-axis E-compass Sensor",
+      "handle": "gy-511-lsm303dlhc-3-axis-e-compass-sensor",
+      "url": "/products/gy-511-lsm303dlhc-3-axis-e-compass-sensor?_pos=9&_psq=ldr&_psid=e13cf51cf&_ss=e",
+      "price": "232.00",
+      "image": "https://cdn.shopify.com/s/files/1/0300/6424/6919/products/GY-511-LSM303DLHC.jpg?v=1653893803",
+      "available": true,
+      "vendor": "Guest"
+     },
+     {
+      "title": "9 in 1 Arduino Sensor Kit - Ultrasonic, PIR, IR, DHT11, MQ2, LDR, Sound, Rain Sensor and Joystick",
+      "handle": "9-in-1-arduino-sensor-kit-ultrasonic-pir-ir-dht11-mq2-ldr-sound-rain-and-joystick",
+      "url": "/products/9-in-1-arduino-sensor-kit-ultrasonic-pir-ir-dht11-mq2-ldr-sound-rain-and-joystick?_pos=10&_psq=ldr&_psid=e13cf51cf&_ss=e",
+      "price": "485.00",
+      "image": "https://cdn.shopify.com/s/files/1/0300/6424/6919/files/9_in_1_Arduino_Sensor_Kit_-_Ultrasonic_PIR_IR_DHT11_MQ2_LDR_Sound_Rain_and_Joystick.jpg?v=1769842101",
+      "available": true,
+      "vendor": "QuartzComponents"
+     }
+    ]
+   }
+  }
+ }
+}

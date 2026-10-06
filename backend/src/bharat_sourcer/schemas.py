@@ -851,6 +851,20 @@ class SetImportReferences(Model):
     references: list[SetImportReference] = Field(min_length=1, max_length=100)
 
 
+class SellerSearchSummary(Model):
+    """Direct seller-catalogue search for one line. Candidate URLs are unverified leads."""
+
+    queries: list[str] = Field(default_factory=list, max_length=4)
+    candidate_urls: list[str] = Field(default_factory=list, max_length=20)
+    sellers_checked: int = 0
+    # Hosts that answered with a bot-protection challenge (or are recorded as doing so).
+    blocked_sellers: list[str] = Field(default_factory=list, max_length=20)
+    message: str = Field(default="", max_length=500)
+
+
+SourcingStage = Literal["seller_search", "judge", "grounded", "known_urls", "research", "followup"]
+
+
 class ReportLine(Model):
     item: BomItem
     sourcing_status: Literal[
@@ -878,6 +892,10 @@ class ReportLine(Model):
     recommended_offer_url: HttpUrl | None = None
     recommendation: LineRecommendation | None = None
     line_image: LineImage | None = None
+    seller_search: SellerSearchSummary | None = None
+    # Sourcing stages in the order they ran, and the paid model calls the line used.
+    stages: list[SourcingStage] = Field(default_factory=list, max_length=12)
+    gemini_calls: int = Field(default=0, ge=0)
 
 
 class Report(Model):

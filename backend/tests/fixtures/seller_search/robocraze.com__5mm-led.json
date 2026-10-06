@@ -1,0 +1,107 @@
+{
+ "_fixture": {
+  "url": "https://robocraze.com/search/suggest.json?q=5mm%20led&resources%5Btype%5D=product&resources%5Blimit%5D=10",
+  "fetched_on": "2026-10-07",
+  "note": "Recorded live response, trimmed to the fields the adapter reads. Prices are search hints only, never verified offers."
+ },
+ "status": 200,
+ "content_type": "application/json; charset=utf-8",
+ "body": {
+  "resources": {
+   "results": {
+    "products": [
+     {
+      "title": "5mm Round Red Diffused Led (Pack of 10)",
+      "handle": "5mm-red-led-pack-of-11",
+      "url": "/products/5mm-red-led-pack-of-11?_pos=1&_psq=5mm+led&_psid=3db580d88&_ss=e",
+      "price": "13.00",
+      "image": "https://cdn.shopify.com/s/files/1/0559/1970/6265/products/5mm_red_led_p10.jpg?v=1743775759",
+      "available": true,
+      "vendor": "Robocraze"
+     },
+     {
+      "title": "5mm Green Led (Pack of 10)",
+      "handle": "5mm-green-led-pack-of-10",
+      "url": "/products/5mm-green-led-pack-of-10?_pos=2&_psq=5mm+led&_psid=3db580d88&_ss=e",
+      "price": "15.00",
+      "image": "https://cdn.shopify.com/s/files/1/0559/1970/6265/products/1_3ea59085-69fc-430b-91e5-b3b6caaf1e9c.jpg?v=1743775695",
+      "available": true,
+      "vendor": "Robocraze"
+     },
+     {
+      "title": "Led Combo (R-G-Y-B-W) 5mm 10pcs each",
+      "handle": "led-combo-r-g-y-b-w-5mm-10pcs-each",
+      "url": "/products/led-combo-r-g-y-b-w-5mm-10pcs-each?_pos=3&_psq=5mm+led&_psid=3db580d88&_ss=e",
+      "price": "112.00",
+      "image": "https://cdn.shopify.com/s/files/1/0559/1970/6265/products/ezgif.com-gif-maker_32.jpg?v=1743775612",
+      "available": true,
+      "vendor": "Robocraze"
+     },
+     {
+      "title": "5mm White Led (Pack of 10)",
+      "handle": "5mm-white-led-pack-of-10",
+      "url": "/products/5mm-white-led-pack-of-10?_pos=4&_psq=5mm+led&_psid=3db580d88&_ss=e",
+      "price": "31.00",
+      "image": "https://cdn.shopify.com/s/files/1/0559/1970/6265/products/sku_9077_1_1.jpg?v=1743775759",
+      "available": true,
+      "vendor": "Robocraze"
+     },
+     {
+      "title": "5mm White Green LED(Pack of 10)",
+      "handle": "5mm-white-green-ledpack-of-10",
+      "url": "/products/5mm-white-green-ledpack-of-10?_pos=5&_psq=5mm+led&_psid=3db580d88&_ss=e",
+      "price": "15.00",
+      "image": "https://cdn.shopify.com/s/files/1/0559/1970/6265/products/download_17__1.jpg?v=1743775699",
+      "available": true,
+      "vendor": "Robocraze"
+     },
+     {
+      "title": "5mm White Blue Led (Pack of 10)",
+      "handle": "5mm-white-blue-led-pack-of-10",
+      "url": "/products/5mm-white-blue-led-pack-of-10?_pos=6&_psq=5mm+led&_psid=3db580d88&_ss=e",
+      "price": "14.00",
+      "image": "https://cdn.shopify.com/s/files/1/0559/1970/6265/products/44.png?v=1743775760",
+      "available": true,
+      "vendor": "Robocraze"
+     },
+     {
+      "title": "Blue Led 5mm(Pack of 10)",
+      "handle": "blue-led-5mmpack-of-10",
+      "url": "/products/blue-led-5mmpack-of-10?_pos=7&_psq=5mm+led&_psid=3db580d88&_ss=e",
+      "price": "11.00",
+      "image": "https://cdn.shopify.com/s/files/1/0559/1970/6265/files/Blue_Led_5mm_Pack_of_10.png?v=1754998319",
+      "available": true,
+      "vendor": "Robocraze"
+     },
+     {
+      "title": "5mm RGB LED Common Cathode Diffuse (Pack of 10)",
+      "handle": "5mm-rgb-led-common-cathode-diffuse-pack-of-10",
+      "url": "/products/5mm-rgb-led-common-cathode-diffuse-pack-of-10?_pos=8&_psq=5mm+led&_psid=3db580d88&_ss=e",
+      "price": "39.00",
+      "image": "https://cdn.shopify.com/s/files/1/0559/1970/6265/files/37_116c9668-c686-4a3b-aeb2-e046eae461c2.png?v=1743773184",
+      "available": true,
+      "vendor": "Robocraze"
+     },
+     {
+      "title": "5mm Yellow LED(Pack of 10)",
+      "handle": "5mm-yellow-ledpack-of-10",
+      "url": "/products/5mm-yellow-ledpack-of-10?_pos=9&_psq=5mm+led&_psid=3db580d88&_ss=e",
+      "price": "30.00",
+      "image": "https://cdn.shopify.com/s/files/1/0559/1970/6265/products/yellow-800x8001.jpg?v=1743775697",
+      "available": true,
+      "vendor": "Robocraze"
+     },
+     {
+      "title": "5mm IR Transmitter Receiver Pair (213)",
+      "handle": "5mm-ir-transmitter-receiver-pair",
+      "url": "/products/5mm-ir-transmitter-receiver-pair?_pos=10&_psq=5mm+led&_psid=3db580d88&_ss=e",
+      "price": "14.00",
+      "image": "https://cdn.shopify.com/s/files/1/0559/1970/6265/products/download_2__10_3.jpg?v=1743775807",
+      "available": true,
+      "vendor": "Robocraze"
+     }
+    ]
+   }
+  }
+ }
+}

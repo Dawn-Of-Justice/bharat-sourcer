@@ -497,8 +497,11 @@ class Extractor:
         return [BomItem(line_id=f"L0{i}", raw_name="TTP223 touch sensor") for i in [1, 2, 3]]
 
 
-def sourced_job(discovery, fetcher, budget=None, parallelism=1):
+def sourced_job(discovery, fetcher, budget=None, parallelism=1, dedupe=True):
     sourcing = SourcingService(discovery, fetcher, None, True)
+    if not dedupe:
+        # The test parts share a name; disable in-job dedupe to exercise each line.
+        sourcing.dedupe_window_s = 0
     service = JobService(
         Extractor(), sourcing=sourcing, gemini_budget_usd=budget, sourcing_parallelism=parallelism
     )
@@ -515,12 +518,13 @@ SELLER = "https://seller.example/ttp223"
 def test_refresh_refetches_known_offer_pages_without_discovery():
     discovery, fetcher = Discovery([SELLER]), ProductFetcher()
     service, job_id, token = sourced_job(discovery, fetcher)
-    assert len(discovery.queries) == 3
+    # The three lines name the same part, so they share one sourcing run.
+    assert len(discovery.queries) == 1
     service.refresh_offers(job_id, token, RefreshOffers(line_ids=["L02"]))
     assert service.store.get(job_id).refresh_urls == {"L02": [SELLER]}
     service.finish(job_id)
     result = service.get(job_id, token)
-    assert len(discovery.queries) == 3  # no paid rediscovery
+    assert len(discovery.queries) == 1  # no paid rediscovery
     assert fetcher.calls[-1] == SELLER
     line = result.report.lines[1]
     assert line.sourcing_status == "offers_found" and line.offers[0].stock == "in_stock"
@@ -534,12 +538,12 @@ def test_refresh_rediscovers_when_known_pages_are_out_of_stock():
     fetcher.availability = "OutOfStock"
     service.refresh_offers(job_id, token, RefreshOffers(line_ids=["L01"]))
     service.finish(job_id)
-    assert len(discovery.queries) == 4
+    assert len(discovery.queries) == 2
 
 
 def test_budget_guard_stops_paid_stages_and_refresh_gets_a_new_budget():
     discovery = Discovery([], spend=0.3)
-    service, job_id, token = sourced_job(discovery, ProductFetcher(), budget=0.25)
+    service, job_id, token = sourced_job(discovery, ProductFetcher(), budget=0.25, dedupe=False)
     job = service.get(job_id, token)
     statuses = [line.sourcing_error.code for line in job.report.lines]
     # L01's search crosses the ceiling; L02 and L03 skip paid stages.

@@ -1,0 +1,107 @@
+{
+ "_fixture": {
+  "url": "https://robocraze.com/search/suggest.json?q=ldr&resources%5Btype%5D=product&resources%5Blimit%5D=10",
+  "fetched_on": "2026-10-07",
+  "note": "Recorded live response, trimmed to the fields the adapter reads. Prices are search hints only, never verified offers."
+ },
+ "status": 200,
+ "content_type": "application/json; charset=utf-8",
+ "body": {
+  "resources": {
+   "results": {
+    "products": [
+     {
+      "title": "5mm LDR (Light Dependent Resistor)",
+      "handle": "5mm-ldr-light-dependent-resistor",
+      "url": "/products/5mm-ldr-light-dependent-resistor?_pos=1&_psq=ldr&_psid=f0203e172&_ss=e",
+      "price": "10.00",
+      "image": "https://cdn.shopify.com/s/files/1/0559/1970/6265/products/ldr_big.jpg?v=1743775819",
+      "available": true,
+      "vendor": "Robocraze"
+     },
+     {
+      "title": "12mm Light Sensitive Photoresistor LDR",
+      "handle": "light-sensitive-photoresistor-ldr-small",
+      "url": "/products/light-sensitive-photoresistor-ldr-small?_pos=2&_psq=ldr&_psid=f0203e172&_ss=e",
+      "price": "36.00",
+      "image": "https://cdn.shopify.com/s/files/1/0559/1970/6265/products/tech3213-ldr_sensor-1.jpg?v=1743775843",
+      "available": true,
+      "vendor": "Robocraze"
+     },
+     {
+      "title": "LDR Sensor Module",
+      "handle": "ldr-sensor-module",
+      "url": "/products/ldr-sensor-module?_pos=3&_psq=ldr&_psid=f0203e172&_ss=e",
+      "price": "33.00",
+      "image": "https://cdn.shopify.com/s/files/1/0559/1970/6265/products/1_4bed097f-8a35-4f51-8edc-49e6c05b281f.jpg?v=1743775208",
+      "available": true,
+      "vendor": "Robocraze"
+     },
+     {
+      "title": "Hi-Watt 9V Battery With 5V Buzzer, Snap Connector, Switch, 1K Ohm Resistor, LDR Photoresistor sensor and 5mm LED",
+      "handle": "hi-watt-9v-battery-with-5v-buzzer-snap-connector-switch-1k-ohm-resistor-ldr-photoresistor-sensor-and-5mm-led",
+      "url": "/products/hi-watt-9v-battery-with-5v-buzzer-snap-connector-switch-1k-ohm-resistor-ldr-photoresistor-sensor-and-5mm-led?_pos=4&_psq=ldr&_psid=f0203e172&_ss=e",
+      "price": "83.00",
+      "image": "https://cdn.shopify.com/s/files/1/0559/1970/6265/products/2_8752c8ee-91c2-486e-ac7f-ead103bd73af.png?v=1743773574",
+      "available": true,
+      "vendor": "Robocraze"
+     },
+     {
+      "title": "IOTIF - IOT Trainer Kit with Pi 4B 4GB",
+      "handle": "iotif-iot-trainer-kit-with-pi-4b-4gb",
+      "url": "/products/iotif-iot-trainer-kit-with-pi-4b-4gb?_pos=5&_psq=ldr&_psid=f0203e172&_ss=e",
+      "price": "64399.00",
+      "image": "https://cdn.shopify.com/s/files/1/0559/1970/6265/files/28_326da5dc-9226-4a5e-b601-7957a7bc81bb.png?v=1743774731",
+      "available": true,
+      "vendor": "Robocraze"
+     },
+     {
+      "title": "Witty Cloud (163)",
+      "handle": "witty-cloud-esp12f-module",
+      "url": "/products/witty-cloud-esp12f-module?_pos=6&_psq=ldr&_psid=f0203e172&_ss=e",
+      "price": "249.00",
+      "image": "https://cdn.shopify.com/s/files/1/0559/1970/6265/files/optimized_Witty_Cloud_ESP12F_Module1.webp?v=1743775535",
+      "available": true,
+      "vendor": "Robocraze"
+     },
+     {
+      "title": "3DR Radio Telemetry 433MHz 500mW(X6)",
+      "handle": "3dr-radio-telemetry-433mhz-500mwx6",
+      "url": "/products/3dr-radio-telemetry-433mhz-500mwx6?_pos=7&_psq=ldr&_psid=f0203e172&_ss=e",
+      "price": "6705.00",
+      "image": "https://cdn.shopify.com/s/files/1/0559/1970/6265/files/PRODUCT_7_a5a351ad-3c1c-4a16-aa07-6432fb13bac2.png?v=1752209766",
+      "available": true,
+      "vendor": "Robocraze"
+     },
+     {
+      "title": "ESP32 38-Pin WiFi + Bluetooth NodeMCU Development Board",
+      "handle": "esp32-development-board",
+      "url": "/products/esp32-development-board?_pos=8&_psq=ldr&_psid=f0203e172&_ss=e",
+      "price": "425.00",
+      "image": "https://cdn.shopify.com/s/files/1/0559/1970/6265/files/224.png?v=1743774893",
+      "available": true,
+      "vendor": "Robocraze"
+     },
+     {
+      "title": "LM358",
+      "handle": "lm358",
+      "url": "/products/lm358?_pos=9&_psq=ldr&_psid=f0203e172&_ss=e",
+      "price": "11.00",
+      "image": "https://cdn.shopify.com/s/files/1/0559/1970/6265/products/1_2.png?v=1743775793",
+      "available": true,
+      "vendor": "Robocraze"
+     },
+     {
+      "title": "5mm IR Transmitter Receiver Pair (213)",
+      "handle": "5mm-ir-transmitter-receiver-pair",
+      "url": "/products/5mm-ir-transmitter-receiver-pair?_pos=10&_psq=ldr&_psid=f0203e172&_ss=e",
+      "price": "14.00",
+      "image": "https://cdn.shopify.com/s/files/1/0559/1970/6265/products/download_2__10_3.jpg?v=1743775807",
+      "available": true,
+      "vendor": "Robocraze"
+     }
+    ]
+   }
+  }
+ }
+}

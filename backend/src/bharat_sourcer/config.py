@@ -72,6 +72,13 @@ class Settings(BaseSettings):
     sourcing_parallelism: int = Field(default=3, ge=1, le=4)
     sourcing_candidates_per_part: int = Field(default=5, ge=1, le=8)
     sourcing_lease_s: int = Field(default=1800, ge=600, le=7200)
+    # Direct seller-catalogue search (sourcing/seller_search.py), run before paid discovery.
+    seller_search_enabled: bool = True
+    seller_search_fetch_budget: int = Field(default=8, ge=1, le=12)
+    seller_search_per_seller: int = Field(default=5, ge=1, le=10)
+    seller_search_cache_s: int = Field(default=21600, ge=0, le=86400)
+    seller_page_cache_s: int = Field(default=900, ge=0, le=3600)
+    seller_blocked_cooldown_s: int = Field(default=1800, ge=60, le=86400)
     research_enabled: bool = True
     seller_trust_enabled: bool = True
     research_followup_enabled: bool = True

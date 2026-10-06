@@ -1,5 +1,10 @@
 import json
 import logging
+import threading
+import time
+from collections.abc import Callable
+from concurrent.futures import Future
+from dataclasses import dataclass
 from typing import Protocol
 from urllib.parse import urlsplit, urlunsplit
 
@@ -15,13 +20,25 @@ from bharat_sourcer.schemas import (
     ReportLine,
     ResearchSource,
     SearchAttribution,
+    SellerSearchSummary,
+    VerifiedOffer,
 )
 from bharat_sourcer.sourcing.fetch import FetchError, SafeFetcher, validate_url
 from bharat_sourcer.sourcing.listings import page_images, variant_url, verify_page
 from bharat_sourcer.sourcing.platforms import storefront_offer
+from bharat_sourcer.sourcing.politeness import BlockedError
 from bharat_sourcer.sourcing.research import Researcher, needs_followup, review_or_skip
+from bharat_sourcer.sourcing.seller_search import SearchResult, SellerSearch, query_variants
 from bharat_sourcer.sourcing.trust import TrustChecker
 from bharat_sourcer.usage import record_usage
+
+try:  # Paid-call budget from the cost stream (merged on the integration branch).
+    from bharat_sourcer.usage import BUDGET_MESSAGE, paid_allowed
+except ImportError:  # pragma: no cover - local shim until the branches are merged
+    BUDGET_MESSAGE = "Daily paid search budget reached; only free seller search was used."
+
+    def paid_allowed() -> bool:
+        return True
 
 
 class DiscoveryError(Exception):
@@ -171,7 +188,51 @@ class GeminiDiscovery:
             raise DiscoveryError("Grounded seller search failed") from exc
 
 
+@dataclass
+class JudgeVerdict:
+    """Stub judge result; the matching stream's `OfferMatch` replaces it."""
+
+    verdict: str
+    reason: str = ""
+
+
+# Verdicts that end the free stage: grounded (paid) discovery is skipped when one of these
+# offers is in stock.
+ACCEPTED_VERDICTS = {"exact", "compatible"}
+
+
+def stub_judge(spec, offers: list[VerifiedOffer]) -> list[JudgeVerdict]:
+    """Default judge: any verified INR offer counts as compatible (no model call)."""
+    return [
+        JudgeVerdict("compatible", "verified INR offer (stub judge)")
+        if offer.currency == "INR" and offer.price_inr
+        else JudgeVerdict("unknown", "no verified INR price")
+        for offer in offers
+    ]
+
+
+def enough_offers(offers: list[VerifiedOffer]) -> bool:
+    """Stop fetching at 3 in-stock offers from at least 2 sellers."""
+    in_stock = [o for o in offers if o.stock == "in_stock"]
+    return len(in_stock) >= 3 and len({o.seller.removeprefix("www.") for o in in_stock}) >= 2
+
+
+def part_key(item: BomItem) -> str:
+    return json.dumps(
+        [
+            " ".join(item.raw_name.lower().split()),
+            item.specs.model_dump(mode="json"),
+            [r.model_dump(mode="json") for r in item.requirements],
+        ],
+        sort_keys=True,
+        ensure_ascii=False,
+    )
+
+
 class SourcingService:
+    # Identical parts in one job are sourced once; a short window covers one job run.
+    dedupe_window_s = 300
+
     def __init__(
         self,
         discovery: Discoverer,
@@ -179,19 +240,83 @@ class SourcingService:
         researcher: Researcher | None = None,
         followup_enabled: bool = False,
         trust: TrustChecker | None = None,
+        seller_search: SellerSearch | None = None,
+        judge: Callable[[object, list[VerifiedOffer]], list] | None = None,
+        seller_fetch_budget: int = 8,
+        seller_limit: int = 5,
     ):
         self.discovery = discovery
         self.fetcher = fetcher
         self.researcher = researcher
         self.followup_enabled = followup_enabled
         self.trust = trust
+        self.seller_search = seller_search
+        # Hook: judge(spec, offers) -> one match per offer, read through `accepts`.
+        self.judge = judge or stub_judge
+        self.seller_fetch_budget = seller_fetch_budget
+        self.seller_limit = seller_limit
+        self._recent: dict[str, tuple[float, Future, str]] = {}
+        self._recent_lock = threading.Lock()
+
+    def accepts(self, match, offer: VerifiedOffer) -> bool:
+        verdict = getattr(match, "verdict", None) or getattr(match, "grade", None)
+        return verdict in ACCEPTED_VERDICTS and offer.stock == "in_stock"
+
+    def _judge(self, spec, offers: list[VerifiedOffer], stages: list[str]) -> list:
+        """Judge only the given (new) offers; returns matches in the same order."""
+        if not offers:
+            return []
+        stages.append("judge")
+        try:
+            matches = list(self.judge(spec, offers))
+        except Exception:
+            logging.getLogger(__name__).warning("OFFER_JUDGE_FAILED", exc_info=True)
+            return []
+        for offer, match in zip(offers, matches, strict=False):
+            if "match" in type(offer).model_fields and not isinstance(match, JudgeVerdict):
+                offer.match = match
+        return matches[: len(offers)]
 
     def source(self, item: BomItem) -> ReportLine:
         return self.source_for_project(item, [item])
 
     def source_for_project(self, item: BomItem, project_items: list[BomItem]) -> ReportLine:
+        if item.user_has_it:
+            return self._source_once(item, project_items)
+        key = part_key(item) + "|" + "|".join(i.line_id for i in project_items)
+        with self._recent_lock:
+            clock = time.monotonic()
+            self._recent = {
+                k: v for k, v in self._recent.items() if v[0] + self.dedupe_window_s > clock
+            }
+            entry = self._recent.get(key)
+            # The same line again is a refresh, not a duplicate: always source it fresh.
+            owner = entry is None or entry[2] == item.line_id
+            if owner:
+                future: Future = Future()
+                self._recent[key] = (clock, future, item.line_id)
+            else:
+                future = entry[1]
+        if owner:
+            try:
+                future.set_result(self._source_once(item, project_items))
+            except BaseException as exc:
+                future.set_exception(exc)
+                with self._recent_lock:
+                    self._recent.pop(key, None)
+                raise
+            return future.result().model_copy(deep=True)
+        # Same part, same job: reuse the result instead of searching and fetching again.
+        shared = future.result().model_copy(deep=True)
+        shared.item = item
+        shared.gemini_calls = 0
+        return shared
+
+    def _source_once(self, item: BomItem, project_items: list[BomItem]) -> ReportLine:
         attempted = set()
         fetcher = self.fetcher or SafeFetcher()
+        if self.seller_search:
+            fetcher = self.seller_search.politeness.wrap(fetcher)
         first = self._source_attempt(item, project_items, fetcher, attempted)
         if not (self.followup_enabled and needs_followup(first)):
             return first
@@ -248,6 +373,9 @@ class SourcingService:
                 if second.sourcing_status != "failed"
                 else " Follow-up search failed; initial results were preserved."
             )
+        result.stages = [*first.stages, "followup", *second.stages][:12]
+        result.gemini_calls = first.gemini_calls + second.gemini_calls
+        result.seller_search = first.seller_search
         if not result.offers:
             result.sourcing_error = ErrorDetail(
                 code="NO_VERIFIED_OFFERS",
@@ -303,32 +431,163 @@ class SourcingService:
         attempted: set[str],
         query_prefix: str = "",
     ) -> ReportLine:
+        """Staged, cost-aware sourcing for one line.
+
+        1. Free: seller catalogue search, then fetch and verify its top candidates.
+        2. Judge the verified offers once.
+        3. Paid grounded discovery only when no accepted in-stock offer exists; the judge
+           then sees the new offers only.
+        A follow-up attempt (`query_prefix`) is grounded-only.
+        """
         resolution = resolve_part(item)
         if item.user_has_it:
             return ReportLine(item=item, sourcing_status="already_owned", resolution=resolution)
-        try:
-            query = query_prefix + resolution.query
-            if item.requirements:
-                query += " Requirements: " + json.dumps(
-                    [r.model_dump() for r in item.requirements], ensure_ascii=False
+        stages: list[str] = []
+        gemini_calls = 0
+        state = VerifyState()
+        search: SearchResult | None = None
+        accepted = False
+        if self.seller_search and not query_prefix:
+            stages.append("seller_search")
+            try:
+                search = self.seller_search.search(
+                    query_variants([item.raw_name, resolution.query]),
+                    self.seller_limit,
+                    self.seller_fetch_budget,
                 )
-            attribution = self.discovery.discover(query)
-        except DiscoveryError:
+            except Exception:
+                logging.getLogger(__name__).warning("SELLER_SEARCH_FAILED", exc_info=True)
+            if search:
+                new = self._verify_urls(
+                    [c.url for c in search.candidates], resolution, fetcher, attempted, state
+                )
+                matches = self._judge(resolution, new, stages)
+                accepted = any(self.accepts(m, o) for m, o in zip(matches, new, strict=False))
+        attribution = None
+        discovery_failed = False
+        budget_note = None
+        # A free discoverer (known offer URLs on refresh) needs no budget and no model call.
+        free_discovery = getattr(self.discovery, "free", False)
+        if not accepted and not free_discovery and not paid_allowed():
+            # Daily paid budget reached: keep the free results, skip grounded discovery.
+            budget_note = BUDGET_MESSAGE
+        elif not accepted:
+            stages.append("known_urls" if free_discovery else "grounded")
+            gemini_calls += 0 if free_discovery else 1
+            try:
+                query = query_prefix + resolution.query
+                if item.requirements:
+                    query += " Requirements: " + json.dumps(
+                        [r.model_dump() for r in item.requirements], ensure_ascii=False
+                    )
+                attribution = self.discovery.discover(query)
+            except DiscoveryError:
+                discovery_failed = True
+            if attribution:
+                new = self._verify_urls(
+                    attribution.source_urls, resolution, fetcher, attempted, state
+                )
+                self._judge(resolution, new, stages)
+        summary = None
+        if search is not None:
+            summary = SellerSearchSummary(
+                queries=search.queries,
+                candidate_urls=[c.url for c in search.candidates][:20],
+                sellers_checked=sum(d.status in {"ok", "no_results"} for d in search.diagnostics),
+                blocked_sellers=sorted(set(search.blocked()) | state.blocked_hosts)[:20],
+                message=search.message()[:500],
+            )
+        offers, pages, sources = state.offers, state.pages, state.sources
+        if discovery_failed and not offers:
             return ReportLine(
                 item=item,
                 sourcing_status="failed",
                 resolution=resolution,
-                sourcing_error=ErrorDetail(code="DISCOVERY_FAILED", message="Seller search failed"),
+                seller_search=summary,
+                stages=stages,
+                gemini_calls=gemini_calls,
+                sourcing_error=ErrorDetail(
+                    code="DISCOVERY_FAILED",
+                    message="Seller search failed" + (f". {summary.message}" if summary else ""),
+                ),
             )
-        offers = []
-        seen = set()
-        pages, sources = [], []
-        fetched, rejected, blocked = 0, 0, 0
-        for url in attribution.source_urls:
+        if self.trust and offers:
+            try:
+                self.trust.label_offers(offers, pages)
+            except Exception:
+                # Trust labels are advisory; verified offers are kept without them.
+                logging.getLogger(__name__).warning("SELLER_TRUST_FAILED", exc_info=True)
+        research = None
+        if self.researcher:
+            stages.append("research")
+            try:
+                research = review_or_skip(
+                    self.researcher, item, pages, sources[:16], project_items, offers
+                )
+            except Exception:
+                research = PartResearch(
+                    status="failed",
+                    sources=sources[:16],
+                    summary="Part research failed; verified offers remain available.",
+                )
+            if research.status != "skipped":
+                gemini_calls += 1
+            candidates = {str(c.url): c for c in research.candidates}
+            for offer in offers:
+                if str(offer.url) in candidates:
+                    offer.research_assessment = candidates[str(offer.url)].assessment.model_copy(
+                        deep=True
+                    )
+        grounded = len(attribution.source_urls) if attribution else 0
+        seller_found = len(search.candidates) if search else 0
+        return ReportLine(
+            item=item,
+            resolution=resolution,
+            offers=offers,
+            image_candidates=[
+                image for page in pages for image in page_images(page, resolution.query)
+            ][:10],
+            attribution=attribution,
+            research=research,
+            seller_search=summary,
+            stages=stages,
+            gemini_calls=gemini_calls,
+            sourcing_status="offers_found" if offers else "no_verified_offers",
+            sourcing_error=None
+            if offers
+            else ErrorDetail(
+                code="NO_VERIFIED_OFFERS",
+                message=(
+                    f"Search found {grounded + seller_found} candidate pages"
+                    + (f" ({seller_found} from seller catalogues)" if search else "")
+                    + f"; {state.fetched} fetched, {state.rejected} had no supported matching "
+                    f"offer, {state.blocked} could not be verified. "
+                    + (f"{summary.message} " if summary else "")
+                    + (f"{budget_note} " if budget_note else "")
+                    + "Try a more specific part name or refresh later. No price was inferred. "
+                    + (
+                        f"Research retained {len(research.candidates)} cited candidates; "
+                        "see the research results."
+                        if research and research.candidates
+                        else ""
+                    )
+                )[:1000],
+            ),
+        )
+
+    def _verify_urls(
+        self, urls: list[str], resolution, fetcher, attempted: set[str], state: "VerifyState"
+    ) -> list[VerifiedOffer]:
+        """Fetch and verify candidate URLs in order; returns the offers new to this line."""
+        new: list[VerifiedOffer] = []
+        for url in urls:
+            # Per stage: rejected earlier offers must not stop the next stage from fetching.
+            if enough_offers(new):
+                break
             try:
                 validate_url(url)
             except (FetchError, ValueError):
-                blocked += 1
+                state.blocked += 1
                 continue
             parsed = urlsplit(url)
             key = urlunsplit(parsed._replace(fragment=""))
@@ -341,108 +600,78 @@ class SourcingService:
                 if final_key != key and final_key in attempted:
                     continue
                 attempted.add(final_key)
-                fetched += 1
-                if page.url not in {p.url for p in pages}:
-                    pages.append(page)
-                    sources.append(
-                        ResearchSource(
-                            url=page.url,
-                            status="read" if page.status == 200 else "unavailable",
-                            reason=None if page.status == 200 else f"HTTP {page.status}",
-                        )
-                    )
+                state.fetched += 1
+                state.add_page(page)
                 offer = verify_page(page, resolution.query)
                 if offer is None:
                     variant = variant_url(page, resolution.query)
                     if variant:
                         variant_page = fetcher.get(variant)
                         offer = verify_page(variant_page, resolution.query)
-                        if variant_page.url not in {p.url for p in pages}:
-                            pages.append(variant_page)
-                            sources.append(
-                                ResearchSource(
-                                    url=variant_page.url,
-                                    status="read" if variant_page.status == 200 else "unavailable",
-                                    reason=None
-                                    if variant_page.status == 200
-                                    else f"HTTP {variant_page.status}",
-                                )
-                            )
+                        state.add_page(variant_page)
                 if offer is None:
                     # Shopify/WooCommerce public product JSON when the page has no JSON-LD.
                     offer = storefront_offer(page, resolution.query, fetcher)
                 if offer is None:
-                    rejected += 1
-                if offer and str(offer.url) not in seen:
+                    state.rejected += 1
+                if offer and str(offer.url) not in state.seen:
                     offer.compatibility = assess_offer(resolution, offer)
                     offer.compatibility_status = offer.compatibility.status
-                    seen.add(str(offer.url))
-                    offers.append(offer)
-            except (FetchError, ValueError, RecursionError):
-                blocked += 1
-                if url not in {str(s.url) for s in sources}:
-                    sources.append(
+                    state.seen.add(str(offer.url))
+                    state.offers.append(offer)
+                    new.append(offer)
+            except (FetchError, ValueError, RecursionError) as exc:
+                state.blocked += 1
+                if isinstance(exc, BlockedError):
+                    state.blocked_hosts.add(exc.host.removeprefix("www."))
+                if url not in {str(s.url) for s in state.sources}:
+                    state.sources.append(
                         ResearchSource(
-                            url=url, status="unavailable", reason="Source could not be read safely"
+                            url=url,
+                            status="unavailable",
+                            reason="Seller blocked automated access"
+                            if isinstance(exc, BlockedError)
+                            else "Source could not be read safely",
                         )
                     )
                 continue
-        if self.trust and offers:
-            try:
-                self.trust.label_offers(offers, pages)
-            except Exception:
-                # Trust labels are advisory; verified offers are kept without them.
-                logging.getLogger(__name__).warning("SELLER_TRUST_FAILED", exc_info=True)
-        research = None
-        if self.researcher:
-            try:
-                research = review_or_skip(
-                    self.researcher, item, pages, sources[:16], project_items, offers
-                )
-            except Exception:
-                research = PartResearch(
-                    status="failed",
-                    sources=sources[:16],
-                    summary="Part research failed; verified offers remain available.",
-                )
-            candidates = {str(c.url): c for c in research.candidates}
-            for offer in offers:
-                if str(offer.url) in candidates:
-                    offer.research_assessment = candidates[str(offer.url)].assessment.model_copy(
-                        deep=True
-                    )
-        return ReportLine(
-            item=item,
-            resolution=resolution,
-            offers=offers,
-            image_candidates=[
-                image for page in pages for image in page_images(page, resolution.query)
-            ][:10],
-            attribution=attribution,
-            research=research,
-            sourcing_status="offers_found" if offers else "no_verified_offers",
-            sourcing_error=None
-            if offers
-            else ErrorDetail(
-                code="NO_VERIFIED_OFFERS",
-                message=(
-                    f"Search found {len(attribution.source_urls)} candidate pages; "
-                    f"{fetched} fetched, {rejected} had no supported matching offer, "
-                    f"{blocked} could not be verified. Try a more specific part name "
-                    "or refresh later. No price was inferred. "
-                    + (
-                        f"Research retained {len(research.candidates)} cited candidates; "
-                        "see the research results."
-                        if research and research.candidates
-                        else ""
-                    )
-                ),
-            ),
+        return new
+
+
+@dataclass
+class VerifyState:
+    """Pages, sources, offers and counters shared by the stages of one attempt."""
+
+    offers: list = None
+    seen: set = None
+    pages: list = None
+    sources: list = None
+    blocked_hosts: set = None
+    fetched: int = 0
+    rejected: int = 0
+    blocked: int = 0
+
+    def __post_init__(self):
+        self.offers, self.seen, self.pages, self.sources = [], set(), [], []
+        self.blocked_hosts = set()
+
+    def add_page(self, page) -> None:
+        if page.url in {p.url for p in self.pages}:
+            return
+        self.pages.append(page)
+        self.sources.append(
+            ResearchSource(
+                url=page.url,
+                status="read" if page.status == 200 else "unavailable",
+                reason=None if page.status == 200 else f"HTTP {page.status}",
+            )
         )
 
 
 class KnownUrls:
     """A discoverer that returns already-known offer URLs and makes no search call."""
+
+    free = True
 
     def __init__(self, urls: list[str]):
         self.urls = list(dict.fromkeys(urls))
