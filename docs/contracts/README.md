@@ -266,6 +266,9 @@ Selection does not purchase anything or verify delivery, seller trust or final c
 Selection errors: 409 `INVALID_STATE` / `OFFER_STALE`; 422 `INVALID_SELECTION`,
 `OFFER_UNAVAILABLE`, `COMPATIBILITY_UNRESOLVED`, or `CHANGES_REQUIRED`.
 
+GST, shipping and import estimates, import reference prices and cart plans: see
+[costing](costing.md).
+
 ## Targeted offer refresh (v0.7)
 
 `POST /v1/jobs/{job_id}/refresh` requires `X-Job-Token`:

@@ -1,0 +1,193 @@
+{
+  "_label": "Hand-checked seller policies for cost ESTIMATES only. Policies change and can depend on PIN code and payment method; never present these as a seller quote. Hosts match VerifiedOffer.seller without a leading 'www.'. Entries marked unverified are shown as hints but never used for amounts.",
+  "_checked_by": "Read from the public pages listed in source_url on checked_on (robots.txt allowed the paths; one request per page).",
+  "sellers": {
+    "robocraze.com": {
+      "name": "Robocraze",
+      "shipping": {
+        "free_above_inr": "999.00",
+        "free_when": "above",
+        "flat_fee_inr": null,
+        "fee_plus_gst": false,
+        "unverified": false,
+        "source_url": "https://robocraze.com/pages/faqs",
+        "checked_on": "2026-10-06",
+        "quote": "We offer free shipping across India for all orders above ₹999. If your order total is below this amount, a minimal shipping charge will be applied at checkout based on your location.",
+        "note": "Fee below the threshold depends on location and is not stated. The storefront script also sets free_shipping_price = 800; the FAQ and cart banner say ₹999, which is used. COD adds ₹125 (not included)."
+      },
+      "gst": {
+        "prices_include_gst": true,
+        "unverified": false,
+        "source_url": "https://robocraze.com/products/5mm-green-led-pack-of-10",
+        "checked_on": "2026-10-06",
+        "quote": "Incl. GST (No Hidden Charges)"
+      }
+    },
+    "quartzcomponents.com": {
+      "name": "Quartz Components",
+      "shipping": {
+        "free_above_inr": "500.00",
+        "free_when": "above",
+        "flat_fee_inr": "50.00",
+        "fee_plus_gst": false,
+        "unverified": false,
+        "source_url": "https://quartzcomponents.com/policies/shipping-policy",
+        "checked_on": "2026-10-06",
+        "quote": "Prepaid (UPI / Card) More than ₹500 FREE · Prepaid (UPI / Card) Less than ₹500 ₹50",
+        "note": "Prepaid orders assumed. COD costs ₹30 above ₹500 and ₹80 below (not included)."
+      },
+      "gst": {
+        "prices_include_gst": null,
+        "unverified": true,
+        "source_url": "https://quartzcomponents.com/products/ldr-light-dependent-resistor-5mm",
+        "checked_on": "2026-10-06",
+        "quote": null,
+        "note": "The product page does not say whether the price includes GST."
+      }
+    },
+    "evelta.com": {
+      "name": "Evelta",
+      "shipping": {
+        "free_above_inr": "1000.00",
+        "free_when": "above",
+        "flat_fee_inr": "45.00",
+        "fee_plus_gst": true,
+        "unverified": false,
+        "source_url": "https://evelta.com/shipping-returns/",
+        "checked_on": "2026-10-06",
+        "quote": "Evelta offers free shipping on orders over Rs.1000. The minimum purchase amount for free shipping is based on the sub-total in your cart and does not include tax or any coupons applied. Any order below Rs.1000 is charged a flat rate of Rs.45 (+GST).",
+        "note": "The threshold uses the sub-total before tax, which matches Evelta's ex-GST listed prices."
+      },
+      "gst": {
+        "prices_include_gst": false,
+        "unverified": false,
+        "source_url": "https://evelta.com/shipping-returns/",
+        "checked_on": "2026-10-06",
+        "quote": "The minimum purchase amount for free shipping is based on the sub-total in your cart and does not include tax",
+        "note": "docs/04-reference/02-india-sellers-and-apis.md also records Evelta prices as ex-GST (observed 30 Sep 2026)."
+      }
+    },
+    "compoindia.com": {
+      "name": "Compoindia",
+      "shipping": {
+        "free_above_inr": "2000.00",
+        "free_when": "at_or_above",
+        "flat_fee_inr": null,
+        "fee_plus_gst": false,
+        "unverified": false,
+        "source_url": "https://compoindia.com/delivery-and-shipping-policy/",
+        "checked_on": "2026-10-06",
+        "quote": "We provide Free Shipping on or order above Rs.2000/- across India and rest will charge as standard shipping rates, if it is COD, you need to pay Rs.40 or 3% extra.",
+        "note": "Standard shipping rates below the threshold are not stated."
+      },
+      "gst": {
+        "prices_include_gst": false,
+        "unverified": false,
+        "source_url": "https://compoindia.com/product/ttp223-touch-key-module/",
+        "checked_on": "2026-10-06",
+        "quote": "₹ 25.00 (Exclusive GST Tax 18%)"
+      }
+    },
+    "electronicscomp.com": {
+      "name": "ElectronicsComp",
+      "shipping": {
+        "free_above_inr": "499.00",
+        "free_when": "above",
+        "flat_fee_inr": null,
+        "fee_plus_gst": false,
+        "unverified": false,
+        "source_url": "https://www.electronicscomp.com/",
+        "checked_on": "2026-10-06",
+        "quote": "Free Delivery · On all orders above Rs 499/-",
+        "note": "The delivery policy page (https://www.electronicscomp.com/delivery) does not state charges below the threshold."
+      },
+      "gst": {
+        "prices_include_gst": null,
+        "unverified": true,
+        "source_url": "https://www.electronicscomp.com/0.96-inch-i2c-iic-128x64-oled-display-module-4-pin-blue-color",
+        "checked_on": "2026-10-05",
+        "quote": null,
+        "note": "Only the legal MRP row says 'Inclusive of all Taxes'; that does not describe the selling price."
+      }
+    },
+    "flyrobo.in": {
+      "name": "FlyRobo",
+      "shipping": {
+        "free_above_inr": null,
+        "free_when": "above",
+        "flat_fee_inr": null,
+        "fee_plus_gst": false,
+        "unverified": true,
+        "source_url": "https://www.flyrobo.in/delivery",
+        "checked_on": "2026-10-06",
+        "quote": "Flyrobo Provides Free shipping on all orders Value over 1000Rs.",
+        "note": "Conflicting: the homepage says 'Free delivery over ₹499' while the delivery page says over ₹1000. Left unverified."
+      },
+      "gst": {
+        "prices_include_gst": true,
+        "unverified": false,
+        "source_url": "https://www.flyrobo.in/oled-0-96-inch-i2c-display-module",
+        "checked_on": "2026-10-06",
+        "quote": "₹215 ₹329 (inc GST)"
+      }
+    },
+    "rytronics.in": {
+      "name": "Rytronics",
+      "shipping": {
+        "free_above_inr": "499.00",
+        "free_when": "above",
+        "flat_fee_inr": null,
+        "fee_plus_gst": false,
+        "unverified": true,
+        "source_url": "https://www.rytronics.in/",
+        "checked_on": "2026-10-06",
+        "quote": "Offers: Free shipping On all orders above Rs 499/- USE Code: FREESHIP",
+        "note": "A homepage promotion that needs a coupon code; no shipping policy page was found."
+      },
+      "gst": {
+        "prices_include_gst": true,
+        "unverified": false,
+        "source_url": "https://www.rytronics.in/",
+        "checked_on": "2026-10-06",
+        "quote": "₹ 199.00 (inc. GST)"
+      }
+    },
+    "zbotic.in": {
+      "name": "Zbotic",
+      "shipping": {
+        "free_above_inr": "999.00",
+        "free_when": "above",
+        "flat_fee_inr": null,
+        "fee_plus_gst": false,
+        "unverified": true,
+        "source_url": null,
+        "checked_on": "2026-09-30",
+        "quote": null,
+        "note": "From docs/04-reference/02-india-sellers-and-apis.md ('per its own article'); not checked on a policy page."
+      },
+      "gst": {
+        "prices_include_gst": null,
+        "unverified": true,
+        "source_url": null,
+        "checked_on": "2026-09-30",
+        "quote": null,
+        "note": "The research notes say Zbotic shows prices both with and without GST."
+      }
+    },
+    "silicontechnolabs.in": {
+      "name": "Silicon TechnoLabs",
+      "shipping": {
+        "free_above_inr": "999.00",
+        "free_when": "above",
+        "flat_fee_inr": null,
+        "fee_plus_gst": false,
+        "unverified": true,
+        "source_url": null,
+        "checked_on": "2026-09-30",
+        "quote": null,
+        "note": "From docs/04-reference/02-india-sellers-and-apis.md; not checked on a policy page."
+      },
+      "gst": null
+    }
+  }
+}
