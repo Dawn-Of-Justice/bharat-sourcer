@@ -345,7 +345,10 @@ def test_github_readme_fallback_and_evidence_url():
         .extract("https://github.com/maker/synthetic-bot")
         .items
     )
-    assert [call[0] for call in fetcher.calls] == [raw + "README.md", raw + "readme.md"]
+    urls = [call[0] for call in fetcher.calls]
+    assert urls[:2] == [raw + "README.md", raw + "readme.md"]
+    # Then a bounded set of code and build files on the same raw host (all missing here).
+    assert 2 < len(urls) <= 2 + 8 and all(url.startswith(raw) for url in urls)
     assert str(items[0].evidence[0].url) == raw + "readme.md"
     assert items[0].qty == 2
 
@@ -418,7 +421,12 @@ def test_live_api_accepts_project_page_and_rejects_other_hosts():
             "source": "project_page",
             "quote": "1x ESP32 development board",
             "url": HACKSTER,
+            "file": None,
+            "line": None,
         }
+        # One page quote, ESP32 look-alike variants from the curated table: "check".
+        assert job["items"][0]["confidence"] == "check"
+        assert job["source_reports"][0]["kind"] == "hackster"
 
 
 def test_demo_mode_does_not_fetch_project_pages():

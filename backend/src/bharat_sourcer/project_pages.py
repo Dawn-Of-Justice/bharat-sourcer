@@ -1,15 +1,21 @@
 """Supported maker project pages: URL recognition, readable text and quote checks.
 
-Only Instructables, Hackster and GitHub repository READMEs are recognised. Fetching always
-goes through `SafeFetcher` (HTTPS, public-address pinning, robots.txt, size limits); this
-module never opens connections itself.
+Recognised: Instructables, Hackster, GitHub repository READMEs, Adafruit Learn guides and
+articles on a short list of maker tutorial blogs. Fetching always goes through `SafeFetcher`
+(HTTPS, public-address pinning, robots.txt, size limits); this module never opens
+connections itself.
 
 Instructables project pages are client-rendered: their HTML carries no step or supplies
 text. The page itself loads that content from the public, robots-allowed
 `/json-api/showInstructableModel` endpoint, so that JSON is fetched and turned into text,
 while evidence still cites the canonical project page.
+
+Adafruit Learn serves every guide as one Markdown document (`<guide>.md?view=all`); that is
+read instead of the HTML, and evidence cites the all-pages HTML view. Tutorial blog pages
+are read as HTML restricted to their main article content.
 """
 
+import html
 import json
 import re
 from dataclasses import dataclass
@@ -19,7 +25,7 @@ from urllib.parse import quote, urlsplit
 
 from bharat_sourcer.sourcing.fetch import Page
 
-ProjectKind = Literal["instructables", "hackster", "github"]
+ProjectKind = Literal["instructables", "hackster", "github", "adafruit", "blog"]
 
 SEGMENT = r"[A-Za-z0-9._~%-]+"
 GITHUB_OWNER = re.compile(r"[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})")
@@ -74,6 +80,35 @@ INSTRUCTABLES_RESERVED = {
 INSTRUCTABLES_API = "https://www.instructables.com/json-api/showInstructableModel?urlString="
 # Try the common README spellings; HEAD resolves the repository's default branch.
 README_NAMES = ("README.md", "readme.md", "README.rst", "README")
+# Adafruit Learn paths that are not guides.
+ADAFRUIT_RESERVED = {
+    "api",
+    "assets",
+    "blog",
+    "categories",
+    "guides",
+    "products",
+    "search",
+    "sitemap",
+    "u",
+    "users",
+}
+# Maker tutorial blogs accepted as generic article pages. A short reviewed list, not any
+# site: each one costs a model call per job and must publish its parts in readable HTML.
+TUTORIAL_BLOGS = frozenset(
+    {
+        "circuitdigest.com",
+        "dronebotworkshop.com",
+        "eater.net",
+        "howtomechatronics.com",
+        "lastminuteengineers.com",
+        "makerguides.com",
+        "microcontrollerslab.com",
+        "randomnerdtutorials.com",
+        "www.circuitbasics.com",
+        "www.electronicshub.org",
+    }
+)
 
 
 @dataclass(frozen=True)
@@ -149,6 +184,26 @@ def project_page_source(url: str) -> ProjectPageSource | None:
             tuple(raw + name for name in README_NAMES),
             frozenset({"raw.githubusercontent.com"}),
         )
+    if host == "learn.adafruit.com":
+        # /<guide>, /<guide>/<page> and /<guide>.md all name the same guide.
+        guide = segments[0].removesuffix(".md") if segments else ""
+        if len(segments) > 2 or not guide or guide.lower() in ADAFRUIT_RESERVED:
+            return None
+        canonical = f"https://learn.adafruit.com/{guide}"
+        return ProjectPageSource(
+            "adafruit",
+            canonical,
+            (f"{canonical}.md?view=all",),
+            frozenset({"learn.adafruit.com"}),
+            cite_url=f"{canonical}?view=all",
+        )
+    bare = host.removeprefix("www.")
+    blog = next((name for name in TUTORIAL_BLOGS if name.removeprefix("www.") == bare), None)
+    if blog is not None and segments:
+        canonical = f"https://{blog}/" + "/".join(segments) + ("/" if path.endswith("/") else "")
+        return ProjectPageSource(
+            "blog", canonical, (canonical,), frozenset({blog, bare, "www." + bare})
+        )
     return None
 
 
@@ -163,6 +218,11 @@ BOILERPLATE_HEADING = re.compile(
 )
 SKIP_ROLES = {"banner", "complementary", "contentinfo", "dialog", "navigation", "search"}
 SKIP_IDS = re.compile(r"comments?|disqus_thread|related|recommendations?", re.IGNORECASE)
+# Containers that hold an article's own content, best first. Blog pages are read from the
+# first non-empty one, so chrome outside it (menus, sidebars, related grids) is never sent.
+MAIN_CLASSES = re.compile(
+    r"(?:^|\s)(?:entry-content|post-content|article-content|post-body|td-post-content)(?:\s|$)"
+)
 
 
 class ReadableText(HTMLParser):
@@ -227,6 +287,27 @@ class ReadableText(HTMLParser):
         self.heading: tuple[int, int] | None = None
         # Level of the boilerplate heading whose section is being dropped.
         self.drop_level: int | None = None
+        # Main-content candidates by rank: closed (start, end) spans of `parts`, and open
+        # ones as [rank, tag, nesting, start].
+        self.spans: dict[int, tuple[int, int]] = {}
+        self.open_spans: list[list] = []
+
+    @staticmethod
+    def _content_rank(tag, attrs) -> int | None:
+        if MAIN_CLASSES.search(dict(attrs).get("class") or ""):
+            return 0
+        return {"article": 1, "main": 2}.get(tag)
+
+    def main_text(self) -> str:
+        """Text of the best non-empty main-content container, else of the whole page."""
+        # A container left unclosed by malformed markup runs to the end of the document.
+        spans = {span[0]: (span[3], len(self.parts)) for span in self.open_spans} | self.spans
+        for rank in sorted(spans):
+            start, end = spans[rank]
+            text = tidy("".join(self.parts[start:end]))
+            if text:
+                return text
+        return tidy("".join(self.parts))
 
     def _skips(self, tag, attrs) -> bool:
         if tag in self.SKIP:
@@ -246,6 +327,13 @@ class ReadableText(HTMLParser):
         if self._skips(tag, attrs):
             self.skip_tag, self.skip_nesting = tag, 1
             return
+        for span in self.open_spans:
+            if span[1] == tag:
+                span[2] += 1
+        rank = self._content_rank(tag, attrs)
+        if rank is not None and rank not in self.spans:
+            if all(span[0] != rank for span in self.open_spans):
+                self.open_spans.append([rank, tag, 1, len(self.parts)])
         level = self.HEADINGS.get(tag)
         if level is not None:
             if self.drop_level is not None and level <= self.drop_level:
@@ -266,6 +354,12 @@ class ReadableText(HTMLParser):
                 if self.skip_nesting == 0:
                     self.skip_tag = None
             return
+        for span in list(self.open_spans):
+            if span[1] == tag:
+                span[2] -= 1
+                if span[2] == 0:
+                    self.open_spans.remove(span)
+                    self.spans[span[0]] = (span[3], len(self.parts))
         if self.heading is not None and self.HEADINGS.get(tag) == self.heading[0]:
             level, start = self.heading
             self.heading = None
@@ -287,11 +381,36 @@ def tidy(text: str) -> str:
     return "\n".join(line for line in lines if line)
 
 
-def html_text(markup: str) -> str:
+def html_text(markup: str, *, main_only: bool = False) -> str:
     parser = ReadableText()
     parser.feed(markup)
     parser.close()
-    return tidy("".join(parser.parts))
+    return parser.main_text() if main_only else tidy("".join(parser.parts))
+
+
+MARKDOWN_IMAGE = re.compile(r"!\[[^\]]*\]\([^)]*\)")
+MARKDOWN_LINK = re.compile(r"\[([^\]]*)\]\([^)]*\)")
+# Adafruit Learn shop widgets repeated under every product in a guide's parts list.
+ADAFRUIT_CHROME = {
+    "add to cart",
+    "buy now",
+    "featured",
+    "in stock",
+    "out of stock",
+    "related guides to the product",
+}
+
+
+def markdown_text(markup: str) -> str:
+    """Readable Markdown guide text: images, link targets, comments and shop chrome removed."""
+    text = re.sub(r"<!--.*?-->", " ", markup, flags=re.DOTALL)
+    text = MARKDOWN_IMAGE.sub(" ", text)
+    text = MARKDOWN_LINK.sub(r"\1", text)
+    text = re.sub(r"</?[A-Za-z][^>\n]*>", " ", text)
+    lines = (line for line in html.unescape(text).splitlines())
+    return tidy(
+        "\n".join(line for line in lines if normalise(line).casefold() not in ADAFRUIT_CHROME)
+    )
 
 
 def media_type(page: Page) -> str:
@@ -345,10 +464,30 @@ def instructables_text(page: Page, limit: int) -> str:
     return tidy("\n".join(blocks))[:limit]
 
 
+def adafruit_text(page: Page, limit: int) -> str:
+    """Bounded text of an Adafruit Learn guide's Markdown view (HTML is read as a fallback)."""
+    if page.status != 200:
+        return ""
+    if media_type(page) in {"text/markdown", "text/x-markdown", "text/plain"}:
+        return markdown_text(page.body.decode("utf-8", errors="replace"))[:limit]
+    return readable_text(page, limit)
+
+
+def blog_text(page: Page, limit: int) -> str:
+    """Bounded main-article text of a tutorial blog page."""
+    if page.status != 200 or media_type(page) not in {"text/html", "application/xhtml+xml"}:
+        return ""
+    return html_text(page.body.decode("utf-8", errors="replace"), main_only=True)[:limit]
+
+
 def document_text(source: ProjectPageSource, page: Page, limit: int) -> str:
     """Bounded readable text of a fetched project document of the source's kind."""
     if source.kind == "instructables":
         return instructables_text(page, limit)
+    if source.kind == "adafruit":
+        return adafruit_text(page, limit)
+    if source.kind == "blog":
+        return blog_text(page, limit)
     return readable_text(page, limit)
 
 

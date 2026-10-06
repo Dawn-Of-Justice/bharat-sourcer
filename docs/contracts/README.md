@@ -107,6 +107,10 @@ credentials guidance and the integration acceptance checklist.
 **New: [conversation integration guide](conversation.md).** Add chat beside the BOM,
 reviewable edit proposals and a live snapshot stream. Existing endpoints remain available.
 
+[Multi-source intake](multi-source-intake.md): Adafruit Learn and tutorial blog sources,
+GitHub code evidence, extra `sources` per job, fused BOM lines with `conflicts`,
+`lookalikes` and a `confidence` chip.
+
 Base URL: `http://127.0.0.1:8000` (no `/api` prefix locally).
 
 1. Create a job:
