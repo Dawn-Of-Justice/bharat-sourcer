@@ -86,6 +86,7 @@ def create_app(
         sourcing_max_parts=settings.sourcing_max_parts,
         sourcing_lease_seconds=settings.sourcing_lease_s,
         sourcing_parallelism=settings.sourcing_parallelism,
+        seller_penalty_inr=settings.recommend_seller_penalty_inr,
     )
 
     conversation = ConversationService(

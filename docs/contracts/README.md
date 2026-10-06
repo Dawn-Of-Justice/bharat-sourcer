@@ -3,6 +3,8 @@
 This directory is the handoff between backend and frontend. The architecture docs describe
 the target system; this contract describes the runnable local milestone.
 
+Unreleased: automatic [recommendations](recommendations.md). Adds optional `report.order_plan`, `lines[].selection_source`, `user_offer_url`, `recommended_offer_url`, `recommendation` and `line_image`; `GET /plans` adds a `recommended` plan and `seller_penalty_inr`. Completed live reports now arrive with default selections.
+
 v0.20.0 adds safety flags, costing breakdowns and cart plans, multi-source intake with
 conflicts, look-alikes and confidence, seller trust labels, export and share links, catalogue-backed
 compatibility grades A–D/X, and disabled-by-default Gemini extras. All new fields are optional. Frontend work is listed in

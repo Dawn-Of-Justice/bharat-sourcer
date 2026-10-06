@@ -329,7 +329,8 @@ def test_plans_cheapest_uses_thresholds_and_fewest_sellers():
     assert client.get(path).status_code == 404
     result = client.get(path, headers=headers).json()
     assert result["method"] == "exhaustive" and result["uncovered_line_ids"] == []
-    cheapest, fewest = result["plans"]
+    cheapest, fewest, recommended = result["plans"]
+    assert recommended["kind"] == "recommended" and result["seller_penalty_inr"] == "60.00"
     # Moving L01 to Evelta lifts it over ₹1000 (free shipping) although Quartz then pays ₹50.
     assert {p["line_id"]: p["seller"] for p in cheapest["picks"]} == {
         "L01": "evelta.com",
@@ -348,7 +349,7 @@ def test_greedy_plans_match_on_small_case(monkeypatch):
     client, job_id, headers = app_with_report(plan_lines())
     result = client.get(f"/v1/jobs/{job_id}/plans", headers=headers).json()
     assert result["method"] == "greedy"
-    totals = [plan["costing"]["total"]["amount_inr"] for plan in result["plans"]]
+    totals = [plan["costing"]["total"]["amount_inr"] for plan in result["plans"][:2]]
     assert totals == ["1608.00", "1652.00"]
 
 

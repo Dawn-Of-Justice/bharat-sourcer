@@ -721,12 +721,16 @@ class PlanPick(Model):
     offer_url: HttpUrl
     seller: str
     price_inr: Money
-    grade: Literal["A", "B"]
+    # Cheapest and fewest-seller plans only use A/B offers; the recommended plan can include
+    # an offer whose compatibility is still unknown (None) or graded C/D.
+    grade: Literal["A", "B", "C", "D"] | None
     changes_required: bool = False
+    qty: int | None = None
+    packs: int | None = None
 
 
 class CartPlan(Model):
-    kind: Literal["cheapest", "fewest_sellers"]
+    kind: Literal["cheapest", "fewest_sellers", "recommended"]
     picks: list[PlanPick] = Field(default_factory=list)
     seller_count: int = 0
     costing: CostBreakdown
@@ -740,6 +744,99 @@ class CartPlans(Model):
     method: Literal["exhaustive", "greedy", "none"] = "none"
     uncovered_line_ids: list[str] = Field(default_factory=list)
     rules: list[str] = Field(default_factory=list)
+    seller_penalty_inr: Money | None = None
+
+
+class LineImage(Model):
+    """The one image to show for a line, resolved in a fixed order (recommendations.md)."""
+
+    url: str
+    kind: Literal[
+        "selected_offer", "recommended_offer", "offer", "reference", "category", "placeholder"
+    ]
+    label: str
+    source_url: HttpUrl | None = None
+
+
+class LineRecommendation(Model):
+    """Deterministic recommendation for one line; reasons explain every scoring factor."""
+
+    status: Literal["recommended", "unsourced"]
+    offer_url: HttpUrl | None = None
+    seller: str | None = None
+    score: float | None = Field(default=None, ge=0, le=1)
+    reasons: list[str] = Field(default_factory=list)
+    # Why the recommendation was not applied as the selection (selection rules), if not.
+    blocked_reason: str | None = None
+    unsourced_reason: (
+        Literal["pending", "needs_value", "no_offers", "no_acceptable_offer", "needs_quantity"]
+        | None
+    ) = None
+    next_steps: list[str] = Field(default_factory=list)
+    qty: int | None = None
+    pack_qty: int | None = None
+    packs: int | None = None
+    method: Literal["deterministic_score"] = "deterministic_score"
+
+
+class OrderPlanLine(Model):
+    line_id: str
+    name: str
+    offer_url: HttpUrl
+    title: str | None = None
+    qty: int
+    pack_qty: int | None = None
+    packs: int
+    units: int
+    unit_price_inr: Money
+    line_price_inr: Money
+    selection_source: Literal["recommended", "user"] | None = None
+    selected: bool = False
+    grade: Literal["A", "B", "C", "D", "X"] | None = None
+    changes_required: bool = False
+    blocked_reason: str | None = None
+
+
+class OrderPlanSeller(Model):
+    seller: str
+    lines: list[OrderPlanLine] = Field(default_factory=list)
+    subtotal_inr: Money
+    gst: CostAmount
+    shipping: CostAmount
+    total: CostAmount
+    free_shipping_gap_inr: Money | None = None
+    policy: ShippingPolicyRef | None = None
+    product_links: list[HttpUrl] = Field(default_factory=list)
+
+
+class UnsourcedLine(Model):
+    line_id: str
+    name: str
+    reason: Literal[
+        "pending",
+        "needs_value",
+        "no_offers",
+        "no_acceptable_offer",
+        "needs_quantity",
+        "cleared_by_user",
+    ]
+    message: str
+    next_steps: list[str] = Field(default_factory=list)
+    research_urls: list[HttpUrl] = Field(default_factory=list)
+
+
+class OrderPlan(Model):
+    """Seller-grouped order built from selections, else recommendations; an estimate only."""
+
+    sellers: list[OrderPlanSeller] = Field(default_factory=list)
+    unsourced: list[UnsourcedLine] = Field(default_factory=list)
+    seller_count: int = 0
+    costing: CostBreakdown
+    ready: bool = False
+    disclaimer: str = (
+        "Recommendations are automatic and deterministic; check each seller page and "
+        "checkout before ordering. Totals are estimates, not a payable amount."
+    )
 
 
 class SetImportReference(Model):
@@ -770,6 +867,15 @@ class ReportLine(Model):
     changes_accepted: bool = False
     research_accepted: bool = False
     import_reference: ImportReference | None = None
+    # recommended: applied automatically; user: chosen (or cleared) through /selections and
+    # never replaced by recomputation. None: no selection yet, or saved before recommendations.
+    selection_source: Literal["recommended", "user"] | None = None
+    # The user's own choice, kept across refreshes and spec updates; None with
+    # selection_source "user" means the user cleared the line.
+    user_offer_url: HttpUrl | None = None
+    recommended_offer_url: HttpUrl | None = None
+    recommendation: LineRecommendation | None = None
+    line_image: LineImage | None = None
 
 
 class Report(Model):
@@ -783,6 +889,7 @@ class Report(Model):
     tax_inr: None = None
     unselected_line_ids: list[str] = Field(default_factory=list)
     costing: CostBreakdown | None = None
+    order_plan: OrderPlan | None = None
 
 
 class SafetyTrigger(Model):

@@ -58,9 +58,24 @@ def gst_percent(family: str | None) -> Decimal:
     return Decimal(rates["by_family"].get(family or "", rates["default_percent"]))
 
 
+def pack_size(offer) -> int | None:
+    """Units per listing when the seller states a pack (`pack_qty`, read defensively)."""
+    value = getattr(offer, "pack_qty", None) if offer is not None else None
+    return value if isinstance(value, int) and not isinstance(value, bool) and value > 1 else None
+
+
+def packs_for(qty: int, offer) -> int:
+    """Listings to buy for `qty` units: rounded up to whole packs when the pack is known."""
+    size = pack_size(offer)
+    return -(-qty // size) if size else qty
+
+
 @dataclass(frozen=True)
 class Pick:
-    """One line bought from one seller at a seller-published unit price."""
+    """One line bought from one seller at a seller-published listing price.
+
+    `qty` counts listings: units for single items, whole packs when the pack size is known.
+    """
 
     line_id: str
     seller: str
@@ -353,7 +368,7 @@ def selection_picks(report: Report) -> list[Pick]:
                 line_id=line.item.line_id,
                 seller=offer.seller if offer else urlsplit(str(line.selected_offer_url)).hostname,
                 unit_price=Decimal(line.price_inr),
-                qty=line.item.qty,
+                qty=packs_for(line.item.qty, offer),
                 tax_included=offer.tax_included if offer else None,
                 family=line.item.specs.family,
                 offer_url=str(line.selected_offer_url),
@@ -393,7 +408,8 @@ def update_costs(report: Report) -> None:
             line.subtotal_inr = "0.00"
         elif line.selected_offer_url is not None and line.price_inr is not None:
             if line.item.qty is not None:
-                amount = Decimal(line.price_inr) * line.item.qty
+                offer = next((o for o in line.offers if o.url == line.selected_offer_url), None)
+                amount = Decimal(line.price_inr) * packs_for(line.item.qty, offer)
                 line.subtotal_inr = f"{amount:.2f}"
                 subtotal += amount
             else:
@@ -406,3 +422,7 @@ def update_costs(report: Report) -> None:
     report.total_inr = None
     # Demo reports carry fixture data; no estimate is ever derived from it.
     report.costing = None if report.demo else selection_costing(report)
+    # recommend.py builds on this module, so it is imported here rather than at the top.
+    from bharat_sourcer.recommend import annotate
+
+    annotate(report)
