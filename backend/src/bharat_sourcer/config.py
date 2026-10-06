@@ -44,6 +44,7 @@ class Settings(BaseSettings):
     sourcing_candidates_per_part: int = Field(default=5, ge=1, le=8)
     sourcing_lease_s: int = Field(default=1800, ge=600, le=7200)
     research_enabled: bool = True
+    seller_trust_enabled: bool = True
     research_followup_enabled: bool = True
     research_pages_per_part: int = Field(default=3, ge=1, le=5)
     research_page_chars: int = Field(default=12000, ge=2000, le=20000)

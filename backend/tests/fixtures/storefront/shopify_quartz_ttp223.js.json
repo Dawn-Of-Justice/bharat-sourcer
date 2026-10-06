@@ -1,0 +1,26 @@
+{
+  "source_url": "https://quartzcomponents.com/products/ttp223-based-capacitive-touch-sensor-module.js",
+  "fetched": "2026-10-06",
+  "note": "Trimmed recorded response for offline parsing tests only. Prices and stock are historical snapshots, never current or verified seller facts.",
+  "content_type": "text/javascript; charset=utf-8",
+  "response": {
+    "id": 4491706007687,
+    "title": "TTP223 1 Channel Capacitive Touch Sensor Module",
+    "handle": "ttp223-based-capacitive-touch-sensor-module",
+    "vendor": "SIG057",
+    "available": true,
+    "price": 1800,
+    "featured_image": "//cdn.shopify.com/s/files/1/0300/6424/6919/products/TTP223-1-Channel-Capacitive-Touch-Sensor.jpg?v=1644823797",
+    "url": "/products/ttp223-based-capacitive-touch-sensor-module",
+    "variants": [
+      {
+        "id": 31898108723335,
+        "title": "Default Title",
+        "sku": "MOD-QC0348",
+        "available": true,
+        "price": 1800,
+        "name": "TTP223 1 Channel Capacitive Touch Sensor Module"
+      }
+    ]
+  }
+}

@@ -454,6 +454,35 @@ class PartResolution(Model):
     clarifications: list[Clarification] = Field(default_factory=list)
 
 
+StorePlatform = Literal["shopify", "woocommerce", "magento", "jsonld", "unknown"]
+
+
+class TrustSignals(Model):
+    """Deterministic, free seller checks. Absent evidence is recorded, never assumed."""
+
+    domain: str | None = None
+    https: bool = False
+    # Curated seed list maintained by the project, not a fact reported by the seller.
+    known_seller: bool = False
+    platform: StorePlatform | None = None
+    domain_registered: datetime | None = None
+    domain_age_days: int | None = None
+    # Format and checksum only; not verified against the GST portal.
+    gstin: str | None = None
+    policies: list[Literal["returns", "shipping", "contact"]] = Field(default_factory=list)
+    price_anomaly: bool = False
+    web_risk: Literal["not_checked"] = "not_checked"
+    unavailable: list[Literal["domain_age", "policies", "all"]] = Field(default_factory=list)
+
+
+class SellerTrust(Model):
+    label: Literal["established", "verified_basics", "unverified"]
+    new_seller: bool = False
+    reasons: list[str] = Field(default_factory=list)
+    signals: TrustSignals = Field(default_factory=TrustSignals)
+    checked_at: datetime = Field(default_factory=now)
+
+
 class VerifiedOffer(Model):
     url: HttpUrl
     seller: str
@@ -463,7 +492,9 @@ class VerifiedOffer(Model):
     currency: Literal["INR"] = "INR"
     stock: Literal["in_stock", "out_of_stock", "preorder", "unknown"] = "unknown"
     checked_at: datetime = Field(default_factory=now)
-    verification: Literal["seller_structured_data"] = "seller_structured_data"
+    verification: Literal[
+        "seller_structured_data", "shopify_storefront_json", "woocommerce_store_api"
+    ] = "seller_structured_data"
     seller_trust: Literal["unverified"] = "unverified"
     tax_included: None = None
     shipping_inr: None = None
@@ -475,6 +506,7 @@ class VerifiedOffer(Model):
     spec_conflicts: list[SpecConflict] = Field(default_factory=list)
     compatibility: Compatibility | None = None
     research_assessment: ResearchAssessment | None = None
+    trust: SellerTrust | None = None
 
 
 class SearchAttribution(Model):

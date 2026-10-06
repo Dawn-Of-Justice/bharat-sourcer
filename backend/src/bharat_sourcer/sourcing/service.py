@@ -18,7 +18,9 @@ from bharat_sourcer.schemas import (
 )
 from bharat_sourcer.sourcing.fetch import FetchError, SafeFetcher, validate_url
 from bharat_sourcer.sourcing.listings import page_images, variant_url, verify_page
+from bharat_sourcer.sourcing.platforms import storefront_offer
 from bharat_sourcer.sourcing.research import Researcher
+from bharat_sourcer.sourcing.trust import TrustChecker
 from bharat_sourcer.usage import record_usage
 
 
@@ -172,11 +174,13 @@ class SourcingService:
         fetcher: SafeFetcher | None = None,
         researcher: Researcher | None = None,
         followup_enabled: bool = False,
+        trust: TrustChecker | None = None,
     ):
         self.discovery = discovery
         self.fetcher = fetcher
         self.researcher = researcher
         self.followup_enabled = followup_enabled
+        self.trust = trust
 
     def source(self, item: BomItem) -> ReportLine:
         return self.source_for_project(item, [item])
@@ -327,6 +331,9 @@ class SourcingService:
                                 )
                             )
                 if offer is None:
+                    # Shopify/WooCommerce public product JSON when the page has no JSON-LD.
+                    offer = storefront_offer(page, resolution.query, fetcher)
+                if offer is None:
                     rejected += 1
                 if offer and str(offer.url) not in seen:
                     offer.compatibility = assess(resolution.specs, offer.specs)
@@ -343,6 +350,12 @@ class SourcingService:
                         )
                     )
                 continue
+        if self.trust and offers:
+            try:
+                self.trust.label_offers(offers, pages)
+            except Exception:
+                # Trust labels are advisory; verified offers are kept without them.
+                logging.getLogger(__name__).warning("SELLER_TRUST_FAILED", exc_info=True)
         research = None
         if self.researcher:
             try:

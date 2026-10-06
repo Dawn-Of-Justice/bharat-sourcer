@@ -348,8 +348,24 @@ delivery to the PIN, tax inclusion, electrical suitability or an independent sto
 If the verified Product JSON-LD includes an HTTPS image URL, it is returned as optional
 `image_url` for the frontend to display. The backend does not download or proxy seller
 images; missing or invalid image metadata does not affect the offer. Placeholder assets are rejected; when the Product JSON-LD has no real
-image, the page's `og:image` is used only for single-product pages. All sellers are
-labelled `unverified`; no offer is selected automatically.
+image, the page's `og:image` is used only for single-product pages. The legacy
+`seller_trust` field stays `unverified`; the rule-based `trust` label is described below.
+No offer is selected automatically.
+
+When a product page has no Product JSON-LD, Shopify and WooCommerce stores are detected
+from page markers and their public product JSON is read instead (Shopify
+`/products/<handle>.json` for price and declared currency plus `.js` for availability;
+WooCommerce Store API `?slug=` for simple products). The same fetch guards, robots.txt,
+title gate and INR requirement apply; such offers carry `verification:
+shopify_storefront_json` or `woocommerce_store_api`.
+
+After verification, each seller host gets a cached, rule-based `trust` label
+(`established`, `verified_basics`, `unverified`) from free checks: HTTPS, RDAP domain age,
+a checksum-valid GSTIN on fetched pages, return/shipping/contact pages and a per-line
+price anomaly flag. Checks have a 12 s deadline and fail open to `unverified`. Curated seed
+sellers (`sourcing/known_sellers.json`) skip network checks. Google Web Risk is not called.
+`BS_SELLER_TRUST_ENABLED=false` disables the step. See
+[seller trust](../docs/contracts/seller-trust.md).
 
 Seller specifications come from three sources on the verified page, each recorded in
 `spec_evidence` with its `source`: the product title (`seller_title`), JSON-LD

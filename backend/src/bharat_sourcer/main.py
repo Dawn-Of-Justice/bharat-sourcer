@@ -41,6 +41,7 @@ from bharat_sourcer.schemas import (
 from bharat_sourcer.sharing import add_share_routes
 from bharat_sourcer.sourcing.research import GeminiResearch
 from bharat_sourcer.sourcing.service import GeminiDiscovery, SourcingService
+from bharat_sourcer.sourcing.trust import TrustChecker
 from bharat_sourcer.storage import FirestoreJobStore, JobStore, MemoryJobStore, StorageError
 from bharat_sourcer.streaming import snapshots
 
@@ -74,6 +75,7 @@ def create_app(
                 GeminiDiscovery(settings),
                 researcher=GeminiResearch(settings) if settings.research_enabled else None,
                 followup_enabled=settings.research_followup_enabled,
+                trust=TrustChecker() if settings.seller_trust_enabled else None,
             )
             if settings.sourcing_enabled and not settings.demo_mode
             else None
