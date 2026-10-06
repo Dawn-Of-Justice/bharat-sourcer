@@ -5,7 +5,7 @@ from urllib.parse import urlsplit, urlunsplit
 
 import httpx
 
-from bharat_sourcer.compat import assess, resolve_part
+from bharat_sourcer.compat import assess_offer, resolve_part
 from bharat_sourcer.config import Settings
 from bharat_sourcer.resilience import post_with_retry
 from bharat_sourcer.schemas import (
@@ -329,8 +329,7 @@ class SourcingService:
                 if offer is None:
                     rejected += 1
                 if offer and str(offer.url) not in seen:
-                    offer.compatibility = assess(resolution.specs, offer.specs)
-                    offer.compatibility.references.append(str(offer.url))
+                    offer.compatibility = assess_offer(resolution, offer)
                     offer.compatibility_status = offer.compatibility.status
                     seen.add(str(offer.url))
                     offers.append(offer)
