@@ -28,7 +28,7 @@ Example values are illustrative, not real output.
 - `title` (≤ 120 chars) and `description` (≤ 600 chars) are written by the model and are
   **editable by the owner**. `*_source` is `ai` or `user` (who wrote the current value).
 - `summary` is the model's understanding after watching or reading the source. It is
-  **not editable**. Show it to the user, labelled as AI understanding to check.
+  **not editable**. The frontend shows it under Build overview, with assumptions to check.
 - `power`, `controller`, `interfaces` and `assumptions` are optional context. Show
   `assumptions` so users can spot wrong inferences.
 - `project` is `null` for projects analysed before v0.19.0 and while extraction runs.
@@ -67,7 +67,7 @@ Recommended project card, replacing "www.youtube.com project" plus the raw URL:
 - `qty_source`: `stated` (the source gives the count), `inferred` (decided from project
   context, for example two wheels for two motors) or `user` (edited by the owner).
 - `qty_reason`: short explanation for inferred counts, otherwise `null`.
-- Show an "inferred" marker and the reason; the user can still change the count. Editing
+- Show a "Suggested quantity" marker and the reason; the user can still change the count. Editing
   the quantity to a different value sets `qty_source: "user"`.
 - Confirmation no longer fails with `UNKNOWN_QUANTITY`. Any remaining null count (older
   jobs) is set to 1 with `qty_source: "inferred"` and a reason on confirmation.
@@ -84,13 +84,6 @@ exact model the source does not show. They feed seller research and AI assessmen
 user requirements do. The requirements list is replaced as a whole on update: send
 untouched inferred entries back with their `origin` and `reason`, and send edited entries
 without `origin` so they become `user`.
-
-## Frontend status
-
-The review page already shows `project` (summary, power, controller, interfaces,
-assumptions), inferred quantity markers and AI-inferred build details. The title and
-description display, the project-list card change and the edit control are not yet built
-in the frontend.
 
 ## Live check (5 October 2026, v0.19.0)
 

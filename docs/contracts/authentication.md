@@ -16,49 +16,7 @@ Real Google login, guest-to-account claim, two-account isolation and revocation 
 remain pending. Trusted client-IP forwarding stays disabled until proxy handling is
 verified; IP quotas currently use the socket peer and can group proxy users.
 Account/guest quotas, project ownership and revoked-account checks are active.
-The earlier handoff below describes the preparation stage; its disabled-auth
-instructions are superseded by this activation record.
 
-## Team handoff — 4 October 2026
-
-Backend v0.17.2 is deployed and verified. Firebase project registration and the
-`Bharat Sourcer Web` app now exist; Authentication is initialized. Google sign-in
-is enabled and verified through the console and Firebase API. The approved public
-name is `Bharat Sourcer`; the support email is configured in Firebase.
-The SDK config is saved locally in ignored `backend/.data/firebase-web-config.json`;
-obtain it from the project owner or Firebase project settings. Production-domain
-authorization and an actual sign-in check remain pending. Backend auth stays off.
-
-Frontend implementation belongs to the frontend teammate. No frontend files were
-changed for this handoff. Backend infrastructure preparation uses
-`backend/scripts/prepare_auth.py`; it preserves the auth flag and existing guest
-secret, and requests TTL cleanup for the actual deployed usage collection
-(`backend_integration_jobs_usage`). Source deployments preserve live auth settings
-and existing secret bindings.
-
-The live Firestore smoke check passed owner-only pagination and concurrent quota
-admission across separate clients, using synthetic records that were removed.
-Real Firebase login still needs production-domain authorization and the
-frontend integration described below. Keep `BS_AUTH_ENABLED=false` until both are
-verified together. The public frontend continues using the existing token flow.
-
-### Frontend teammate acceptance checklist
-
-- [x] Enable Firebase Google provider for project `hackathon-510415` (backend setup).
-- [ ] Register
-  `bharat-sourcer-web-diahnrbuna-el.a.run.app` as an authorized domain.
-- [ ] Implement Google login, guest entry and logout; refresh Firebase ID tokens.
-- [ ] Forward credentials and each response cookie through the server proxy.
-- [ ] Add the saved-project list and reopen by ID without creating another job.
-- [ ] Offer explicit guest-to-account claim after login, preserving the guest cookie.
-- [ ] Attach Authorization to chat and fetch-based streaming requests too.
-- [ ] Show quota errors while keeping saved projects and pause available.
-- [ ] Verify two-account isolation, guest claim, expiry and a returning-user visit
-  on an auth-enabled staging backend before coordinating production activation.
-
-Backend activation must add the production frontend Origin to `BS_CORS_ORIGINS`.
-Trusted IP forwarding remains disabled until the teammate confirms the proxy
-overwrites caller input using its verified platform client-IP chain.
 
 ## User flow
 
@@ -105,25 +63,15 @@ account-owned or guest-owned project. With auth enabled, old unowned projects
 must first be claimed using their original token. With auth disabled, existing
 unowned job-token access continues; identity routes return 503 `AUTH_DISABLED`.
 
-## Frontend proxy handoff — required before activation
+## Frontend proxy
 
-The current `frontend/server.mjs` forwards only the earlier job-token headers.
-The frontend teammate needs to:
+The frontend forwards Authorization, Cookie, Origin and X-Requested-With, preserves
+separate Set-Cookie headers, Cache-Control and Retry-After, and injects the integration
+key server-side. Browser requests include credentials, and fetch-based streaming
+refreshes credentials on reconnect. Private API responses are not cached.
 
-- Forward `Authorization`, `Cookie`, `X-Requested-With` and `Origin`, alongside
-  the existing request headers. Keep injecting `X-Integration-Key` server-side.
-- Forward every `Set-Cookie` response header separately, plus `Cache-Control`
-  and `Retry-After`. Do not combine cookies into one comma-separated header.
-- Use `credentials: "include"` for browser requests. Never cache private API
-  responses. Do not store Firebase tokens in project URLs or query strings.
-- Stream with `fetch` so Authorization can be attached. Native EventSource
-  cannot set a bearer header. Refresh expired credentials before reconnecting.
-- If `BS_TRUSTED_PROXY_IP_HEADER=true`, overwrite `X-Client-IP` with the real
-  client address obtained through a verified platform proxy chain. Never forward
-  a caller-provided value. This setting requires integration-key authentication.
-  Until configured, IP quotas use the socket peer and may group all proxy users.
-- Add login/guest selection, saved-project list, explicit guest-project claim,
-  and a usage-limit state that keeps existing projects readable.
+Trusted client-IP forwarding remains disabled until the platform proxy chain is
+verified. The proxy does not forward caller-supplied client-IP headers.
 
 ## Default limits
 
@@ -182,24 +130,12 @@ end, and already-admitted queued work is not canceled by revocation.
 References: [Firebase session revocation](https://firebase.google.com/docs/auth/admin/manage-sessions)
 and [account lookup](https://docs.cloud.google.com/identity-platform/docs/reference/rest/v1/accounts/lookup).
 
-## Rollout checklist
+## Outstanding verification
 
-1. Configure Firebase Authentication for `hackathon-510415`, enable Google sign-in,
-   register the frontend web app and its authorized domain. Give the frontend
-   teammate its public Firebase configuration; keep backend secrets private.
-2. Store a randomly generated guest signing secret (at least 32 characters) in
-   Secret Manager and bind it as `BS_GUEST_SESSION_SECRET` on the API service.
-   Keep this stable across revisions; rotating it invalidates guest cookies.
-3. Use `BS_STORAGE_BACKEND=firestore`. Enable a Firestore TTL policy on
-   `expires_at` in collection group `backend_jobs_usage` (adjust if the jobs
-   collection name changes). Expiry is for counter cleanup, not quota correctness.
-4. Complete the proxy and UI changes above, allow the frontend Origin, and verify
-   real-client IP handling before enabling the trusted proxy option.
-5. Test two real accounts, guest creation/claim, expired tokens, reopening saved
-   work, streams and quotas against Firestore in staging. The local suite's
-   Firestore tests require `FIRESTORE_EMULATOR_HOST`; they are otherwise skipped.
-6. Enable `BS_AUTH_ENABLED=true` on the API. Keep owned projects protected if a
-   rollout is rolled back: disabling auth does not restore token access to them.
+Real Google sign-in, guest-to-account claim, two-account isolation, expiry, revocation,
+and returning-account access still need live browser checks. Verify the platform proxy
+chain before enabling trusted client-IP forwarding. Keep existing owned projects
+protected during any deployment rollback.
 
 Backend tests cover isolation, claims, quota admission, cookie tampering and the
 legacy path. Real Firebase sign-in and Firestore integration remain rollout checks.

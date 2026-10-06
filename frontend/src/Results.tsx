@@ -11,7 +11,7 @@ type DisplayImage = { url: string; label: string }
 // Seller offer photos first, then backend page references (parts without verified offers).
 function lineImages(line: ReportLine, demo: boolean): DisplayImage[] {
   const images: DisplayImage[] = []
-  for (const offer of line.offers) if (offer.image_url) images.push({ url: offer.image_url, label: 'Seller image · visual reference only' })
+  for (const offer of line.offers) if (offer.image_url) images.push({ url: offer.image_url, label: demo ? 'Demo illustration' : 'Seller image · visual reference only' })
   for (const image of line.image_candidates ?? []) images.push({ url: image.url, label: image.label })
   const seen = new Set<string>()
   return images.filter(image => {
@@ -73,16 +73,34 @@ function RequirementReview({ job, line, token, onJob }: { job: Job; line: Report
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const original = JSON.stringify(line.item.requirements ?? [])
-  const inferred = (line.item.requirements ?? []).filter(item => item.origin === 'inferred').length
   async function save(event: FormEvent) {
     event.preventDefault()
-    if (!validRequirements(requirements)) { setError('Every requirement needs a property and value.'); return }
+    if (!validRequirements(requirements)) { setError('Finish or remove any empty build details before saving.'); return }
     setBusy(true); setError('')
     try { onJob(await updateRequirements(job.job_id, token, line.item.line_id, requirementPayload(requirements))) }
     catch (cause) { setError(cause instanceof Error ? cause.message : 'Could not save requirements.') }
     finally { setBusy(false) }
   }
-  return <details className="requirements-after"><summary>Review or change build requirements ({line.item.requirements?.length ?? 0}{inferred ? `, ${inferred} AI-inferred` : ''})</summary><form onSubmit={save}><Requirements value={requirements} onChange={setRequirements} disabled={busy} /><p>Changing requirements may make AI assessments stale and clear affected selections. Refresh is a separate action.</p><button className="nav-cta" type="submit" disabled={busy || JSON.stringify(requirements) === original}>{busy ? 'Saving…' : 'Save requirements'}</button>{error && <p className="form-error" role="alert">{error}</p>}</form></details>
+  const changed = JSON.stringify(requirements) !== original
+  return <form className="requirements-after" onSubmit={save}><Requirements value={requirements} onChange={setRequirements} disabled={busy} />{changed && <div className="build-details-save"><p>Save these details to check existing quotes again. You may need to select a new quote; a new seller search is a separate action.</p><button className="nav-cta" type="submit" disabled={busy}>{busy ? 'Saving…' : 'Save build details'}</button></div>}{error && <p className="form-error" role="alert">{error}</p>}</form>
+}
+
+function PartCard({ job, line, index, token, onJob, refreshable, refreshSelected, onRefreshChange }: { job: Job; line: ReportLine; index: number; token: string; onJob: (job: Job) => void; refreshable: boolean; refreshSelected: boolean; onRefreshChange: (selected: boolean) => void }) {
+  const status = line.item.user_has_it ? 'Already owned' : line.offers.length ? `${line.offers.length} seller ${line.offers.length === 1 ? 'quote' : 'quotes'}` : line.sourcing_status === 'failed' ? 'Search needs attention' : 'No verified quotes yet'
+  return <details id={`line-${line.item.line_id}`} className="part-card">
+    <summary className="part-card-summary">
+      <ProductImage job={job} line={line} token={token} />
+      <div className="part-card-heading"><small className="part-number">PART {String(index + 1).padStart(2, '0')}</small><h3>{line.item.raw_name}</h3><div className="part-basics"><span>Qty {line.item.qty ?? 'unknown'}{line.item.qty_source === 'inferred' && <small title={line.item.qty_reason ?? 'Suggested from the project'}> · suggested</small>}</span><span>{status}</span>{line.selected_offer_url && <span className="selected-badge">Quote selected</span>}</div></div>
+      <span className="part-expand"><span className="when-closed">View details</span><span className="when-open">Close details</span><span className="disclosure-chevron" aria-hidden="true">⌄</span></span>
+    </summary>
+    <div className="part-card-content">
+      <RequirementReview key={JSON.stringify(line.item.requirements ?? [])} job={job} line={line} token={token} onJob={onJob} />
+      <OfferList job={job} line={line} token={token} onJob={onJob} />
+      <Research line={line} />
+      {line.item.evidence.length > 0 && <details className="result-evidence"><summary>Where this part was found</summary><ul>{line.item.evidence.map((entry, i) => <li key={i}>{evidenceText(entry)}</li>)}</ul><small>Check these observations against the original project.</small></details>}
+      {refreshable && !line.item.user_has_it && <label className="refresh-check"><input type="checkbox" checked={refreshSelected} onChange={event => onRefreshChange(event.target.checked)} /> Include in new seller search</label>}
+    </div>
+  </details>
 }
 
 function OfferList({ job, line, token, onJob }: { job: Job; line: ReportLine; token: string; onJob: (job: Job) => void }) {
@@ -119,5 +137,5 @@ export default function Results({ job, token, onJob }: { job: Job; token: string
     catch (cause) { setError(cause instanceof Error ? cause.message : 'Could not start a seller refresh. Check the saved job before retrying.') }
     finally { setRefreshing(false) }
   }
-  return <section className="job-panel"><span className="section-kicker">YOUR DESI BOM</span><h2>Explore the parts</h2>{job.demo ? <div className="demo-alert"><strong>Demo data</strong> · Fixed sample. Extraction, seller checks, prices and compatibility were not verified.</div> : <p className="job-panel-intro">Seller quotes are snapshots. Tax, shipping and the final payable cost are unknown.</p>}<div className="result-list">{job.report.lines.map((line, index) => <article id={`line-${line.item.line_id}`} className="result-row" key={line.item.line_id}><div className="result-title"><ProductImage job={job} line={line} token={token} /><span>Part {index + 1}</span><div><h3>{line.item.raw_name}</h3><p>Qty {line.item.qty ?? 'unknown'}{line.item.qty_source === 'inferred' && <span className="inferred-tag" title={line.item.qty_reason ?? 'Quantity inferred by AI; the source did not state a count.'}>inferred</span>}{line.item.user_has_it ? ' · Already owned' : ''}</p></div></div>{line.item.evidence.length > 0 && <details className="result-evidence"><summary>Saved evidence</summary><ul>{line.item.evidence.map((entry, i) => <li key={i}>{evidenceText(entry)}</li>)}</ul><small>Reported by the extraction model; check the source.</small></details>}<OfferList job={job} line={line} token={token} onJob={onJob} /><Research line={line} />{!job.demo && <RequirementReview key={JSON.stringify(line.item.requirements ?? [])} job={job} line={line} token={token} onJob={onJob} />}{refreshable && !line.item.user_has_it && <label className="refresh-check"><input type="checkbox" checked={refreshIds.includes(line.item.line_id)} onChange={event => setRefreshIds(current => event.target.checked ? [...current, line.item.line_id] : current.filter(id => id !== line.item.line_id))} /> Include in new seller search</label>}</article>)}</div>{!job.demo && <div className="subtotal"><span>{job.report.parts_subtotal_inr ? 'Selected parts subtotal' : 'Partial selected parts subtotal'}</span><strong>{price(job.report.parts_subtotal_inr ?? job.report.selected_parts_subtotal_inr)}</strong></div>}{refreshable && <div className="refresh-controls"><p>New seller search may use paid analysis. Selected parts lose their old quotes; other parts stay saved. {2 - (job.refresh_count ?? 0)} of 2 refresh batches remain.</p><button className="nav-cta" disabled={!refreshIds.length || refreshIds.length > 10 || refreshing} onClick={() => void refresh()}>{refreshing ? 'Starting search…' : `Refresh ${refreshIds.length} selected ${refreshIds.length === 1 ? 'part' : 'parts'}`}</button>{refreshIds.length > 10 && <p>Select at most 10 parts per batch.</p>}{error && <p className="form-error" role="alert">{error}</p>}</div>}<p className="result-disclaimer">Research is AI assessed from source quotes. Seller prices, stock and compatibility claims need your review before ordering. Selecting a quote does not purchase anything.</p></section>
+  return <section className="job-panel"><span className="section-kicker">YOUR DESI BOM</span><h2>Explore the parts</h2>{job.demo ? <div className="demo-alert"><strong>Demo data</strong> · Fixed sample. Extraction, seller checks, prices and compatibility were not verified.</div> : <p className="job-panel-intro">Seller quotes are snapshots. Tax, shipping and the final payable cost are unknown.</p>}<p className="parts-expand-hint">Choose a part to see seller quotes, build details, and source notes.</p><div className="result-list">{job.report.lines.map((line, index) => <PartCard key={line.item.line_id} job={job} line={line} index={index} token={token} onJob={onJob} refreshable={refreshable} refreshSelected={refreshIds.includes(line.item.line_id)} onRefreshChange={selected => setRefreshIds(current => selected ? [...current, line.item.line_id] : current.filter(id => id !== line.item.line_id))} />)}</div>{!job.demo && <div className="subtotal"><span>{job.report.parts_subtotal_inr ? 'Selected parts subtotal' : 'Partial selected parts subtotal'}</span><strong>{price(job.report.parts_subtotal_inr ?? job.report.selected_parts_subtotal_inr)}</strong></div>}{refreshable && <div className="refresh-controls"><p>New seller search may use paid analysis. Selected parts lose their old quotes; other parts stay saved. {2 - (job.refresh_count ?? 0)} of 2 refresh batches remain.</p><button className="nav-cta" disabled={!refreshIds.length || refreshIds.length > 10 || refreshing} onClick={() => void refresh()}>{refreshing ? 'Starting search…' : `Refresh ${refreshIds.length} selected ${refreshIds.length === 1 ? 'part' : 'parts'}`}</button>{refreshIds.length > 10 && <p>Select at most 10 parts per batch.</p>}{error && <p className="form-error" role="alert">{error}</p>}</div>}<p className="result-disclaimer">Research is AI assessed from source quotes. Seller prices, stock and compatibility claims need your review before ordering. Selecting a quote does not purchase anything.</p></section>
 }
