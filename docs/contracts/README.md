@@ -99,6 +99,7 @@ The API base URL has no `/api` suffix.
 [Backend roadmap](backend-roadmap.md) tracks agreed features still to implement.
 [Frontend quickstart](frontend-quickstart.md) includes local configuration, request code,
 credentials guidance and the integration acceptance checklist.
+[Safety flags](safety-flags.md): deterministic MAINS / LIPO / HIGH_CURRENT / LEVEL_SHIFT banners on `job.safety_flags`.
 
 **New: [conversation integration guide](conversation.md).** Add chat beside the BOM,
 reviewable edit proposals and a live snapshot stream. Existing endpoints remain available.

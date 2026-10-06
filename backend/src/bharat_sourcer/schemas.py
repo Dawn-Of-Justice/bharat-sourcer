@@ -531,6 +531,28 @@ class Report(Model):
     unselected_line_ids: list[str] = Field(default_factory=list)
 
 
+class SafetyTrigger(Model):
+    """Which saved text made a deterministic safety rule fire."""
+
+    line_id: str | None = None
+    field: str = Field(min_length=1, max_length=100)
+    matched: str = Field(min_length=1, max_length=200)
+
+
+class SafetyFlag(Model):
+    """Hard-coded rule output (`safety.py`) with templated text; never written by a model."""
+
+    code: Literal["MAINS", "LIPO", "HIGH_CURRENT", "LEVEL_SHIFT"]
+    severity: Literal["danger", "warning", "caution"]
+    title: str
+    message: str
+    guidance: list[str] = Field(default_factory=list)
+    line_ids: list[str] = Field(default_factory=list)
+    triggers: list[SafetyTrigger] = Field(default_factory=list, max_length=20)
+    method: Literal["deterministic_rules"] = "deterministic_rules"
+    rule_version: str
+
+
 class UpdateProject(Model):
     title: ProjectTitle | None = None
     description: ProjectDescription | None = None
@@ -564,6 +586,7 @@ class Job(Model):
     chat_error: "ErrorDetail | None" = None
     resistor_advice: list[ResistorAdvice] = Field(default_factory=list)
     actions: list[ActionRecord] = Field(default_factory=list)
+    safety_flags: list[SafetyFlag] = Field(default_factory=list)
 
 
 class CreatedJob(Model):
