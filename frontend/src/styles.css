@@ -509,9 +509,11 @@ svg { display: block; }
   .header-inner { justify-content: center; }
   .header-account { width: 100%; justify-content: center; }
   .job-panel, .chat-panel { padding: 14px; }
-  .part-card-summary { gap: 9px; padding: 12px; }
+  .part-card-summary { display: grid; grid-template-columns: 54px minmax(0, 1fr) 30px; align-items: start; gap: 8px; padding: 12px; }
   .part-card .part-image { width: 54px; flex-basis: 54px; }
   .part-card .product-image { width: 54px; height: 54px; }
+  .part-number { letter-spacing: .03em; }
+  .part-expand { justify-self: end; }
   .part-card-content { padding: 12px; }
   .requirement-row { grid-template-columns: minmax(0, 1fr); }
 }
