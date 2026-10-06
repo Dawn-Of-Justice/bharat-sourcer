@@ -197,7 +197,14 @@ Live mode also accepts these project URLs (HTTP or HTTPS; query and fragment are
 | --- | --- | --- |
 | Instructables | `instructables.com/<slug>/` or legacy `/id/<slug>/` | `https://www.instructables.com/json-api/showInstructableModel?urlString=<slug>` (cited as `https://www.instructables.com/<slug>/`) |
 | Hackster | `hackster.io/<user>/<project>` | `https://www.hackster.io/<user>/<project>` |
-| GitHub | `github.com/<owner>/<repo>` (optional `.git`) | first of `README.md`, `readme.md`, `README.rst`, `README` at `https://raw.githubusercontent.com/<owner>/<repo>/HEAD/` |
+| GitHub | `github.com/<owner>/<repo>` (optional `.git`) | first of `README.md`, `readme.md`, `README.rst`, `README` at `https://raw.githubusercontent.com/<owner>/<repo>/HEAD/`, then up to 8 code/build files for deterministic code evidence |
+| Adafruit Learn | `learn.adafruit.com/<guide>` (or `/<guide>/<page>`, `/<guide>.md`) | `https://learn.adafruit.com/<guide>.md?view=all` (cited as `<guide>?view=all`) |
+| Tutorial blog | an article on a listed maker blog (Random Nerd Tutorials, DroneBot Workshop, Last Minute Engineers and others) | the page, reduced to its main article content |
+
+A job may also carry up to three extra `sources` (at most one video in total); each is
+extracted separately and fused into one BOM with `conflicts`, `lookalikes` and a
+deterministic `confidence` per line. Rules, limits and fields:
+[multi-source intake](../docs/contracts/multi-source-intake.md).
 
 Other hosts, Instructables category/member/asset paths and multi-segment paths, GitHub
 file/tree/gist URLs, Hackster section pages and reserved GitHub paths return HTTP 400

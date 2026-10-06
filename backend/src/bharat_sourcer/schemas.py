@@ -34,6 +34,9 @@ class CreateJob(Model):
     lang: Literal["en", "hi", "ta", "ml"] = "en"
     user_level: Literal["beginner", "intermediate"] = "beginner"
     visibility: Literal["unlisted"] = "unlisted"
+    # Extra sources about the same build (e.g. its project page or repository), fused into
+    # one BOM with the primary `url`. Same validation as `url`; at most one video in total.
+    sources: list[HttpUrl] = Field(default_factory=list, max_length=3)
 
 
 class Evidence(Model):
@@ -42,19 +45,28 @@ class Evidence(Model):
     `source` defaults to `video` so snapshots saved before project-page support still
     validate. Video evidence carries a timestamp. Project-page evidence carries the fetched
     document `url` and a `quote` the server found verbatim (whitespace-normalised) in it.
+    Code evidence is deterministic: the repository `file` and 1-based `line`, the line's
+    text as `quote`, and a `url` to that line.
     """
 
     timestamp: str | None = Field(default=None, pattern=r"^\d{2,}:[0-5]\d$")
     observation: str = Field(min_length=1, max_length=1000)
-    source: Literal["video", "project_page"] = "video"
+    source: Literal["video", "project_page", "code"] = "video"
     quote: str | None = Field(default=None, min_length=3, max_length=500)
     url: HttpUrl | None = None
+    file: str | None = Field(default=None, min_length=1, max_length=300)
+    line: int | None = Field(default=None, ge=1)
 
     @model_validator(mode="after")
     def locator_matches_source(self):
+        if self.source != "code" and (self.file is not None or self.line is not None):
+            raise ValueError("Only code evidence has a file and line")
         if self.source == "video":
             if self.timestamp is None or self.quote is not None or self.url is not None:
                 raise ValueError("Video evidence needs a timestamp and no page quote or URL")
+        elif self.source == "code":
+            if self.timestamp is not None or None in (self.quote, self.url, self.file, self.line):
+                raise ValueError("Code evidence needs a quote, URL, file and line")
         elif self.timestamp is not None or self.quote is None or self.url is None:
             raise ValueError("Project-page evidence needs a quote and URL and no timestamp")
         return self
@@ -228,6 +240,30 @@ class Compatibility(Model):
     references: list[str] = Field(default_factory=list)
 
 
+class Lookalike(Model):
+    """A part easily confused with this line; a warning, never a suggested substitute."""
+
+    name: Name
+    note: str | None = Field(default=None, max_length=300)
+    # table: the server's curated confusables list; ai: named by the extraction model.
+    origin: Literal["table", "ai"]
+
+
+class ConflictValue(Model):
+    value: str = Field(min_length=1, max_length=200)
+    source: Literal["video", "project_page", "code"]
+    url: HttpUrl | None = None
+    locator: str | None = Field(default=None, max_length=300)
+
+
+class ItemConflict(Model):
+    """Sources disagree about this line; nothing is picked silently (see multi-source-intake)."""
+
+    kind: Literal["identity_mismatch", "qty_mismatch"]
+    message: str = Field(min_length=1, max_length=500)
+    values: list[ConflictValue] = Field(default_factory=list, max_length=6)
+
+
 class BomItem(Model):
     line_id: str
     raw_name: Name
@@ -242,6 +278,12 @@ class BomItem(Model):
     specs: PartSpecs = Field(default_factory=PartSpecs)
     requirements: list[PartRequirement] = Field(default_factory=list, max_length=20)
     clarifications: list[Clarification] = Field(default_factory=list)
+    lookalikes: list[Lookalike] = Field(default_factory=list, max_length=10)
+    conflicts: list[ItemConflict] = Field(default_factory=list, max_length=10)
+    # Deterministic, from evidence at extraction time; None for lines without an assessment
+    # (user-added, renamed or saved before confidence existed).
+    confidence: Literal["verified", "likely", "check"] | None = None
+    confidence_reason: str | None = Field(default=None, max_length=300)
 
 
 class UpdateLine(Model):
@@ -542,6 +584,18 @@ class UpdateProject(Model):
         return self
 
 
+class SourceReport(Model):
+    """How one submitted source was read during extraction."""
+
+    url: str
+    kind: Literal["video", "instructables", "hackster", "github", "adafruit", "blog"]
+    role: Literal["primary", "additional"] = "primary"
+    status: Literal["read", "failed"]
+    item_count: int = Field(default=0, ge=0)
+    code_item_count: int = Field(default=0, ge=0)
+    error: "ErrorDetail | None" = None
+
+
 class Job(Model):
     job_id: str
     status: Status = "queued"
@@ -564,6 +618,7 @@ class Job(Model):
     chat_error: "ErrorDetail | None" = None
     resistor_advice: list[ResistorAdvice] = Field(default_factory=list)
     actions: list[ActionRecord] = Field(default_factory=list)
+    source_reports: list[SourceReport] = Field(default_factory=list, max_length=4)
 
 
 class CreatedJob(Model):
