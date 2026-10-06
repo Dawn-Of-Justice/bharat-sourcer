@@ -1,7 +1,12 @@
-# Implemented API contract — v0.19.3
+# Implemented API contract — v0.20.0
 
 This directory is the handoff between backend and frontend. The architecture docs describe
 the target system; this contract describes the runnable local milestone.
+
+v0.20.0 adds safety flags, costing breakdowns and cart plans, multi-source intake with
+conflicts, look-alikes and confidence, seller trust labels, export and share links, and
+disabled-by-default Gemini extras. All new fields are optional. Frontend work is listed in
+the [v0.20 frontend handoff](frontend-handoff-v0.20.md).
 
 v0.19.2 adds internal Gemini usage logging only; no API changes.
 
