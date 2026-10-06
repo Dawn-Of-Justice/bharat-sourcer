@@ -158,6 +158,7 @@ Base URL: `http://127.0.0.1:8000` (no `/api` prefix locally).
 Draft `items[]` includes `specs` (nullable typed fields) and `clarifications[]` with `field`
 and `question`. Use OpenAPI for typed-field answer controls; `family` is now free text.
 Use [generic requirements and research](part-research.md) for arbitrary categories.
+See [compatibility rules](compatibility-rules.md) for the part catalogue, resolver and A–X rules engine.
 Example confirmation:
 
 ```json

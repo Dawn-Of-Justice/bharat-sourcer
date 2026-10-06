@@ -118,7 +118,10 @@ class PartSpecs(Model):
 class SpecEvidence(Model):
     field: str
     value: str
-    source: Literal["part_name", "user", "seller_title", "seller_property", "seller_table"]
+    # "catalog" values come from the curated parts catalogue, never from a seller.
+    source: Literal[
+        "part_name", "user", "seller_title", "seller_property", "seller_table", "catalog"
+    ]
     locator: str
 
 
@@ -230,6 +233,25 @@ class PartResearch(Model):
     checked_at: datetime = Field(default_factory=now)
 
 
+class CompatFinding(Model):
+    """One deterministic rule result; `grade` is the floor this finding imposes."""
+
+    rule: str
+    grade: Literal["A", "B", "C", "D", "X"]
+    area: Literal["wiring", "code", "power", "safety", "verify"]
+    message: str
+    change: str | None = None
+    basis: list[str] = Field(default_factory=list)
+
+
+class WhatChanges(Model):
+    wiring: list[str] = Field(default_factory=list)
+    code: list[str] = Field(default_factory=list)
+    power: list[str] = Field(default_factory=list)
+    safety: list[str] = Field(default_factory=list)
+    verify: list[str] = Field(default_factory=list)
+
+
 class Compatibility(Model):
     status: Literal["unknown", "compatible", "changes_required", "incompatible"]
     grade: Literal["A", "B", "C", "D", "X"] | None = None
@@ -238,6 +260,13 @@ class Compatibility(Model):
     missing_fields: list[str] = Field(default_factory=list)
     changes: list[str] = Field(default_factory=list)
     references: list[str] = Field(default_factory=list)
+    # Added by the catalogue rules engine; absent fields mean the original comparison ran.
+    method: Literal["declared_specs", "catalog_rules"] = "declared_specs"
+    grade_label: str | None = None
+    findings: list[CompatFinding] = Field(default_factory=list)
+    what_changes: WhatChanges | None = None
+    required_catalog_id: str | None = None
+    offered_catalog_id: str | None = None
 
 
 class Lookalike(Model):
@@ -487,6 +516,32 @@ class ActionRecord(Model):
     result_message_id: str | None = None
 
 
+class CatalogCandidate(Model):
+    id: str
+    name: str
+    confidence: float = Field(ge=0, le=1)
+
+
+class CatalogMatch(Model):
+    """Deterministic catalogue lookup of a part name; reference facts, not seller facts."""
+
+    status: Literal["matched", "ambiguous", "unmatched"]
+    id: str | None = None
+    name: str | None = None
+    category: str | None = None
+    chip: str | None = None
+    confidence: float = Field(default=0, ge=0, le=1)
+    candidates: list[CatalogCandidate] = Field(default_factory=list, max_length=6)
+    facts: dict[str, str] = Field(default_factory=dict)
+    requirements: list[PartRequirement] = Field(default_factory=list, max_length=20)
+    lookalikes: list[str] = Field(default_factory=list)
+    verify: str | None = None
+    notes: str | None = None
+    source_url: str | None = None
+    verified: bool = False
+    origin: Literal["curated_catalog"] = "curated_catalog"
+
+
 class PartResolution(Model):
     query: str
     missing_specs: list[str] = Field(default_factory=list)
@@ -494,6 +549,7 @@ class PartResolution(Model):
     specs: PartSpecs = Field(default_factory=PartSpecs)
     evidence: list[SpecEvidence] = Field(default_factory=list)
     clarifications: list[Clarification] = Field(default_factory=list)
+    catalog: CatalogMatch | None = None
 
 
 StorePlatform = Literal["shopify", "woocommerce", "magento", "jsonld", "unknown"]

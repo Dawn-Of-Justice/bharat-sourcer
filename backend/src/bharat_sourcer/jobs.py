@@ -8,7 +8,7 @@ from hashlib import sha256
 from uuid import UUID, uuid4
 
 from bharat_sourcer.actions import complete_refresh
-from bharat_sourcer.compat import assess, resolve_part
+from bharat_sourcer.compat import assess_offer, reassess_report, resolve_part
 from bharat_sourcer.costing import update_costs
 from bharat_sourcer.extraction import ExtractionError, Extractor
 from bharat_sourcer.identity import Principal
@@ -423,8 +423,7 @@ class JobService:
             line.item = item.model_copy(deep=True)
             line.resolution = resolution
             for offer in line.offers:
-                offer.compatibility = assess(resolution.specs, offer.specs)
-                offer.compatibility.references.append(str(offer.url))
+                offer.compatibility = assess_offer(resolution, offer, job.project, job.items, item)
                 offer.compatibility_status = offer.compatibility.status
             line.selected_offer_url = None
             line.price_inr = line.grade = None
@@ -833,6 +832,7 @@ class JobService:
                 "Sourcing finished. Compatibility compares declared specs only; review evidence "
                 "and missing fields. Seller trust, tax and shipping remain unverified."
             )
+            reassess_report(record.job.report, record.job.project)
             update_costs(record.job.report)
             # Same transaction as the transition, so redelivered work cannot repeat it.
             complete_refresh(record.job)
