@@ -106,3 +106,21 @@ and is not evidence that cloud authentication or permissions work.
 References: [database creation](https://cloud.google.com/firestore/docs/manage-databases),
 [server authentication](https://firebase.google.com/docs/firestore/quickstart-server),
 [emulator configuration](https://cloud.google.com/firestore/native/docs/emulator).
+
+## Firestore TTL policies
+
+Firestore deletes expired documents through TTL policies on the `expires_at` timestamp
+field. Expired entries are also ignored on read, so the policies only reclaim storage.
+
+| Collection group | Contents | Enabled |
+| --- | --- | --- |
+| `backend_integration_jobs_usage` | Quota and usage counters | Before 7 October 2026 |
+| `backend_integration_jobs_cache` | Shared sourcing cache (`sourcing/cache.py`) | 7 October 2026 |
+| `backend_integration_jobs_audio` | Explain-aloud audio cache (`gemini_extras.py`) | 7 October 2026 |
+
+To add a policy for a new collection group:
+
+```bash
+gcloud firestore fields ttls update expires_at --collection-group=<group> \
+  --enable-ttl --project hackathon-510415 --database="(default)"
+```
