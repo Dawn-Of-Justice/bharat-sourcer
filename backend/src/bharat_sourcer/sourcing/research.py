@@ -234,6 +234,16 @@ def sufficient_offer(offers: list[VerifiedOffer]) -> VerifiedOffer | None:
     offer already exists, so the paid review is skipped for that line.
     """
     for offer in offers:
+        match = getattr(offer, "match", None)
+        if (
+            offer.stock == "in_stock"
+            and match is not None
+            and match.status in {"exact", "compatible"}
+            and (match.method == "deterministic_shortcut" or match.claims)
+            and not (offer.compatibility and offer.compatibility.grade in {"C", "D", "X"})
+        ):
+            # The spec judge confirmed this listing with verified quotes.
+            return offer
         compatibility = offer.compatibility
         if (
             offer.stock == "in_stock"

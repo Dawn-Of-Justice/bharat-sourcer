@@ -342,6 +342,8 @@ class BuyableSpec(Model):
     """
 
     origin: Literal["seed", "ai_inferred", "user"] = "seed"
+    # The BOM line's own name, so the judge always sees what the maker asked for.
+    part_name: ShortText | None = None
     category: PartCategory = "other"
     mount: Literal["tht", "smd", "any"] = "any"
     mount_origin: Literal["stated", "inferred", "user", "default"] = "default"

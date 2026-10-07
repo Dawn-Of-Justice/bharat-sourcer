@@ -456,3 +456,32 @@ def test_service_without_judge_keeps_the_legacy_gate():
     line = service.source(item)
     assert [o.title for o in line.offers] == ["33kohm  - 1/4 W Resistor"]
     assert line.buyable_spec.queries == ["33kohm resistor"]
+
+
+def test_judge_input_names_the_bom_part():
+    from bharat_sourcer.schemas import BomItem
+    from bharat_sourcer.sourcing.judge import compact_spec
+    from bharat_sourcer.sourcing.part_spec import buyable_spec
+
+    spec = compact_spec(buyable_spec(BomItem(line_id="L1", raw_name="5mm clear LED")))
+    assert spec["part_name"] == "5mm clear LED" and spec["queries"]
+
+
+def test_research_is_skipped_for_a_judge_confirmed_offer():
+    from bharat_sourcer.schemas import MatchClaim, OfferMatch, VerifiedOffer
+    from bharat_sourcer.sourcing.research import sufficient_offer
+
+    offer = VerifiedOffer(
+        url="https://seller.example/p/led",
+        seller="seller.example",
+        title="Synthetic 5mm white LED",
+        price_inr="5.00",
+        stock="in_stock",
+    )
+    assert sufficient_offer([offer]) is None
+    offer.match = OfferMatch(
+        status="exact", score=0.9, claims=[MatchClaim(claim="5 mm", quote="5mm white LED")]
+    )
+    assert sufficient_offer([offer]) is offer
+    offer.match = OfferMatch(status="partial", score=0.5)
+    assert sufficient_offer([offer]) is None

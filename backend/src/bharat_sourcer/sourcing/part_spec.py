@@ -348,11 +348,11 @@ def seed_spec(item: BomItem) -> BuyableSpec:
 def buyable_spec(item: BomItem, project: ProjectContext | None = None) -> BuyableSpec:
     """The spec sourcing uses for a line: the item's AI/user spec, guarded, or a seed."""
     if item.buyable_spec is None:
-        return seed_spec(item)
+        return seed_spec(item).model_copy(update={"part_name": item.raw_name[:200]})
     spec = guard_spec(item.buyable_spec, item_text(item), project_text(project, item))
     if not spec.queries:
         spec = spec.model_copy(update={"queries": seed_spec(item).queries})
-    return spec
+    return spec.model_copy(update={"part_name": item.raw_name[:200]})
 
 
 PACK = [
