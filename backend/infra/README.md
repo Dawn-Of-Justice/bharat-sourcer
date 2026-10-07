@@ -125,6 +125,21 @@ gcloud firestore fields ttls update expires_at --collection-group=<group> \
   --enable-ttl --project hackathon-510415 --database="(default)"
 ```
 
+## YouTube Data API key
+
+The secret `bharat-sourcer-youtube` (already created in Secret Manager, with accessor granted
+to `bharat-sourcer-api@hackathon-510415.iam.gserviceaccount.com`) must be mounted as
+`BS_YOUTUBE_API_KEY` at deploy:
+
+```bash
+gcloud run services update bharat-sourcer-integration --region asia-south1 --update-secrets=BS_YOUTUBE_API_KEY=bharat-sourcer-youtube:latest
+```
+
+Without it the description intake is skipped and video extraction is unchanged. YouTube API
+data on job snapshots (short description quotes, title, channel and links) is hidden from
+responses 30 days after `video_meta.fetched_at`. The snapshot itself is not purged yet (see
+`docs/contracts/multi-source-intake.md` §8).
+
 ## Demo and judging scaling (approved 7 October 2026)
 
 - **Max instances:** `bharat-sourcer-integration` was raised from 1 to 3 on 7 October 2026

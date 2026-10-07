@@ -120,7 +120,8 @@ reviewable edit proposals and a live snapshot stream. Existing endpoints remain 
 
 [Multi-source intake](multi-source-intake.md): Adafruit Learn and tutorial blog sources,
 GitHub code evidence, extra `sources` per job, fused BOM lines with `conflicts`,
-`lookalikes` and a `confidence` chip.
+`lookalikes` and a `confidence` chip. YouTube description intake (§8): evidence
+`source: "youtube_description"`, `job.video_meta` and 30-day retention.
 
 Base URL: `http://127.0.0.1:8000` (no `/api` prefix locally).
 

@@ -188,6 +188,12 @@ BS_GEMINI_MODEL=gemini-3.8-flash
 BS_EXTRACTION_TIMEOUT_S=120
 ```
 
+Optional: with `BS_YOUTUBE_API_KEY` (a YouTube Data API v3 key) set, the same Gemini call
+also reads the video's description. Links in it to supported project pages are added as
+extra sources, and short server-checked description quotes are served for 30 days; see
+[multi-source intake §8](../docs/contracts/multi-source-intake.md#8-youtube-description-intake).
+Without it, video extraction is unchanged.
+
 Keep the real key in the ignored `.env` file. Restart the server, then submit a public
 YouTube `watch`, `youtu.be`, `shorts`, or `embed` URL, or a supported project page (see
 [Project page extraction](#project-page-extraction)). Other sources return HTTP 400

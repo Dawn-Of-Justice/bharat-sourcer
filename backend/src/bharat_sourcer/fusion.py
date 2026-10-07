@@ -197,8 +197,8 @@ def merge(entry: Entry, item: BomItem, kind: str, group: int) -> None:
 def origin(evidence: Evidence) -> str:
     if evidence.source == "video":
         return "video"
-    if evidence.source == "code":
-        return "code"
+    if evidence.source in ("code", "youtube_description"):
+        return evidence.source
     return str(evidence.url)
 
 
@@ -236,6 +236,8 @@ def assess(entry: Entry) -> None:
         level, reason = "verified", f"{len(origins)} sources agree on this part."
     elif "video" in origins:
         level, reason = "likely", "One source: model-reported video timestamps."
+    elif "youtube_description" in origins:
+        level, reason = "likely", "One source: a quote checked in the video description."
     else:
         level, reason = "likely", "One source: a quote checked on the page."
     item.confidence, item.confidence_reason = level, reason[:300]
