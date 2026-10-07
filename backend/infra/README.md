@@ -124,3 +124,23 @@ To add a policy for a new collection group:
 gcloud firestore fields ttls update expires_at --collection-group=<group> \
   --enable-ttl --project hackathon-510415 --database="(default)"
 ```
+
+## Demo and judging scaling (approved 7 October 2026)
+
+- **Max instances:** `bharat-sourcer-integration` was raised from 1 to 3 on 7 October 2026
+  (revision `bharat-sourcer-integration-00045-q4w`). Leases and Firestore transactions are
+  multi-instance safe; daily quotas bound spend. The deploy workflow keeps scaling settings.
+- **Min instances (15 October – 6 November 2026):** keep one warm instance of each service
+  during recording and judging (about $0.65/day for both, about $15 in total):
+
+  ```bash
+  gcloud run services update bharat-sourcer-integration --region asia-south1 --min-instances=1
+  gcloud run services update bharat-sourcer-web --region asia-south1 --min-instances=1
+  ```
+
+  **Revert on 7 November 2026** (otherwise about $20/month):
+
+  ```bash
+  gcloud run services update bharat-sourcer-integration --region asia-south1 --min-instances=0
+  gcloud run services update bharat-sourcer-web --region asia-south1 --min-instances=0
+  ```
