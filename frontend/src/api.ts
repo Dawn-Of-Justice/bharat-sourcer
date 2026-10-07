@@ -280,3 +280,78 @@ export const resumeJob = (id: string, token: string) => request('/v1/jobs/' + en
 export const selectOffer = (id: string, token: string, lineId: string, url: string | null, acceptChanges = false, acceptResearchAssessment = false) => request<Job>('/v1/jobs/' + encodeURIComponent(id) + '/selections', { method: 'POST', body: JSON.stringify({ selections: [{ line_id: lineId, offer_url: url, accept_changes: acceptChanges, accept_research_assessment: acceptResearchAssessment }] }) }, token)
 export const refreshOffers = (id: string, token: string, lineIds: string[]) => request('/v1/jobs/' + encodeURIComponent(id) + '/refresh', { method: 'POST', body: JSON.stringify({ line_ids: lineIds }) }, token)
 export const updateRequirements = (id: string, token: string, lineId: string, requirements: PartRequirement[]) => request<Job>('/v1/jobs/' + encodeURIComponent(id) + '/specs', { method: 'POST', body: JSON.stringify({ updates: [{ line_id: lineId, requirements }] }) }, token)
+
+// --- report v0.21 ---
+// Report-side types (costing, order plan, recommendations, matching, trust, grades, markets, share, extras).
+// The ReportLine and Job interfaces below merge into the ones above; offers and report are widened through ReportOffer and Report.
+export interface CostAmount { amount_inr?: string | null; status?: 'known' | 'estimated' | 'unknown'; partial_inr?: string | null; assumptions?: string[] }
+export interface ShippingPolicyRef { seller: string; free_above_inr?: string | null; free_when?: 'above' | 'at_or_above'; flat_fee_inr?: string | null; fee_plus_gst?: boolean; unverified?: boolean; source_url?: string | null; checked_on?: string | null; note?: string | null }
+export interface SellerCost { seller: string; line_ids?: string[]; parts: CostAmount; gst: CostAmount; shipping: CostAmount; total: CostAmount; free_shipping_gap_inr?: string | null; policy?: ShippingPolicyRef | null }
+export interface ImportBaseline { line_ids?: string[]; complete?: boolean; goods_usd: string; fx_usd_inr: string; goods_inr: CostAmount; courier_inr: CostAmount; duty_inr: CostAmount; landed_inr: CostAmount; formula: string; sources?: string[] }
+export interface CostBreakdown { basis?: 'selected_offers' | 'plan'; complete?: boolean; sellers?: SellerCost[]; parts: CostAmount; gst: CostAmount; shipping: CostAmount; total: CostAmount; excluded_line_ids?: string[]; import_baseline?: ImportBaseline | null; savings_vs_import?: { amount_inr: string; status?: 'estimated'; assumptions?: string[] } | null; rates_checked_on?: string | null; disclaimer?: string }
+export type PlanGrade = 'A' | 'B' | 'C' | 'D' | 'X'
+export interface OrderPlanLine { line_id: string; name: string; offer_url: string; title?: string | null; qty: number; pack_qty?: number | null; packs: number; units: number; unit_price_inr: string; line_price_inr: string; selection_source?: 'recommended' | 'user' | null; selected?: boolean; grade?: PlanGrade | null; changes_required?: boolean; blocked_reason?: string | null }
+export interface OrderPlanSeller { seller: string; lines?: OrderPlanLine[]; subtotal_inr: string; gst: CostAmount; shipping: CostAmount; total: CostAmount; free_shipping_gap_inr?: string | null; policy?: ShippingPolicyRef | null; product_links?: string[] }
+export interface UnsourcedLine { line_id: string; name: string; reason: 'pending' | 'needs_value' | 'no_offers' | 'no_acceptable_offer' | 'needs_quantity' | 'cleared_by_user'; message: string; next_steps?: string[]; research_urls?: string[] }
+export interface OrderPlan { sellers?: OrderPlanSeller[]; unsourced?: UnsourcedLine[]; seller_count?: number; costing: CostBreakdown; ready?: boolean; disclaimer?: string }
+export interface LineImage { url: string; kind: 'selected_offer' | 'recommended_offer' | 'offer' | 'reference' | 'category' | 'placeholder'; label: string; source_url?: string | null }
+export interface LineRecommendation { status: 'recommended' | 'unsourced'; offer_url?: string | null; seller?: string | null; score?: number | null; reasons?: string[]; blocked_reason?: string | null; unsourced_reason?: Exclude<UnsourcedLine['reason'], 'cleared_by_user'> | null; next_steps?: string[]; qty?: number | null; pack_qty?: number | null; packs?: number | null }
+export interface OfferMatch { status: 'exact' | 'compatible' | 'partial' | 'mismatch'; score: number; matched?: string[]; missing?: string[]; conflicts?: string[]; reasons?: string[]; claims?: { claim: string; quote: string }[]; dropped_claims?: number; variant?: string | null; pack_qty?: number | null; method?: 'llm_judge' | 'deterministic_shortcut'; model?: string | null }
+export interface SellerTrust { label: 'established' | 'verified_basics' | 'unverified'; new_seller?: boolean; reasons?: string[]; signals?: { domain?: string | null; gstin?: string | null; price_anomaly?: boolean; policies?: ('returns' | 'shipping' | 'contact')[]; domain_age_days?: number | null }; checked_at?: string }
+export interface CompatFinding { rule: string; grade: PlanGrade; area: 'wiring' | 'code' | 'power' | 'safety' | 'verify'; message: string; change?: string | null; basis?: string[] }
+export interface OfferCompatibility { status: string; grade?: PlanGrade | null; reasons?: string[]; changes?: string[]; missing_fields?: string[]; method?: 'declared_specs' | 'catalog_rules'; grade_label?: string | null; findings?: CompatFinding[]; what_changes?: { wiring?: string[]; code?: string[]; power?: string[]; safety?: string[]; verify?: string[] } | null }
+export type ReportOffer = Omit<ReportLine['offers'][number], 'compatibility'> & { compatibility?: OfferCompatibility | null; match?: OfferMatch | null; pack_qty?: number | null; trust?: SellerTrust | null; tax_included?: boolean | null; tax_evidence?: string | null }
+export interface CostEstimate { total_usd?: number; budget_reached?: boolean; calls?: number; prices_checked?: string | null }
+export interface ReportLine { line_image?: LineImage | null; selection_source?: 'recommended' | 'user' | null; user_offer_url?: string | null; recommended_offer_url?: string | null; recommendation?: LineRecommendation | null; changes_accepted?: boolean; import_reference?: { price_usd: string; source?: 'user' | 'research_fact'; source_url?: string | null; quote?: string | null } | null; seller_search?: { queries?: string[]; candidate_urls?: string[]; sellers_checked?: number; blocked_sellers?: string[]; message?: string } | null }
+export interface Job { cost_estimate?: CostEstimate | null }
+export type Report = NonNullable<Job['report']> & { costing?: CostBreakdown | null; order_plan?: OrderPlan | null }
+export const reportOf = (job: Job) => job.report as Report | null
+export const offersOf = (line: ReportLine) => (line.offers ?? []) as ReportOffer[]
+
+export interface PlanPick { line_id: string; offer_url: string; seller: string; price_inr: string; grade: 'A' | 'B' | 'C' | 'D' | null; changes_required?: boolean; qty?: number | null; packs?: number | null }
+export interface CartPlan { kind: 'cheapest' | 'fewest_sellers' | 'recommended'; picks?: PlanPick[]; seller_count?: number; costing: CostBreakdown; matches_selection?: boolean }
+export interface CartPlans { plans?: CartPlan[]; method?: 'exhaustive' | 'greedy' | 'none'; uncovered_line_ids?: string[]; rules?: string[]; seller_penalty_inr?: string | null }
+export interface SelectionInput { line_id: string; offer_url: string | null; accept_changes?: boolean; accept_research_assessment?: boolean }
+const jobPath = (id: string, rest: string) => '/v1/jobs/' + encodeURIComponent(id) + rest
+export const getPlans = (id: string, token: string) => request<CartPlans>(jobPath(id, '/plans'), {}, token)
+export const selectOffers = (id: string, token: string, selections: SelectionInput[]) => request<Job>(jobPath(id, '/selections'), { method: 'POST', body: JSON.stringify({ selections }) }, token)
+export const setImportReferences = (id: string, token: string, references: { line_id: string; price_usd: string | null; source_url?: string | null }[]) => request<Job>(jobPath(id, '/import-references'), { method: 'POST', body: JSON.stringify({ references }) }, token)
+
+export interface MarketsResult { demo: boolean; location: { source: 'pin' | 'coordinates'; pin?: string | null; city?: string | null; latitude: number; longitude: number; approximate: boolean; label: string }; categories: string[]; summary?: string | null; summary_label?: string; places: { title: string; uri?: string | null; address?: string | null; place_id?: string | null }[]; attribution: { provider?: 'Google Maps'; sources: { title: string; uri: string; kind: 'place' | 'review' | 'web' }[]; rules?: string }; cached: boolean; model?: string | null; label: string }
+export const getMarkets = (id: string, token: string, place: { pin: string } | { lat: number; lng: number }) => request<MarketsResult>(jobPath(id, '/markets?' + new URLSearchParams('pin' in place ? { pin: place.pin } : { lat: String(place.lat), lng: String(place.lng) })), {}, token)
+
+export interface ShareStatus { active: boolean; created_at?: string | null }
+export interface ShareLink { share_token: string; path: string; created_at: string }
+export interface SharedProject { shared?: true; demo: boolean; status: JobStatus; source_url: string; project?: ProjectUnderstanding | null; created_at: string; updated_at: string; items: BomItem[]; report?: Report | null; notice: string }
+export const getShare = (id: string, token: string) => request<ShareStatus>(jobPath(id, '/share'), {}, token)
+export const createShare = (id: string, token: string) => request<ShareLink>(jobPath(id, '/share'), { method: 'POST' }, token)
+export const revokeShare = (id: string, token: string) => request<void>(jobPath(id, '/share'), { method: 'DELETE' }, token)
+export const getShared = (shareToken: string) => request<SharedProject>('/v1/shared/' + encodeURIComponent(shareToken))
+export const shareUrl = (shareToken: string) => window.location.origin + '/shared/' + encodeURIComponent(shareToken)
+
+export interface FeatureStatus { enabled: boolean; daily_limit: number; remaining: number }
+export interface ExtrasStatus { demo: boolean; explain: FeatureStatus; zoom: FeatureStatus; scan: FeatureStatus; languages: string[]; zoom_line_ids: string[]; scan_max_bytes: number; scan_mime_types: string[] }
+export interface Explanation { language: string; transcript: string; translated: boolean; audio_mime?: 'audio/wav'; audio_base64: string; duration_s: number; cached: boolean; demo: boolean; label: string }
+export const getExtras = (id: string, token: string) => request<ExtrasStatus>(jobPath(id, '/extras'), {}, token)
+export const explainAloud = (id: string, token: string, language: string) => request<Explanation>(jobPath(id, '/explain'), { method: 'POST', body: JSON.stringify({ language }) }, token)
+
+// CSV and printable HTML exports, fetched through the proxy so credentials are attached.
+// `path` is '/v1/jobs/{id}/export.csv' style, or '/v1/shared/{share_token}/export.html' for share links.
+export async function exportBlob(path: string, token?: string): Promise<Blob> {
+  if (import.meta.env.DEV && new URLSearchParams(window.location.search).get('preview') === '1') {
+    const csv = path.endsWith('.csv')
+    return new Blob([csv ? '# DEMO JOB,Dummy preview export; no API request was sent\r\ndata_label,line_id,part_name\r\ndemo_sample,L01,Sample controller board\r\n' : '<!doctype html><meta charset="utf-8"><title>Dummy export</title><p><strong>DEMO JOB</strong> · Dummy preview export; no API request was sent.</p>'], { type: csv ? 'text/csv' : 'text/html' })
+  }
+  const bearer = await identityToken()
+  let response: Response
+  try {
+    response = await fetch(`${API_BASE}${path}`, { credentials: 'include', cache: 'no-store', headers: { 'X-Requested-With': 'BharatSourcer', ...(bearer ? { Authorization: 'Bearer ' + bearer } : {}), ...(token ? { 'X-Job-Token': token } : {}) } })
+  } catch {
+    throw new Error('Could not reach the backend. Check the API URL and connection.')
+  }
+  if (!response.ok) {
+    const data = await response.json().catch(() => null)
+    throw new ApiError(response.status === 429 ? 'Usage limit reached. Please try again later.' : data?.error?.message || `Export failed (${response.status}).`, response.status, data?.error?.code)
+  }
+  return response.blob()
+}
