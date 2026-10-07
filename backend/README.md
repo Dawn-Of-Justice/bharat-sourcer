@@ -21,6 +21,14 @@ via Maps grounding (`GET /markets`), YouTube description intake (key mounted as
 `BS_YOUTUBE_API_KEY`; quotes expire after 30 days), and bot-protection detection that stops
 and reports instead of circumventing.
 
+Engine fixes (unreleased, after a live check on 2026-10-07): lines without an AI spec
+(older jobs, user-added or renamed lines) get one batched `spec` call per job when sourcing
+starts (`BS_SPEC_WRITER_ENABLED`, saved on the items); seed specs classify the category and
+flag `needs_value`; a line whose value is unknown is never auto-selected (only a kit can be
+recommended); the judge's server checks downgrade listings whose numbers contradict the
+spec (4 mm rod vs 0.5–1 mm wire); and a skipped research review is labelled
+`research_skipped`. See [part matching](../docs/contracts/part-matching.md).
+
 v0.20.0 closes most of the planned MVP gaps. Deterministic [safety flags](../docs/contracts/safety-flags.md)
 (MAINS, LIPO, HIGH_CURRENT, LEVEL_SHIFT) appear on every job. [Costing](../docs/contracts/costing.md) adds
 GST detection, dated seller shipping policies, a per-seller breakdown with known/estimated/unknown

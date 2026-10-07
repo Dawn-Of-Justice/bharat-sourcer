@@ -41,8 +41,8 @@ Other behaviour:
 
 | Field | Meaning |
 | --- | --- |
-| `stages` | Stages in the order they ran, e.g. `["seller_search","judge"]` or `["seller_search","judge","grounded","judge","research"]` |
-| `gemini_calls` | Paid model calls the line used: grounded discovery + research + follow-up discovery. The stub judge makes none; a real LLM judge is counted by the main integration |
+| `stages` | Stages in the order they ran, e.g. `["seller_search","judge"]` or `["seller_search","judge","grounded","judge","research"]`. `research_skipped` replaces `research` when the review was skipped (a sufficient offer or the budget), so no model call was made |
+| `gemini_calls` | Paid model calls the line used: grounded discovery + research (only when the review ran) + follow-up discovery. Judge calls and the job-level `spec` call are not counted per line; see `job.cost_estimate.calls_by_site` |
 | `seller_search` | `{queries, candidate_urls, sellers_checked, blocked_sellers, message}` or `null` when seller search did not run. `candidate_urls` are **unverified leads** |
 
 `attribution` stays Google grounding only (and `null` when grounded discovery was skipped);

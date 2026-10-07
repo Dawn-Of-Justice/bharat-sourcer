@@ -751,6 +751,50 @@ class JobService:
 
         self.store.mutate(job_id, change)
 
+    def _write_specs(self, job_id, run_id, claimed, pending, searched, ledger, save_cost):
+        """One batched call writes AI buying specs for lines without one (older jobs).
+
+        Only lines this run will source (within the part limit) are included. The specs are
+        saved on the job's items so later runs and refreshes reuse them; on any failure the
+        lines keep their seed specs. Returns `pending` with the new specs applied.
+        """
+        write_specs = getattr(self.sourcing, "write_specs", None)
+        if write_specs is None:
+            return pending
+        limit = min(self.sourcing_max_parts, claimed.part_limit or self.sourcing_max_parts)
+        sourced = [item for item in pending if not item.user_has_it][: max(0, limit - searched)]
+        targets = [item for item in sourced if item.buyable_spec is None]
+        if not targets:
+            return pending
+        with attribute(ledger):
+            written = write_specs(targets, claimed.job.project)
+        if not written:
+            if ledger.calls:
+                self.store.mutate(job_id, save_cost)
+            return pending
+        names = {item.line_id: item.raw_name for item in targets}
+
+        def save_specs(record: StoredJob):
+            if record.run_id != run_id or record.job.status != "sourcing":
+                return
+            for item in record.job.items:
+                spec = written.get(item.line_id)
+                # Never replace a spec saved meanwhile, or describe a renamed line.
+                if spec and item.buyable_spec is None and item.raw_name == names[item.line_id]:
+                    item.buyable_spec = spec.model_copy(deep=True)
+            save_cost(record)
+
+        self.store.mutate(job_id, save_specs)
+
+        def with_spec(item: BomItem) -> BomItem:
+            spec = written.get(item.line_id)
+            if spec is None or item.buyable_spec is not None:
+                return item
+            return item.model_copy(update={"buyable_spec": spec.model_copy(deep=True)})
+
+        claimed.job.items = [with_spec(item) for item in claimed.job.items]
+        return [with_spec(item) for item in pending]
+
     def _source(self, job_id: str, *, one_line: bool = False) -> None:
         if self.sourcing is None:
             return
@@ -798,6 +842,8 @@ class JobService:
             # The lease makes this run the only writer, so the running ledger is authoritative.
             if ledger.calls or ledger.cache_hits or record.job.cost_estimate:
                 record.job.cost_estimate = ledger.snapshot()
+
+        pending = self._write_specs(job_id, run_id, claimed, pending, searched, ledger, save_cost)
 
         def source_item(item, limited):
             if limited:

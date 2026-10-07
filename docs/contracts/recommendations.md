@@ -39,6 +39,7 @@ There are three more rules:
 
 - **Requirements.** Evidence showing that a declared requirement is not met excludes the offer. If the evidence is missing, the offer is not excluded, but it gets a reason and cannot be auto-selected.
 - **Packs.** When `offer.pack_qty` is known (from the matching stream), the cost is `ceil(qty / pack_qty) × price`. The reason states the packs, the unit cost and any spare units. Without `pack_qty`, the listing price is treated as a unit price.
+- **Unknown value.** When the line's spec has `needs_value` (the spec it was sourced with, a user edit, or the seed spec from the name), a single fixed-value listing is **excluded** ("a single-value listing would guess it"); only kits and assortments (title says kit, assortment, "30 values"…; a "pack of 10" of one value is not a kit) can be recommended.
 - **Acceptable offers** score at least `MIN_ACCEPTABLE` (0.5) and are not excluded. Only acceptable offers are ever recommended.
 
 ## Basket rules (order consolidation)
@@ -58,7 +59,10 @@ without a research approval:
 - the offer is in stock;
 - it was checked within 24 hours;
 - every declared requirement is met by evidence, and none is contradicted;
-- its grade is **A or B**, or it has no rule grade and is **judge-confirmed**.
+- its grade is **A or B**, or it has no rule grade and is **judge-confirmed**;
+- the line's value is known (`needs_value` is false). A kit recommended for a line without
+  a known value is never applied: `blocked_reason` says the value is not known and
+  `next_steps` starts with "Choose the value for …". `GET /plans` leaves such lines out.
 
 **Judge-confirmed** means the spec judge ([part matching](part-matching.md)) rated the
 listing `exact` or `compatible`, backed by quotes the server found verbatim in the listing
@@ -156,7 +160,8 @@ selected. It is `null` for demo reports.
 Unsourced `reason` values:
 
 - `pending`: sourcing or recommendations have not run yet;
-- `needs_value`: a missing spec blocks matching;
+- `needs_value`: a missing spec blocks matching, or the part's value is not known and no kit
+  was found (next step: "Choose the value for …");
 - `no_offers`: no verified listing was found (the research candidates are listed);
 - `no_acceptable_offer`: every listing was excluded or scored too low;
 - `needs_quantity`: the quantity is unknown;

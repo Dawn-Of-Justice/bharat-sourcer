@@ -42,6 +42,7 @@ from bharat_sourcer.schemas import (
     VerifiedOffer,
     now,
 )
+from bharat_sourcer.sourcing.part_spec import is_assortment, seed_spec
 from bharat_sourcer.sourcing.research import check_requirements
 
 # One table for every scoring factor: (weight, value per state). The score is the weighted
@@ -93,6 +94,38 @@ class ScoreContext:
     cheapest_cost: Decimal | None
     any_available: bool
     at: datetime
+    value_unknown: bool = False
+
+
+def line_spec(line: ReportLine):
+    """The buying spec that governs this line: the user's own edit, else the spec it was
+    sourced with, else the item's AI spec, else the seed spec from the name."""
+    item_spec = line.item.buyable_spec
+    if item_spec is not None and item_spec.origin == "user":
+        return item_spec
+    spec = line.buyable_spec or item_spec
+    if spec is None or spec.origin == "seed":
+        # Seeds are deterministic: rebuild them, so lines sourced with an older seed (which
+        # never set needs_value) follow the current rules too.
+        return seed_spec(line.item)
+    return spec
+
+
+def value_unknown(line: ReportLine) -> bool:
+    """The part's value (resistance, capacitance...) is not known: never guess it."""
+    return bool(line_spec(line).needs_value)
+
+
+def value_step(line: ReportLine) -> str:
+    spec = line_spec(line)
+    reason = f" ({spec.needs_value_reason})" if spec.needs_value_reason else ""
+    return f"Choose the value for {line.item.raw_name}{reason}"
+
+
+VALUE_BLOCK = (
+    "Not selected automatically: the part's value is not known; choose the value first "
+    "(a kit can cover it, a single-value listing would be a guess)."
+)
 
 
 @dataclass(frozen=True)
@@ -131,8 +164,8 @@ def judge_confirmed(offer: VerifiedOffer) -> bool:
 
 
 def eligible(line: ReportLine, offer: VerifiedOffer) -> bool:
-    """Could /selections accept this offer without a research approval?"""
-    return selection_block(line, offer) is None
+    """Could this offer be chosen automatically (plans) without a research approval?"""
+    return not value_unknown(line) and selection_block(line, offer) is None
 
 
 def selection_block(line: ReportLine, offer: VerifiedOffer) -> str | None:
@@ -184,6 +217,7 @@ def context_for(line: ReportLine) -> ScoreContext:
         cheapest_cost=min(costs, default=None),
         any_available=available,
         at=now(),
+        value_unknown=value_unknown(line),
     )
 
 
@@ -208,6 +242,12 @@ def score_offer(line: ReportLine, offer: VerifiedOffer, context: ScoreContext) -
             value *= 1 - MATCH_SCORE_SPAN + MATCH_SCORE_SPAN * max(0.0, min(1.0, match_score))
             reason += f" (score {match_score:.2f})"
         add("match", value, reason)
+
+    if context.value_unknown and not is_assortment(offer.title):
+        excluded = excluded or "the part's value is not known (a single-value listing guesses it)"
+        reasons.append("Value: not known; a single-value listing would guess it (excluded)")
+    elif context.value_unknown:
+        reasons.append("Value: not known; this kit or assortment covers several values")
 
     grade = offer.compatibility.grade if offer.compatibility else None
     if grade == "X":
@@ -452,6 +492,13 @@ def unsourced_recommendation(line: ReportLine, scores: list[OfferScore]) -> Line
                 unsourced_reason="pending",
                 reasons=["Sourcing has not checked this part yet"],
             )
+        if value_unknown(line) and not (questions or missing):
+            return LineRecommendation(
+                status="unsourced",
+                unsourced_reason="needs_value",
+                reasons=[f"Needs a value: choose the value for {name}"],
+                next_steps=[value_step(line)],
+            )
         if questions or missing:
             fields = ", ".join(missing) or "the missing value"
             return LineRecommendation(
@@ -471,9 +518,14 @@ def unsourced_recommendation(line: ReportLine, scores: list[OfferScore]) -> Line
     if any(s.excluded is None for s in scores):
         why.append("the remaining listings scored below the acceptance threshold")
     steps = questions + research_steps
+    unknown = value_unknown(line)
+    if unknown:
+        steps = [value_step(line), *steps]
     return LineRecommendation(
         status="unsourced",
-        unsourced_reason="needs_value" if questions or missing else "no_acceptable_offer",
+        unsourced_reason="needs_value"
+        if questions or missing or unknown
+        else "no_acceptable_offer",
         reasons=[f"No acceptable listing: {'; '.join(why)}"],
         next_steps=steps or ["Refresh this part or review the listings and choose one yourself"],
     )
@@ -616,7 +668,9 @@ def apply_recommendations(report: Report | None, penalty: Decimal = SELLER_PENAL
         if entry is None:
             continue  # owned, or a fixed user selection: its last recommendation stays
         offer = entry.offer
-        block = selection_block(line, offer)
+        unknown = value_unknown(line)
+        # A kit on a line without a known value is recommended, never selected for the user.
+        block = VALUE_BLOCK if unknown else selection_block(line, offer)
         reasons = list(entry.reasons) + basket_reasons(line_id, entry, basket, penalty)
         if block is None and offer.compatibility and offer.compatibility.grade == "B":
             reasons.append("Grade B: acknowledge the listed changes before ordering")
@@ -631,6 +685,7 @@ def apply_recommendations(report: Report | None, penalty: Decimal = SELLER_PENAL
             qty=line.item.qty,
             pack_qty=entry.pack_qty,
             packs=entry.packs,
+            next_steps=[value_step(line)] if unknown else [],
         )
         if block is None and line.selection_source != "user":
             select(line, offer, "recommended")

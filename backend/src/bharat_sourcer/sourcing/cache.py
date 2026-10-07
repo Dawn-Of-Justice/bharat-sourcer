@@ -33,6 +33,9 @@ TTL = {
     "seller_search": 6 * HOUR,  # seller + query -> candidate URLs
     "research": 7 * DAY,  # normalised spec + documents -> quote-checked research evidence
     "markets": 7 * DAY,  # rounded lat/lng + part categories -> Maps-grounded shop list
+    # item text + project hash -> guarded buyable spec. Derived from that project's text, so
+    # only a job with the same item and the same project context can read it.
+    "spec": 7 * DAY,
 }
 NAMESPACES = frozenset(TTL)
 

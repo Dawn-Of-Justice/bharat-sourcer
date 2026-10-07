@@ -74,6 +74,7 @@ units normalised, whitespace collapsed), so `33kΩ resistor`, `33K resistor` and
 | `page` | URL | extracted offer | 8 h |
 | `seller_search` | seller + query | candidate URLs | 6 h |
 | `research` | normalised part + specs/requirements + document URLs | quote-checked candidates | 7 days |
+| `spec` | normalised item name + qty + requirements + project-context hash | guarded buyable spec (derived from that project, so only the same item in the same project reads it) | 7 days |
 
 Backends: in memory (local and tests, LRU of 2,048 entries) and Firestore collection
 `<BS_FIRESTORE_COLLECTION>_cache`, one document per key with `expires_at`; values over

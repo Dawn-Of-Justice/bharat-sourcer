@@ -39,6 +39,7 @@ from bharat_sourcer.sourcing.platforms import storefront_offer
 from bharat_sourcer.sourcing.politeness import BlockedError
 from bharat_sourcer.sourcing.research import Researcher, needs_followup, review_or_skip
 from bharat_sourcer.sourcing.seller_search import SearchResult, SellerSearch, query_variants
+from bharat_sourcer.sourcing.spec_writer import needs_spec
 from bharat_sourcer.sourcing.trust import TrustChecker
 from bharat_sourcer.usage import record_usage
 
@@ -57,6 +58,12 @@ class DiscoveryError(Exception):
 
 class Discoverer(Protocol):
     def discover(self, query: str) -> SearchAttribution: ...
+
+
+class SpecWriter(Protocol):
+    def write(
+        self, items: list[BomItem], project: ProjectContext | None
+    ) -> dict[str, BuyableSpec]: ...
 
 
 # Grounding chunk titles are source domains. Ranking only reorders grounded URLs; it
@@ -243,6 +250,7 @@ class SourcingService:
         judge: Judge | None = None,
         seller_fetch_budget: int = 8,
         seller_limit: int = 5,
+        spec_writer: "SpecWriter | None" = None,
     ):
         self.discovery = discovery
         self.fetcher = fetcher
@@ -254,8 +262,22 @@ class SourcingService:
         self.judge = judge
         self.seller_fetch_budget = seller_fetch_budget
         self.seller_limit = seller_limit
+        # Writes AI buying specs for lines without one (older jobs); None keeps seed specs.
+        self.spec_writer = spec_writer
         self._recent: dict[str, tuple[float, Future, str]] = {}
         self._recent_lock = threading.Lock()
+
+    def write_specs(
+        self, items: list[BomItem], project: ProjectContext | None
+    ) -> dict[str, BuyableSpec]:
+        """AI buying specs (by line_id) for lines that have none; {} on any failure."""
+        if self.spec_writer is None or not any(needs_spec(item) for item in items):
+            return {}
+        try:
+            return self.spec_writer.write(items, project)
+        except Exception:
+            logging.getLogger(__name__).warning("SPEC_WRITER_FAILED", exc_info=True)
+            return {}
 
     def _review(
         self,
@@ -450,6 +472,12 @@ class SourcingService:
                     sources=captured[0][2],
                     summary="Part research failed; verified offers remain available.",
                 )
+            if line.research.status != "skipped":
+                # The probe recorded a skipped review; the real one ran here.
+                line.stages = [
+                    "research" if stage == "research_skipped" else stage for stage in line.stages
+                ]
+                line.gemini_calls += 1
             candidates = {str(c.url): c for c in line.research.candidates}
             for offer in line.offers:
                 if str(offer.url) in candidates:
@@ -557,7 +585,6 @@ class SourcingService:
                 logging.getLogger(__name__).warning("SELLER_TRUST_FAILED", exc_info=True)
         research = None
         if self.researcher:
-            stages.append("research")
             try:
                 research = review_or_skip(
                     self.researcher, item, pages, sources[:16], project_items, offers
@@ -568,6 +595,8 @@ class SourcingService:
                     sources=sources[:16],
                     summary="Part research failed; verified offers remain available.",
                 )
+            # A skipped review made no model call: label it and do not count it.
+            stages.append("research_skipped" if research.status == "skipped" else "research")
             if research.status != "skipped":
                 gemini_calls += 1
             candidates = {str(c.url): c for c in research.candidates}
