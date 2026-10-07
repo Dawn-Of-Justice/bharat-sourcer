@@ -123,7 +123,7 @@ class Settings(BaseSettings):
     # rounded location and category set, cached; India availability verified 2026-10-07.
     markets_enabled: bool = True
     markets_daily_limit: int = Field(default=5, ge=1, le=100)
-    markets_global_daily_limit: int = Field(default=200, ge=1)
+    markets_global_daily_limit: int = Field(default=50, ge=1)
     markets_cache_ttl_s: int = Field(default=7 * 86400, ge=0, le=30 * 86400)
     cors_origins: list[str] = ["http://localhost:5173", "http://127.0.0.1:5173"]
 

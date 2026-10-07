@@ -87,7 +87,7 @@ sources; label them as a sample and do not show a Google Maps attribution for th
 | --- | --- | --- |
 | `BS_MARKETS_ENABLED` | `true` | Enables the endpoint (503 `FEATURE_DISABLED` when false) |
 | `BS_MARKETS_DAILY_LIMIT` | `5` | Uncached lookups per owner per UTC day |
-| `BS_MARKETS_GLOBAL_DAILY_LIMIT` | `200` | Uncached lookups across all owners per UTC day |
+| `BS_MARKETS_GLOBAL_DAILY_LIMIT` | `50` | Uncached lookups across all owners per UTC day (keeps Maps inside the 5,000/month free grounding pool it shares with sourcing) |
 | `BS_MARKETS_CACHE_TTL_S` | `604800` | Shared cache lifetime (7 days; 0 disables writes) |
 
 The model is `BS_GEMINI_MODEL` (per-site override `BS_GEMINI_SITE_MODELS={"markets": …}`)
