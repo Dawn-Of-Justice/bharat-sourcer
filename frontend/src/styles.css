@@ -325,3 +325,132 @@ svg { display: block; }
 .qty-inferred { margin: 8px 0 0; }
 .requirement-origin { grid-column: 1 / -1; }
 .requirement-origin .inferred-tag { margin-left: 0; }
+
+/* report v0.21 */
+.report-toolbar { display: flex; flex-wrap: wrap; align-items: start; gap: 10px; margin: 0 0 14px; }
+.report-export { display: flex; flex-wrap: wrap; gap: 8px; }
+.report-export .form-error { flex-basis: 100%; margin-top: 4px; }
+.report-views { display: flex; flex-wrap: wrap; gap: 8px; margin: 6px 0 16px; }
+.report-views .nav-cta[aria-pressed="true"], .plan-toggle .nav-cta[aria-pressed="true"] { border-color: #19766d; background: #e9f2ea; color: #0f5f57; }
+.report-chip, .cost-chip, .trust-badge { display: inline-block; padding: 2px 8px; border: 1px solid #d5dfd5; border-radius: 99px; background: #fff; color: #35564d; font-size: 11px; font-weight: 800; line-height: 1.5; white-space: nowrap; }
+.cost-known { border-color: #b9dcc4; background: #eef8f0; color: #286d51; }
+.cost-estimated { border-color: #efd3a3; background: #fff5df; color: #765526; }
+.cost-unknown { border-color: #e4c3bd; background: #fdf0ed; color: #8a3a2f; }
+.choice-recommended { border-color: #efd3a3; background: #fff5df; color: #765526; }
+.choice-user { border-color: #b9dcc4; background: #eef8f0; color: #286d51; }
+.choice-blocked { border-color: #e4c3bd; background: #fdf0ed; color: #8a3a2f; }
+.plan-chips, .selection-badges, .trust-badges { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.plan-chips { margin: 6px 0; }
+.selection-badges small, .trust-hint { color: #758781; font-size: 11px; }
+.trust-established, .trust-verified_basics { border-color: #b9dcc4; color: #286d51; }
+.trust-unverified, .trust-cheap { border-color: #e4c3bd; background: #fdf0ed; color: #8a3a2f; white-space: normal; }
+.trust-new { border-color: #efd3a3; background: #fff5df; color: #765526; }
+.trust-none { color: #758781; }
+.offer > div > .trust-badge, .offer > div > .trust-badges, .offer > div > .plan-chips { justify-self: start; }
+.trust-why, .why-popover, .match-chip, .grade-chip { position: relative; font-size: 11px; color: #35564d; }
+.trust-why > summary, .why-popover > summary { cursor: pointer; color: #156d62; font-weight: 800; }
+.match-chip > summary, .grade-chip > summary { display: inline-block; padding: 2px 8px; border: 1px solid #d5dfd5; border-radius: 99px; background: #fff; cursor: pointer; font-weight: 800; line-height: 1.5; list-style: none; }
+.match-chip > summary::-webkit-details-marker, .grade-chip > summary::-webkit-details-marker { display: none; }
+.match-exact > summary, .grade-A > summary { border-color: #b9dcc4; background: #eef8f0; color: #286d51; }
+.match-compatible > summary, .grade-B > summary { border-color: #b8d3e6; background: #eef5fb; color: #23506f; }
+.match-partial > summary, .grade-C > summary, .grade-D > summary { border-color: #efd3a3; background: #fff5df; color: #765526; }
+.match-mismatch > summary, .grade-X > summary { border-color: #e4c3bd; background: #fdf0ed; color: #8a3a2f; }
+.match-chip > div, .grade-chip > div, .why-popover > div, .trust-why > ul { margin-top: 6px; padding: 10px 12px; border: 1px solid #dfe7df; border-radius: 8px; background: #fffefa; box-shadow: 0 8px 18px #2c554014; line-height: 1.5; }
+.trust-why > ul, .match-chip ul, .grade-chip ul, .why-popover ul { margin: 6px 0; padding-left: 18px; }
+.trust-why small, .match-chip small, .grade-chip small { display: block; color: #758781; }
+.grade-chip h5 { margin: 8px 0 2px; color: #2b5553; font-size: 11px; text-transform: uppercase; letter-spacing: .08em; }
+.changes-safety, .changes-safety h5 { color: #8a3a2f; }
+.grade-findings { list-style: none; padding-left: 0 !important; }
+.grade-findings li { margin-bottom: 6px; }
+.offer-title, .plan-line-title, .plan-variant { display: block; color: #4d6264; font-size: 11px; }
+.order-plan { display: grid; gap: 14px; }
+.plan-header p { margin: 0 0 4px; color: #35564d; font-size: 13px; line-height: 1.5; }
+.plan-disclaimer { color: #73837d !important; font-size: 12px !important; }
+.seller-card { padding: 17px; border: 1px solid #e0e8de; border-radius: 11px; background: #fbfcf9; }
+.seller-card-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: start; gap: 10px; }
+.seller-card-head h3 { margin: 4px 0 0; color: #1b3b42; font-size: 17px; overflow-wrap: anywhere; }
+.plan-lines { display: grid; gap: 10px; margin: 14px 0; padding: 0; list-style: none; }
+.plan-line { display: flex; gap: 12px; padding: 12px; border: 1px solid #dfebdf; border-radius: 8px; background: #fff; }
+.plan-line-blocked { border-style: dashed; }
+.plan-line-body { flex: 1; min-width: 0; }
+.plan-line-head { display: flex; justify-content: space-between; gap: 12px; }
+.plan-line-head strong { color: #1b3b42; font-size: 14px; }
+.plan-line-price { display: grid; justify-items: end; text-align: right; white-space: nowrap; }
+.plan-line-price small, .plan-qty { color: #72867d; font-size: 12px; }
+.plan-qty { margin: 4px 0 0; }
+.plan-blocked, .plan-changes p { margin: 6px 0; color: #8a3a2f; font-size: 12px; line-height: 1.5; }
+.plan-blocked::before { content: "⚠ "; }
+.plan-line-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 6px; }
+.plan-line-actions a, .product-links a, .seller-policy a, .research-links a, .markets-places a, .maps-sources a { color: #156d62; font-size: 12px; font-weight: 800; text-decoration: underline; text-underline-offset: 2px; }
+.plan-change .offers-list { margin-left: 0; }
+.seller-totals, .cost-summary dl, .import-card dl { display: grid; gap: 6px; margin: 0; }
+.cost-row { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px; color: #35564d; font-size: 13px; }
+.cost-row dd { margin: 0; display: flex; align-items: center; gap: 6px; }
+.seller-policy p { margin: 8px 0 0; color: #5f746d; font-size: 12px; line-height: 1.5; }
+.free-gap { color: #765526 !important; font-weight: 750; }
+.product-links { margin-top: 10px; font-size: 12px; color: #35564d; }
+.product-links small { display: block; color: #758781; }
+.product-links ul { margin: 6px 0 0; padding-left: 18px; }
+.unsourced-group, .cost-summary, .import-card, .markets-card, .plan-compare, .explain-aloud, .share-control { padding: 17px; border: 1px solid #e0e8de; border-radius: 11px; background: #fbfcf9; }
+.unsourced-group h3, .cost-summary h3, .import-card h3, .markets-card h3 { margin: 0 0 10px; color: #1b3b42; font-size: 16px; }
+.unsourced-group > ul { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
+.unsourced-group > ul > li { padding: 12px; border: 1px dashed #d5dfd5; border-radius: 8px; background: #fff; font-size: 13px; color: #35564d; }
+.unsourced-head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; }
+.unsourced-group p { margin: 6px 0; line-height: 1.5; }
+.next-steps { margin: 6px 0; padding-left: 18px; line-height: 1.5; }
+.research-links a { margin-left: 6px; }
+.cost-summary, .import-card, .markets-card { margin-top: 16px; }
+.order-plan .cost-summary { margin-top: 0; }
+.cost-unknown-note { margin: 8px 0 0; color: #8a3a2f; font-size: 12px; }
+.cost-sellers { display: grid; gap: 8px; margin: 12px 0 0; padding: 0; list-style: none; }
+.cost-sellers li { padding: 10px; border: 1px solid #e0e8de; border-radius: 8px; background: #fff; }
+.cost-sellers li > div { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; font-size: 13px; color: #35564d; }
+.cost-notes { margin-top: 10px; color: #5f746d; font-size: 12px; }
+.cost-notes summary, .plan-compare > summary, .share-control > summary, .import-card summary { cursor: pointer; color: #2b5553; font-weight: 800; }
+.cost-notes ol { padding-left: 20px; line-height: 1.5; }
+.cost-disclaimer { margin: 10px 0 0; color: #73837d; font-size: 12px; line-height: 1.6; }
+.plan-compare > summary, .share-control > summary { font-size: 13px; }
+.plan-toggle { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+.plan-preview { color: #35564d; font-size: 13px; line-height: 1.5; }
+.plan-preview ul { padding-left: 18px; }
+.import-formula { overflow-x: auto; padding: 10px; border-radius: 7px; background: #f1f4ef; font-size: 11px; white-space: pre-wrap; }
+.import-savings { margin: 10px 0 0; color: #286d51; font-size: 13px; font-weight: 750; }
+.import-card p, .import-card small { color: #5f746d; font-size: 12px; line-height: 1.5; }
+.import-row { display: grid; grid-template-columns: minmax(0, 1fr) 110px minmax(0, 1.2fr); gap: 8px; align-items: end; margin: 8px 0; font-size: 12px; color: #35564d; }
+.import-row label, .markets-form label, .share-copy label, .explain-controls label { display: grid; gap: 4px; color: #516b65; font-size: 11px; font-weight: 800; }
+.import-row input, .markets-form input, .share-copy input, .explain-controls select { height: 38px; padding: 0 10px; border: 1px solid #d5dfd5; border-radius: 7px; background: #fff; color: #1b3a3d; font: inherit; font-size: 13px; }
+.markets-card > p { margin: 6px 0 10px; color: #667973; font-size: 13px; line-height: 1.5; }
+.markets-form { display: flex; flex-wrap: wrap; align-items: end; gap: 10px; }
+.markets-form input { width: 120px; }
+.markets-result { margin-top: 14px; color: #35564d; font-size: 13px; line-height: 1.55; }
+.markets-location { margin: 0 0 8px; color: #5f746d; font-size: 12px; }
+.markets-label { margin: 0 0 6px; font-weight: 800; color: #765526; }
+.markets-summary { white-space: pre-line; }
+.markets-places, .maps-sources { margin: 8px 0 0; padding-left: 18px; }
+.markets-places small { display: block; color: #758781; }
+.maps-sources { font-size: 12px; }
+.markets-meta { display: block; margin-top: 8px; color: #758781; }
+.no-break { white-space: nowrap; }
+.share-control { flex: 1 1 280px; font-size: 13px; color: #35564d; }
+.share-control p { margin: 8px 0; line-height: 1.5; }
+.share-warning { color: #765526; font-size: 12px; }
+.share-copy { display: flex; flex-wrap: wrap; align-items: end; gap: 8px; }
+.share-copy label { flex: 1 1 220px; }
+.share-buttons { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.share-notice { margin: 0 0 16px; padding: 13px 15px; border: 1px solid #b8d3e6; border-radius: 9px; background: #eef5fb; color: #23506f; font-size: 14px; line-height: 1.5; }
+.explain-aloud { margin-bottom: 14px; }
+.explain-controls { display: flex; flex-wrap: wrap; align-items: end; gap: 10px; }
+.explain-controls small { color: #758781; font-size: 11px; }
+.explain-result { margin-top: 10px; font-size: 13px; color: #35564d; }
+.explain-result audio { width: 100%; max-width: 420px; }
+.report-diagnostics { margin: 16px 0 0; color: #5f746d; font-size: 12px; }
+@media (max-width: 600px) {
+  .plan-line { flex-direction: column; }
+  .plan-line-head { flex-direction: column; }
+  .plan-line-price { justify-items: start; text-align: left; }
+  .import-row { grid-template-columns: 1fr; }
+  .seller-card, .unsourced-group, .cost-summary, .import-card, .markets-card, .plan-compare, .explain-aloud, .share-control { padding: 13px; }
+}
+@media print {
+  .report-toolbar, .report-views, .plan-compare, .markets-form, .explain-aloud, .plan-line-actions button { display: none; }
+}

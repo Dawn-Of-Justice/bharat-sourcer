@@ -1,5 +1,6 @@
 import { ApiError } from './api'
 import type { ChatMessage, Job, JobStatus, BomItem, ProjectUnderstanding } from './api'
+import { planPreview, previewReportRequest } from './previewReport'
 
 const items: BomItem[] = ['Sample controller board', 'Sample sensor module', 'Jumper wires'].map((raw_name, index) => ({ line_id: 'L0' + (index + 1), raw_name, qty: index === 2 ? 10 : 1, user_has_it: false, user_edited: false, evidence: [], clarifications: [] }))
 // Dummy AI-inferred states: a quantity the source did not state and pre-filled build details, each with a reason.
@@ -10,7 +11,7 @@ items[0] = { ...items[0], requirements: [
 ] }
 const project: ProjectUnderstanding = { title: 'Demo: Sensor logger', title_source: 'ai', description: 'Dummy battery-powered sensor logger for UI preview.', description_source: 'ai', summary: 'Dummy preview project: a sample battery-powered sensor logger. Not extracted from a real source.', power: 'Sample 3.7 V Li-ion cell (dummy)', controller: 'Sample controller board (dummy)', interfaces: ['I2C', 'USB'], assumptions: ['Dummy assumption: the sensor runs at 3.3 V logic.', 'Dummy assumption: one sensor per build.'], origin: 'ai_inferred' }
 const phase = new URLSearchParams(window.location.search).get('stage')
-const status: JobStatus = phase === 'done' ? 'done' : phase === 'sourcing' ? 'sourcing' : 'awaiting_confirmation'
+const status: JobStatus = phase === 'done' || phase === 'plan' ? 'done' : phase === 'sourcing' ? 'sourcing' : 'awaiting_confirmation'
 const lines = items.map(item => ({ item, sourcing_status: 'offers_found' as const, sourcing_error: null, subtotal_inr: '199', offers: [{ url: '#demo-seller', seller: 'Sample seller (dummy)', title: item.raw_name, price_inr: '199', stock: 'sample_stock', checked_at: new Date().toISOString(), image_url: '/preview-part.svg', compatibility: null, spec_conflicts: item.line_id === 'L01' ? [{ field: 'logic_v', candidates: [{ field: 'logic_v', value: '3.3 V', source: 'seller_title' as const, locator: 'dummy title' }, { field: 'logic_v', value: '5 V', source: 'seller_table' as const, locator: 'dummy table' }] }] : [] }] }))
 let job: Job = { job_id: 'ui-preview', status, updated_at: new Date().toISOString(), demo: true, input: { url: 'https://example.com/dummy-video' }, items, project, events: [], report: status === 'awaiting_confirmation' ? null : { summary: 'Dummy preview', lines: status === 'done' ? lines : [lines[2]], selected_parts_subtotal_inr: '0', parts_subtotal_inr: null, unselected_line_ids: [] }, error: null, messages: [], chat_state: 'idle', chat_error: null, actions: [] }
 
@@ -28,6 +29,8 @@ if (status === 'done') {
     { kind: 'refresh', message_id: 'preview-refresh', status: 'completed', created_at: at(25), line_ids: ['L02'], summary: 'Dummy: seller refresh finished for 1 part.', refresh_count: 1, result_message_id: 'preview-refresh-result' },
   ]
 }
+// Report v0.21 preview: stage=plan shows a dummy (non-demo) order plan; report endpoints are served by previewReport.ts.
+if (phase === 'plan') job = planPreview(job)
 
 export function previewRequest(path: string, options: RequestInit): unknown {
   if (path === '/v1/session/usage') return { daily_actions: { limit: 40, remaining: 36 }, daily_projects: { limit: 5, remaining: 4 }, minute_actions: { limit: 5, remaining: 5 } }
@@ -76,6 +79,8 @@ export function previewRequest(path: string, options: RequestInit): unknown {
     }
     return structuredClone({ ...job, updated_at: new Date().toISOString() })
   }
+  const reportReply = previewReportRequest(path, options, job)
+  if (reportReply !== undefined || (path === '/v1/jobs/ui-preview/share' && options.method === 'DELETE')) return reportReply
   if (path === '/v1/jobs/ui-preview' || path.endsWith('/messages')) return structuredClone({ ...job, updated_at: new Date().toISOString() })
   throw new Error('This action is unavailable in the local preview. No API request was sent.')
 }

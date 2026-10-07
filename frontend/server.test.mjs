@@ -117,3 +117,18 @@ test('proxy preserves an upstream Cache-Control policy', async () => {
   assert.equal(response.status, 200)
   assert.equal(response.headers.get('cache-control'), 'private, max-age=30')
 })
+
+test('proxy forwards DELETE without a body so owners can revoke share links', async () => {
+  let received
+  const base = await start(async (url, options) => {
+    received = { url: url.toString(), options }
+    return new Response(null, { status: 204 })
+  })
+  const response = await fetch(base + '/api/v1/jobs/abc/share', { method: 'DELETE', headers: { 'X-Job-Token': 'job-token', 'X-Requested-With': 'BharatSourcer' } })
+  assert.equal(response.status, 204)
+  assert.equal(received.url, 'https://backend.example/v1/jobs/abc/share')
+  assert.equal(received.options.method, 'DELETE')
+  assert.equal(received.options.body, undefined)
+  assert.equal(received.options.headers['X-Job-Token'], 'job-token')
+  assert.equal((await fetch(base + '/api/v1/jobs/abc/share', { method: 'PUT' })).status, 405)
+})
