@@ -1,12 +1,17 @@
-# Agent handoff (backend work, 5–6 October 2026)
+# Agent handoff (backend work, 5–7 October 2026)
 
 This file is for the next agent continuing backend work on Bharat Sourcer. Read it with
 `AGENTS.md`, `backend/README.md` (implemented behaviour), `docs/contracts/README.md`
 (API contract) and `docs/contracts/backend-roadmap.md`.
 
-Production state at handoff: backend **v0.19.3** live on Cloud Run
-(`bharat-sourcer-integration`); frontend on Cloud Run (`bharat-sourcer-web`). Everything
-is merged to `main` (PRs #9–#24); no open PRs.
+Production state at handoff (7 October 2026): backend **v0.21.0** live on Cloud Run
+(`bharat-sourcer-integration`, revision 00048 with `BS_YOUTUBE_API_KEY` mounted, max 3
+instances); frontend on Cloud Run (`bharat-sourcer-web`) has **not** been updated for v0.20
+or v0.21 (see the frontend handoffs). Everything is merged to `main` (PRs #9–#29).
+
+**Read first for v0.20–v0.21:** `docs/contracts/frontend-handoff-v0.20.md`,
+`docs/contracts/frontend-handoff-v0.21.md`, `roadmap.md` (owner-approval proposals) and
+`backend/infra/README.md` (TTL policies, alert, scaling runbook).
 
 ## Standing instructions from the owner
 
@@ -90,31 +95,43 @@ Instructables obstacle robot → 13 quoted parts in 7 s; YouTube Short (ESP32-S3
 trigger) → correct title/summary and, after v0.19.1, measurable requirements
 (1 MΩ, 3.3 V, USB-C…). One run omitted jumper wires: outputs vary between runs.
 
+## What was done (v0.20.0 → v0.21.0, 6–7 October 2026)
+
+- **v0.20.0:** safety flags, costing (GST/shipping/import, cart plans), multi-source intake
+  with fusion/look-alikes/confidence, seller trust labels, CSV/HTML export and share links,
+  disabled-by-default Gemini extras, catalogue-backed compatibility grades A–D/X, a draft
+  (unreviewed) eval gold set.
+- **v0.21.0 sourcing engine:** buyable spec per line, seller catalogue search first (free),
+  LLM spec judge with server-verified quotes, paid grounded discovery only when needed,
+  automatic recommendations and selections (judge-confirmed offers included),
+  seller-grouped `order_plan`, `line_image`, shared cache + per-job budget, nearby markets
+  (Maps grounding), YouTube description intake.
+- **Infra (owner-approved 7 Oct):** Firestore TTL on `_cache`/`_audio`; queue-age alert
+  policy emailing the owner; API max instances 3; YouTube Data API key in Secret Manager.
+- **Live check** of the failed job `e5c272c4…` (~$0.12): 5 of 6 parts auto-selected in 3
+  seller groups. Two judge errors (blue LED for "clear LED", 4 mm rod for bare wire) were
+  fixed by giving the judge the part name and stricter rules; **not yet re-verified live**
+  (`backend/scripts/check_job_sourcing.py <job.json>`, needs owner OK: it costs money).
+
 ## Pending, in suggested order
 
-1. **Frontend teammate (documented, not built):** project cards should show
-   `title`/`description` and offer an edit control
-   (`docs/contracts/project-understanding.md`).
-2. **Gemini cost:** after a few days of traffic run
-   `cd backend && python scripts/usage_report.py --days 7` and record numbers in
-   `backend/infra/gemini-cost.md`. Then A/B, one at a time, with the evaluation harness:
-   skip discovery for refreshes of known offer URLs; fewer/consolidated search queries
-   per part; cache discovery per part name; `thinkingLevel: low` for `chat_scope` and
-   `discovery`; Flex tier for Cloud-Tasks research; stable-prefix prompt ordering for
-   implicit caching; video `fps`/agentic mode for long videos. Budget for the
-   `gemini-3.8-flash` price doubling on 2027-01-01.
-3. **Accuracy:** label 5–10 real videos in the harness format (see `backend/README.md`)
-   and run it; needed before any accuracy claim and to judge inference quality.
-4. **Coverage:** many parts still end with no verified offer (sellers without JSON-LD,
-   Cloudflare blocks). Seller APIs/feeds or affiliate programmes would be **major**
-   (paid third-party/infra) and need a `roadmap.md` proposal and owner approval.
-5. **Smaller items:** completion messages only for chat-approved refreshes (not
-   `POST /refresh`); one source per job (video and project page not combined); relaxing
-   the strict title match using spec-table evidence (needs a decision, see
-   `backend/infra/seller-page-evaluation.md`); Hackster unsupported; image generation on
-   the new model untested live.
-6. **Research not yet done:** shipping/GST and HSN codes, competitor tools and Indian
-   seller APIs were scoped out of the last research run; rerun when the owner asks.
+1. **Re-verify the judge fix live** on the failed job with the script above (owner OK).
+2. **Frontend:** build the v0.20 and v0.21 handoffs. Item 1 of each (code and YouTube
+   description evidence render as `null — …`) is needed now; the order plan should be
+   the main view after sourcing.
+3. **Min instances 15 Oct – 6 Nov** and the revert on 7 Nov (`backend/infra/README.md`).
+4. **Gemini cost:** after a few days of traffic run
+   `cd backend && python scripts/usage_report.py --days 7`, compare with the estimates in
+   `backend/infra/gemini-cost.md` and `job.cost_estimate`, then A/B low thinking for
+   research and the Flex tier. Budget for the `gemini-3.8-flash` price doubling on
+   2027-01-01.
+5. **Accuracy:** two people review the draft gold set (`backend/evaluation/gold/`) and
+   label the 5 candidate videos; no accuracy claim until then.
+6. **Owner decisions still open:** grade B auto-apply, the ₹60 per-extra-seller penalty,
+   IGST rate for imports and the courier placeholder, ElectronicsComp/FlyRobo in
+   `known_sellers.json`, safety-flag false positives, whether description links should
+   cost extra extraction calls, and the remaining `roadmap.md` proposals (M9 compile,
+   Web Risk, distributor APIs, headless renderer §15).
 
 ## How to start
 
