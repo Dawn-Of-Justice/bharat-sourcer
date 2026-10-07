@@ -739,3 +739,61 @@ svg { display: block; }
 .country-status { color: #19766d; font-weight: 700; }
 .flag-code { display: grid; place-items: center; width: 100%; height: 100%; background: #eef2ee; color: #254048; font-size: 9px; font-weight: 900; }
 .country-button:disabled { opacity: .7; cursor: progress; }
+
+/* Responsive pass: keep every screen inside the viewport from 320px up. */
+/* Single-column grids default to an auto track that grows to the widest child's
+   min-content; pin them to the container so long names wrap instead. */
+.order-plan, .cost-summary, .seller-totals, .cost-summary dl, .import-card dl, .plan-lines, .unsourced-group > ul, .cost-sellers,
+.review-list, .result-list, .safety-banners, .sources-card, .line-conflicts, .extra-sources, .preview-steps, .progress-parts,
+.parallel-parts, .chat-citations, .offers-list { grid-template-columns: minmax(0, 1fr); }
+.cost-row dt, .cost-row dd, .cost-sellers li > div > *, .seller-policy, .product-links, .plan-header, .unsourced-head > * { min-width: 0; overflow-wrap: anywhere; }
+.cost-row dd { flex-wrap: wrap; }
+.project-heading > .nav-cta { justify-self: start; max-width: 100%; }
+img, video, audio { max-width: 100%; }
+/* The 24px figure is meant for the summary headline, not every row and seller name in the plan estimate. */
+.cost-summary dl .cost-row strong { font-size: 16px; }
+.cost-summary dl .cost-row:last-child strong { font-size: 20px; }
+.cost-sellers strong { font-size: 14px; }
+@media (max-width: 600px) {
+  .cost-summary strong, .cost-row strong { white-space: normal; }
+  .result-title { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 12px; row-gap: 2px; }
+  .result-title > .part-image { grid-row: 1 / span 2; }
+  .result-title > span { grid-column: 2; margin-top: 0; }
+  .result-title > div:last-child { grid-column: 2; }
+  .result-status, .result-evidence { margin-left: 0; }
+  .input-callout { margin-left: 0; }
+  .markets-form select { min-width: 0; width: 100%; }
+  .markets-form label { flex: 1 1 100%; }
+  /* Keep the close button reachable while a long account panel scrolls. */
+  .account-dialog { padding-top: 12px; }
+  .dialog-close { position: sticky; top: 0; z-index: 1; float: right; margin: 0 -14px 0 0; border-radius: 50%; background: #faf9f4; }
+  .account-dialog > :nth-child(2) { margin-top: 32px; }
+}
+@media (max-width: 380px) {
+  .account-dialog { width: calc(100% - 20px); padding-inline: 18px; border-radius: 18px; }
+  .account-dialog h2 { font-size: 27px; }
+}
+/* Touch screens: give controls a ~44px hit area without changing the desktop look. */
+@media (pointer: coarse) {
+  .nav-cta, .spec-edit-button, .remove-button, .remove-requirement, .add-source-button, .chat-compose-bottom button,
+  .proposal-actions button, .add-requirement, .report-export button, .share-buttons button { min-height: 44px; }
+  .remove-button, .add-source-button, .citation-detail button { display: inline-flex; align-items: center; }
+  .citation-detail button { min-height: 44px; }
+  .check-label, .brand { min-height: 44px; }
+  .check-label input { width: 22px; height: 22px; }
+  .import-row input, .markets-form select, .share-copy input, .explain-controls select, .spec-mount select,
+  .requirement-row input, .requirement-row select, .extra-source-row input, .review-fields input { min-height: 44px; }
+  .safety-why summary, .share-control > summary, .cost-notes summary, .plan-compare > summary, .import-card summary,
+  .result-evidence summary, .spec-conflicts summary, .requirements-after > summary, .trust-why > summary,
+  .why-popover > summary { padding-block: 12px; }
+  .chat-citation summary { padding-block: 13px; }
+  .match-chip > summary, .grade-chip > summary { padding: 6px 10px; }
+  .plan-line-actions a, .product-links li > a, .maps-sources li > a { display: inline-flex; align-items: center; min-height: 44px; }
+}
+@media (max-width: 420px) {
+  .review-fields { grid-template-columns: minmax(0, 1fr) 72px; gap: 10px; }
+  .floating-chip { padding: 7px 10px; font-size: 10px; }
+  .floating-chip span { font-size: 13px; }
+  .chip-top { top: 0; right: 0; }
+  .chip-bottom { bottom: -6px; left: 0; }
+}
