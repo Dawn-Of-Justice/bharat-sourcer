@@ -38,14 +38,20 @@ export interface ResearchCandidate { url: string; title: string; category: strin
 export interface Evidence {
   timestamp?: string | null
   observation: string
-  source?: 'video' | 'project_page'
+  // 'code': a GitHub file line (file, line, quote = the line's text, url = link to it). 'youtube_description': a checked quote from the video description.
+  source?: 'video' | 'project_page' | 'code' | 'youtube_description'
   quote?: string | null
   url?: string | null
+  file?: string | null
+  line?: number | null
 }
 
-// Video evidence cites a timestamp; project-page evidence cites a server-checked quote.
+// Video evidence cites a timestamp; page, code and description evidence cite a server-checked quote.
 export function evidenceText(entry: Evidence) {
-  return entry.source === 'project_page' ? `Page quote “${entry.quote}” — ${entry.observation}` : `${entry.timestamp} — ${entry.observation}`
+  if (entry.source === 'project_page') return `Page quote “${entry.quote}” — ${entry.observation}`
+  if (entry.source === 'code') return `Code ${entry.file ?? 'file'}${entry.line ? ':' + entry.line : ''}${entry.quote ? ` “${entry.quote}”` : ''} — ${entry.observation}`
+  if (entry.source === 'youtube_description') return `Video description${entry.quote ? ` “${entry.quote}”` : ''} — ${entry.observation}`
+  return entry.timestamp ? `${entry.timestamp} — ${entry.observation}` : `Video — ${entry.observation}`
 }
 
 export interface PartResearch { status: 'ready' | 'no_evidence' | 'failed' | 'stale'; summary: string; checked_at?: string; questions?: string[]; sources?: { url: string; status: 'read' | 'unavailable'; reason?: string | null; reviewed?: boolean }[]; candidates?: ResearchCandidate[] }
@@ -62,7 +68,40 @@ export interface BomItem {
   evidence: Evidence[]
   clarifications: { field: string; question: string }[]
   requirements?: PartRequirement[]
+  lookalikes?: Lookalike[]
+  conflicts?: ItemConflict[]
+  // Deterministic rule over the evidence; null means not assessed (user-added or renamed lines).
+  confidence?: 'verified' | 'likely' | 'check' | null
+  confidence_reason?: string | null
+  buyable_spec?: BuyableSpec | null
 }
+
+export type EvidenceSource = NonNullable<Evidence['source']>
+export interface Lookalike { name: string; note?: string | null; origin: 'table' | 'ai' }
+export interface ItemConflict { kind: 'identity_mismatch' | 'qty_mismatch'; message: string; values: { value: string; source: EvidenceSource; url?: string | null; locator?: string | null }[] }
+// What to buy, stated the way sellers list parts. ai_inferred and seed specs are suggestions; user specs are the maker's own.
+export interface SpecParam { name: string; value: string; operator: 'equals' | 'at_least' | 'at_most' | 'between'; value_max?: string | null; unit?: string | null; si_value?: number | null; si_value_max?: number | null; required?: boolean; origin?: 'stated' | 'inferred' | 'user'; reason?: string | null }
+export interface BuyableSpec {
+  origin: 'seed' | 'ai_inferred' | 'user'
+  part_name?: string | null
+  category: 'resistor' | 'capacitor_electrolytic' | 'capacitor_ceramic' | 'led' | 'ldr' | 'wire' | 'diode' | 'transistor' | 'ic' | 'module' | 'board' | 'sensor' | 'connector' | 'switch' | 'battery' | 'other'
+  mount: 'tht' | 'smd' | 'any'
+  mount_origin?: 'stated' | 'inferred' | 'user' | 'default'
+  mount_reason?: string | null
+  params: SpecParam[]
+  must?: string[]
+  prefer?: string[]
+  exclude?: string[]
+  synonyms?: string[]
+  queries?: string[]
+  needs_value?: boolean
+  needs_value_reason?: string | null
+  reasons?: string[]
+}
+// Deterministic rule checks (MAINS, LIPO, HIGH_CURRENT, LEVEL_SHIFT). Advice, not a safety review.
+export interface SafetyFlag { code: 'MAINS' | 'LIPO' | 'HIGH_CURRENT' | 'LEVEL_SHIFT'; severity: 'danger' | 'warning' | 'caution'; title: string; message: string; guidance: string[]; line_ids: string[]; triggers?: { line_id?: string | null; field: string; matched: string }[]; method?: 'deterministic_rules'; rule_version?: string }
+export interface SourceReport { url: string; kind: 'video' | 'instructables' | 'hackster' | 'github' | 'adafruit' | 'blog' | 'youtube_description'; role: 'primary' | 'additional'; status: 'read' | 'failed'; item_count: number; code_item_count?: number; error?: { code: string; message: string } | null; found_in?: 'youtube_description' | null }
+export interface VideoMeta { video_id: string; title?: string | null; channel?: string | null; published_at?: string | null; fetched_at: string; links?: { url: string; kind: 'project_source' | 'video' | 'store' | 'other'; followed: boolean }[]; expired?: boolean }
 
 export interface ReportLine {
   item: BomItem
@@ -124,10 +163,13 @@ export interface Job {
   chat_state: 'idle' | 'queued' | 'thinking' | 'failed'
   chat_error: { code: string; message: string } | null
   actions?: ActionRecord[]
+  safety_flags?: SafetyFlag[]
+  source_reports?: SourceReport[]
+  video_meta?: VideoMeta | null
 }
 
 type JobEdit =
-  | { op: 'update'; line_id: string; raw_name?: string; qty?: number; requirements?: PartRequirement[] }
+  | { op: 'update'; line_id: string; raw_name?: string; qty?: number; requirements?: PartRequirement[]; buyable_spec?: BuyableSpec }
   | { op: 'have_it'; line_id: string; user_has_it: boolean }
   | { op: 'remove'; line_id: string }
 
@@ -173,10 +215,11 @@ async function request<T>(path: string, options: RequestInit = {}, token?: strin
   return response.json() as Promise<T>
 }
 
-export function createJob(url: string, pin?: string) {
+// sources: up to 3 extra project URLs read alongside url (at most one video across all of them).
+export function createJob(url: string, pin?: string, sources: string[] = []) {
   return request<{ job_id: string; job_token: string; demo: boolean }>('/v1/jobs', {
     method: 'POST',
-    body: JSON.stringify({ url, ...(pin ? { pin } : {}), lang: 'en' }),
+    body: JSON.stringify({ url, ...(pin ? { pin } : {}), ...(sources.length ? { sources: sources.slice(0, 3) } : {}), lang: 'en' }),
   })
 }
 
