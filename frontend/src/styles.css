@@ -977,3 +977,44 @@ img, video, audio { max-width: 100%; }
   .chip-top { top: 0; right: 0; }
   .chip-bottom { bottom: -6px; left: 0; }
 }
+
+/* Saved projects use the same expandable card rhythm as the report. */
+.job-status-bar { width: fit-content; max-width: 100%; margin: 0 0 12px; padding: 8px 12px; border-radius: 999px; box-shadow: none; }
+.job-status-bar > span:last-child { margin-left: 8px; }
+.project-heading { margin: 12px 0 28px; }
+.editable-project-field { min-width: 0; }
+.editable-project-field h1, .editable-project-field p { min-width: 0; }
+.editable-project-field p:empty { color: #86978d; }
+.review-heading { margin-bottom: 20px; }
+.review-heading h2 { margin-bottom: 6px; }
+.review-heading p { margin: 0; color: #61776d; font-size: 14px; line-height: 1.6; }
+.review-panel .build-overview { margin: 0 0 18px; }
+.review-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(220px, 28%); align-items: start; gap: 18px; }
+.review-layout > * { min-width: 0; }
+.review-safety { position: sticky; top: 20px; }
+.review-safety .safety-banners { margin: 0; }
+.review-card { min-width: 0; }
+.review-card.removed { opacity: .58; }
+.review-card .result-card-summary { cursor: pointer; }
+.review-card .result-card-summary::-webkit-details-marker { display: none; }
+.review-part-icon { display: grid; place-items: center; flex: 0 0 64px; width: 64px; height: 64px; border-radius: 12px; background: #eef4ed; color: #337467; font-size: 20px; font-weight: 800; }
+.review-card-content { display: grid; gap: 14px; }
+.review-card-content .review-row-meta, .review-card-content .qty-inferred, .review-card-content .review-row-bottom { margin: 0; }
+.review-card-content .review-fields { grid-template-columns: minmax(0, 1fr) minmax(72px, 100px); }
+.review-card-content .review-fields input { font-size: 14px; }
+.review-card-content .evidence-note { margin-top: 0; }
+@media (max-width: 1150px) {
+  .review-layout { grid-template-columns: minmax(0, 1fr); }
+  .review-safety { position: static; }
+}
+@media (max-width: 600px) {
+  .job-status-bar { flex-wrap: wrap; border-radius: 12px; }
+  .job-status-bar > span:last-child { width: auto; margin: 0; }
+  .review-card .result-card-summary { align-items: flex-start; gap: 12px; padding: 14px; }
+  .review-part-icon { flex-basis: 42px; width: 42px; height: 42px; font-size: 14px; }
+  .review-card .result-card-end { align-self: center; }
+  .review-card .result-card-content { padding: 16px; }
+}
+@media (pointer: coarse) {
+  .pencil-button { opacity: 1; min-width: 44px; min-height: 44px; }
+}

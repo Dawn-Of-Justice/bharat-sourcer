@@ -283,36 +283,70 @@ function Landing({ onCreated }: { onCreated: (id: string) => void }) {
   )
 }
 
-// The model's reading of the whole project. Shown for checking only; it is not a verified spec.
 function ProjectCard({ project }: { project?: Job['project'] }) {
   if (!project) return null
   const facts = [['Power', project.power], ['Controller', project.controller], ['Interfaces', (project.interfaces ?? []).join(', ')]].filter(([, value]) => value)
-  return <div className="project-card"><span className="inferred-tag">AI understanding of the project — check it</span><strong>What we understood</strong><p>{project.summary}</p>{facts.length > 0 && <p>{facts.map(([label, value]) => `${label}: ${value}`).join(' · ')}</p>}{project.assumptions?.length > 0 && <ul>{project.assumptions.map((entry, index) => <li key={index}>{entry}</li>)}</ul>}<small>Inferred quantities and build details below come from this reading. Correct anything that is wrong before confirming.</small></div>
+  return <details className="build-overview"><summary>Build overview <span className="disclosure-chevron" aria-hidden="true" /></summary><div><p>{project.summary}</p>{facts.length > 0 && <dl>{facts.map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>}{project.assumptions?.length > 0 && <><strong>Assumptions to check</strong><ul>{project.assumptions.map((entry, index) => <li key={index}>{entry}</li>)}</ul></>}</div></details>
+}
+
+function PencilIcon() {
+  return <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m4 20 4.3-.9L19 8.4a2 2 0 0 0-2.8-2.8L5.5 16.3 4 20Z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /><path d="m14.8 7 2.8 2.8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /></svg>
 }
 
 function ProjectHeading({ job, token, onJob }: { job: Job; token: string; onJob: (job: Job) => void }) {
-  const [editing, setEditing] = useState(false)
-  const [title, setTitle] = useState(job.project?.title ?? '')
-  const [description, setDescription] = useState(job.project?.description ?? '')
+  const [editing, setEditing] = useState<'title' | 'description' | null>(null)
+  const [draft, setDraft] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const project = job.project
+  function edit(field: 'title' | 'description') {
+    setDraft(project?.[field] ?? '')
+    setError('')
+    setEditing(field)
+  }
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    const changes: { title?: string; description?: string } = {}
-    if (title.trim() !== (project?.title ?? '')) changes.title = title.trim()
-    if (description.trim() !== (project?.description ?? '')) changes.description = description.trim()
-    if (!Object.keys(changes).length) { setEditing(false); return }
-    if (Object.values(changes).some(value => !value)) { setError('Title and description cannot be blank.'); return }
+    if (!editing) return
+    const value = draft.trim()
+    if (!value) { setError(`${editing === 'title' ? 'Title' : 'Description'} cannot be blank.`); return }
+    if (value === (project?.[editing] ?? '')) { setEditing(null); return }
     setBusy(true); setError('')
-    try { onJob(await updateProject(job.job_id, token, changes)); setEditing(false) }
+    try { onJob(await updateProject(job.job_id, token, { [editing]: value })); setEditing(null) }
     catch (cause) { setError(cause instanceof Error ? cause.message : 'Could not save project details.') }
     finally { setBusy(false) }
   }
-  return <section className="project-heading"><div><h1>{project?.title || 'From video to parts.'}</h1>{project?.description && <p>{project.description}</p>}{project?.title_source === 'ai' || project?.description_source === 'ai' ? <small>AI-written project details · review and edit as needed.</small> : null}</div>{!editing ? <button type="button" className="nav-cta" onClick={() => { setTitle(project?.title ?? ''); setDescription(project?.description ?? ''); setEditing(true) }}>Edit title and description</button> : <form onSubmit={save}><label>Project title<input value={title} maxLength={120} onChange={event => setTitle(event.target.value)} /></label><label>Description<textarea value={description} maxLength={600} onChange={event => setDescription(event.target.value)} /></label><div><button className="nav-cta" type="submit" disabled={busy}>{busy ? 'Saving…' : 'Save details'}</button><button className="remove-button" type="button" disabled={busy} onClick={() => { setEditing(false); setError('') }}>Cancel</button></div>{error && <p className="form-error" role="alert">{error}</p>}</form>}</section>
+  return <section className="project-heading">
+    {editing === 'title' ? <form className="inline-project-editor" onSubmit={save}><label htmlFor="project-title">Project title</label><input id="project-title" autoFocus value={draft} maxLength={120} onChange={event => setDraft(event.target.value)} /><div><button className="nav-cta" type="submit" disabled={busy}>{busy ? 'Saving…' : 'Save'}</button><button className="remove-button" type="button" disabled={busy} onClick={() => setEditing(null)}>Cancel</button></div></form> : <div className="editable-project-field"><h1>{project?.title || 'From video to parts.'}</h1><button type="button" className="pencil-button" aria-label="Edit project title" title="Edit project title" onClick={() => edit('title')}><PencilIcon /></button></div>}
+    {editing === 'description' ? <form className="inline-project-editor" onSubmit={save}><label htmlFor="project-description">Description</label><textarea id="project-description" autoFocus value={draft} maxLength={600} onChange={event => setDraft(event.target.value)} /><div><button className="nav-cta" type="submit" disabled={busy}>{busy ? 'Saving…' : 'Save'}</button><button className="remove-button" type="button" disabled={busy} onClick={() => setEditing(null)}>Cancel</button></div></form> : <div className="editable-project-field"><p>{project?.description || 'Add a description'}</p><button type="button" className="pencil-button" aria-label="Edit project description" title="Edit project description" onClick={() => edit('description')}><PencilIcon /></button></div>}
+    {/^https:\/\/[^\s]+$/i.test(job.input.url) && <a className="project-source-link" href={job.input.url} target="_blank" rel="noopener noreferrer">Original project ↗</a>}
+    {error && <p className="form-error" role="alert">{error}</p>}
+  </section>
 }
 
 type ReviewRow = { item: BomItem; name: string; qty: string; owned: boolean; removed: boolean; requirements: NonNullable<BomItem['requirements']>; spec: BuyableSpec | null }
+
+function ReviewPartCard({ row, index, job, update }: { row: ReviewRow; index: number; job: Job; update: (id: string, patch: Partial<ReviewRow>) => void }) {
+  const flagged = job.safety_flags?.some(flag => flag.line_ids.includes(row.item.line_id))
+  return <details id={`line-${row.item.line_id}`} className={`review-card result-card ${row.removed ? 'removed' : ''}`}>
+    <summary className="result-card-summary">
+      <div className="review-part-icon" aria-hidden="true">{String(index + 1).padStart(2, '0')}</div>
+      <div className="result-card-identity"><small>PART {index + 1} · QTY {row.qty || 'unknown'}</small><h3>{row.name || 'Unnamed part'}</h3><span>{row.removed ? 'Removed from this build' : row.owned ? 'Already owned' : 'Ready to review'}</span></div>
+      <div className="result-card-end"><b className="result-card-toggle">Edit details</b></div>
+    </summary>
+    <div className="result-card-content review-card-content">
+      {(row.item.confidence || flagged) && <div className="review-row-meta"><span>{row.item.line_id}</span><ConfidenceChip item={row.item} /><SafetyLineBadges flags={job.safety_flags} lineId={row.item.line_id} /></div>}
+      <div className="review-fields"><label>Part name<input value={row.name} disabled={row.removed} onChange={event => update(row.item.line_id, { name: event.target.value })} /></label><label className="qty-field">Qty<input type="number" min="1" max="10000" value={row.qty} disabled={row.removed} onChange={event => update(row.item.line_id, { qty: event.target.value })} /></label></div>
+      {row.item.qty_source === 'inferred' && row.qty === (row.item.qty?.toString() ?? '') && <p className="qty-inferred" title={row.item.qty_reason ?? undefined}><span className="inferred-tag">Suggested quantity</span> {row.item.qty_reason || 'The source did not state a count.'}</p>}
+      <ConflictNotes item={row.item} /><LookalikeNotes item={row.item} />
+      <div className="review-row-bottom"><label className="check-label"><input type="checkbox" checked={row.owned} disabled={row.removed} onChange={event => update(row.item.line_id, { owned: event.target.checked })} /> I already have this</label><button type="button" className="remove-button" onClick={() => update(row.item.line_id, { removed: !row.removed })}>{row.removed ? 'Undo remove' : 'Remove'}</button></div>
+      <Requirements value={row.requirements} disabled={row.removed} onChange={requirements => update(row.item.line_id, { requirements })} />
+      <SpecPanel value={row.spec} disabled={row.removed} onChange={spec => update(row.item.line_id, { spec })} />
+      {row.spec && row.spec.origin !== 'user' && row.name.trim() !== row.item.raw_name && <p className="qty-inferred"><span className="inferred-tag">Renamed</span> Renaming drops this suggested buying spec; sourcing builds one from the new name unless you edit the spec.</p>}
+      <EvidenceList evidence={row.item.evidence} />
+      {row.item.clarifications.length > 0 && <div className="evidence-note">Still unclear: {row.item.clarifications.map(entry => entry.question).join(' ')}</div>}
+    </div>
+  </details>
+}
 
 function Review({ job, token, onConfirmed }: { job: Job; token: string; onConfirmed: () => void }) {
   const account = useAccount()
@@ -322,6 +356,11 @@ function Review({ job, token, onConfirmed }: { job: Job; token: string; onConfir
 
   function update(id: string, patch: Partial<ReviewRow>) {
     setRows((current) => current.map((row) => row.item.line_id === id ? { ...row, ...patch } : row))
+  }
+
+  function showLine(lineId: string) {
+    const card = document.getElementById(`line-${lineId}`) as HTMLDetailsElement | null
+    if (card) { card.open = true; card.scrollIntoView({ behavior: 'smooth', block: 'start' }) }
   }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -354,7 +393,21 @@ function Review({ job, token, onConfirmed }: { job: Job; token: string; onConfir
     finally { setBusy(false) }
   }
 
-  return <section className="job-panel"><span className="section-kicker">YOUR REVIEW</span><h2>Does this parts list look right?</h2><p className="job-panel-intro">AI extraction can miss or misname parts. Check each part before we search sellers.</p><ProjectCard project={job.project} /><SourcesCard job={job} />{account.identity && account.identity !== 'legacy' && account.identity.kind === 'guest' && <p className="guest-limit">Guest limit: source up to {account.identity.part_limit} parts in this build. You can mark owned parts without using this limit.</p>}<SafetyBanners flags={job.safety_flags} lineNames={Object.fromEntries(job.items.map(item => [item.line_id, item.raw_name]))} /><ConflictBanner items={job.items} /><form onSubmit={submit}><div className="review-list">{rows.map((row) => <div id={`line-${row.item.line_id}`} className={`review-row ${row.removed ? 'removed' : ''}`} key={row.item.line_id}>{(row.item.confidence || job.safety_flags?.some(flag => flag.line_ids.includes(row.item.line_id))) && <div className="review-row-meta"><span>{row.item.line_id}</span><ConfidenceChip item={row.item} /><SafetyLineBadges flags={job.safety_flags} lineId={row.item.line_id} /></div>}<div className="review-fields"><label>Part name<input value={row.name} disabled={row.removed} onChange={(event) => update(row.item.line_id, { name: event.target.value })} /></label><label className="qty-field">Qty<input type="number" min="1" max="10000" value={row.qty} disabled={row.removed} onChange={(event) => update(row.item.line_id, { qty: event.target.value })} /></label></div>{row.item.qty_source === 'inferred' && row.qty === (row.item.qty?.toString() ?? '') && <p className="qty-inferred" title={row.item.qty_reason ?? undefined}><span className="inferred-tag">inferred qty</span> {row.item.qty_reason || 'The source did not state a count.'} Change it if you need a different number.</p>}<ConflictNotes item={row.item} /><LookalikeNotes item={row.item} /><div className="review-row-bottom"><label className="check-label"><input type="checkbox" checked={row.owned} disabled={row.removed} onChange={(event) => update(row.item.line_id, { owned: event.target.checked })} /> I already have this</label><button type="button" className="remove-button" onClick={() => update(row.item.line_id, { removed: !row.removed })}>{row.removed ? 'Undo remove' : 'Remove'}</button></div><Requirements value={row.requirements} disabled={row.removed} onChange={requirements => update(row.item.line_id, { requirements })} /><SpecPanel value={row.spec} disabled={row.removed} onChange={spec => update(row.item.line_id, { spec })} />{row.spec && row.spec.origin !== 'user' && row.name.trim() !== row.item.raw_name && <p className="qty-inferred"><span className="inferred-tag">renamed</span> Renaming drops this suggested buying spec; sourcing builds one from the new name unless you edit the spec.</p>}<EvidenceList evidence={row.item.evidence} />{row.item.clarifications.length ? <div className="evidence-note">Still unclear: {row.item.clarifications.map((entry) => entry.question).join(' ')}</div> : null}</div>)}</div>{error ? <p className="form-error" role="alert">{error}</p> : null}<button className="primary-button job-action" disabled={busy} type="submit">{busy ? 'Confirming…' : 'Confirm BOM and find offers'} <ArrowIcon /></button></form></section>
+  return <section className="job-panel review-panel">
+    <header className="review-heading"><span className="section-kicker">YOUR REVIEW</span><h2>Review your parts</h2><p>Open a part to change its name, quantity or build details.</p></header>
+    <ProjectCard project={job.project} />
+    <SourcesCard job={job} />
+    {account.identity && account.identity !== 'legacy' && account.identity.kind === 'guest' && <p className="guest-limit">Guest limit: source up to {account.identity.part_limit} parts in this build. You can mark owned parts without using this limit.</p>}
+    <ConflictBanner items={job.items} onShowLine={showLine} />
+    <form onSubmit={submit}>
+      <div className={job.safety_flags?.length ? 'review-layout' : ''}>
+        <div className="review-list">{rows.map((row, index) => <ReviewPartCard key={row.item.line_id} row={row} index={index} job={job} update={update} />)}</div>
+        {!!job.safety_flags?.length && <aside className="review-safety"><SafetyBanners flags={job.safety_flags} lineNames={Object.fromEntries(job.items.map(item => [item.line_id, item.raw_name]))} onShowLine={showLine} /></aside>}
+      </div>
+      {error && <p className="form-error" role="alert">{error}</p>}
+      <button className="primary-button job-action" disabled={busy} type="submit">{busy ? 'Confirming…' : 'Confirm BOM and find offers'} <ArrowIcon /></button>
+    </form>
+  </section>
 }
 
 function AnalysisProgress({ job }: { job: Job }) {
@@ -442,7 +495,7 @@ function JobPage({ id }: { id: string }) {
   const statusLabel: Record<string, string> = { queued: 'Queued', extracting: 'Reading the video', awaiting_confirmation: 'Ready for your review', resolving: 'Preparing parts', sourcing: 'Checking seller pages', done: 'Analysis finished', failed: 'Analysis stopped', paused: 'Sourcing paused' }
 
   return <main id="main" className="job-page"><div className="container job-container">
-    <div className="job-hero"><div className="eyebrow"><span className="eyebrow-line" /> YOUR BUILD PLAN</div><h1>From video to parts.</h1><p>Follow the analysis, review the draft, and inspect the result.</p></div>
+    {!job && <div className="job-hero"><div className="eyebrow"><span className="eyebrow-line" /> YOUR BUILD PLAN</div><h1>Opening your project</h1></div>}
     {!account.ready ? <p role="status">Checking your session…</p> : (!token && (!account.identity || account.identity === 'legacy')) ? <section className="job-panel"><h2>Session access ended</h2><p>Sign in to the account that owns this project to continue. Older projects also need their original browser-session token.</p><button className="primary-button job-action" onClick={account.open}>Sign in to continue <ArrowIcon /></button></section> : fatalError ? <section className="job-panel"><h2>We couldn’t load this job</h2><p role="alert">{fatalError}</p><button className="primary-button job-action" onClick={() => { setFatalError(''); setRevision((value) => value + 1) }}>Try again <ArrowIcon /></button>{token && account.identity && account.identity !== 'legacy' && account.identity.kind === 'account' && <div className="legacy-claim"><p>If this project was created before accounts were enabled in this browser, you can save it to your account using its original access token.</p><button className="nav-cta" disabled={actionBusy} onClick={async () => { setActionBusy(true); setActionError(''); try { await claimProject(id, token); setFatalError(''); setRevision(n => n + 1) } catch (cause) { setActionError(cause instanceof Error ? cause.message : 'Could not claim this project.') } finally { setActionBusy(false) } }}>Save older project to my account</button>{actionError && <p className="form-error" role="alert">{actionError}</p>}</div>}</section> : !job ? <section className="job-panel loading-panel" role="status"><span className="loading-indicator" /> Connecting to your job…{connectionIssue ? <p>{connectionIssue}</p> : null}</section> : <>
       <div className="job-status-bar" role="status" aria-live="polite"><span className={`status-pulse ${['done', 'failed', 'awaiting_confirmation'].includes(job.status) ? 'paused' : ''}`} /><strong>{statusLabel[job.status]}</strong><span>{job.demo ? 'Demo mode · sample data' : 'Live analysis'}</span></div>
       {connectionIssue ? <div className="connection-warning" role="status">{connectionIssue} Your saved BOM and conversation remain visible.</div> : null}

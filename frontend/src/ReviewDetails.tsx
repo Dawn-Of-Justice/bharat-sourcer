@@ -19,10 +19,10 @@ export function ConfidenceChip({ item }: { item: BomItem }) {
   return <span className={`confidence-chip confidence-${item.confidence}`} title={item.confidence_reason ?? undefined}><span aria-hidden="true">{chip.icon}</span> {chip.label}<span className="visually-hidden">{item.confidence_reason ? `: ${item.confidence_reason}` : ''}</span></span>
 }
 
-export function ConflictBanner({ items }: { items: BomItem[] }) {
+export function ConflictBanner({ items, onShowLine }: { items: BomItem[]; onShowLine?: (lineId: string) => void }) {
   const lines = items.filter(item => item.conflicts?.length)
   if (!lines.length) return null
-  return <div className="conflict-banner" role="status"><strong><span aria-hidden="true">⚠</span> {lines.length} {lines.length === 1 ? 'line has' : 'lines have'} conflicting sources</strong><p>We never pick a side. Check each one and edit the name or quantity before confirming:</p><ul>{lines.map(item => <li key={item.line_id}><a href={`#line-${item.line_id}`}>{item.line_id} · {item.raw_name}</a></li>)}</ul></div>
+  return <div className="conflict-banner" role="status"><strong><span aria-hidden="true">⚠</span> {lines.length} {lines.length === 1 ? 'line has' : 'lines have'} conflicting sources</strong><p>Check each one and edit the name or quantity before confirming:</p><ul>{lines.map(item => <li key={item.line_id}><a href={`#line-${item.line_id}`} onClick={() => onShowLine?.(item.line_id)}>{item.line_id} · {item.raw_name}</a></li>)}</ul></div>
 }
 
 export function ConflictNotes({ item }: { item: BomItem }) {
