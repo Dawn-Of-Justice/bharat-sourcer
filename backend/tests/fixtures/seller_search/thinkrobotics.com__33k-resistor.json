@@ -1,0 +1,53 @@
+{
+ "_fixture": {
+  "url": "https://thinkrobotics.com/search/suggest.json?q=33k%20resistor&resources%5Btype%5D=product&resources%5Blimit%5D=10",
+  "fetched_on": "2026-10-07",
+  "note": "Recorded live response, trimmed to the fields the adapter reads. Prices are search hints only, never verified offers."
+ },
+ "status": 200,
+ "content_type": "application/json; charset=utf-8",
+ "body": {
+  "resources": {
+   "results": {
+    "products": [
+     {
+      "title": "Assorted Resistor / Resistance Pack (30 variants - 600 resistors)",
+      "handle": "asorted-resistor-box",
+      "url": "/products/asorted-resistor-box?_pos=1&_psq=33k+resistor&_psid=ec92eae6c&_ss=e",
+      "price": "229.99",
+      "image": "https://cdn.shopify.com/s/files/1/0014/4313/5560/products/20190702_143846.jpg?v=1629180824",
+      "available": true,
+      "vendor": "ThinkRobotics"
+     },
+     {
+      "title": "Precision Adjustable Potentiometer - Knob Version (3386P) (Pack of 2)",
+      "handle": "3386p-precision-adjustable-potentiometer",
+      "url": "/products/3386p-precision-adjustable-potentiometer?_pos=2&_psq=33k+resistor&_psid=ec92eae6c&_ss=e",
+      "price": "45.99",
+      "image": "https://cdn.shopify.com/s/files/1/0014/4313/5560/files/3386P-1-103BreadboardTrimmerPotentiometer10KOhmwithKnob3PinHighPrecisionVerticalAdjustableTrimpotResistor.jpg?v=1709225472",
+      "available": true,
+      "vendor": "ThinkRobotics"
+     },
+     {
+      "title": "Resistive Soil Moisture Sensor with Corrosion Resistant Probe",
+      "handle": "soil-humidity-test-corrosion-resistance-probe-for-arduino",
+      "url": "/products/soil-humidity-test-corrosion-resistance-probe-for-arduino?_pos=3&_psq=33k+resistor&_psid=ec92eae6c&_ss=e",
+      "price": "259.99",
+      "image": "https://cdn.shopify.com/s/files/1/0014/4313/5560/products/Hfcc671fbd1764e84813e7713de7cdce93.jpg?v=1631032063",
+      "available": true,
+      "vendor": "ThinkRobotics"
+     },
+     {
+      "title": "Resistor Box (Assortment of 130 Resistors and 30 Values)",
+      "handle": "resistor-box-assortment-of-150-resistors-and-30-values",
+      "url": "/products/resistor-box-assortment-of-150-resistors-and-30-values?_pos=4&_psq=33k+resistor&_psid=ec92eae6c&_ss=e",
+      "price": "39.99",
+      "image": "https://cdn.shopify.com/s/files/1/0014/4313/5560/products/Picture82_580x_4aebd34f-1386-4d3a-8c5b-90c7dcdc54f7.png?v=1631277916",
+      "available": false,
+      "vendor": "ThinkRobotics"
+     }
+    ]
+   }
+  }
+ }
+}

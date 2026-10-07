@@ -1,0 +1,95 @@
+{
+  "project_id": "adafruit-pyportal-weather-station",
+  "plan_row": 4,
+  "title": "PyPortal Weather Station",
+  "creator": "Adafruit",
+  "kind": "text",
+  "label_status": "agent_draft_needs_human_review",
+  "inputs": {
+    "url": "https://learn.adafruit.com/pyportal-weather-station"
+  },
+  "source": {
+    "url": "https://learn.adafruit.com/pyportal-weather-station.md?view=all",
+    "fetched_on": "2026-10-06",
+    "http_status": 200,
+    "robots_txt": "learn.adafruit.com robots.txt has no Disallow rules for User-agent: *",
+    "method": "one curl GET; parts list transcribed by hand from the fetched text"
+  },
+  "gold_bom": [
+    {
+      "name": "Adafruit PyPortal",
+      "aliases": [
+        "PyPortal",
+        "PyPortal internet display"
+      ],
+      "qty": 1,
+      "canonical_chip": "ATSAMD51",
+      "module": "Adafruit PyPortal (#4116)",
+      "category": "display_board"
+    },
+    {
+      "name": "5V 2A USB power supply",
+      "aliases": [
+        "5V 2A switching power supply",
+        "USB power adapter"
+      ],
+      "qty": 1,
+      "category": "power_supply"
+    },
+    {
+      "name": "USB A to micro USB cable",
+      "aliases": [
+        "micro USB cable",
+        "USB cable"
+      ],
+      "qty": 1,
+      "category": "cable"
+    },
+    {
+      "name": "Magnetic pin back",
+      "aliases": [
+        "magnet"
+      ],
+      "qty": 1,
+      "category": "mechanical",
+      "notes": "Optional mounting case section."
+    },
+    {
+      "name": "M2.5 nylon screw and standoff set",
+      "aliases": [
+        "M2.5 screws",
+        "nylon standoffs"
+      ],
+      "qty": 1,
+      "category": "mechanical",
+      "notes": "Optional mounting case section."
+    }
+  ],
+  "gold_substitutions": [
+    {
+      "original": "5V 2A USB power supply",
+      "aliases": [],
+      "acceptable": [
+        "Indian 5 V 2 A USB adapter (Type D plug, BIS marked)"
+      ],
+      "required_changes": [
+        "230 V input",
+        "Type D plug"
+      ],
+      "grade_range": [
+        "A",
+        "B"
+      ],
+      "case_ref": 12,
+      "notes": "Case 12 is a 12 V 2 A adapter; applied here by analogy to a US-plug 5 V adapter. Reviewer: confirm or drop."
+    }
+  ],
+  "must_flag": [],
+  "notes": "3D printer and filament appear under Guide Products as tools; excluded.",
+  "ambiguities": [
+    "The case is 3D printed (or ordered from a print service); not a purchasable part.",
+    "Double-stick foam tape is used for the magnet; not listed."
+  ],
+  "drafted_by": "Claude Code agent (stream mvp/eval), not a human labeller",
+  "reviewed_by": []
+}

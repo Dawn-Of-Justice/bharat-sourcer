@@ -3,7 +3,7 @@
   "info": {
     "title": "Bharat Sourcer API",
     "description": "Demo or live YouTube and project-page extraction with optional Firestore job persistence.",
-    "version": "0.19.3"
+    "version": "0.22.0"
   },
   "paths": {
     "/v1/session/guest": {
@@ -286,6 +286,1151 @@
               }
             },
             "description": "Service Unavailable"
+          }
+        }
+      }
+    },
+    "/v1/jobs/{job_id}/export.csv": {
+      "get": {
+        "tags": [
+          "export"
+        ],
+        "summary": "Export Csv",
+        "operationId": "export_csv_v1_jobs__job_id__export_csv_get",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Job Id"
+            }
+          },
+          {
+            "name": "x-job-token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Job-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "text/csv": {}
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          }
+        }
+      }
+    },
+    "/v1/jobs/{job_id}/export.html": {
+      "get": {
+        "tags": [
+          "export"
+        ],
+        "summary": "Export Html",
+        "operationId": "export_html_v1_jobs__job_id__export_html_get",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Job Id"
+            }
+          },
+          {
+            "name": "x-job-token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Job-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "text/html": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "503": {
+            "content": {
+              "text/html": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          },
+          "404": {
+            "content": {
+              "text/html": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          }
+        }
+      }
+    },
+    "/v1/jobs/{job_id}/share": {
+      "get": {
+        "tags": [
+          "export"
+        ],
+        "summary": "Share Status",
+        "operationId": "share_status_v1_jobs__job_id__share_get",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Job Id"
+            }
+          },
+          {
+            "name": "x-job-token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Job-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShareStatus"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "export"
+        ],
+        "summary": "Create Share",
+        "operationId": "create_share_v1_jobs__job_id__share_post",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Job Id"
+            }
+          },
+          {
+            "name": "x-job-token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Job-Token"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShareLink"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "export"
+        ],
+        "summary": "Revoke Share",
+        "operationId": "revoke_share_v1_jobs__job_id__share_delete",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Job Id"
+            }
+          },
+          {
+            "name": "x-job-token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Job-Token"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          }
+        }
+      }
+    },
+    "/v1/shared/{share_token}": {
+      "get": {
+        "tags": [
+          "export"
+        ],
+        "summary": "Shared Project",
+        "operationId": "shared_project_v1_shared__share_token__get",
+        "parameters": [
+          {
+            "name": "share_token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Share Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SharedProject"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          }
+        }
+      }
+    },
+    "/v1/shared/{share_token}/export.csv": {
+      "get": {
+        "tags": [
+          "export"
+        ],
+        "summary": "Shared Csv",
+        "operationId": "shared_csv_v1_shared__share_token__export_csv_get",
+        "parameters": [
+          {
+            "name": "share_token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Share Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "text/csv": {}
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          }
+        }
+      }
+    },
+    "/v1/shared/{share_token}/export.html": {
+      "get": {
+        "tags": [
+          "export"
+        ],
+        "summary": "Shared Html",
+        "operationId": "shared_html_v1_shared__share_token__export_html_get",
+        "parameters": [
+          {
+            "name": "share_token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Share Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "text/html": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "503": {
+            "content": {
+              "text/html": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          },
+          "404": {
+            "content": {
+              "text/html": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          }
+        }
+      }
+    },
+    "/v1/jobs/{job_id}/extras": {
+      "get": {
+        "tags": [
+          "extras"
+        ],
+        "summary": "Extras Status",
+        "operationId": "extras_status_v1_jobs__job_id__extras_get",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Job Id"
+            }
+          },
+          {
+            "name": "x-job-token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Job-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExtrasStatus"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        }
+      }
+    },
+    "/v1/jobs/{job_id}/explain": {
+      "post": {
+        "tags": [
+          "extras"
+        ],
+        "summary": "Explain",
+        "operationId": "explain_v1_jobs__job_id__explain_post",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Job Id"
+            }
+          },
+          {
+            "name": "x-job-token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Job-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExplainRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Explanation"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          }
+        }
+      }
+    },
+    "/v1/jobs/{job_id}/items/{line_id}/zoom": {
+      "post": {
+        "tags": [
+          "extras"
+        ],
+        "summary": "Zoom",
+        "operationId": "zoom_v1_jobs__job_id__items__line_id__zoom_post",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Job Id"
+            }
+          },
+          {
+            "name": "line_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 20,
+              "title": "Line Id"
+            }
+          },
+          {
+            "name": "x-job-token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Job-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ZoomRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZoomResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          }
+        }
+      }
+    },
+    "/v1/jobs/{job_id}/scan": {
+      "post": {
+        "tags": [
+          "extras"
+        ],
+        "summary": "Scan",
+        "operationId": "scan_v1_jobs__job_id__scan_post",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Job Id"
+            }
+          },
+          {
+            "name": "x-job-token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Job-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScanRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScanResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Request Entity Too Large"
+          },
+          "415": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unsupported Media Type"
+          }
+        }
+      }
+    },
+    "/v1/jobs/{job_id}/markets": {
+      "get": {
+        "tags": [
+          "markets"
+        ],
+        "summary": "Nearby",
+        "operationId": "nearby_v1_jobs__job_id__markets_get",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Job Id"
+            }
+          },
+          {
+            "name": "pin",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Pin"
+            }
+          },
+          {
+            "name": "lat",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Lat"
+            }
+          },
+          {
+            "name": "lng",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Lng"
+            }
+          },
+          {
+            "name": "x-job-token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Job-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MarketsResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Gateway"
           }
         }
       }
@@ -1005,6 +2150,192 @@
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/SelectOffers"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Job"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          }
+        }
+      }
+    },
+    "/v1/jobs/{job_id}/plans": {
+      "get": {
+        "tags": [
+          "jobs"
+        ],
+        "summary": "Get Plans",
+        "operationId": "get_plans_v1_jobs__job_id__plans_get",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Job Id"
+            }
+          },
+          {
+            "name": "x-job-token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Job-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CartPlans"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          }
+        }
+      }
+    },
+    "/v1/jobs/{job_id}/import-references": {
+      "post": {
+        "tags": [
+          "jobs"
+        ],
+        "summary": "Import References",
+        "operationId": "import_references_v1_jobs__job_id__import_references_post",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Job Id"
+            }
+          },
+          {
+            "name": "x-job-token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Job-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetImportReferences"
               }
             }
           }
@@ -1936,6 +3267,60 @@
             },
             "type": "array",
             "title": "Clarifications"
+          },
+          "lookalikes": {
+            "items": {
+              "$ref": "#/components/schemas/Lookalike"
+            },
+            "type": "array",
+            "maxItems": 10,
+            "title": "Lookalikes"
+          },
+          "conflicts": {
+            "items": {
+              "$ref": "#/components/schemas/ItemConflict"
+            },
+            "type": "array",
+            "maxItems": 10,
+            "title": "Conflicts"
+          },
+          "confidence": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "verified",
+                  "likely",
+                  "check"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confidence"
+          },
+          "confidence_reason": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 300
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confidence Reason"
+          },
+          "buyable_spec": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BuyableSpec"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "additionalProperties": false,
@@ -1945,6 +3330,436 @@
           "raw_name"
         ],
         "title": "BomItem"
+      },
+      "BuyableSpec": {
+        "properties": {
+          "origin": {
+            "type": "string",
+            "enum": [
+              "seed",
+              "ai_inferred",
+              "user"
+            ],
+            "title": "Origin",
+            "default": "seed"
+          },
+          "part_name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 120,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Part Name"
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "resistor",
+              "capacitor_electrolytic",
+              "capacitor_ceramic",
+              "led",
+              "ldr",
+              "wire",
+              "diode",
+              "transistor",
+              "ic",
+              "module",
+              "board",
+              "sensor",
+              "connector",
+              "switch",
+              "battery",
+              "other"
+            ],
+            "title": "Category",
+            "default": "other"
+          },
+          "mount": {
+            "type": "string",
+            "enum": [
+              "tht",
+              "smd",
+              "any"
+            ],
+            "title": "Mount",
+            "default": "any"
+          },
+          "mount_origin": {
+            "type": "string",
+            "enum": [
+              "stated",
+              "inferred",
+              "user",
+              "default"
+            ],
+            "title": "Mount Origin",
+            "default": "default"
+          },
+          "mount_reason": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 300
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mount Reason"
+          },
+          "params": {
+            "items": {
+              "$ref": "#/components/schemas/SpecParam"
+            },
+            "type": "array",
+            "maxItems": 12,
+            "title": "Params"
+          },
+          "must": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 12,
+            "title": "Must"
+          },
+          "prefer": {
+            "items": {
+              "type": "string",
+              "maxLength": 120,
+              "minLength": 1
+            },
+            "type": "array",
+            "maxItems": 10,
+            "title": "Prefer"
+          },
+          "exclude": {
+            "items": {
+              "type": "string",
+              "maxLength": 120,
+              "minLength": 1
+            },
+            "type": "array",
+            "maxItems": 12,
+            "title": "Exclude"
+          },
+          "synonyms": {
+            "items": {
+              "type": "string",
+              "maxLength": 120,
+              "minLength": 1
+            },
+            "type": "array",
+            "maxItems": 10,
+            "title": "Synonyms"
+          },
+          "queries": {
+            "items": {
+              "type": "string",
+              "maxLength": 120,
+              "minLength": 1
+            },
+            "type": "array",
+            "maxItems": 4,
+            "title": "Queries"
+          },
+          "needs_value": {
+            "type": "boolean",
+            "title": "Needs Value",
+            "default": false
+          },
+          "needs_value_reason": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 300
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Needs Value Reason"
+          },
+          "reasons": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 6,
+            "title": "Reasons"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "BuyableSpec",
+        "description": "What to buy for a BOM line, stated the way Indian sellers list parts.\n\n`ai_inferred` specs come from the extraction call (one call per job, not per line);\n`seed` specs are the deterministic fallback built from the part name only. Every\ninferred value carries a reason and the whole spec is editable (`origin: user`)."
+      },
+      "CartPlan": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "cheapest",
+              "fewest_sellers",
+              "recommended"
+            ],
+            "title": "Kind"
+          },
+          "picks": {
+            "items": {
+              "$ref": "#/components/schemas/PlanPick"
+            },
+            "type": "array",
+            "title": "Picks"
+          },
+          "seller_count": {
+            "type": "integer",
+            "title": "Seller Count",
+            "default": 0
+          },
+          "costing": {
+            "$ref": "#/components/schemas/CostBreakdown"
+          },
+          "matches_selection": {
+            "type": "boolean",
+            "title": "Matches Selection",
+            "default": false
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "kind",
+          "costing"
+        ],
+        "title": "CartPlan"
+      },
+      "CartPlans": {
+        "properties": {
+          "plans": {
+            "items": {
+              "$ref": "#/components/schemas/CartPlan"
+            },
+            "type": "array",
+            "title": "Plans"
+          },
+          "method": {
+            "type": "string",
+            "enum": [
+              "exhaustive",
+              "greedy",
+              "none"
+            ],
+            "title": "Method",
+            "default": "none"
+          },
+          "uncovered_line_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Uncovered Line Ids"
+          },
+          "rules": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Rules"
+          },
+          "seller_penalty_inr": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^\\d+\\.\\d{2}$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Seller Penalty Inr"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "CartPlans",
+        "description": "Suggestions only: plans never change the user's selection."
+      },
+      "CatalogCandidate": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "confidence": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Confidence"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "confidence"
+        ],
+        "title": "CatalogCandidate"
+      },
+      "CatalogMatch": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "matched",
+              "ambiguous",
+              "unmatched"
+            ],
+            "title": "Status"
+          },
+          "id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "category": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category"
+          },
+          "chip": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chip"
+          },
+          "confidence": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Confidence",
+            "default": 0
+          },
+          "candidates": {
+            "items": {
+              "$ref": "#/components/schemas/CatalogCandidate"
+            },
+            "type": "array",
+            "maxItems": 6,
+            "title": "Candidates"
+          },
+          "facts": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Facts"
+          },
+          "requirements": {
+            "items": {
+              "$ref": "#/components/schemas/PartRequirement"
+            },
+            "type": "array",
+            "maxItems": 20,
+            "title": "Requirements"
+          },
+          "lookalikes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Lookalikes"
+          },
+          "verify": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verify"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          },
+          "source_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Url"
+          },
+          "verified": {
+            "type": "boolean",
+            "title": "Verified",
+            "default": false
+          },
+          "origin": {
+            "type": "string",
+            "const": "curated_catalog",
+            "title": "Origin",
+            "default": "curated_catalog"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "title": "CatalogMatch",
+        "description": "Deterministic catalogue lookup of a part name; reference facts, not seller facts."
       },
       "ChatMessage": {
         "properties": {
@@ -2137,6 +3952,89 @@
         ],
         "title": "Clarification"
       },
+      "ClipRange": {
+        "properties": {
+          "start": {
+            "type": "string",
+            "pattern": "^\\d{2,}:[0-5]\\d$",
+            "title": "Start"
+          },
+          "end": {
+            "type": "string",
+            "pattern": "^\\d{2,}:[0-5]\\d$",
+            "title": "End"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "start",
+          "end"
+        ],
+        "title": "ClipRange"
+      },
+      "CompatFinding": {
+        "properties": {
+          "rule": {
+            "type": "string",
+            "title": "Rule"
+          },
+          "grade": {
+            "type": "string",
+            "enum": [
+              "A",
+              "B",
+              "C",
+              "D",
+              "X"
+            ],
+            "title": "Grade"
+          },
+          "area": {
+            "type": "string",
+            "enum": [
+              "wiring",
+              "code",
+              "power",
+              "safety",
+              "verify"
+            ],
+            "title": "Area"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "change": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Change"
+          },
+          "basis": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Basis"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "rule",
+          "grade",
+          "area",
+          "message"
+        ],
+        "title": "CompatFinding",
+        "description": "One deterministic rule result; `grade` is the floor this finding imposes."
+      },
       "Compatibility": {
         "properties": {
           "status": {
@@ -2200,6 +4098,65 @@
             },
             "type": "array",
             "title": "References"
+          },
+          "method": {
+            "type": "string",
+            "enum": [
+              "declared_specs",
+              "catalog_rules"
+            ],
+            "title": "Method",
+            "default": "declared_specs"
+          },
+          "grade_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Grade Label"
+          },
+          "findings": {
+            "items": {
+              "$ref": "#/components/schemas/CompatFinding"
+            },
+            "type": "array",
+            "title": "Findings"
+          },
+          "what_changes": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/WhatChanges"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "required_catalog_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Required Catalog Id"
+          },
+          "offered_catalog_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Offered Catalog Id"
           }
         },
         "additionalProperties": false,
@@ -2259,6 +4216,290 @@
         "type": "object",
         "title": "ConfirmationAccepted"
       },
+      "ConflictValue": {
+        "properties": {
+          "value": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Value"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "video",
+              "project_page",
+              "code",
+              "youtube_description"
+            ],
+            "title": "Source"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2083,
+                "minLength": 1,
+                "format": "uri"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url"
+          },
+          "locator": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 300
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Locator"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "value",
+          "source"
+        ],
+        "title": "ConflictValue"
+      },
+      "CostAmount": {
+        "properties": {
+          "amount_inr": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^\\d+\\.\\d{2}$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Amount Inr"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "known",
+              "estimated",
+              "unknown"
+            ],
+            "title": "Status",
+            "default": "unknown"
+          },
+          "partial_inr": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^\\d+\\.\\d{2}$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Partial Inr"
+          },
+          "assumptions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Assumptions"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "CostAmount",
+        "description": "An auditable amount; `unknown` has no amount, only the parts that could be estimated."
+      },
+      "CostBreakdown": {
+        "properties": {
+          "basis": {
+            "type": "string",
+            "enum": [
+              "selected_offers",
+              "plan"
+            ],
+            "title": "Basis",
+            "default": "selected_offers"
+          },
+          "complete": {
+            "type": "boolean",
+            "title": "Complete",
+            "default": false
+          },
+          "sellers": {
+            "items": {
+              "$ref": "#/components/schemas/SellerCost"
+            },
+            "type": "array",
+            "title": "Sellers"
+          },
+          "parts": {
+            "$ref": "#/components/schemas/CostAmount"
+          },
+          "gst": {
+            "$ref": "#/components/schemas/CostAmount"
+          },
+          "shipping": {
+            "$ref": "#/components/schemas/CostAmount"
+          },
+          "total": {
+            "$ref": "#/components/schemas/CostAmount"
+          },
+          "excluded_line_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Excluded Line Ids"
+          },
+          "import_baseline": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ImportBaseline"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "savings_vs_import": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SavingsEstimate"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "rates_checked_on": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rates Checked On"
+          },
+          "disclaimer": {
+            "type": "string",
+            "title": "Disclaimer",
+            "default": "Estimate from seller-published prices and dated policy and tax assumptions; not a final payable total. Check the seller's checkout."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "parts",
+          "gst",
+          "shipping",
+          "total"
+        ],
+        "title": "CostBreakdown",
+        "description": "Estimated cost of chosen offers; never a final payable or checkout total."
+      },
+      "CostEstimate": {
+        "properties": {
+          "method": {
+            "type": "string",
+            "const": "estimated_from_token_counts",
+            "title": "Method",
+            "default": "estimated_from_token_counts"
+          },
+          "total_usd": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Total Usd",
+            "default": 0
+          },
+          "run_usd": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Run Usd",
+            "default": 0
+          },
+          "budget_usd": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Budget Usd"
+          },
+          "budget_reached": {
+            "type": "boolean",
+            "title": "Budget Reached",
+            "default": false
+          },
+          "calls": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Calls",
+            "default": 0
+          },
+          "search_queries": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Search Queries",
+            "default": 0
+          },
+          "calls_by_site": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Calls By Site"
+          },
+          "usd_by_site": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "type": "object",
+            "title": "Usd By Site"
+          },
+          "cache_hits": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Cache Hits"
+          },
+          "prices_checked": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Prices Checked"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "CostEstimate",
+        "description": "Estimated Gemini spend for this job from logged token counts and a dated price table.\n\nAn estimate for budgeting, not a bill: grounding queries are priced as if the monthly\nfree tier were used up. `run_usd` is the current sourcing run, which the budget limits."
+      },
       "CreateJob": {
         "properties": {
           "url": {
@@ -2305,6 +4546,17 @@
             "const": "unlisted",
             "title": "Visibility",
             "default": "unlisted"
+          },
+          "sources": {
+            "items": {
+              "type": "string",
+              "maxLength": 2083,
+              "minLength": 1,
+              "format": "uri"
+            },
+            "type": "array",
+            "maxItems": 3,
+            "title": "Sources"
           }
         },
         "additionalProperties": false,
@@ -2450,7 +4702,9 @@
             "type": "string",
             "enum": [
               "video",
-              "project_page"
+              "project_page",
+              "code",
+              "youtube_description"
             ],
             "title": "Source",
             "default": "video"
@@ -2481,6 +4735,31 @@
               }
             ],
             "title": "Url"
+          },
+          "file": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 300,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "File"
+          },
+          "line": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Line"
           }
         },
         "additionalProperties": false,
@@ -2489,7 +4768,199 @@
           "observation"
         ],
         "title": "Evidence",
-        "description": "Model-reported provenance for an extracted BOM line.\n\n`source` defaults to `video` so snapshots saved before project-page support still\nvalidate. Video evidence carries a timestamp. Project-page evidence carries the fetched\ndocument `url` and a `quote` the server found verbatim (whitespace-normalised) in it."
+        "description": "Model-reported provenance for an extracted BOM line.\n\n`source` defaults to `video` so snapshots saved before project-page support still\nvalidate. Video evidence carries a timestamp. Project-page evidence carries the fetched\ndocument `url` and a `quote` the server found verbatim (whitespace-normalised) in it.\nCode evidence is deterministic: the repository `file` and 1-based `line`, the line's\ntext as `quote`, and a `url` to that line. YouTube description evidence carries a\n`quote` (at most 300 characters) the server found verbatim in the video's description\nand the canonical video `url`; it is dropped from responses 30 days after\n`Job.video_meta.fetched_at` (YouTube API Services retention policy)."
+      },
+      "ExplainRequest": {
+        "properties": {
+          "language": {
+            "type": "string",
+            "enum": [
+              "hi",
+              "ta",
+              "ml",
+              "bn",
+              "te",
+              "kn",
+              "mr",
+              "en"
+            ],
+            "title": "Language",
+            "default": "en"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "ExplainRequest"
+      },
+      "Explanation": {
+        "properties": {
+          "language": {
+            "type": "string",
+            "enum": [
+              "hi",
+              "ta",
+              "ml",
+              "bn",
+              "te",
+              "kn",
+              "mr",
+              "en"
+            ],
+            "title": "Language"
+          },
+          "transcript": {
+            "type": "string",
+            "title": "Transcript"
+          },
+          "source_script": {
+            "type": "string",
+            "title": "Source Script"
+          },
+          "translated": {
+            "type": "boolean",
+            "title": "Translated"
+          },
+          "audio_mime": {
+            "type": "string",
+            "const": "audio/wav",
+            "title": "Audio Mime",
+            "default": "audio/wav"
+          },
+          "audio_base64": {
+            "type": "string",
+            "title": "Audio Base64"
+          },
+          "duration_s": {
+            "type": "number",
+            "title": "Duration S"
+          },
+          "cached": {
+            "type": "boolean",
+            "title": "Cached"
+          },
+          "demo": {
+            "type": "boolean",
+            "title": "Demo"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "language",
+          "transcript",
+          "source_script",
+          "translated",
+          "audio_base64",
+          "duration_s",
+          "cached",
+          "demo",
+          "label"
+        ],
+        "title": "Explanation"
+      },
+      "ExtrasStatus": {
+        "properties": {
+          "demo": {
+            "type": "boolean",
+            "title": "Demo"
+          },
+          "explain": {
+            "$ref": "#/components/schemas/FeatureStatus"
+          },
+          "zoom": {
+            "$ref": "#/components/schemas/FeatureStatus"
+          },
+          "scan": {
+            "$ref": "#/components/schemas/FeatureStatus"
+          },
+          "languages": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "hi",
+                "ta",
+                "ml",
+                "bn",
+                "te",
+                "kn",
+                "mr",
+                "en"
+              ]
+            },
+            "type": "array",
+            "title": "Languages"
+          },
+          "zoom_line_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Zoom Line Ids"
+          },
+          "scan_max_bytes": {
+            "type": "integer",
+            "title": "Scan Max Bytes"
+          },
+          "scan_mime_types": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Scan Mime Types"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "demo",
+          "explain",
+          "zoom",
+          "scan",
+          "languages",
+          "zoom_line_ids",
+          "scan_max_bytes",
+          "scan_mime_types"
+        ],
+        "title": "ExtrasStatus"
+      },
+      "FeatureStatus": {
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled"
+          },
+          "daily_limit": {
+            "type": "integer",
+            "title": "Daily Limit"
+          },
+          "remaining": {
+            "type": "integer",
+            "title": "Remaining"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "enabled",
+          "daily_limit",
+          "remaining"
+        ],
+        "title": "FeatureStatus"
       },
       "HaveLine": {
         "properties": {
@@ -2561,6 +5032,151 @@
         "additionalProperties": false,
         "type": "object",
         "title": "ImageRequest"
+      },
+      "ImportBaseline": {
+        "properties": {
+          "line_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Line Ids"
+          },
+          "complete": {
+            "type": "boolean",
+            "title": "Complete",
+            "default": false
+          },
+          "goods_usd": {
+            "type": "string",
+            "pattern": "^\\d+\\.\\d{2}$",
+            "title": "Goods Usd"
+          },
+          "fx_usd_inr": {
+            "type": "string",
+            "title": "Fx Usd Inr"
+          },
+          "goods_inr": {
+            "$ref": "#/components/schemas/CostAmount"
+          },
+          "courier_inr": {
+            "$ref": "#/components/schemas/CostAmount"
+          },
+          "duty_inr": {
+            "$ref": "#/components/schemas/CostAmount"
+          },
+          "landed_inr": {
+            "$ref": "#/components/schemas/CostAmount"
+          },
+          "formula": {
+            "type": "string",
+            "title": "Formula"
+          },
+          "sources": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Sources"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "goods_usd",
+          "fx_usd_inr",
+          "goods_inr",
+          "courier_inr",
+          "duty_inr",
+          "landed_inr",
+          "formula"
+        ],
+        "title": "ImportBaseline"
+      },
+      "ImportReference": {
+        "properties": {
+          "price_usd": {
+            "type": "string",
+            "pattern": "^\\d+\\.\\d{2}$",
+            "title": "Price Usd"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "user",
+              "research_fact"
+            ],
+            "title": "Source",
+            "default": "user"
+          },
+          "source_url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2083,
+                "minLength": 1,
+                "format": "uri"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Url"
+          },
+          "quote": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 1000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quote"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "price_usd"
+        ],
+        "title": "ImportReference",
+        "description": "Unit price from a US/global distributor, used only for the import comparison."
+      },
+      "ItemConflict": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "identity_mismatch",
+              "qty_mismatch"
+            ],
+            "title": "Kind"
+          },
+          "message": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Message"
+          },
+          "values": {
+            "items": {
+              "$ref": "#/components/schemas/ConflictValue"
+            },
+            "type": "array",
+            "maxItems": 6,
+            "title": "Values"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "kind",
+          "message"
+        ],
+        "title": "ItemConflict",
+        "description": "Sources disagree about this line; nothing is picked silently (see multi-source-intake)."
       },
       "Job": {
         "properties": {
@@ -2719,6 +5335,41 @@
             },
             "type": "array",
             "title": "Actions"
+          },
+          "safety_flags": {
+            "items": {
+              "$ref": "#/components/schemas/SafetyFlag"
+            },
+            "type": "array",
+            "title": "Safety Flags"
+          },
+          "source_reports": {
+            "items": {
+              "$ref": "#/components/schemas/SourceReport"
+            },
+            "type": "array",
+            "maxItems": 5,
+            "title": "Source Reports"
+          },
+          "video_meta": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JobVideoMeta"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "cost_estimate": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CostEstimate"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "additionalProperties": false,
@@ -2728,6 +5379,926 @@
           "input"
         ],
         "title": "Job"
+      },
+      "JobVideoMeta": {
+        "properties": {
+          "video_id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{11}$",
+            "title": "Video Id"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "channel": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Channel"
+          },
+          "published_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published At"
+          },
+          "fetched_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Fetched At"
+          },
+          "links": {
+            "items": {
+              "$ref": "#/components/schemas/VideoLink"
+            },
+            "type": "array",
+            "maxItems": 20,
+            "title": "Links"
+          },
+          "expired": {
+            "type": "boolean",
+            "title": "Expired",
+            "default": false
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "video_id",
+          "fetched_at"
+        ],
+        "title": "JobVideoMeta",
+        "description": "YouTube Data API snippet facts kept on a job; never the full description.\n\nAPI data must be refreshed or deleted after 30 days: once `fetched_at` is older,\nresponses clear `title`, `channel`, `published_at` and `links`, drop description\nquotes from evidence and set `expired`."
+      },
+      "LineImage": {
+        "properties": {
+          "url": {
+            "type": "string",
+            "title": "Url"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "selected_offer",
+              "recommended_offer",
+              "offer",
+              "reference",
+              "category",
+              "placeholder"
+            ],
+            "title": "Kind"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "source_url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2083,
+                "minLength": 1,
+                "format": "uri"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Url"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "url",
+          "kind",
+          "label"
+        ],
+        "title": "LineImage",
+        "description": "The one image to show for a line, resolved in a fixed order (recommendations.md)."
+      },
+      "LineRecommendation": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "recommended",
+              "unsourced"
+            ],
+            "title": "Status"
+          },
+          "offer_url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2083,
+                "minLength": 1,
+                "format": "uri"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Offer Url"
+          },
+          "seller": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Seller"
+          },
+          "score": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 1.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Score"
+          },
+          "reasons": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Reasons"
+          },
+          "blocked_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Blocked Reason"
+          },
+          "unsourced_reason": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "pending",
+                  "needs_value",
+                  "no_offers",
+                  "no_acceptable_offer",
+                  "needs_quantity"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unsourced Reason"
+          },
+          "next_steps": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Next Steps"
+          },
+          "qty": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Qty"
+          },
+          "pack_qty": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pack Qty"
+          },
+          "packs": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Packs"
+          },
+          "method": {
+            "type": "string",
+            "const": "deterministic_score",
+            "title": "Method",
+            "default": "deterministic_score"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "title": "LineRecommendation",
+        "description": "Deterministic recommendation for one line; reasons explain every scoring factor."
+      },
+      "Lookalike": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 300
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "origin": {
+            "type": "string",
+            "enum": [
+              "table",
+              "ai"
+            ],
+            "title": "Origin"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "name",
+          "origin"
+        ],
+        "title": "Lookalike",
+        "description": "A part easily confused with this line; a warning, never a suggested substitute."
+      },
+      "MapsSource": {
+        "properties": {
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "uri": {
+            "type": "string",
+            "title": "Uri"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "place",
+              "review",
+              "web"
+            ],
+            "title": "Kind"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "title",
+          "uri",
+          "kind"
+        ],
+        "title": "MapsSource"
+      },
+      "MarketLocation": {
+        "properties": {
+          "source": {
+            "type": "string",
+            "enum": [
+              "pin",
+              "coordinates"
+            ],
+            "title": "Source"
+          },
+          "pin": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pin"
+          },
+          "city": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "City"
+          },
+          "latitude": {
+            "type": "number",
+            "title": "Latitude"
+          },
+          "longitude": {
+            "type": "number",
+            "title": "Longitude"
+          },
+          "approximate": {
+            "type": "boolean",
+            "title": "Approximate"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "source",
+          "latitude",
+          "longitude",
+          "approximate",
+          "label"
+        ],
+        "title": "MarketLocation"
+      },
+      "MarketPlace": {
+        "properties": {
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "uri": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Uri"
+          },
+          "address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address"
+          },
+          "place_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Place Id"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "title"
+        ],
+        "title": "MarketPlace"
+      },
+      "MarketsAttribution": {
+        "properties": {
+          "provider": {
+            "type": "string",
+            "const": "Google Maps",
+            "title": "Provider",
+            "default": "Google Maps"
+          },
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/MapsSource"
+            },
+            "type": "array",
+            "title": "Sources"
+          },
+          "rules": {
+            "type": "string",
+            "title": "Rules",
+            "default": "Show these Google Maps sources immediately after the summary, viewable within one interaction; link each title to its URI and do not modify the text \"Google Maps\"."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "sources"
+        ],
+        "title": "MarketsAttribution"
+      },
+      "MarketsResult": {
+        "properties": {
+          "demo": {
+            "type": "boolean",
+            "title": "Demo"
+          },
+          "location": {
+            "$ref": "#/components/schemas/MarketLocation"
+          },
+          "categories": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Categories"
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Summary"
+          },
+          "summary_label": {
+            "type": "string",
+            "title": "Summary Label",
+            "default": "Shops likely to carry these parts — call first; stock is not confirmed"
+          },
+          "places": {
+            "items": {
+              "$ref": "#/components/schemas/MarketPlace"
+            },
+            "type": "array",
+            "title": "Places"
+          },
+          "attribution": {
+            "$ref": "#/components/schemas/MarketsAttribution"
+          },
+          "cached": {
+            "type": "boolean",
+            "title": "Cached"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "demo",
+          "location",
+          "categories",
+          "places",
+          "attribution",
+          "cached",
+          "label"
+        ],
+        "title": "MarketsResult"
+      },
+      "MatchClaim": {
+        "properties": {
+          "claim": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Claim"
+          },
+          "quote": {
+            "type": "string",
+            "maxLength": 300,
+            "minLength": 3,
+            "title": "Quote"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "claim",
+          "quote"
+        ],
+        "title": "MatchClaim"
+      },
+      "OfferMatch": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "exact",
+              "compatible",
+              "partial",
+              "mismatch"
+            ],
+            "title": "Status"
+          },
+          "score": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Score"
+          },
+          "matched": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 12,
+            "title": "Matched"
+          },
+          "missing": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 12,
+            "title": "Missing"
+          },
+          "conflicts": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 12,
+            "title": "Conflicts"
+          },
+          "reasons": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 6,
+            "title": "Reasons"
+          },
+          "claims": {
+            "items": {
+              "$ref": "#/components/schemas/MatchClaim"
+            },
+            "type": "array",
+            "maxItems": 8,
+            "title": "Claims"
+          },
+          "dropped_claims": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Dropped Claims",
+            "default": 0
+          },
+          "variant": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 300
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Variant"
+          },
+          "pack_qty": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 100000.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pack Qty"
+          },
+          "method": {
+            "type": "string",
+            "enum": [
+              "llm_judge",
+              "deterministic_shortcut"
+            ],
+            "title": "Method",
+            "default": "llm_judge"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "status",
+          "score"
+        ],
+        "title": "OfferMatch",
+        "description": "How well a listing matches the line's buyable spec. A judgement, not a verification.\n\n`llm_judge` verdicts keep only claims whose quotes appear verbatim in the listing;\n`deterministic_shortcut` is used only when structured data states every spec param."
+      },
+      "OrderPlan": {
+        "properties": {
+          "sellers": {
+            "items": {
+              "$ref": "#/components/schemas/OrderPlanSeller"
+            },
+            "type": "array",
+            "title": "Sellers"
+          },
+          "unsourced": {
+            "items": {
+              "$ref": "#/components/schemas/UnsourcedLine"
+            },
+            "type": "array",
+            "title": "Unsourced"
+          },
+          "seller_count": {
+            "type": "integer",
+            "title": "Seller Count",
+            "default": 0
+          },
+          "costing": {
+            "$ref": "#/components/schemas/CostBreakdown"
+          },
+          "ready": {
+            "type": "boolean",
+            "title": "Ready",
+            "default": false
+          },
+          "disclaimer": {
+            "type": "string",
+            "title": "Disclaimer",
+            "default": "Recommendations are automatic and deterministic; check each seller page and checkout before ordering. Totals are estimates, not a payable amount."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "costing"
+        ],
+        "title": "OrderPlan",
+        "description": "Seller-grouped order built from selections, else recommendations; an estimate only."
+      },
+      "OrderPlanLine": {
+        "properties": {
+          "line_id": {
+            "type": "string",
+            "title": "Line Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "offer_url": {
+            "type": "string",
+            "maxLength": 2083,
+            "minLength": 1,
+            "format": "uri",
+            "title": "Offer Url"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "qty": {
+            "type": "integer",
+            "title": "Qty"
+          },
+          "pack_qty": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pack Qty"
+          },
+          "packs": {
+            "type": "integer",
+            "title": "Packs"
+          },
+          "units": {
+            "type": "integer",
+            "title": "Units"
+          },
+          "unit_price_inr": {
+            "type": "string",
+            "pattern": "^\\d+\\.\\d{2}$",
+            "title": "Unit Price Inr"
+          },
+          "line_price_inr": {
+            "type": "string",
+            "pattern": "^\\d+\\.\\d{2}$",
+            "title": "Line Price Inr"
+          },
+          "selection_source": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "recommended",
+                  "user"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Selection Source"
+          },
+          "selected": {
+            "type": "boolean",
+            "title": "Selected",
+            "default": false
+          },
+          "grade": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "A",
+                  "B",
+                  "C",
+                  "D",
+                  "X"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Grade"
+          },
+          "changes_required": {
+            "type": "boolean",
+            "title": "Changes Required",
+            "default": false
+          },
+          "blocked_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Blocked Reason"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "line_id",
+          "name",
+          "offer_url",
+          "qty",
+          "packs",
+          "units",
+          "unit_price_inr",
+          "line_price_inr"
+        ],
+        "title": "OrderPlanLine"
+      },
+      "OrderPlanSeller": {
+        "properties": {
+          "seller": {
+            "type": "string",
+            "title": "Seller"
+          },
+          "lines": {
+            "items": {
+              "$ref": "#/components/schemas/OrderPlanLine"
+            },
+            "type": "array",
+            "title": "Lines"
+          },
+          "subtotal_inr": {
+            "type": "string",
+            "pattern": "^\\d+\\.\\d{2}$",
+            "title": "Subtotal Inr"
+          },
+          "gst": {
+            "$ref": "#/components/schemas/CostAmount"
+          },
+          "shipping": {
+            "$ref": "#/components/schemas/CostAmount"
+          },
+          "total": {
+            "$ref": "#/components/schemas/CostAmount"
+          },
+          "free_shipping_gap_inr": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^\\d+\\.\\d{2}$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Free Shipping Gap Inr"
+          },
+          "policy": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ShippingPolicyRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "product_links": {
+            "items": {
+              "type": "string",
+              "maxLength": 2083,
+              "minLength": 1,
+              "format": "uri"
+            },
+            "type": "array",
+            "title": "Product Links"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "seller",
+          "subtotal_inr",
+          "gst",
+          "shipping",
+          "total"
+        ],
+        "title": "OrderPlanSeller"
       },
       "PartImage": {
         "properties": {
@@ -2880,7 +6451,8 @@
               "ready",
               "no_evidence",
               "failed",
-              "stale"
+              "stale",
+              "skipped"
             ],
             "title": "Status"
           },
@@ -2974,6 +6546,16 @@
             },
             "type": "array",
             "title": "Clarifications"
+          },
+          "catalog": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CatalogMatch"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "additionalProperties": false,
@@ -3210,6 +6792,84 @@
         "additionalProperties": false,
         "type": "object",
         "title": "PartSpecs"
+      },
+      "PlanPick": {
+        "properties": {
+          "line_id": {
+            "type": "string",
+            "title": "Line Id"
+          },
+          "offer_url": {
+            "type": "string",
+            "maxLength": 2083,
+            "minLength": 1,
+            "format": "uri",
+            "title": "Offer Url"
+          },
+          "seller": {
+            "type": "string",
+            "title": "Seller"
+          },
+          "price_inr": {
+            "type": "string",
+            "pattern": "^\\d+\\.\\d{2}$",
+            "title": "Price Inr"
+          },
+          "grade": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "A",
+                  "B",
+                  "C",
+                  "D"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Grade"
+          },
+          "changes_required": {
+            "type": "boolean",
+            "title": "Changes Required",
+            "default": false
+          },
+          "qty": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Qty"
+          },
+          "packs": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Packs"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "line_id",
+          "offer_url",
+          "seller",
+          "price_inr",
+          "grade"
+        ],
+        "title": "PlanPick"
       },
       "ProjectContext": {
         "properties": {
@@ -3674,6 +7334,26 @@
             },
             "type": "array",
             "title": "Unselected Line Ids"
+          },
+          "costing": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CostBreakdown"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "order_plan": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/OrderPlan"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "additionalProperties": false,
@@ -3704,6 +7384,16 @@
             "anyOf": [
               {
                 "$ref": "#/components/schemas/PartResolution"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "buyable_spec": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BuyableSpec"
               },
               {
                 "type": "null"
@@ -3816,6 +7506,112 @@
             "type": "boolean",
             "title": "Research Accepted",
             "default": false
+          },
+          "import_reference": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ImportReference"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "selection_source": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "recommended",
+                  "user"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Selection Source"
+          },
+          "user_offer_url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2083,
+                "minLength": 1,
+                "format": "uri"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Offer Url"
+          },
+          "recommended_offer_url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2083,
+                "minLength": 1,
+                "format": "uri"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recommended Offer Url"
+          },
+          "recommendation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LineRecommendation"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "line_image": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LineImage"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "seller_search": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SellerSearchSummary"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "stages": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "seller_search",
+                "judge",
+                "grounded",
+                "known_urls",
+                "research",
+                "research_skipped",
+                "followup"
+              ]
+            },
+            "type": "array",
+            "maxItems": 12,
+            "title": "Stages"
+          },
+          "gemini_calls": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Gemini Calls",
+            "default": 0
           }
         },
         "additionalProperties": false,
@@ -4276,6 +8072,253 @@
         ],
         "title": "ResistorQuestion"
       },
+      "SafetyFlag": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "enum": [
+              "MAINS",
+              "LIPO",
+              "HIGH_CURRENT",
+              "LEVEL_SHIFT"
+            ],
+            "title": "Code"
+          },
+          "severity": {
+            "type": "string",
+            "enum": [
+              "danger",
+              "warning",
+              "caution"
+            ],
+            "title": "Severity"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "guidance": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Guidance"
+          },
+          "line_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Line Ids"
+          },
+          "triggers": {
+            "items": {
+              "$ref": "#/components/schemas/SafetyTrigger"
+            },
+            "type": "array",
+            "maxItems": 20,
+            "title": "Triggers"
+          },
+          "method": {
+            "type": "string",
+            "const": "deterministic_rules",
+            "title": "Method",
+            "default": "deterministic_rules"
+          },
+          "rule_version": {
+            "type": "string",
+            "title": "Rule Version"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "code",
+          "severity",
+          "title",
+          "message",
+          "rule_version"
+        ],
+        "title": "SafetyFlag",
+        "description": "Hard-coded rule output (`safety.py`) with templated text; never written by a model."
+      },
+      "SafetyTrigger": {
+        "properties": {
+          "line_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Line Id"
+          },
+          "field": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Field"
+          },
+          "matched": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Matched"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "field",
+          "matched"
+        ],
+        "title": "SafetyTrigger",
+        "description": "Which saved text made a deterministic safety rule fire."
+      },
+      "SavingsEstimate": {
+        "properties": {
+          "amount_inr": {
+            "type": "string",
+            "pattern": "^-?\\d+\\.\\d{2}$",
+            "title": "Amount Inr"
+          },
+          "status": {
+            "type": "string",
+            "const": "estimated",
+            "title": "Status",
+            "default": "estimated"
+          },
+          "assumptions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Assumptions"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "amount_inr"
+        ],
+        "title": "SavingsEstimate"
+      },
+      "ScanRequest": {
+        "properties": {
+          "image_base64": {
+            "type": "string",
+            "maxLength": 7000000,
+            "minLength": 8,
+            "title": "Image Base64"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "image_base64"
+        ],
+        "title": "ScanRequest"
+      },
+      "ScanResult": {
+        "properties": {
+          "suggestions": {
+            "items": {
+              "$ref": "#/components/schemas/ScanSuggestion"
+            },
+            "type": "array",
+            "title": "Suggestions"
+          },
+          "message_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message Id"
+          },
+          "demo": {
+            "type": "boolean",
+            "title": "Demo"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "suggestions",
+          "demo",
+          "label"
+        ],
+        "title": "ScanResult"
+      },
+      "ScanSuggestion": {
+        "properties": {
+          "line_id": {
+            "type": "string",
+            "title": "Line Id"
+          },
+          "likely_present": {
+            "type": "boolean",
+            "title": "Likely Present"
+          },
+          "box_2d": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array",
+                "maxItems": 4,
+                "minItems": 4
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Box 2D"
+          },
+          "observation": {
+            "type": "string",
+            "title": "Observation"
+          },
+          "already_marked": {
+            "type": "boolean",
+            "title": "Already Marked",
+            "default": false
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "line_id",
+          "likely_present",
+          "observation"
+        ],
+        "title": "ScanSuggestion"
+      },
       "SearchAttribution": {
         "properties": {
           "source_urls": {
@@ -4365,6 +8408,147 @@
         ],
         "title": "SelectOffers"
       },
+      "SellerCost": {
+        "properties": {
+          "seller": {
+            "type": "string",
+            "title": "Seller"
+          },
+          "line_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Line Ids"
+          },
+          "parts": {
+            "$ref": "#/components/schemas/CostAmount"
+          },
+          "gst": {
+            "$ref": "#/components/schemas/CostAmount"
+          },
+          "shipping": {
+            "$ref": "#/components/schemas/CostAmount"
+          },
+          "total": {
+            "$ref": "#/components/schemas/CostAmount"
+          },
+          "free_shipping_gap_inr": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^\\d+\\.\\d{2}$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Free Shipping Gap Inr"
+          },
+          "policy": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ShippingPolicyRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "seller",
+          "parts",
+          "gst",
+          "shipping",
+          "total"
+        ],
+        "title": "SellerCost"
+      },
+      "SellerSearchSummary": {
+        "properties": {
+          "queries": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 4,
+            "title": "Queries"
+          },
+          "candidate_urls": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 20,
+            "title": "Candidate Urls"
+          },
+          "sellers_checked": {
+            "type": "integer",
+            "title": "Sellers Checked",
+            "default": 0
+          },
+          "blocked_sellers": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 20,
+            "title": "Blocked Sellers"
+          },
+          "message": {
+            "type": "string",
+            "maxLength": 500,
+            "title": "Message",
+            "default": ""
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "SellerSearchSummary",
+        "description": "Direct seller-catalogue search for one line. Candidate URLs are unverified leads."
+      },
+      "SellerTrust": {
+        "properties": {
+          "label": {
+            "type": "string",
+            "enum": [
+              "established",
+              "verified_basics",
+              "unverified"
+            ],
+            "title": "Label"
+          },
+          "new_seller": {
+            "type": "boolean",
+            "title": "New Seller",
+            "default": false
+          },
+          "reasons": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Reasons"
+          },
+          "signals": {
+            "$ref": "#/components/schemas/TrustSignals"
+          },
+          "checked_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Checked At"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "label"
+        ],
+        "title": "SellerTrust"
+      },
       "SendMessage": {
         "properties": {
           "message_id": {
@@ -4443,6 +8627,377 @@
         ],
         "title": "SessionUsage"
       },
+      "SetImportReference": {
+        "properties": {
+          "line_id": {
+            "type": "string",
+            "title": "Line Id"
+          },
+          "price_usd": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^\\d+\\.\\d{2}$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price Usd"
+          },
+          "source_url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2083,
+                "minLength": 1,
+                "format": "uri"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Url"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "line_id"
+        ],
+        "title": "SetImportReference"
+      },
+      "SetImportReferences": {
+        "properties": {
+          "references": {
+            "items": {
+              "$ref": "#/components/schemas/SetImportReference"
+            },
+            "type": "array",
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "References"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "references"
+        ],
+        "title": "SetImportReferences"
+      },
+      "ShareLink": {
+        "properties": {
+          "share_token": {
+            "type": "string",
+            "title": "Share Token"
+          },
+          "path": {
+            "type": "string",
+            "title": "Path"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "share_token",
+          "path",
+          "created_at"
+        ],
+        "title": "ShareLink"
+      },
+      "ShareStatus": {
+        "properties": {
+          "active": {
+            "type": "boolean",
+            "title": "Active"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "active"
+        ],
+        "title": "ShareStatus"
+      },
+      "SharedProject": {
+        "properties": {
+          "shared": {
+            "type": "boolean",
+            "const": true,
+            "title": "Shared",
+            "default": true
+          },
+          "demo": {
+            "type": "boolean",
+            "title": "Demo"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "extracting",
+              "awaiting_confirmation",
+              "resolving",
+              "sourcing",
+              "paused",
+              "done",
+              "failed"
+            ],
+            "title": "Status"
+          },
+          "source_url": {
+            "type": "string",
+            "title": "Source Url"
+          },
+          "project": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ProjectContext"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/BomItem"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "report": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Report"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "notice": {
+            "type": "string",
+            "title": "Notice"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "demo",
+          "status",
+          "source_url",
+          "created_at",
+          "updated_at",
+          "items",
+          "notice"
+        ],
+        "title": "SharedProject",
+        "description": "Read-only, redacted project view for share links and exports.\n\nExcludes the job id, job token, owner identity, PIN, chat history, events, resistor\nadvice and grounded-search attribution; nothing here grants access to the job."
+      },
+      "ShippingPolicyRef": {
+        "properties": {
+          "seller": {
+            "type": "string",
+            "title": "Seller"
+          },
+          "free_above_inr": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^\\d+\\.\\d{2}$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Free Above Inr"
+          },
+          "free_when": {
+            "type": "string",
+            "enum": [
+              "above",
+              "at_or_above"
+            ],
+            "title": "Free When",
+            "default": "above"
+          },
+          "flat_fee_inr": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^\\d+\\.\\d{2}$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Flat Fee Inr"
+          },
+          "fee_plus_gst": {
+            "type": "boolean",
+            "title": "Fee Plus Gst",
+            "default": false
+          },
+          "unverified": {
+            "type": "boolean",
+            "title": "Unverified",
+            "default": false
+          },
+          "source_url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2083,
+                "minLength": 1,
+                "format": "uri"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Url"
+          },
+          "checked_on": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Checked On"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "seller"
+        ],
+        "title": "ShippingPolicyRef"
+      },
+      "SourceReport": {
+        "properties": {
+          "url": {
+            "type": "string",
+            "title": "Url"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "video",
+              "instructables",
+              "hackster",
+              "github",
+              "adafruit",
+              "blog",
+              "youtube_description"
+            ],
+            "title": "Kind"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "primary",
+              "additional"
+            ],
+            "title": "Role",
+            "default": "primary"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "read",
+              "failed"
+            ],
+            "title": "Status"
+          },
+          "item_count": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Item Count",
+            "default": 0
+          },
+          "code_item_count": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Code Item Count",
+            "default": 0
+          },
+          "error": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ErrorDetail"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "found_in": {
+            "anyOf": [
+              {
+                "type": "string",
+                "const": "youtube_description"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Found In"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "url",
+          "kind",
+          "status"
+        ],
+        "title": "SourceReport",
+        "description": "How one submitted source was read during extraction."
+      },
       "SpecConflict": {
         "properties": {
           "field": {
@@ -4483,7 +9038,8 @@
               "user",
               "seller_title",
               "seller_property",
-              "seller_table"
+              "seller_table",
+              "catalog"
             ],
             "title": "Source"
           },
@@ -4501,6 +9057,114 @@
           "locator"
         ],
         "title": "SpecEvidence"
+      },
+      "SpecParam": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 60,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "value": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Value"
+          },
+          "operator": {
+            "type": "string",
+            "enum": [
+              "equals",
+              "at_least",
+              "at_most",
+              "between"
+            ],
+            "title": "Operator",
+            "default": "equals"
+          },
+          "value_max": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 80
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value Max"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 10
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit"
+          },
+          "si_value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Si Value"
+          },
+          "si_value_max": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Si Value Max"
+          },
+          "required": {
+            "type": "boolean",
+            "title": "Required",
+            "default": true
+          },
+          "origin": {
+            "type": "string",
+            "enum": [
+              "stated",
+              "inferred",
+              "user"
+            ],
+            "title": "Origin",
+            "default": "inferred"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 300
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "name",
+          "value"
+        ],
+        "title": "SpecParam",
+        "description": "One buyable parameter. `si_value` is filled by the server's unit normaliser."
       },
       "SpecProposal": {
         "properties": {
@@ -4529,6 +9193,176 @@
           "base_fingerprint"
         ],
         "title": "SpecProposal"
+      },
+      "TrustSignals": {
+        "properties": {
+          "domain": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Domain"
+          },
+          "https": {
+            "type": "boolean",
+            "title": "Https",
+            "default": false
+          },
+          "known_seller": {
+            "type": "boolean",
+            "title": "Known Seller",
+            "default": false
+          },
+          "platform": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "shopify",
+                  "woocommerce",
+                  "magento",
+                  "jsonld",
+                  "unknown"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Platform"
+          },
+          "domain_registered": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Domain Registered"
+          },
+          "domain_age_days": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Domain Age Days"
+          },
+          "gstin": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gstin"
+          },
+          "policies": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "returns",
+                "shipping",
+                "contact"
+              ]
+            },
+            "type": "array",
+            "title": "Policies"
+          },
+          "price_anomaly": {
+            "type": "boolean",
+            "title": "Price Anomaly",
+            "default": false
+          },
+          "web_risk": {
+            "type": "string",
+            "const": "not_checked",
+            "title": "Web Risk",
+            "default": "not_checked"
+          },
+          "unavailable": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "domain_age",
+                "policies",
+                "all"
+              ]
+            },
+            "type": "array",
+            "title": "Unavailable"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "TrustSignals",
+        "description": "Deterministic, free seller checks. Absent evidence is recorded, never assumed."
+      },
+      "UnsourcedLine": {
+        "properties": {
+          "line_id": {
+            "type": "string",
+            "title": "Line Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "reason": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "needs_value",
+              "no_offers",
+              "no_acceptable_offer",
+              "needs_quantity",
+              "cleared_by_user"
+            ],
+            "title": "Reason"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "next_steps": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Next Steps"
+          },
+          "research_urls": {
+            "items": {
+              "type": "string",
+              "maxLength": 2083,
+              "minLength": 1,
+              "format": "uri"
+            },
+            "type": "array",
+            "title": "Research Urls"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "line_id",
+          "name",
+          "reason",
+          "message"
+        ],
+        "title": "UnsourcedLine"
       },
       "UpdateJobSpecs": {
         "properties": {
@@ -4610,6 +9444,16 @@
               }
             ],
             "title": "Requirements"
+          },
+          "buyable_spec": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BuyableSpec"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "additionalProperties": false,
@@ -4781,7 +9625,12 @@
           },
           "verification": {
             "type": "string",
-            "const": "seller_structured_data",
+            "enum": [
+              "seller_structured_data",
+              "shopify_storefront_json",
+              "woocommerce_store_api",
+              "seller_meta_tags"
+            ],
             "title": "Verification",
             "default": "seller_structured_data"
           },
@@ -4792,8 +9641,27 @@
             "default": "unverified"
           },
           "tax_included": {
-            "type": "null",
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Tax Included"
+          },
+          "tax_evidence": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 300
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tax Evidence"
           },
           "shipping_inr": {
             "type": "null",
@@ -4847,6 +9715,39 @@
                 "type": "null"
               }
             ]
+          },
+          "trust": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SellerTrust"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "match": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/OfferMatch"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "pack_qty": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 100000.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pack Qty"
           }
         },
         "additionalProperties": false,
@@ -4858,6 +9759,186 @@
           "price_inr"
         ],
         "title": "VerifiedOffer"
+      },
+      "VideoLink": {
+        "properties": {
+          "url": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Url"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "project_source",
+              "video",
+              "store",
+              "other"
+            ],
+            "title": "Kind"
+          },
+          "followed": {
+            "type": "boolean",
+            "title": "Followed",
+            "default": false
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "url",
+          "kind"
+        ],
+        "title": "VideoLink",
+        "description": "One link from a YouTube description; only project pages are followed as sources."
+      },
+      "WhatChanges": {
+        "properties": {
+          "wiring": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Wiring"
+          },
+          "code": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Code"
+          },
+          "power": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Power"
+          },
+          "safety": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Safety"
+          },
+          "verify": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Verify"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "WhatChanges"
+      },
+      "ZoomRequest": {
+        "properties": {
+          "timestamp": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^\\d{2,}:[0-5]\\d$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Timestamp"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "ZoomRequest"
+      },
+      "ZoomResult": {
+        "properties": {
+          "line_id": {
+            "type": "string",
+            "title": "Line Id"
+          },
+          "clip": {
+            "$ref": "#/components/schemas/ClipRange"
+          },
+          "readable": {
+            "type": "boolean",
+            "title": "Readable"
+          },
+          "marking": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Marking"
+          },
+          "suggested_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Suggested Name"
+          },
+          "observation": {
+            "type": "string",
+            "title": "Observation"
+          },
+          "evidence": {
+            "$ref": "#/components/schemas/Evidence"
+          },
+          "message_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message Id"
+          },
+          "demo": {
+            "type": "boolean",
+            "title": "Demo"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "line_id",
+          "clip",
+          "readable",
+          "observation",
+          "evidence",
+          "demo",
+          "label"
+        ],
+        "title": "ZoomResult"
       }
     }
   }

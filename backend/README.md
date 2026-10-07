@@ -4,6 +4,65 @@ The integration deployment was observed on 5 October 2026 with Firebase account 
 guest authentication enabled. The frontend origin is included in CORS. The
 `BS_AUTH_ENABLED=false` setting shown below remains the default for a fresh local setup.
 
+Unreleased (recommendations): when sourcing completes the backend scores every offer, picks one per line with a basket that consolidates sellers (a configurable `BS_RECOMMEND_SELLER_PENALTY_INR`, default ₹60, per extra seller), applies it as the selection where the selection rules allow (`selection_source: "recommended"`), and exposes a seller-grouped `report.order_plan` plus one resolved `line_image` per line. User choices are never overwritten. See [recommendations](../docs/contracts/recommendations.md).
+
+v0.22.0 fixes the picks a live re-check of a real job got wrong. Older jobs get AI buying
+specs from one batched call per job (`spec` call site), so every line has a category, value
+and physical size. A part with no value is never auto-selected (kits are recommended with
+"choose the value"). Server-side checks downgrade listings whose stated size or LED colour
+contradicts the spec, without reading shipping-box dimensions or lead lengths as part sizes.
+Seller search keeps the plain part name among its queries, keeps searching a store until a
+title fully matches, retries with a shorter query when a store finds nothing, and sends
+Shopify colour/size variant groups to the judge. The recommender prefers offers it can
+select over cheaper recommendation-only ones, and "research skipped" is reported honestly.
+The frontend now renders the order plan, recommendations, match chips, costing, trust,
+export/share, nearby markets, safety banners, review details and the buying-spec panel.
+
+v0.21.0 rebuilds sourcing into an engine that picks parts for you. Each line gets a
+[buyable spec](../docs/contracts/part-matching.md) (written by the extraction call), then
+[seller catalogue search](../docs/contracts/seller-search.md) across Indian sellers' own
+public search endpoints runs first (free), an LLM spec judge decides which listings are the
+right part (quotes verified server-side), and paid Google-grounded discovery runs only if
+nothing acceptable was found. [Recommendations](../docs/contracts/recommendations.md) score
+offers, apply the best one as the default selection (judge-confirmed offers included; user
+choices are never overwritten) and build a seller-grouped `order_plan` that consolidates
+orders to save shipping; every line gets a `line_image`. [Cost controls](../docs/contracts/cost-controls.md)
+add a shared cross-job cache, research only when needed, refresh without rediscovery, a
+per-job budget (default $0.25) and `job.cost_estimate`. Also new: [nearby markets](../docs/contracts/nearby-markets.md)
+via Maps grounding (`GET /markets`), YouTube description intake (key mounted as
+`BS_YOUTUBE_API_KEY`; quotes expire after 30 days), and bot-protection detection that stops
+and reports instead of circumventing.
+
+Engine fixes (unreleased, after a live check on 2026-10-07): lines without an AI spec
+(older jobs, user-added or renamed lines) get one batched `spec` call per job when sourcing
+starts (`BS_SPEC_WRITER_ENABLED`, saved on the items); seed specs classify the category and
+flag `needs_value`; a line whose value is unknown is never auto-selected (only a kit can be
+recommended); the judge's server checks downgrade listings whose numbers contradict the
+spec (4 mm rod vs 0.5–1 mm wire); and a skipped research review is labelled
+`research_skipped`. See [part matching](../docs/contracts/part-matching.md).
+
+v0.20.0 closes most of the planned MVP gaps. Deterministic [safety flags](../docs/contracts/safety-flags.md)
+(MAINS, LIPO, HIGH_CURRENT, LEVEL_SHIFT) appear on every job. [Costing](../docs/contracts/costing.md) adds
+GST detection, dated seller shipping policies, a per-seller breakdown with known/estimated/unknown
+status, cart plans (`GET /plans`) and an optional import comparison. [Multi-source intake](../docs/contracts/multi-source-intake.md)
+reads Adafruit Learn guides, a fixed list of maker blogs and GitHub code files, merges up to three
+extra `sources` per job, and flags conflicts, look-alikes and per-line confidence.
+[Seller trust](../docs/contracts/seller-trust.md) labels offers from free signals (RDAP domain age,
+GSTIN checksum, HTTPS, policies, price anomalies) and adds a Shopify/WooCommerce JSON fast path.
+[Export and share](../docs/contracts/export-and-share.md) adds CSV, printable HTML and revocable
+read-only share links. [Gemini extras](../docs/contracts/gemini-extras.md) (explain aloud, clip zoom,
+parts-bin scan) ship disabled. A curated [parts catalogue and rules engine](../docs/contracts/compatibility-rules.md)
+resolves BOM names and grades offers A, B, C, D or X with "what changes" findings. The [evaluation gold set](../docs/contracts/evaluation-gold-set.md) is an
+unreviewed agent draft; no accuracy figure is claimed. Items needing owner approval are in
+[`roadmap.md`](../roadmap.md).
+
+Cost controls (unreleased, branch `mvp/cost`): a cross-job shared cache
+(`sourcing/cache.py`), research skipped when a verified in-stock compatible offer exists,
+capped research text, refresh that re-fetches known offer pages before any paid search, a
+per-run Gemini budget (`BS_JOB_GEMINI_BUDGET_USD`, default $0.25), low thinking for
+classifier-like call sites and an estimated `job.cost_estimate`. See
+[cost controls](../docs/contracts/cost-controls.md).
+
 v0.19.3 counts grounding search queries in usage logs (Gemini 3 bills per query), logs the
 Gemini cost research, and defaults image generation to `gemini-3.1-flash-lite-image`.
 
@@ -164,6 +223,12 @@ BS_GEMINI_MODEL=gemini-3.8-flash
 BS_EXTRACTION_TIMEOUT_S=120
 ```
 
+Optional: with `BS_YOUTUBE_API_KEY` (a YouTube Data API v3 key) set, the same Gemini call
+also reads the video's description. Links in it to supported project pages are added as
+extra sources, and short server-checked description quotes are served for 30 days; see
+[multi-source intake §8](../docs/contracts/multi-source-intake.md#8-youtube-description-intake).
+Without it, video extraction is unchanged.
+
 Keep the real key in the ignored `.env` file. Restart the server, then submit a public
 YouTube `watch`, `youtu.be`, `shorts`, or `embed` URL, or a supported project page (see
 [Project page extraction](#project-page-extraction)). Other sources return HTTP 400
@@ -187,7 +252,8 @@ Errors transition the job to `failed` with a sanitized `error.code` and message.
 are bounded transient retries as described below, with no demo fallbacks. HTTP read timeout
 is configurable; output is limited to 8,192 tokens and validated to at most 100 parts.
 Compatibility is limited to declared-spec comparisons described below. Parts costing is available
-after offer selection; shipping, tax and the final payable total remain unknown.
+after offer selection, with labelled GST and shipping estimates; the final payable total is never
+claimed.
 
 ## Project page extraction
 
@@ -197,7 +263,14 @@ Live mode also accepts these project URLs (HTTP or HTTPS; query and fragment are
 | --- | --- | --- |
 | Instructables | `instructables.com/<slug>/` or legacy `/id/<slug>/` | `https://www.instructables.com/json-api/showInstructableModel?urlString=<slug>` (cited as `https://www.instructables.com/<slug>/`) |
 | Hackster | `hackster.io/<user>/<project>` | `https://www.hackster.io/<user>/<project>` |
-| GitHub | `github.com/<owner>/<repo>` (optional `.git`) | first of `README.md`, `readme.md`, `README.rst`, `README` at `https://raw.githubusercontent.com/<owner>/<repo>/HEAD/` |
+| GitHub | `github.com/<owner>/<repo>` (optional `.git`) | first of `README.md`, `readme.md`, `README.rst`, `README` at `https://raw.githubusercontent.com/<owner>/<repo>/HEAD/`, then up to 8 code/build files for deterministic code evidence |
+| Adafruit Learn | `learn.adafruit.com/<guide>` (or `/<guide>/<page>`, `/<guide>.md`) | `https://learn.adafruit.com/<guide>.md?view=all` (cited as `<guide>?view=all`) |
+| Tutorial blog | an article on a listed maker blog (Random Nerd Tutorials, DroneBot Workshop, Last Minute Engineers and others) | the page, reduced to its main article content |
+
+A job may also carry up to three extra `sources` (at most one video in total); each is
+extracted separately and fused into one BOM with `conflicts`, `lookalikes` and a
+deterministic `confidence` per line. Rules, limits and fields:
+[multi-source intake](../docs/contracts/multi-source-intake.md).
 
 Other hosts, Instructables category/member/asset paths and multi-segment paths, GitHub
 file/tree/gist URLs, Hackster section pages and reserved GitHub paths return HTTP 400
@@ -282,18 +355,38 @@ Live mode fails startup if `BS_GEMINI_API_KEY` is missing or empty.
 
 ## Extraction quality evaluation
 
-`bharat_sourcer/evaluation.py` and `scripts/evaluate_extraction.py` score extracted BOMs
-against human-labelled cases. **No real labelled set exists yet**, so no extraction accuracy
-figure has been measured. The bundled `evaluation/example_cases.json` and
-`evaluation/example_predictions/` are invented, marked `"synthetic": true`, and only
-demonstrate the file format.
+`bharat_sourcer/evaluation.py` and `scripts/evaluate_extraction.py` score saved pipeline
+results against labelled cases. **No human-reviewed labelled set exists yet**, so no
+extraction accuracy figure has been measured. Two sets ship with the code:
+
+- `evaluation/example_cases.json` and `evaluation/example_predictions/`: invented, marked
+  `"synthetic": true`; they only demonstrate the file format.
+- `evaluation/gold/`: an **agent-drafted** gold set for the 15-project evaluation plan
+  (14 text projects transcribed from their public pages on 6 October 2026, plus 5
+  candidate YouTube videos with empty BOMs). Every file is labelled
+  `agent_draft_needs_human_review` or `needs_human_labelling`. It is not human gold; see
+  [evaluation gold set](../docs/contracts/evaluation-gold-set.md) for the format, review
+  workflow and status.
 
 A case set is JSON with a required `synthetic` flag, a `description`, optional
-`labelled_by`/`labelled_on`, and `cases`. Each case has an `id`, a supported YouTube `url`
-and `parts`. Each part has a canonical `name`, optional `aliases`, a `qty` (`null` when the
-labeller could not establish it) and optional `evidence_windows` (`MM:SS` start/end).
-Predictions are one `<case_id>.json` per case: `case_id`, `items` (saved `BomItem`s),
-and optional `source`, `extraction_model`, `error_code` and `synthetic`.
+`label_status`, `labelled_by`/`labelled_on`, and `cases`. Each case has an `id`, a `url`,
+a `source_type` (`video`, the default, needs a YouTube URL; `page` accepts any public
+http(s) project page) and `parts`. Each part has a canonical `name`, optional `aliases`, a
+`qty` (`null` when the labeller could not establish it), a `qty_unit` (`pcs` by default;
+`mm`/`cm`/`m` for lengths), optional `evidence_windows` (`MM:SS` start/end) and optional
+gold-format detail (`canonical_chip`, `module`, `category`, `notes`). Cases may also carry
+`must_flag` (`MAINS`, `LIPO`, `HIGH_CURRENT`, `LEVEL_SHIFT`) and `gold_substitutions`
+(`original`, `aliases`, `acceptable`, `required_changes`, an inclusive `grade_range` such as
+`["C", "X"]`, optional `case_ref` to the worked substitution cases). `--cases` also accepts
+a gold `index.json`; unlabelled projects are skipped and listed as `excluded_cases`.
+
+Predictions are one `<case_id>.json` per case: `case_id`, `items` (saved `BomItem`s), and
+optional `source`, `extraction_model`, `error_code` and `synthetic`. Later pipeline stages
+are optional and scored only when present (`null`/absent means "not produced"; an empty
+list is scored): `safety_flags` (`[{code, line_id?, reason?}]`), `substitutions`
+(`[{original, substitute?, grade?}]`), `offers` (`[{url, line_id?}]`, the URLs shown to the
+user) and `listings` (`[{url, http_status?, title_match?, inr_price?}]`, what the pipeline
+actually retrieved, with eval-time link checks).
 
 Matching is deterministic, with no model involved. Names are NFKC/case-folded and split
 into alphanumeric tokens; simple trailing plurals are trimmed. A part matches exactly when
@@ -304,28 +397,48 @@ to one: exact first, then more specific names, then label and prediction order.
 
 - recall (omissions) and precision (extras; repeated mentions of a matched part are
   reported as duplicates and count as extras);
-- quantity agreement on matched parts whose label has a quantity, counting `null`
-  predictions as wrong and reporting them separately;
+- quantity agreement on matched parts whose label has a quantity: piece counts must match
+  exactly, lengths within 10%; `null` predictions count as wrong and are reported
+  separately;
 - evidence hit rate: a matched part with labelled windows hits when any evidence
-  timestamp falls inside any window (`--evidence-tolerance-s` widens windows).
+  timestamp falls inside any window (`--evidence-tolerance-s` widens windows);
+- safety-flag recall overall and per code, with the plan's gate (every gold flag raised)
+  and the count of raised flags the gold does not require;
+- grade accuracy, exact (inside the gold range) and within one grade (A < B < C < D < X);
+  each gold substitution is paired with at most one predicted substitution by the same name
+  rules, and a missing or ungraded one counts as wrong;
+- hallucinated-URL rate (offers whose URL is not in `listings`, compared without case in
+  scheme/host, fragment or trailing slash) and link validity (listed offers with HTTP 200,
+  title match and INR price, among those whose three checks were recorded).
 
 `NO_BOM` errors score as an empty extraction. Other extraction errors are listed and
-excluded from the aggregate. Synthetic sets produce a "FORMAT CHECK ONLY" headline,
-`format-check.md/json` output and no accuracy label. Synthetic predictions cannot be scored
-against a real set.
+excluded from the aggregate, including the later stages. Synthetic sets produce a "FORMAT
+CHECK ONLY" headline and `format-check.*` output. Sets whose `label_status` is not
+`human_reviewed` (including legacy files without one) produce an "UNREVIEWED LABELS"
+headline, a printed warning and `unreviewed-check.*` output instead of an accuracy
+headline. Only human-reviewed sets write `report.*`. Each run writes `<stem>.md` (tables),
+`<stem>.json` (full report) and `<stem>-metrics.json` (aggregate and per-case metrics).
+Synthetic predictions cannot be scored against a real set.
 
 ```powershell
 # Offline (default, no network): score saved predictions
 .venv/Scripts/python scripts/evaluate_extraction.py --cases evaluation/example_cases.json --predictions evaluation/example_predictions
+# Agent-drafted gold set (unreviewed: prints a warning, no accuracy headline)
+.venv/Scripts/python scripts/evaluate_extraction.py --cases evaluation/gold/index.json --predictions path/to/predictions
 # Live: one billable Gemini extraction per case; refused for synthetic sets
 .venv/Scripts/python scripts/evaluate_extraction.py --cases path/to/labelled.json --live
 ```
 
 Reports and live predictions are written to ignored `.data/evaluation/` and printed.
 Rerun live predictions offline by passing `--predictions .data/evaluation/predictions`.
+Live mode only produces `items`; the other stage fields must come from saved job results.
+Many gold pages (Adafruit Learn, DroneBot, Random Nerd Tutorials, eater.net) are not yet
+supported inputs, so live extraction records `UNSUPPORTED_URL` for them.
 Limitations: name matching can't detect a wrong part with a matching name or a correct part
 described in different words, so review omissions and extras by hand. A part that is
-split across several predicted lines matches only one line. Small sets give noisy rates.
+split across several predicted lines matches only one line. Required-change recall,
+evidence-quote validity and compile rates from the plan are not computed. Small sets give
+noisy rates.
 
 ## Seller sourcing
 
@@ -333,6 +446,18 @@ New live jobs source confirmed parts by default. Set `BS_SOURCING_ENABLED=false`
 new jobs extraction-only. Existing jobs retain the sourcing flag recorded at creation.
 Demo jobs never call search or fetch sellers. Up to ten unowned parts are searched per
 job (`BS_SOURCING_MAX_PARTS`), with five candidate pages per part by default.
+
+Sourcing is staged to save cost. First, curated Indian sellers' own catalogues are searched
+for free (Shopify `suggest.json`, WooCommerce Store API; only where robots.txt allows) and up
+to `BS_SELLER_SEARCH_FETCH_BUDGET` (8) candidates are fetched and verified, stopping at 3
+in-stock offers from 2 sellers. A judge hook then rates the verified offers (stub: any
+verified INR offer is `compatible`). Paid Gemini grounded discovery runs only when no offer is
+accepted and in stock. Lines report `stages`, `gemini_calls` and a `seller_search` summary;
+identical parts in a job are sourced once. Requests are paced per host, cached, retried on
+429/503 with `Retry-After`, and stopped on bot-protection challenges (robu.in is
+Cloudflare-blocked), which are reported and never circumvented. `BS_SELLER_SEARCH_ENABLED=false`
+restores grounded-first discovery. See [seller search](../docs/contracts/seller-search.md);
+live check: `python scripts/check_seller_search.py` (no Gemini).
 
 Discovery uses Gemini Google Search grounding without a seller allow-list. Candidate
 URLs come from grounding metadata, never generated prose. The verifier follows HTTPS
@@ -348,8 +473,24 @@ delivery to the PIN, tax inclusion, electrical suitability or an independent sto
 If the verified Product JSON-LD includes an HTTPS image URL, it is returned as optional
 `image_url` for the frontend to display. The backend does not download or proxy seller
 images; missing or invalid image metadata does not affect the offer. Placeholder assets are rejected; when the Product JSON-LD has no real
-image, the page's `og:image` is used only for single-product pages. All sellers are
-labelled `unverified`; no offer is selected automatically.
+image, the page's `og:image` is used only for single-product pages. The legacy
+`seller_trust` field stays `unverified`; the rule-based `trust` label is described below.
+No offer is selected automatically.
+
+When a product page has no Product JSON-LD, Shopify and WooCommerce stores are detected
+from page markers and their public product JSON is read instead (Shopify
+`/products/<handle>.json` for price and declared currency plus `.js` for availability;
+WooCommerce Store API `?slug=` for simple products). The same fetch guards, robots.txt,
+title gate and INR requirement apply; such offers carry `verification:
+shopify_storefront_json` or `woocommerce_store_api`.
+
+After verification, each seller host gets a cached, rule-based `trust` label
+(`established`, `verified_basics`, `unverified`) from free checks: HTTPS, RDAP domain age,
+a checksum-valid GSTIN on fetched pages, return/shipping/contact pages and a per-line
+price anomaly flag. Checks have a 12 s deadline and fail open to `unverified`. Curated seed
+sellers (`sourcing/known_sellers.json`) skip network checks. Google Web Risk is not called.
+`BS_SELLER_TRUST_ENABLED=false` disables the step. See
+[seller trust](../docs/contracts/seller-trust.md).
 
 Seller specifications come from three sources on the verified page, each recorded in
 `spec_evidence` with its `source`: the product title (`seller_title`), JSON-LD
@@ -402,6 +543,31 @@ Lines are checkpointed in Firestore as sourcing progresses. An expired sourcing 
 queues unfinished work once, preserving completed lines and the sourcing limit. A second
 interruption fails with `SOURCING_INTERRUPTED`. Per-line errors remain explicit in the report.
 
+## Gemini extras (off by default)
+
+`gemini_extras.py` adds three opt-in features, each behind its own flag
+(`BS_EXPLAIN_ENABLED`, `BS_ZOOM_ENABLED`, `BS_SCAN_ENABLED`) and per-owner daily quota:
+`POST /v1/jobs/{id}/explain` (deterministic script from saved data, optional translation,
+TTS audio as base64 WAV, cached per script and language), `POST
+/v1/jobs/{id}/items/{line_id}/zoom` (high-resolution re-read of a 10–20 s YouTube clip
+around the item's timestamp) and `POST /v1/jobs/{id}/scan` (base64 photo, processed in
+memory and never stored, matched to BOM lines with `box_2d`). Zoom and scan only run
+while the BOM is awaiting confirmation and only produce reviewable chat proposals.
+`GET /v1/jobs/{id}/extras` reports flags, remaining quota and zoom candidates. Demo jobs
+get labelled samples without Gemini calls. See
+[the contract](../docs/contracts/gemini-extras.md).
+
+## Nearby markets (on by default)
+
+`markets.py` adds `GET /v1/jobs/{id}/markets?pin=560002` (or `?lat=..&lng=..`): one Gemini
+call with Google Maps grounding that lists electronics shops near the maker, sent only a
+short list of part categories from the BOM. A PIN maps to an approximate city centre from a
+static prefix table (no Geocoding API). Results are cached for 7 days per rounded location
+and category set, with a per-owner daily quota (`BS_MARKETS_DAILY_LIMIT`, 5) and a global cap
+(`BS_MARKETS_GLOBAL_DAILY_LIMIT`, 200); `BS_MARKETS_ENABLED=false` turns it off. Demo jobs get
+a labelled fictional sample. Google Maps attribution rules for the frontend are in
+[the contract](../docs/contracts/nearby-markets.md).
+
 ## Offer selection and costs
 
 `POST /v1/jobs/{job_id}/selections` accepts a batch of `{line_id, offer_url, accept_changes}`
@@ -422,6 +588,18 @@ contains the partial sum; `parts_subtotal_inr` is available only once all unowne
 have selections. `unselected_line_ids` identifies gaps. Shipping, tax and `total_inr`
 stay null. Costs are snapshots of seller quotes, not checkout totals or live guarantees.
 
+`report.costing` adds a per-seller estimate: listed parts (known), GST added for ex-GST prices
+(an assumed 18%, not tax advice), shipping from a dated, sourced seller policy table
+(`src/bharat_sourcer/data/seller_policies.json`), and a total, each `known`, `estimated` or
+`unknown` with its assumptions. Unknown sellers or unstated fees mean unknown shipping, never
+zero. Offers carry seller-declared `tax_included`/`tax_evidence` (JSON-LD
+`valueAddedTaxIncluded` or fixed page phrases; conflicts stay unknown). An optional import
+comparison (heading 9804 duty, IGST, placeholder courier, dated FX in `data/tax_rates.json`)
+appears when lines have a USD reference price (`POST /v1/jobs/{job_id}/import-references`, or
+a quote-checked USD price fact from research). `GET /v1/jobs/{job_id}/plans` suggests
+"cheapest" and "fewest sellers" carts without changing selections. See the
+[costing contract](../docs/contracts/costing.md).
+
 ## Refresh stale or failed offers
 
 Send `POST /v1/jobs/{job_id}/refresh` with the job token and `{"line_ids":["L01"]}`.
@@ -433,8 +611,10 @@ New quotes must be selected again. Confirmed parts, specs and evidence remain un
 Each job supports two accepted refresh batches, each within the configured sourcing part
 limit. The counter and requested scope persist in Firestore. Invalid or concurrent requests
 do not consume the budget. A repeated POST after completion starts a new batch, so clients
-must check job status and `refresh_count` before retrying a lost response. Refresh can incur
-paid search calls. It does not reset the automatic recovery budget. Interrupted refresh
+must check job status and `refresh_count` before retrying a lost response. A refreshed line
+first re-fetches its previous offer pages (no Gemini search) and keeps them when at least
+one offer is not out of stock; only otherwise does refresh incur paid search calls. Each
+refresh run gets a fresh Gemini budget. It does not reset the automatic recovery budget. Interrupted refresh
 reuses completed lines and resumes only unfinished requested lines.
 
 ## Automatic recovery
@@ -624,7 +804,7 @@ backend/
     sourcing/       grounded discovery, safe page fetching and JSON-LD verification
     main.py         API routes, errors, CORS
   scripts/          OpenAPI export/check, live checks, extraction evaluation
-  evaluation/       synthetic evaluation format example (not accuracy data)
+  evaluation/       synthetic format example and agent-drafted gold set (not accuracy data)
   tests/            API and job concurrency tests
   pyproject.toml    backend dependencies and tooling
 ```
@@ -651,8 +831,10 @@ After changing public routes or schemas, regenerate and commit the shared contra
 See the [agreed feature roadmap](../docs/contracts/backend-roadmap.md) for priorities and
 the [Cloud Run guide](infra/cloud-run.md) for the shared frontend integration environment.
 
-- Build a real labelled BOM evaluation set and run the extraction evaluation harness on it.
+- Have two people review the agent-drafted gold set in `evaluation/gold/` (and label its
+  candidate videos), then run the extraction evaluation harness on it.
 - Fuse video and project-page evidence in one job and report conflicts; read code beyond READMEs.
 - Add durable queue dispatch and broaden seller format support.
-- Add seller trust checks, broader compatibility rules with module data, and shipping/tax costing.
+- Add seller trust checks and broader compatibility rules with module data; verify the import
+  duty, courier and seller-policy assumptions used by costing.
 - Extend the shared contract with the frontend teammate as those features become available.

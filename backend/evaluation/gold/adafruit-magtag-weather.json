@@ -1,0 +1,82 @@
+{
+  "project_id": "adafruit-magtag-weather",
+  "plan_row": 2,
+  "title": "MagTag Daily Weather Forecast Display",
+  "creator": "Adafruit",
+  "kind": "text",
+  "label_status": "agent_draft_needs_human_review",
+  "inputs": {
+    "url": "https://learn.adafruit.com/magtag-weather"
+  },
+  "source": {
+    "url": "https://learn.adafruit.com/magtag-weather.md?view=all",
+    "fetched_on": "2026-10-06",
+    "http_status": 200,
+    "robots_txt": "learn.adafruit.com robots.txt has no Disallow rules for User-agent: *",
+    "method": "one curl GET; parts list transcribed by hand from the fetched text"
+  },
+  "gold_bom": [
+    {
+      "name": "Adafruit MagTag 2.9 inch e-ink display",
+      "aliases": [
+        "MagTag",
+        "Adafruit MagTag"
+      ],
+      "qty": 1,
+      "canonical_chip": "ESP32-S2",
+      "module": "Adafruit MagTag (#4800)",
+      "category": "mcu_board"
+    },
+    {
+      "name": "3.7V 420mAh LiPo battery",
+      "aliases": [
+        "LiPo battery",
+        "lithium ion polymer battery"
+      ],
+      "qty": 1,
+      "category": "battery"
+    },
+    {
+      "name": "Mini magnet feet",
+      "aliases": [
+        "magnet feet"
+      ],
+      "qty": 1,
+      "category": "mechanical",
+      "notes": "Pack of 4 (#4631); counted as one pack."
+    }
+  ],
+  "gold_substitutions": [
+    {
+      "original": "Adafruit MagTag 2.9 inch e-ink display",
+      "aliases": [
+        "MagTag"
+      ],
+      "acceptable": [
+        "Genuine MagTag via an Indian Adafruit reseller (A)",
+        "LilyGO/Waveshare ESP32 + 2.9 inch e-paper (D)"
+      ],
+      "required_changes": [
+        "import-vs-redesign choice",
+        "SSD1680 driver",
+        "pin map",
+        "port to Arduino + GxEPD2"
+      ],
+      "grade_range": [
+        "A",
+        "D"
+      ],
+      "case_ref": 13,
+      "notes": "Case 13 grades the two options A or D; a range A-D also accepts B/C. Reviewer: decide whether to split into two gold entries."
+    }
+  ],
+  "must_flag": [
+    "LIPO"
+  ],
+  "notes": "MagTag Starter Kit (#4819) is an alternative bundle of the same parts.",
+  "ambiguities": [
+    "Battery and magnet feet are optional accessories in the guide."
+  ],
+  "drafted_by": "Claude Code agent (stream mvp/eval), not a human labeller",
+  "reviewed_by": []
+}

@@ -1,0 +1,107 @@
+{
+ "_fixture": {
+  "url": "https://quartzcomponents.com/search/suggest.json?q=22uf%2016v%20capacitor&resources%5Btype%5D=product&resources%5Blimit%5D=10",
+  "fetched_on": "2026-10-07",
+  "note": "Recorded live response, trimmed to the fields the adapter reads. Prices are search hints only, never verified offers."
+ },
+ "status": 200,
+ "content_type": "application/json; charset=utf-8",
+ "body": {
+  "resources": {
+   "results": {
+    "products": [
+     {
+      "title": "22uF 16V SMD Electrolytic Capacitor",
+      "handle": "220uf-16v-smd-electrolytic-capacitor-copy",
+      "url": "/products/220uf-16v-smd-electrolytic-capacitor-copy?_pos=1&_psq=22uf+16v+capacitor&_psid=ba3927bb1&_ss=e",
+      "price": "4.00",
+      "image": "https://cdn.shopify.com/s/files/1/0300/6424/6919/files/SMD-Capacitor.jpg?v=1720689397",
+      "available": true,
+      "vendor": "Guest"
+     },
+     {
+      "title": "220uF 16V Electrolytic Capacitor",
+      "handle": "16v-220uf-electrolytic-capacitor",
+      "url": "/products/16v-220uf-electrolytic-capacitor?_pos=2&_psq=22uf+16v+capacitor&_psid=ba3927bb1&_ss=e",
+      "price": "4.00",
+      "image": "https://cdn.shopify.com/s/files/1/0300/6424/6919/products/220uF-16V-Electrolytic-Capacitor.jpg?v=1690798087",
+      "available": true,
+      "vendor": "EDS014"
+     },
+     {
+      "title": "2200uF 16V Radial Electrolytic Capacitor - Through Hole Package",
+      "handle": "2200-µf-16v-radial-electrolytic-capacitor-through-hole",
+      "url": "/products/2200-%C2%B5f-16v-radial-electrolytic-capacitor-through-hole?_pos=3&_psq=22uf+16v+capacitor&_psid=ba3927bb1&_ss=e",
+      "price": "9.00",
+      "image": "https://cdn.shopify.com/s/files/1/0300/6424/6919/files/0c775926-999a-432f-9e8a-30d382831029.png?v=1782720723",
+      "available": true,
+      "vendor": "SLG037"
+     },
+     {
+      "title": "220uF 16V SMD Electrolytic Capacitor",
+      "handle": "220uf-16v-smd-electrolytic-capacitor",
+      "url": "/products/220uf-16v-smd-electrolytic-capacitor?_pos=4&_psq=22uf+16v+capacitor&_psid=ba3927bb1&_ss=e",
+      "price": "8.00",
+      "image": "https://cdn.shopify.com/s/files/1/0300/6424/6919/files/SMD-Capacitor.jpg?v=1720689397",
+      "available": true,
+      "vendor": "Lin"
+     },
+     {
+      "title": "470uF 16V Electrolytic Capacitor",
+      "handle": "16v-470uf-electrolytic-capacitor",
+      "url": "/products/16v-470uf-electrolytic-capacitor?_pos=5&_psq=22uf+16v+capacitor&_psid=ba3927bb1&_ss=e",
+      "price": "11.00",
+      "image": "https://cdn.shopify.com/s/files/1/0300/6424/6919/products/470uF16VElectrolyticCapacitor.jpg?v=1630562284",
+      "available": true,
+      "vendor": "SLG037"
+     },
+     {
+      "title": "330uF 16V Electrolytic Capacitor",
+      "handle": "16v-330uf-electrolytic-capacitor",
+      "url": "/products/16v-330uf-electrolytic-capacitor?_pos=6&_psq=22uf+16v+capacitor&_psid=ba3927bb1&_ss=e",
+      "price": "7.00",
+      "image": "https://cdn.shopify.com/s/files/1/0300/6424/6919/products/330uF16VElectrolyticCapacitor.jpg?v=1630492243",
+      "available": true,
+      "vendor": "SLG037"
+     },
+     {
+      "title": "22uF 50V Radial Electrolytic Capacitor",
+      "handle": "2-2uf-40v-radial-electrolytic-capacitor",
+      "url": "/products/2-2uf-40v-radial-electrolytic-capacitor?_pos=7&_psq=22uf+16v+capacitor&_psid=ba3927bb1&_ss=e",
+      "price": "3.00",
+      "image": "https://cdn.shopify.com/s/files/1/0300/6424/6919/files/22uF-Radial-Electrolytic-Capacitor.jpg?v=1688644564",
+      "available": true,
+      "vendor": "SLG037"
+     },
+     {
+      "title": "220uF 16V Radial Electrolytic Capacitor - Through Hole Package",
+      "handle": "220-µf-16v-radial-electrolytic-capacitor-through-hole",
+      "url": "/products/220-%C2%B5f-16v-radial-electrolytic-capacitor-through-hole?_pos=8&_psq=22uf+16v+capacitor&_psid=ba3927bb1&_ss=e",
+      "price": "4.00",
+      "image": "https://cdn.shopify.com/s/files/1/0300/6424/6919/files/220uF16VRadialElectrolyticCapacitor-ThroughHolePackage.jpg?v=1770293447",
+      "available": true,
+      "vendor": "SLG037"
+     },
+     {
+      "title": "100uF 16V Electrolytic Capacitor",
+      "handle": "6v-100uf-electrolytic-capacitor",
+      "url": "/products/6v-100uf-electrolytic-capacitor?_pos=9&_psq=22uf+16v+capacitor&_psid=ba3927bb1&_ss=e",
+      "price": "3.00",
+      "image": "https://cdn.shopify.com/s/files/1/0300/6424/6919/files/IMG_2519_JPG.jpg?v=1783339743",
+      "available": true,
+      "vendor": "SLG037"
+     },
+     {
+      "title": "100uF 16V SMD Electrolytic Capacitor",
+      "handle": "100uf-16v-smd-electrolytic-capacitor",
+      "url": "/products/100uf-16v-smd-electrolytic-capacitor?_pos=10&_psq=22uf+16v+capacitor&_psid=ba3927bb1&_ss=e",
+      "price": "7.00",
+      "image": "https://cdn.shopify.com/s/files/1/0300/6424/6919/files/SMD-Capacitor.jpg?v=1720689397",
+      "available": true,
+      "vendor": "Lin"
+     }
+    ]
+   }
+  }
+ }
+}

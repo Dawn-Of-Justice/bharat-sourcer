@@ -10,7 +10,7 @@ import httpx
 from pydantic import BaseModel
 
 from bharat_sourcer.actions import record_action
-from bharat_sourcer.config import Settings
+from bharat_sourcer.config import Settings, site_generation, site_model
 from bharat_sourcer.extraction import generation_schema
 from bharat_sourcer.jobs import JobError, JobService
 from bharat_sourcer.resilience import post_with_retry
@@ -83,11 +83,11 @@ class GeminiAssistant:
             "parts": [{"line_id": i.line_id, "name": i.raw_name} for i in job.items],
             "recent_messages": [{"role": m.role, "text": m.text} for m in job.messages[-5:]],
         }
+        model = site_model(self.settings, "chat_scope")
         with httpx.Client(timeout=20, transport=self.transport) as client:
             response = post_with_retry(
                 client,
-                "https://generativelanguage.googleapis.com/v1beta/models/"
-                f"{self.settings.gemini_model}:generateContent",
+                f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",
                 headers={"x-goog-api-key": self.settings.gemini_api_key.get_secret_value()},
                 json={
                     "systemInstruction": {"parts": [{"text": SCOPE_PROMPT}]},
@@ -96,12 +96,14 @@ class GeminiAssistant:
                         "responseMimeType": "application/json",
                         "responseJsonSchema": generation_schema(ScopeDecision),
                         "maxOutputTokens": 1024,
+                        # A yes/no classifier: low thinking by default (cost-controls.md).
+                        **site_generation(self.settings, "chat_scope"),
                     },
                 },
             )
         response.raise_for_status()
         data = response.json()
-        record_usage("chat_scope", self.settings.gemini_model, data)
+        record_usage("chat_scope", model, data)
         candidate = data["candidates"][0]
         if candidate.get("finishReason") != "STOP":
             raise ValueError("Incomplete scope check")
@@ -143,6 +145,7 @@ class GeminiAssistant:
             else None,
             "messages": [{"role": m.role, "text": m.text} for m in job.messages[-12:]],
             "resistor_advice": [a.model_dump(mode="json") for a in job.resistor_advice[-10:]],
+            "safety_flags": [flag.model_dump(mode="json") for flag in job.safety_flags],
         }
         prompt = (
             "You help a maker review this saved project. Answer the latest user message. "
@@ -188,6 +191,8 @@ class GeminiAssistant:
             "driver allowable design current. The deterministic calculator supports one LED series "
             "resistor only. Piezo input/protection, pull-ups and unknown topology need schematic "
             "details and are unsupported; do not apply an LED formula to them. "
+            "safety_flags come from fixed deterministic rules: when relevant, repeat their "
+            "guidance, never say a flagged hazard is safe and never dismiss or soften a flag. "
             "Distinguish suggestions from extracted facts. Return JSON matching the schema."
         )
         with httpx.Client(timeout=45, transport=self.transport) as client:

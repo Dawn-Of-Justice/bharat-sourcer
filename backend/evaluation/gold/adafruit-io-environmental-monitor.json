@@ -1,0 +1,167 @@
+{
+  "project_id": "adafruit-io-environmental-monitor",
+  "plan_row": 3,
+  "title": "Adafruit IO Environmental Monitor for Feather or Raspberry Pi",
+  "creator": "Adafruit",
+  "kind": "text",
+  "label_status": "agent_draft_needs_human_review",
+  "inputs": {
+    "url": "https://learn.adafruit.com/adafruit-io-air-quality-monitor"
+  },
+  "source": {
+    "url": "https://learn.adafruit.com/adafruit-io-air-quality-monitor.md?view=all",
+    "fetched_on": "2026-10-06",
+    "http_status": 200,
+    "robots_txt": "learn.adafruit.com robots.txt has no Disallow rules for User-agent: *",
+    "method": "one curl GET; parts list transcribed by hand from the fetched text"
+  },
+  "gold_bom": [
+    {
+      "name": "Adafruit Feather HUZZAH ESP8266",
+      "aliases": [
+        "Feather HUZZAH",
+        "ESP8266 Feather"
+      ],
+      "qty": 1,
+      "canonical_chip": "ESP8266",
+      "module": "Adafruit Feather HUZZAH (#2821)",
+      "category": "mcu_board"
+    },
+    {
+      "name": "BME280 sensor",
+      "aliases": [
+        "Adafruit BME280",
+        "BME280 temperature humidity pressure sensor"
+      ],
+      "qty": 1,
+      "canonical_chip": "BME280",
+      "module": "Adafruit BME280 (#2652)",
+      "category": "sensor"
+    },
+    {
+      "name": "SGP30 air quality sensor",
+      "aliases": [
+        "SGP30",
+        "SGP30 VOC eCO2 sensor"
+      ],
+      "qty": 1,
+      "canonical_chip": "SGP30",
+      "module": "Adafruit SGP30 (#3709)",
+      "category": "sensor"
+    },
+    {
+      "name": "VEML6070 UV sensor",
+      "aliases": [
+        "VEML6070",
+        "UV index sensor"
+      ],
+      "qty": 1,
+      "canonical_chip": "VEML6070",
+      "module": "Adafruit VEML6070 (#2899)",
+      "category": "sensor",
+      "notes": "Wired and coded but missing from the Parts page; listed under Guide Products."
+    },
+    {
+      "name": "FeatherWing Proto",
+      "aliases": [
+        "Feather proto board",
+        "prototyping FeatherWing"
+      ],
+      "qty": 1,
+      "category": "prototyping"
+    },
+    {
+      "name": "3.7V 1200mAh LiPo battery",
+      "aliases": [
+        "LiPo battery",
+        "lithium ion polymer battery"
+      ],
+      "qty": 1,
+      "category": "battery"
+    },
+    {
+      "name": "Weatherproof project enclosure",
+      "aliases": [
+        "plastic project enclosure",
+        "enclosure"
+      ],
+      "qty": 1,
+      "category": "enclosure",
+      "notes": "Optional enclosure section."
+    },
+    {
+      "name": "PG-7 cable gland",
+      "aliases": [
+        "cable gland"
+      ],
+      "qty": 1,
+      "category": "mechanical",
+      "notes": "Optional enclosure section."
+    },
+    {
+      "name": "26AWG silicone stranded wire",
+      "aliases": [
+        "silicone wire",
+        "hook-up wire"
+      ],
+      "qty": 4,
+      "category": "wire",
+      "notes": "Page says 'quantity: 4' of the 2 m spool (#1880)."
+    }
+  ],
+  "gold_substitutions": [
+    {
+      "original": "BME280 sensor",
+      "aliases": [
+        "Adafruit BME280"
+      ],
+      "acceptable": [
+        "GY-BME280 3.3 V purple module"
+      ],
+      "required_changes": [
+        "bme.begin(0x76)",
+        "3.3 V only",
+        "jumpers instead of STEMMA QT",
+        "verify chip id 0x60 (BMP280 lookalike risk)"
+      ],
+      "grade_range": [
+        "B",
+        "C"
+      ],
+      "case_ref": 1,
+      "notes": "Case 1: B for the 3.3 V module, C if 5 V-only, D if it is a BMP280."
+    },
+    {
+      "original": "Adafruit Feather HUZZAH ESP8266",
+      "aliases": [
+        "Feather HUZZAH"
+      ],
+      "acceptable": [
+        "NodeMCU v3 (LoLin)"
+      ],
+      "required_changes": [
+        "D-labels vs GPIO",
+        "no LiPo charger: add TP4056 with DW01 protection",
+        "board target nodemcuv2",
+        "CH340 driver"
+      ],
+      "grade_range": [
+        "C",
+        "C"
+      ],
+      "case_ref": 5,
+      "notes": "Case 5 is B for code, C with a battery; this project uses a LiPo."
+    }
+  ],
+  "must_flag": [
+    "LIPO"
+  ],
+  "notes": "Feather (Arduino) build. The guide's alternative Raspberry Pi Zero W + Perma Proto Bonnet build is not included.",
+  "ambiguities": [
+    "VEML6070 is used in wiring/code but absent from the Parts list.",
+    "Enclosure, gland and wire are optional.",
+    "A micro-USB cable is cut and spliced in assembly; not listed as a part."
+  ],
+  "drafted_by": "Claude Code agent (stream mvp/eval), not a human labeller",
+  "reviewed_by": []
+}

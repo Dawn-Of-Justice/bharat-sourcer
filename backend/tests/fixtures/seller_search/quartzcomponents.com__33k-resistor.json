@@ -1,0 +1,107 @@
+{
+ "_fixture": {
+  "url": "https://quartzcomponents.com/search/suggest.json?q=33k%20resistor&resources%5Btype%5D=product&resources%5Blimit%5D=10",
+  "fetched_on": "2026-10-07",
+  "note": "Recorded live response, trimmed to the fields the adapter reads. Prices are search hints only, never verified offers."
+ },
+ "status": 200,
+ "content_type": "application/json; charset=utf-8",
+ "body": {
+  "resources": {
+   "results": {
+    "products": [
+     {
+      "title": "33K ohm, 1/4 Watt Resistor with 5% tolerance (Pack of 10)",
+      "handle": "33k-ohm-1-4-watt-resistor",
+      "url": "/products/33k-ohm-1-4-watt-resistor?_pos=1&_psq=33k+resistor&_psid=637b3d43f&_ss=e",
+      "price": "7.00",
+      "image": "https://cdn.shopify.com/s/files/1/0300/6424/6919/products/33kohm-Resistor.jpg?v=1654760875",
+      "available": true,
+      "vendor": "SLG037"
+     },
+     {
+      "title": "33k ohm (333) 5% SMD Resistor 0805 ( Pack of 20 Pieces )",
+      "handle": "33k-ohm-333-5-smd-resistor-0805-pack-of-20-pieces",
+      "url": "/products/33k-ohm-333-5-smd-resistor-0805-pack-of-20-pieces?_pos=2&_psq=33k+resistor&_psid=637b3d43f&_ss=e",
+      "price": "8.00",
+      "image": "https://cdn.shopify.com/s/files/1/0300/6424/6919/products/0805_RES_400d8d19-5983-4674-ae9a-17d9b668f8c4.jpg?v=1663325667",
+      "available": true,
+      "vendor": "SLG037"
+     },
+     {
+      "title": "33K Ohm 1/4 Watt Resistor with 1% Tolerance (Pack of 10)",
+      "handle": "22k-ohm-1-4-watt-resistor-with-1-tolerance-pack-of-10-copy",
+      "url": "/products/22k-ohm-1-4-watt-resistor-with-1-tolerance-pack-of-10-copy?_pos=3&_psq=33k+resistor&_psid=637b3d43f&_ss=e",
+      "price": "8.00",
+      "image": "https://cdn.shopify.com/s/files/1/0300/6424/6919/files/1.8Mohm_1_4WattResistorwith1_tolerance_Packof10.jpg?v=1772083027",
+      "available": true,
+      "vendor": "SLG037"
+     },
+     {
+      "title": "33K Ohm (333) 1% SMD Resistor 0805 (Pack of 20 Pieces)",
+      "handle": "30k-ohm-303-1-smd-resistor-0805-pack-of-20-pieces-copy",
+      "url": "/products/30k-ohm-303-1-smd-resistor-0805-pack-of-20-pieces-copy?_pos=4&_psq=33k+resistor&_psid=637b3d43f&_ss=e",
+      "price": "10.00",
+      "image": "https://cdn.shopify.com/s/files/1/0300/6424/6919/products/0805_RES_374f5890-272b-4bee-ab22-92256cd85f82.jpg?v=1663327656",
+      "available": true,
+      "vendor": "SIG057"
+     },
+     {
+      "title": "33K Ohm 1206 Package 1/4W SMD Resistor 5% Tolerance (Pack of 20 Pieces)",
+      "handle": "33k-ohm-1206-package-1-4w-smd-resistor-5-tolerance-pack-of-20-pieces",
+      "url": "/products/33k-ohm-1206-package-1-4w-smd-resistor-5-tolerance-pack-of-20-pieces?_pos=5&_psq=33k+resistor&_psid=637b3d43f&_ss=e",
+      "price": "8.00",
+      "image": "https://cdn.shopify.com/s/files/1/0300/6424/6919/files/SMD-Resistor-1206-Package.jpg?v=1720027525",
+      "available": true,
+      "vendor": "Guest"
+     },
+     {
+      "title": "33K Ohm 0603 Package 1/10W SMD Resistor 5% Tolerance (Pack of 20 Pieces)",
+      "handle": "33k-ohm-0603-package-1-10w-smd-resistor-5-tolerance-pack-of-20-pieces",
+      "url": "/products/33k-ohm-0603-package-1-10w-smd-resistor-5-tolerance-pack-of-20-pieces?_pos=6&_psq=33k+resistor&_psid=637b3d43f&_ss=e",
+      "price": "8.00",
+      "image": "https://cdn.shopify.com/s/files/1/0300/6424/6919/files/SMD-Resistor-0603-package.jpg?v=1719943165",
+      "available": true,
+      "vendor": "Guest"
+     },
+     {
+      "title": "RC0603JR-0733KL Yageo 33K Ohm 0603 Package 1/10W SMD Resistor 5% Tolerance (Pack of 20 Pieces)",
+      "handle": "33k-ohm-0603-package-1-10w-smd-resistor-5-tolerance-pack-of-20-pieces-1",
+      "url": "/products/33k-ohm-0603-package-1-10w-smd-resistor-5-tolerance-pack-of-20-pieces-1?_pos=7&_psq=33k+resistor&_psid=637b3d43f&_ss=e",
+      "price": "8.00",
+      "image": "https://cdn.shopify.com/s/files/1/0300/6424/6919/files/0603-SMD-Resistor_ffc177c5-bd9c-4f97-97f3-5b316c8dae69.jpg?v=1774518996",
+      "available": true,
+      "vendor": "VIS027"
+     },
+     {
+      "title": "RC0603FR-0733KL Yageo 33K Ohm 0603 Package 1/10W SMD Resistor 1% Tolerance (Pack of 20 Pieces)",
+      "handle": "yageo-33k-ohm-0603-package-1-10w-smd-resistor-1-tolerance-pack-of-20-pieces",
+      "url": "/products/yageo-33k-ohm-0603-package-1-10w-smd-resistor-1-tolerance-pack-of-20-pieces?_pos=8&_psq=33k+resistor&_psid=637b3d43f&_ss=e",
+      "price": "9.00",
+      "image": "https://cdn.shopify.com/s/files/1/0300/6424/6919/files/0603-SMD-Resistor_ffc177c5-bd9c-4f97-97f3-5b316c8dae69.jpg?v=1774518996",
+      "available": true,
+      "vendor": "VIS027"
+     },
+     {
+      "title": "Resistor Combo Kit (30 values, 5 each - 150 resistors)",
+      "handle": "resistor-combo",
+      "url": "/products/resistor-combo?_pos=9&_psq=33k+resistor&_psid=637b3d43f&_ss=e",
+      "price": "78.00",
+      "image": "https://cdn.shopify.com/s/files/1/0300/6424/6919/files/1_38eff00c-734d-46b5-82d5-8212b8c4c667.jpg?v=1772708587",
+      "available": true,
+      "vendor": "QuartzEngineering"
+     },
+     {
+      "title": "33 ohm, 1/4 Watt Resistor with 5% tolerance (Pack of 10)",
+      "handle": "33-ohm-1-4-watt-resistor-with-5-tolerance-pack-of-10",
+      "url": "/products/33-ohm-1-4-watt-resistor-with-5-tolerance-pack-of-10?_pos=10&_psq=33k+resistor&_psid=637b3d43f&_ss=e",
+      "price": "7.00",
+      "image": "https://cdn.shopify.com/s/files/1/0300/6424/6919/products/33ohm-resistor.jpg?v=1649937058",
+      "available": true,
+      "vendor": "SLG037"
+     }
+    ]
+   }
+  }
+ }
+}

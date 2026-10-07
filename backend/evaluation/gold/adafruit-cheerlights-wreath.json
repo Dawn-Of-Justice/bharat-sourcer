@@ -1,0 +1,133 @@
+{
+  "project_id": "adafruit-cheerlights-wreath",
+  "plan_row": 6,
+  "title": "Cheerlights Holiday Wreath with Animations",
+  "creator": "Adafruit",
+  "kind": "text",
+  "label_status": "agent_draft_needs_human_review",
+  "inputs": {
+    "url": "https://learn.adafruit.com/cheerlights-led-animations"
+  },
+  "source": {
+    "url": "https://learn.adafruit.com/cheerlights-led-animations.md?view=all",
+    "fetched_on": "2026-10-06",
+    "http_status": 200,
+    "robots_txt": "learn.adafruit.com robots.txt has no Disallow rules for User-agent: *",
+    "method": "one curl GET; parts list transcribed by hand from the fetched text"
+  },
+  "gold_bom": [
+    {
+      "name": "Adafruit MagTag 2.9 inch e-ink display",
+      "aliases": [
+        "MagTag",
+        "Adafruit MagTag"
+      ],
+      "qty": 1,
+      "canonical_chip": "ESP32-S2",
+      "module": "Adafruit MagTag (#4800)",
+      "category": "mcu_board"
+    },
+    {
+      "name": "Mini magnet feet",
+      "aliases": [
+        "magnet feet"
+      ],
+      "qty": 1,
+      "category": "mechanical",
+      "notes": "Pack of 4 (#4631)."
+    },
+    {
+      "name": "NeoPixel LED strip 1 meter JST",
+      "aliases": [
+        "NeoPixel strip",
+        "WS2812B LED strip"
+      ],
+      "qty": 1,
+      "module": "Adafruit NeoPixel strip, 30 LEDs, 1 m, 3-pin JST (#4801)",
+      "category": "led",
+      "notes": "One 1 m strip (30 LEDs)."
+    },
+    {
+      "name": "USB A to USB C cable",
+      "aliases": [
+        "USB C cable"
+      ],
+      "qty": 1,
+      "category": "cable"
+    },
+    {
+      "name": "5V 2A USB power supply",
+      "aliases": [
+        "5V 2A switching power supply",
+        "USB power adapter"
+      ],
+      "qty": 1,
+      "category": "power_supply"
+    },
+    {
+      "name": "Wreath",
+      "aliases": [],
+      "qty": 1,
+      "category": "decor",
+      "notes": "'or other festive item'."
+    },
+    {
+      "name": "Zip ties",
+      "aliases": [
+        "cable ties"
+      ],
+      "qty": null,
+      "category": "consumable",
+      "notes": "Count left open by the guide."
+    }
+  ],
+  "gold_substitutions": [
+    {
+      "original": "Adafruit MagTag 2.9 inch e-ink display",
+      "aliases": [
+        "MagTag"
+      ],
+      "acceptable": [
+        "Genuine MagTag via an Indian Adafruit reseller (A)",
+        "LilyGO/Waveshare ESP32 + 2.9 inch e-paper (D)"
+      ],
+      "required_changes": [
+        "import-vs-redesign choice",
+        "SSD1680 driver",
+        "pin map",
+        "port to Arduino + GxEPD2",
+        "NeoPixel JST connector differs"
+      ],
+      "grade_range": [
+        "A",
+        "D"
+      ],
+      "case_ref": 13
+    },
+    {
+      "original": "5V 2A USB power supply",
+      "aliases": [],
+      "acceptable": [
+        "Indian 5 V 2 A USB adapter (Type D plug, BIS marked)"
+      ],
+      "required_changes": [
+        "230 V input",
+        "Type D plug"
+      ],
+      "grade_range": [
+        "A",
+        "B"
+      ],
+      "case_ref": 12,
+      "notes": "Case 12 is a 12 V 2 A adapter; applied here by analogy to a US-plug 5 V adapter. Reviewer: confirm or drop."
+    }
+  ],
+  "must_flag": [],
+  "notes": "Guide recommends wall power because WiFi plus LEDs draw significant current.",
+  "ambiguities": [
+    "HIGH_CURRENT: 30 NeoPixels x 60 mA = 1.8 A at full white on a 2 A supply. Reviewer: decide whether this needs a flag.",
+    "LEVEL_SHIFT: the 3.3 V MagTag drives the 5 V strip directly through its JST port; Adafruit does not shift. Reviewer: decide."
+  ],
+  "drafted_by": "Claude Code agent (stream mvp/eval), not a human labeller",
+  "reviewed_by": []
+}

@@ -1,0 +1,113 @@
+{
+ "_fixture": {
+  "url": "https://www.rytronics.in/wp-json/wc/store/v1/products?search=ldr&per_page=10",
+  "fetched_on": "2026-10-07",
+  "note": "Recorded live response, trimmed to the fields the adapter reads. Prices are search hints only, never verified offers."
+ },
+ "status": 200,
+ "content_type": "application/json; charset=UTF-8",
+ "body": [
+  {
+   "id": 26092,
+   "name": "Solar Toys For Kids 1 Set Mini Powered Toy DIY Solar Powered Toy DIY Car Kit Children Educational Gadget Hobby Funny",
+   "permalink": "https://www.rytronics.in/product/solar-toys-for-kids-1-set-mini-powered-toy-diy-solar-powered-toy-diy-car-kit-children-educational-gadget-hobby-funny/",
+   "type": "simple",
+   "prices": {
+    "price": "14900",
+    "currency_code": "INR",
+    "currency_minor_unit": 2
+   },
+   "is_in_stock": false,
+   "images": [
+    {
+     "src": "https://www.rytronics.in/wp-content/uploads/2025/03/Solar-Toys-For-Kids-1-Set-Mini-Powered-Toy-DIY-Solar-Powered-Toy-DIY-Car-Kit-Children-Educational-Gadget-Hobby-Funny-1.jpg"
+    }
+   ]
+  },
+  {
+   "id": 5521,
+   "name": "CR2032 3V Button Coin Cell Battery Holder Case Box With On-Off Switch Top",
+   "permalink": "https://www.rytronics.in/product/cr2032-3v-button-coin-cell-battery-holder-case-box-with-on-off-switch-top/",
+   "type": "simple",
+   "prices": {
+    "price": "3900",
+    "currency_code": "INR",
+    "currency_minor_unit": 2
+   },
+   "is_in_stock": true,
+   "images": [
+    {
+     "src": "https://www.rytronics.in/wp-content/uploads/2022/06/CR2032-3V-Button-Coin-Cell-Battery-Holder-Case-Box-With-On-Off-Switch-Top-3.jpg"
+    }
+   ]
+  },
+  {
+   "id": 5517,
+   "name": "CR2032 Vertical Battery Holder PCB Mount",
+   "permalink": "https://www.rytronics.in/product/cr2032-vertical-battery-holder-pcb-mount/",
+   "type": "simple",
+   "prices": {
+    "price": "1400",
+    "currency_code": "INR",
+    "currency_minor_unit": 2
+   },
+   "is_in_stock": false,
+   "images": [
+    {
+     "src": "https://www.rytronics.in/wp-content/uploads/2022/06/CR2032-Vertical-Battery-Holder-PCB-Mount.png"
+    }
+   ]
+  },
+  {
+   "id": 4637,
+   "name": "Digital LDR Module",
+   "permalink": "https://www.rytronics.in/product/digital-ldr-module/",
+   "type": "simple",
+   "prices": {
+    "price": "2900",
+    "currency_code": "INR",
+    "currency_minor_unit": 2
+   },
+   "is_in_stock": true,
+   "images": [
+    {
+     "src": "https://www.rytronics.in/wp-content/uploads/2022/05/ldr-Optical-Sensitive-LDR-Light-Detection-Photosensitive-Sensor-Module.jpg"
+    }
+   ]
+  },
+  {
+   "id": 4077,
+   "name": "LDR Photoresistor (Photo Cell) Light Dependent Resistor 5mm",
+   "permalink": "https://www.rytronics.in/product/ldr-photoresistor-photo-cell-light-dependent-resistor-5mm/",
+   "type": "simple",
+   "prices": {
+    "price": "700",
+    "currency_code": "INR",
+    "currency_minor_unit": 2
+   },
+   "is_in_stock": true,
+   "images": [
+    {
+     "src": "https://www.rytronics.in/wp-content/uploads/2022/03/ldr-sensor.jpg"
+    }
+   ]
+  },
+  {
+   "id": 3287,
+   "name": "10mm Light Sensitive Photoresistor LDR",
+   "permalink": "https://www.rytronics.in/product/10mm-light-sensitive-photoresistor-ldr/",
+   "type": "simple",
+   "prices": {
+    "price": "2900",
+    "currency_code": "INR",
+    "currency_minor_unit": 2
+   },
+   "is_in_stock": false,
+   "images": [
+    {
+     "src": "https://www.rytronics.in/wp-content/uploads/2022/01/LDR-10mm-Sensor.jpg"
+    }
+   ]
+  }
+ ]
+}

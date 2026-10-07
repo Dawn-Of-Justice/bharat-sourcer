@@ -20,6 +20,11 @@ class StoredJob(Model):
     sourcing_scope: list[str] | None = None
     chat_run_id: str | None = None
     chat_lease_until: datetime | None = None
+    # SHA-256 of the read-only share token; None when no share link is active.
+    share_token_hash: str | None = None
+    shared_at: datetime | None = None
+    # Offer URLs of lines queued for refresh: re-fetched before any paid rediscovery.
+    refresh_urls: dict[str, list[str]] | None = None
     schema_version: int = Field(default=1, ge=1, le=1)
 
 

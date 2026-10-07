@@ -1,0 +1,21 @@
+{
+  "displayName": "Bharat Sourcer: stuck sourcing queue",
+  "documentation": {
+    "content": "QUEUE_AGE_EXCEEDED or SWEEP_TRUNCATED was logged by bharat-sourcer-integration: queued work is older than expected or the scheduled sweep hit its limit. See docs/contracts/queued-dispatch.md.",
+    "mimeType": "text/markdown"
+  },
+  "combiner": "OR",
+  "conditions": [
+    {
+      "displayName": "Queue age exceeded or sweep truncated",
+      "conditionMatchedLog": {
+        "filter": "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"bharat-sourcer-integration\" AND (textPayload:\"QUEUE_AGE_EXCEEDED\" OR textPayload:\"SWEEP_TRUNCATED\" OR jsonPayload.message:\"QUEUE_AGE_EXCEEDED\" OR jsonPayload.message:\"SWEEP_TRUNCATED\")"
+      }
+    }
+  ],
+  "alertStrategy": {
+    "notificationRateLimit": { "period": "3600s" },
+    "autoClose": "3600s"
+  },
+  "notificationChannels": ["projects/hackathon-510415/notificationChannels/16148970600683421140"]
+}

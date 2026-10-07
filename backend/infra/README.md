@@ -106,3 +106,56 @@ and is not evidence that cloud authentication or permissions work.
 References: [database creation](https://cloud.google.com/firestore/docs/manage-databases),
 [server authentication](https://firebase.google.com/docs/firestore/quickstart-server),
 [emulator configuration](https://cloud.google.com/firestore/native/docs/emulator).
+
+## Firestore TTL policies
+
+Firestore deletes expired documents through TTL policies on the `expires_at` timestamp
+field. Expired entries are also ignored on read, so the policies only reclaim storage.
+
+| Collection group | Contents | Enabled |
+| --- | --- | --- |
+| `backend_integration_jobs_usage` | Quota and usage counters | Before 7 October 2026 |
+| `backend_integration_jobs_cache` | Shared sourcing cache (`sourcing/cache.py`) | 7 October 2026 |
+| `backend_integration_jobs_audio` | Explain-aloud audio cache (`gemini_extras.py`) | 7 October 2026 |
+
+To add a policy for a new collection group:
+
+```bash
+gcloud firestore fields ttls update expires_at --collection-group=<group> \
+  --enable-ttl --project hackathon-510415 --database="(default)"
+```
+
+## YouTube Data API key
+
+The secret `bharat-sourcer-youtube` (already created in Secret Manager, with accessor granted
+to `bharat-sourcer-api@hackathon-510415.iam.gserviceaccount.com`) must be mounted as
+`BS_YOUTUBE_API_KEY` at deploy:
+
+```bash
+gcloud run services update bharat-sourcer-integration --region asia-south1 --update-secrets=BS_YOUTUBE_API_KEY=bharat-sourcer-youtube:latest
+```
+
+Without it the description intake is skipped and video extraction is unchanged. YouTube API
+data on job snapshots (short description quotes, title, channel and links) is hidden from
+responses 30 days after `video_meta.fetched_at`. The snapshot itself is not purged yet (see
+`docs/contracts/multi-source-intake.md` §8).
+
+## Demo and judging scaling (approved 7 October 2026)
+
+- **Max instances:** `bharat-sourcer-integration` was raised from 1 to 3 on 7 October 2026
+  (revision `bharat-sourcer-integration-00045-q4w`). Leases and Firestore transactions are
+  multi-instance safe; daily quotas bound spend. The deploy workflow keeps scaling settings.
+- **Min instances (15 October – 6 November 2026):** keep one warm instance of each service
+  during recording and judging (about $0.65/day for both, about $15 in total):
+
+  ```bash
+  gcloud run services update bharat-sourcer-integration --region asia-south1 --min-instances=1
+  gcloud run services update bharat-sourcer-web --region asia-south1 --min-instances=1
+  ```
+
+  **Revert on 7 November 2026** (otherwise about $20/month):
+
+  ```bash
+  gcloud run services update bharat-sourcer-integration --region asia-south1 --min-instances=0
+  gcloud run services update bharat-sourcer-web --region asia-south1 --min-instances=0
+  ```

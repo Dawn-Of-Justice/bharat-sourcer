@@ -1,0 +1,181 @@
+{
+ "_fixture": {
+  "url": "https://zbotic.in/wp-json/wc/store/v1/products?search=ldr&per_page=10",
+  "fetched_on": "2026-10-07",
+  "note": "Recorded live response, trimmed to the fields the adapter reads. Prices are search hints only, never verified offers."
+ },
+ "status": 200,
+ "content_type": "application/json; charset=UTF-8",
+ "body": [
+  {
+   "id": 480317,
+   "name": "LM393 Photosensitive Light-Dependent Control Sensor LDR Module",
+   "permalink": "https://zbotic.in/product/lm393-photosensitive-light-dependent-control-sensor-ldr-module/",
+   "type": "simple",
+   "prices": {
+    "price": "2277",
+    "currency_code": "INR",
+    "currency_minor_unit": 2
+   },
+   "is_in_stock": false,
+   "images": [
+    {
+     "src": "https://cdn.zbotic.in/wp-content/uploads/2024/02/aoy5wg8z.png"
+    }
+   ]
+  },
+  {
+   "id": 456169,
+   "name": "3mm 3528 LDR 10-20K(Pack of 10)",
+   "permalink": "https://zbotic.in/product/3mm-3528-ldr-10-20kpack-of-10/",
+   "type": "simple",
+   "prices": {
+    "price": "14278",
+    "currency_code": "INR",
+    "currency_minor_unit": 2
+   },
+   "is_in_stock": false,
+   "images": [
+    {
+     "src": "https://cdn.zbotic.in/wp-content/uploads/2023/10/6fy5d66e.png"
+    }
+   ]
+  },
+  {
+   "id": 451889,
+   "name": "5mm 5537 LDR Light Dependent Resistor10-20K",
+   "permalink": "https://zbotic.in/product/5mm-5537-ldr-light-dependent-resistor10-20k/",
+   "type": "simple",
+   "prices": {
+    "price": "339",
+    "currency_code": "INR",
+    "currency_minor_unit": 2
+   },
+   "is_in_stock": false,
+   "images": [
+    {
+     "src": "https://cdn.zbotic.in/wp-content/uploads/2023/09/AI2988.png"
+    }
+   ]
+  },
+  {
+   "id": 442779,
+   "name": "5800B Light Dependent Resistor (LDR) White Color",
+   "permalink": "https://zbotic.in/product/5800b-light-dependent-resistor-ldr-white-color/",
+   "type": "simple",
+   "prices": {
+    "price": "1140",
+    "currency_code": "INR",
+    "currency_minor_unit": 2
+   },
+   "is_in_stock": false,
+   "images": [
+    {
+     "src": "https://cdn.zbotic.in/wp-content/uploads/2023/08/o1ak5pi7.png"
+    }
+   ]
+  },
+  {
+   "id": 442389,
+   "name": "12mm GL12528 Light Sensitive Photoresistor LDR (2Pcs)",
+   "permalink": "https://zbotic.in/product/12mm-gl12528-light-sensitive-photoresistor-ldr-2pcs/",
+   "type": "simple",
+   "prices": {
+    "price": "6018",
+    "currency_code": "INR",
+    "currency_minor_unit": 2
+   },
+   "is_in_stock": false,
+   "images": [
+    {
+     "src": "https://cdn.zbotic.in/wp-content/uploads/2023/08/V-1-37.png"
+    }
+   ]
+  },
+  {
+   "id": 4212,
+   "name": "Light Dependent Resistor LDR 5MM(Pack of 10)",
+   "permalink": "https://zbotic.in/product/light-dependent-resistor-ldr-5mmpack-of-10/",
+   "type": "simple",
+   "prices": {
+    "price": "2891",
+    "currency_code": "INR",
+    "currency_minor_unit": 2
+   },
+   "is_in_stock": true,
+   "images": [
+    {
+     "src": "https://cdn.zbotic.in/wp-content/uploads/2020/06/f59kux46.png"
+    }
+   ]
+  },
+  {
+   "id": 4196,
+   "name": "Digital LDR Module &#8211; 4Pin",
+   "permalink": "https://zbotic.in/product/digital-ldr-module/",
+   "type": "simple",
+   "prices": {
+    "price": "4012",
+    "currency_code": "INR",
+    "currency_minor_unit": 2
+   },
+   "is_in_stock": false,
+   "images": [
+    {
+     "src": "https://cdn.zbotic.in/wp-content/uploads/2023/06/V-3-4.png"
+    }
+   ]
+  },
+  {
+   "id": 391213,
+   "name": "Airfly LDR sensor (made in India)",
+   "permalink": "https://zbotic.in/product/ldr-sensor-make-in-india/",
+   "type": "simple",
+   "prices": {
+    "price": "3339",
+    "currency_code": "INR",
+    "currency_minor_unit": 2
+   },
+   "is_in_stock": true,
+   "images": [
+    {
+     "src": "https://cdn.zbotic.in/wp-content/uploads/2023/05/IMG_0785-Photoroom.png"
+    }
+   ]
+  },
+  {
+   "id": 298560,
+   "name": "SOLDRON BN25N3 25 watt Nickel Plated 3mm Soldering Gun Bit",
+   "permalink": "https://zbotic.in/product/soldron-bn25n3-25-watt-nickel-plated-3mm-soldering-gun-bit/",
+   "type": "simple",
+   "prices": {
+    "price": "8732",
+    "currency_code": "INR",
+    "currency_minor_unit": 2
+   },
+   "is_in_stock": false,
+   "images": [
+    {
+     "src": "https://cdn.zbotic.in/wp-content/uploads/2023/03/SOLDRON-BN25N3-25-watt-Nickel-Plated-3mm-Soldering-Gun-Bit.jpg"
+    }
+   ]
+  },
+  {
+   "id": 291024,
+   "name": "DIY Electronic Spider Robot Assembly Educational Toy for Children",
+   "permalink": "https://zbotic.in/product/diy-electronic-spider-robot-assembly-educational-toy-for-children/",
+   "type": "simple",
+   "prices": {
+    "price": "32568",
+    "currency_code": "INR",
+    "currency_minor_unit": 2
+   },
+   "is_in_stock": false,
+   "images": [
+    {
+     "src": "https://cdn.zbotic.in/wp-content/uploads/2023/02/DIY-Electronic-Spider-Robot-Assembly-Educational-Toy-for-Children-8.jpg"
+    }
+   ]
+  }
+ ]
+}

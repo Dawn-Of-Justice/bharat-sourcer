@@ -1,0 +1,107 @@
+{
+ "_fixture": {
+  "url": "https://thinkrobotics.com/search/suggest.json?q=5mm%20led&resources%5Btype%5D=product&resources%5Blimit%5D=10",
+  "fetched_on": "2026-10-07",
+  "note": "Recorded live response, trimmed to the fields the adapter reads. Prices are search hints only, never verified offers."
+ },
+ "status": 200,
+ "content_type": "application/json; charset=utf-8",
+ "body": {
+  "resources": {
+   "results": {
+    "products": [
+     {
+      "title": "Transparent 5mm LED (Pack of 10)",
+      "handle": "5mm-led-pack-of-10",
+      "url": "/products/5mm-led-pack-of-10?_pos=1&_psq=5mm+led&_psid=76e23efba&_ss=e",
+      "price": "23.99",
+      "image": "https://cdn.shopify.com/s/files/1/0014/4313/5560/files/5mm-Clear-LED-Light-Assorted-Kit-DIY-LEDs-Set-2.webp?v=1783581616",
+      "available": true,
+      "vendor": "ThinkRobotics"
+     },
+     {
+      "title": "Flat Top LED Wide Angle (Pack of 10)",
+      "handle": "10pcs-5mm-2pin-flat-top-red-led-wide-angle",
+      "url": "/products/10pcs-5mm-2pin-flat-top-red-led-wide-angle?_pos=2&_psq=5mm+led&_psid=76e23efba&_ss=e&variant=39545329909846",
+      "price": "19.99",
+      "image": "https://cdn.shopify.com/s/files/1/0014/4313/5560/products/5mm-White.png?v=1632043898",
+      "available": true,
+      "vendor": "ThinkRobotics"
+     },
+     {
+      "title": "Super Bright White Piranha LED Panel",
+      "handle": "12-led-super-bright-white-piranha-led-board",
+      "url": "/products/12-led-super-bright-white-piranha-led-board?_pos=3&_psq=5mm+led&_psid=76e23efba&_ss=e",
+      "price": "279.99",
+      "image": "https://cdn.shopify.com/s/files/1/0014/4313/5560/files/H574c0c11e3944cbda3f4cc4b3febd46eF.jpg?v=1689392620",
+      "available": true,
+      "vendor": "ThinkRobotics"
+     },
+     {
+      "title": "RGB COB LED Strip with WS2812B: Cuttable, Programmable, 5m",
+      "handle": "rgb-cob-led-strip-with-ws2812b-cuttable-programmable-1m-5m",
+      "url": "/products/rgb-cob-led-strip-with-ws2812b-cuttable-programmable-1m-5m?_pos=4&_psq=5mm+led&_psid=76e23efba&_ss=e",
+      "price": "3899.99",
+      "image": "https://cdn.shopify.com/s/files/1/0014/4313/5560/files/rgb-27-5v-160d-5m-5.jpg?v=1784726201",
+      "available": true,
+      "vendor": "Waveshare"
+     },
+     {
+      "title": "WS2812 / WS2812B RGB LED Ring",
+      "handle": "ws2812-5050-rgb-led-ring",
+      "url": "/products/ws2812-5050-rgb-led-ring?_pos=5&_psq=5mm+led&_psid=76e23efba&_ss=e",
+      "price": "169.99",
+      "image": "https://cdn.shopify.com/s/files/1/0014/4313/5560/products/20190424_115456.jpg?v=1614332317",
+      "available": true,
+      "vendor": "ThinkRobotics"
+     },
+     {
+      "title": "12V 5050 LED Strips - Waterproof - 1m / 5m",
+      "handle": "12v-rgb-5050-led-strips-waterproof-1m-5m",
+      "url": "/products/12v-rgb-5050-led-strips-waterproof-1m-5m?_pos=6&_psq=5mm+led&_psid=76e23efba&_ss=e",
+      "price": "589.99",
+      "image": "https://cdn.shopify.com/s/files/1/0014/4313/5560/products/IMG_0665.png?v=1614949322",
+      "available": true,
+      "vendor": "ThinkRobotics"
+     },
+     {
+      "title": "Diffused 3mm LED (Pack of 10)",
+      "handle": "diffused-3mm-led-pack-of-10",
+      "url": "/products/diffused-3mm-led-pack-of-10?_pos=7&_psq=5mm+led&_psid=76e23efba&_ss=e",
+      "price": "15.00",
+      "image": "https://cdn.shopify.com/s/files/1/0014/4313/5560/products/IMG_4198.jpg?v=1577794069",
+      "available": true,
+      "vendor": "ThinkRobotics"
+     },
+     {
+      "title": "WS2812 Digital RGB LED Strip - 1m / 60 LEDs / IP65",
+      "handle": "ws2812-digital-rgb-led-strip-1m-60-leds-ip65",
+      "url": "/products/ws2812-digital-rgb-led-strip-1m-60-leds-ip65?_pos=8&_psq=5mm+led&_psid=76e23efba&_ss=e",
+      "price": "599.99",
+      "image": "https://cdn.shopify.com/s/files/1/0014/4313/5560/products/rgb-5050-5v-ip65-60d-1m-2.jpg?v=1679322496",
+      "available": true,
+      "vendor": "Waveshare"
+     },
+     {
+      "title": "Andonstar V160 USB 2MP Video Digital Microscope",
+      "handle": "andonstar-v160-usb-2mp-video-digital-microscope",
+      "url": "/products/andonstar-v160-usb-2mp-video-digital-microscope?_pos=9&_psq=5mm+led&_psid=76e23efba&_ss=e",
+      "price": "6899.99",
+      "image": "https://cdn.shopify.com/s/files/1/0014/4313/5560/products/andonstar-v160-usb-2mp-video-camera-digital-microscope-digital-microscope-andonstar-microscope-635414_1024x1024_jpg.webp?v=1736554097",
+      "available": true,
+      "vendor": "Andonstar"
+     },
+     {
+      "title": "Aluminium Threaded Spacers (Pack of 4)",
+      "handle": "aluminium-threaded-spacers-pack-of-4",
+      "url": "/products/aluminium-threaded-spacers-pack-of-4?_pos=10&_psq=5mm+led&_psid=76e23efba&_ss=e",
+      "price": "79.99",
+      "image": "https://cdn.shopify.com/s/files/1/0014/4313/5560/products/10pcs-M3-D-5mm-Tube-Thread-Aluminum-Alloy-Anodized-colorful-standoffs-spacer-M3-L-Aluminum.jpg?v=1643879532",
+      "available": true,
+      "vendor": "Zhongfa Precision"
+     }
+    ]
+   }
+  }
+ }
+}

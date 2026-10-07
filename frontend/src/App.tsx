@@ -1,10 +1,14 @@
 import Results from './Results'
+import SharedReport from './SharedReport'
 import { watchJob } from './stream'
 import { useAccount, Projects } from './Account'
 import { useEffect, useLayoutEffect, useRef, useState, type FormEvent } from 'react'
-import { ApiError, claimProject, evidenceText, pauseJob, resumeJob, confirmJob, createJob, getJob, updateProject, type BomItem, type Job } from './api'
+import { ApiError, claimProject, pauseJob, resumeJob, confirmJob, createJob, getJob, updateProject, type BomItem, type BuyableSpec, type Job } from './api'
 import ChatPanel from './ChatPanel'
 import Requirements, { requirementPayload, validRequirements } from './Requirements'
+import SafetyBanners, { SafetyLineBadges } from './SafetyBanners'
+import SpecPanel, { specPayload, validSpec } from './SpecPanel'
+import { ConfidenceChip, ConflictBanner, ConflictNotes, EvidenceList, LookalikeNotes, SourcesCard } from './ReviewDetails'
 
 function BrandMark() {
   return (
@@ -50,8 +54,8 @@ type SourceType = LinkSource | 'audio'
 
 const previewCopy: Record<SourceType, { label: string; symbol: string; caption: string; firstStep: string; firstDetail: string; footnote: string; accessibleLabel: string }> = {
   youtube: { label: 'YouTube', symbol: '▶', caption: 'A project you want to make', firstStep: 'Parts found in the video', firstDetail: 'With moments you can revisit', footnote: 'Illustration of the workflow · No sample prices or grades', accessibleLabel: 'A YouTube project becomes a reviewable parts list and Indian seller options' },
-  article: { label: 'Article / blog', symbol: '▤', caption: 'A guide worth building from', firstStep: 'Parts mentioned in the guide', firstDetail: 'Review each part before sourcing', footnote: 'Instructables projects · Each part cites a quote from the guide', accessibleLabel: 'Turning an Instructables project into a reviewable parts list, with each part citing a quote from the guide.' },
-  github: { label: 'GitHub', symbol: '</>', caption: 'An open-source build idea', firstStep: 'Parts noted in project files', firstDetail: 'Check the list against the repository', footnote: 'Reads the repository README · Each part cites a quote from it', accessibleLabel: 'Turning a GitHub repository README into a reviewable parts list, with each part citing a quote from the README.' },
+  article: { label: 'Article / blog', symbol: '▤', caption: 'A guide worth building from', firstStep: 'Parts mentioned in the guide', firstDetail: 'Review each part before sourcing', footnote: 'Instructables, Adafruit Learn & maker blogs · Each part cites a quote from the guide', accessibleLabel: 'Turning an Instructables project, Adafruit Learn guide or maker blog post into a reviewable parts list, with each part citing a quote from the guide.' },
+  github: { label: 'GitHub', symbol: '</>', caption: 'An open-source build idea', firstStep: 'Parts noted in project files', firstDetail: 'Check the list against the repository', footnote: 'Reads the README and code files · Each part cites a quote or code line', accessibleLabel: 'Turning a GitHub repository README into a reviewable parts list, with each part citing a quote from the README.' },
   audio: { label: 'Audio', symbol: '♫', caption: 'A build idea, spoken aloud', firstStep: 'Parts from your description', firstDetail: 'Review what was understood', footnote: 'Preview concept · Audio upload is not available yet', accessibleLabel: 'Preview concept for turning an audio description into a reviewable parts list. Audio upload is not yet available.' },
 }
 
@@ -113,9 +117,22 @@ const sourceOptions: { id: SourceType; label: string; symbol: string }[] = [
 
 const sourceFields: Record<LinkSource, { label: string; placeholder: string }> = {
   youtube: { label: 'Paste a YouTube project link', placeholder: 'https://www.youtube.com/watch?v=...' },
-  article: { label: 'Paste an Instructables project link', placeholder: 'https://www.instructables.com/your-project/' },
+  article: { label: 'Paste an Instructables, Adafruit Learn or maker blog link', placeholder: 'https://learn.adafruit.com/your-guide' },
   github: { label: 'Paste a GitHub repository link', placeholder: 'https://github.com/creator/project' },
 }
+
+// Hosts the backend reads (docs/contracts/multi-source-intake.md §1). Hackster refuses automated access.
+const blogHosts = ['randomnerdtutorials.com', 'dronebotworkshop.com', 'lastminuteengineers.com', 'circuitdigest.com', 'howtomechatronics.com', 'makerguides.com', 'microcontrollerslab.com', 'eater.net', 'circuitbasics.com', 'electronicshub.org']
+const articleHosts = ['instructables.com', 'learn.adafruit.com', ...blogHosts]
+const bareHost = (url: URL) => url.hostname.toLowerCase().replace(/^www\./, '')
+function linkKind(url: URL): LinkSource | 'hackster' | null {
+  const host = bareHost(url)
+  if (['youtube.com', 'm.youtube.com', 'youtu.be'].includes(host)) return 'youtube'
+  if (host === 'github.com') return 'github'
+  if (host === 'hackster.io') return 'hackster'
+  return articleHosts.includes(host) ? 'article' : null
+}
+const hacksterMessage = 'Hackster blocks automated reading, so its projects cannot be read yet. Try the project’s GitHub repository or video instead.'
 
 function Landing({ onCreated }: { onCreated: (id: string) => void }) {
   const account = useAccount()
@@ -125,6 +142,7 @@ function Landing({ onCreated }: { onCreated: (id: string) => void }) {
   const [arrowPosition, setArrowPosition] = useState<{ left: number; top: number } | null>(null)
   const [sourceUrls, setSourceUrls] = useState<Record<LinkSource, string>>({ youtube: '', article: '', github: '' })
   const [pin, setPin] = useState('')
+  const [extras, setExtras] = useState<string[]>([])
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
 
@@ -168,12 +186,27 @@ function Landing({ onCreated }: { onCreated: (id: string) => void }) {
       setError('Enter a full project URL, starting with https://.')
       return
     }
-    if (source === 'article' && !['instructables.com', 'www.instructables.com'].includes(parsed.hostname.toLowerCase())) {
-      setError('Live article extraction currently supports Instructables project links.')
+    if (source === 'article' && linkKind(parsed) !== 'article') {
+      setError(linkKind(parsed) === 'hackster' ? hacksterMessage : 'Article links can be Instructables projects, Adafruit Learn guides or a supported maker blog (listed below the field).')
       return
     }
-    if (source === 'github' && !['github.com', 'www.github.com'].includes(parsed.hostname.toLowerCase())) {
+    if (source === 'github' && linkKind(parsed) !== 'github') {
       setError('Enter a github.com repository URL.')
+      return
+    }
+    const sources: string[] = []
+    for (const [index, extra] of extras.entries()) {
+      if (!extra.trim()) continue
+      let url: URL
+      try { url = new URL(extra.trim()); if (url.protocol !== 'https:' && url.protocol !== 'http:') throw new Error() }
+      catch { setError(`Extra source ${index + 1}: enter a full URL, starting with https://.`); return }
+      const kind = linkKind(url)
+      if (kind === 'hackster') { setError(`Extra source ${index + 1}: ${hacksterMessage}`); return }
+      if (!kind) { setError(`Extra source ${index + 1}: use a YouTube video, GitHub repository, Instructables project, Adafruit Learn guide or supported maker blog.`); return }
+      sources.push(url.toString())
+    }
+    if ([parsed.toString(), ...sources].filter(url => linkKind(new URL(url)) === 'youtube').length > 1) {
+      setError('Only one YouTube video can be read per project. Remove the extra video link.')
       return
     }
     if (pin && !/^[1-9][0-9]{5}$/.test(pin)) {
@@ -183,7 +216,7 @@ function Landing({ onCreated }: { onCreated: (id: string) => void }) {
     if (!account.requireIdentity()) return
     setSubmitting(true)
     try {
-      const job = await createJob(parsed.toString(), pin || undefined)
+      const job = await createJob(parsed.toString(), pin || undefined, sources)
       sessionStorage.setItem(`bharat-sourcer:job:${job.job_id}`, job.job_token)
       onCreated(job.job_id)
     } catch (cause) {
@@ -206,7 +239,7 @@ function Landing({ onCreated }: { onCreated: (id: string) => void }) {
             <div className="input-callout" aria-hidden="true" ref={calloutRef}><span>Your build starts here</span><svg className={arrowPosition ? 'tab-arrow is-ready' : 'tab-arrow'} style={arrowPosition ?? undefined} viewBox="0 0 64 48" fill="none"><defs><marker id="landing-arrowhead" viewBox="0 0 16 16" refX="12" refY="8" markerWidth="16" markerHeight="16" markerUnits="userSpaceOnUse" orient="auto"><path d="M3 3 L12 8 L3 13" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" /></marker></defs><path className="draw-arrow" d="M8 7 C8 23 23 24 42 40" markerEnd="url(#landing-arrowhead)" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" fill="none" /></svg></div>
             <form className="source-form" onSubmit={submit}>
               <div className="source-options" role="group" aria-label="Choose a project source">{sourceOptions.map((option) => <button key={option.id} ref={(element) => { tabRefs.current[option.id] = element ?? undefined }} type="button" className={`source-option ${source === option.id ? 'selected' : ''}`} aria-pressed={source === option.id} onClick={() => chooseSource(option.id)}><span aria-hidden="true">{option.symbol}</span>{option.label}</button>)}</div>
-              {source === 'audio' ? <div className="audio-field"><label htmlFor="audio-file">Choose a build description or maker audio file</label><input id="audio-file" type="file" accept="audio/*" /><p>Audio transcription and uploads are planned; this file stays on your device for now.</p></div> : <><label htmlFor="source-url">{sourceFields[source].label}</label><div className="url-row"><span className={`url-icon url-icon-${source}`} aria-hidden="true">{source === 'youtube' ? <svg viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="4" fill="currentColor" /><path d="m10 9 6 3-6 3V9Z" fill="#fff" /></svg> : source === 'article' ? '▤' : '</>'}</span><input id="source-url" name="url" type="url" inputMode="url" autoComplete="url" placeholder={sourceFields[source].placeholder} value={sourceUrls[source]} onChange={(event) => setSourceUrls((current) => ({ ...current, [source]: event.target.value }))} required /></div>{source === 'article' ? <p className="source-note">We read the Instructables project and its supplies list. Each part cites a quote from it; review the list before sourcing.</p> : source === 'github' ? <p className="source-note">We read the repository README. Each part cites a quote from it; review the list before sourcing.</p> : null}</>}
+              {source === 'audio' ? <div className="audio-field"><label htmlFor="audio-file">Choose a build description or maker audio file</label><input id="audio-file" type="file" accept="audio/*" /><p>Audio transcription and uploads are planned; this file stays on your device for now.</p></div> : <><label htmlFor="source-url">{sourceFields[source].label}</label><div className="url-row"><span className={`url-icon url-icon-${source}`} aria-hidden="true">{source === 'youtube' ? <svg viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="4" fill="currentColor" /><path d="m10 9 6 3-6 3V9Z" fill="#fff" /></svg> : source === 'article' ? '▤' : '</>'}</span><input id="source-url" name="url" type="url" inputMode="url" autoComplete="url" placeholder={sourceFields[source].placeholder} value={sourceUrls[source]} onChange={(event) => setSourceUrls((current) => ({ ...current, [source]: event.target.value }))} required /></div>{source === 'article' ? <p className="source-note">We read Instructables projects, Adafruit Learn guides and these maker blogs: {blogHosts.join(', ')}. Each part cites a quote from the page; review the list before sourcing. Hackster pages cannot be read yet.</p> : source === 'github' ? <p className="source-note">We read the repository README and its main code files. Each part cites a quote or a code line; review the list before sourcing.</p> : null}<div className="extra-sources">{extras.map((extra, index) => <div className="extra-source-row" key={index}><label htmlFor={`extra-source-${index}`}>Extra source {index + 1} <span>(optional)</span></label><div><input id={`extra-source-${index}`} type="url" inputMode="url" placeholder="https://github.com/creator/project" value={extra} onChange={(event) => setExtras(current => current.map((value, i) => i === index ? event.target.value : value))} /><button type="button" className="remove-button" aria-label={`Remove extra source ${index + 1}`} onClick={() => setExtras(current => current.filter((_, i) => i !== index))}>Remove</button></div></div>)}{extras.length < 3 && <button type="button" className="add-source-button" onClick={() => setExtras(current => [...current, ''])}><span aria-hidden="true">+</span> Add another source</button>}{extras.length > 0 && <p className="source-note">Up to 3 extra links (repository, guide or blog) for the same build; we compare them and flag disagreements. Only one YouTube video per project.</p>}</div></>}
               <div className={`form-bottom ${source === 'audio' ? 'audio-bottom' : ''}`}>
                 {source !== 'audio' ? <div className="pin-wrap"><label htmlFor="pin-code">Your PIN code <span>(optional)</span></label><input id="pin-code" name="pin" type="text" inputMode="numeric" maxLength={6} placeholder="e.g. 560001" value={pin} onChange={(event) => setPin(event.target.value.replace(/\D/g, ''))} /></div> : null}
                 <button className="primary-button" type="submit" disabled={submitting || source === 'audio'}>{submitting ? 'Starting…' : source === 'audio' ? 'Audio support coming soon' : 'Find Indian parts'} {source !== 'audio' ? <ArrowIcon /> : null}</button>
@@ -259,45 +292,36 @@ function Landing({ onCreated }: { onCreated: (id: string) => void }) {
 function ProjectCard({ project }: { project?: Job['project'] }) {
   if (!project) return null
   const facts = [['Power', project.power], ['Controller', project.controller], ['Interfaces', (project.interfaces ?? []).join(', ')]].filter(([, value]) => value)
-  return <details className="build-overview"><summary>Build overview <span>How the parts work together</span><span className="disclosure-chevron" aria-hidden="true" /></summary><div><p>{project.summary}</p>{facts.length > 0 && <dl>{facts.map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>}{project.assumptions?.length > 0 && <><strong>Check these assumptions</strong><ul>{project.assumptions.map((entry, index) => <li key={index}>{entry}</li>)}</ul></>}</div></details>
-}
-
-function PencilIcon() {
-  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m16 3 5 5-12 12-6 1 1-6L16 3Z" /><path d="m13 6 5 5" /></svg>
+  return <div className="project-card"><span className="inferred-tag">AI understanding of the project — check it</span><strong>What we understood</strong><p>{project.summary}</p>{facts.length > 0 && <p>{facts.map(([label, value]) => `${label}: ${value}`).join(' · ')}</p>}{project.assumptions?.length > 0 && <ul>{project.assumptions.map((entry, index) => <li key={index}>{entry}</li>)}</ul>}<small>Inferred quantities and build details below come from this reading. Correct anything that is wrong before confirming.</small></div>
 }
 
 function ProjectHeading({ job, token, onJob }: { job: Job; token: string; onJob: (job: Job) => void }) {
-  const [editing, setEditing] = useState<'title' | 'description' | null>(null)
-  const [value, setValue] = useState('')
+  const [editing, setEditing] = useState(false)
+  const [title, setTitle] = useState(job.project?.title ?? '')
+  const [description, setDescription] = useState(job.project?.description ?? '')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const project = job.project
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (!editing) return
-    if (!value.trim()) { setError(`Please enter a ${editing}.`); return }
-    if (value.trim() === project?.[editing]) { setEditing(null); return }
+    const changes: { title?: string; description?: string } = {}
+    if (title.trim() !== (project?.title ?? '')) changes.title = title.trim()
+    if (description.trim() !== (project?.description ?? '')) changes.description = description.trim()
+    if (!Object.keys(changes).length) { setEditing(false); return }
+    if (Object.values(changes).some(value => !value)) { setError('Title and description cannot be blank.'); return }
     setBusy(true); setError('')
-    try { onJob(await updateProject(job.job_id, token, { [editing]: value.trim() })); setEditing(null) }
+    try { onJob(await updateProject(job.job_id, token, changes)); setEditing(false) }
     catch (cause) { setError(cause instanceof Error ? cause.message : 'Could not save project details.') }
     finally { setBusy(false) }
   }
-  return <section className="project-heading" aria-label="Project details">
-    {(['title', 'description'] as const).map(field => editing === field ? <form key={field} className="inline-project-editor" onSubmit={save} onKeyDown={event => { if (event.key === 'Escape' && !busy) { setEditing(null); setError('') } }}>
-      <label>{field === 'title' ? 'Project title' : 'Description'}{field === 'title' ? <input autoFocus value={value} maxLength={120} disabled={busy} onChange={event => setValue(event.target.value)} /> : <textarea autoFocus value={value} maxLength={600} disabled={busy} onChange={event => setValue(event.target.value)} />}</label>
-      <div><button className="nav-cta" type="submit" disabled={busy}>{busy ? 'Saving…' : 'Save'}</button><button className="remove-button" type="button" disabled={busy} onClick={() => { setEditing(null); setError('') }}>Cancel</button></div>{error && <p className="form-error" role="alert">{error}</p>}
-    </form> : <div key={field} className={`editable-project-field project-${field}`}>
-      {field === 'title' ? <h1>{project?.title || 'Your build plan'}</h1> : <p>{project?.description || 'Add a short description of your build'}</p>}
-      <button className="pencil-button" type="button" aria-label={`Edit ${field}`} title={`Edit ${field}`} disabled={busy} onClick={() => { setValue(project?.[field] ?? ''); setEditing(field); setError('') }}><PencilIcon /></button>
-    </div>)}
-  </section>
+  return <section className="project-heading"><div><h1>{project?.title || 'From video to parts.'}</h1>{project?.description && <p>{project.description}</p>}{project?.title_source === 'ai' || project?.description_source === 'ai' ? <small>AI-written project details · review and edit as needed.</small> : null}</div>{!editing ? <button type="button" className="nav-cta" onClick={() => { setTitle(project?.title ?? ''); setDescription(project?.description ?? ''); setEditing(true) }}>Edit title and description</button> : <form onSubmit={save}><label>Project title<input value={title} maxLength={120} onChange={event => setTitle(event.target.value)} /></label><label>Description<textarea value={description} maxLength={600} onChange={event => setDescription(event.target.value)} /></label><div><button className="nav-cta" type="submit" disabled={busy}>{busy ? 'Saving…' : 'Save details'}</button><button className="remove-button" type="button" disabled={busy} onClick={() => { setEditing(false); setError('') }}>Cancel</button></div>{error && <p className="form-error" role="alert">{error}</p>}</form>}</section>
 }
 
-type ReviewRow = { item: BomItem; name: string; qty: string; owned: boolean; removed: boolean; requirements: NonNullable<BomItem['requirements']> }
+type ReviewRow = { item: BomItem; name: string; qty: string; owned: boolean; removed: boolean; requirements: NonNullable<BomItem['requirements']>; spec: BuyableSpec | null }
 
 function Review({ job, token, onConfirmed }: { job: Job; token: string; onConfirmed: () => void }) {
   const account = useAccount()
-  const [rows, setRows] = useState<ReviewRow[]>(() => job.items.map((item) => ({ item, name: item.raw_name, qty: item.qty?.toString() ?? '', owned: item.user_has_it, removed: false, requirements: item.requirements ?? [] })))
+  const [rows, setRows] = useState<ReviewRow[]>(() => job.items.map((item) => ({ item, name: item.raw_name, qty: item.qty?.toString() ?? '', owned: item.user_has_it, removed: false, requirements: item.requirements ?? [], spec: item.buyable_spec ?? null })))
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
 
@@ -314,17 +338,19 @@ function Review({ job, token, onConfirmed }: { job: Job; token: string; onConfir
       setError('Every retained part needs a name and a quantity from 1 to 10,000.'); return
     }
     if (retained.some(row => !validRequirements(row.requirements))) { setError('Every requirement needs a property and value, or remove the empty row.'); return }
+    if (retained.some(row => !validSpec(row.spec))) { setError('Every buying spec value needs a property and value (and an upper value for “Between”), or remove the empty row.'); return }
     if (account.identity && account.identity !== 'legacy' && account.identity.kind === 'guest' && retained.filter(row => !row.owned).length > account.identity.part_limit) {
       setError(`Guests can source up to ${account.identity.part_limit} parts. Mark parts you already own, remove others, or sign in with Google for the account limit.`); return
     }
     const edits: Parameters<typeof confirmJob>[2] = []
     for (const row of rows) {
       if (row.removed) { edits.push({ op: 'remove', line_id: row.item.line_id }); continue }
-      const updateEdit: { op: 'update'; line_id: string; raw_name?: string; qty?: number; requirements?: NonNullable<BomItem['requirements']> } = { op: 'update', line_id: row.item.line_id }
+      const updateEdit: { op: 'update'; line_id: string; raw_name?: string; qty?: number; requirements?: NonNullable<BomItem['requirements']>; buyable_spec?: BuyableSpec } = { op: 'update', line_id: row.item.line_id }
       if (row.name.trim() !== row.item.raw_name) updateEdit.raw_name = row.name.trim()
       if (Number(row.qty) !== row.item.qty) updateEdit.qty = Number(row.qty)
       if (JSON.stringify(row.requirements) !== JSON.stringify(row.item.requirements ?? [])) updateEdit.requirements = requirementPayload(row.requirements)
-      if (updateEdit.raw_name !== undefined || updateEdit.qty !== undefined || updateEdit.requirements !== undefined) edits.push(updateEdit)
+      if (row.spec && JSON.stringify(row.spec) !== JSON.stringify(row.item.buyable_spec ?? null)) updateEdit.buyable_spec = specPayload(row.spec)
+      if (updateEdit.raw_name !== undefined || updateEdit.qty !== undefined || updateEdit.requirements !== undefined || updateEdit.buyable_spec !== undefined) edits.push(updateEdit)
       if (row.owned !== row.item.user_has_it) edits.push({ op: 'have_it', line_id: row.item.line_id, user_has_it: row.owned })
     }
     setBusy(true)
@@ -333,7 +359,7 @@ function Review({ job, token, onConfirmed }: { job: Job; token: string; onConfir
     finally { setBusy(false) }
   }
 
-  return <section className="job-panel"><span className="section-kicker">YOUR REVIEW</span><h2>Does this parts list look right?</h2><p className="job-panel-intro">Check the names and quantities, mark what you already own, and add any build details that matter to you.</p><ProjectCard project={job.project} />{account.identity && account.identity !== 'legacy' && account.identity.kind === 'guest' && <p className="guest-limit">Guest limit: source up to {account.identity.part_limit} parts in this build. You can mark owned parts without using this limit.</p>}<form onSubmit={submit}><div className="review-list">{rows.map((row) => <div id={`line-${row.item.line_id}`} className={`review-row ${row.removed ? 'removed' : ''}`} key={row.item.line_id}><div className="review-fields"><label>Part name<input value={row.name} disabled={row.removed} onChange={(event) => update(row.item.line_id, { name: event.target.value })} /></label><label className="qty-field">Qty<input type="number" min="1" max="10000" value={row.qty} disabled={row.removed} onChange={(event) => update(row.item.line_id, { qty: event.target.value })} /></label></div>{row.item.qty_source === 'inferred' && row.qty === (row.item.qty?.toString() ?? '') && <p className="qty-inferred" title={row.item.qty_reason ?? undefined}><span className="inferred-tag">Suggested quantity</span> {row.item.qty_reason || 'The source did not state a count.'} Change it if you need a different number.</p>}<div className="review-row-bottom"><label className="check-label"><input type="checkbox" checked={row.owned} disabled={row.removed} onChange={(event) => update(row.item.line_id, { owned: event.target.checked })} /> I already have this</label><button type="button" className="remove-button" onClick={() => update(row.item.line_id, { removed: !row.removed })}>{row.removed ? 'Undo remove' : 'Remove'}</button></div><Requirements value={row.requirements} disabled={row.removed} onChange={requirements => update(row.item.line_id, { requirements })} />{row.item.evidence.length ? <div className="evidence-note">Evidence: {row.item.evidence.map((entry) => evidenceText(entry)).join(' · ')}</div> : null}{row.item.clarifications.length ? <div className="evidence-note">Still unclear: {row.item.clarifications.map((entry) => entry.question).join(' ')}</div> : null}</div>)}</div>{error ? <p className="form-error" role="alert">{error}</p> : null}<button className="primary-button job-action" disabled={busy} type="submit">{busy ? 'Confirming…' : 'Confirm BOM and find offers'} <ArrowIcon /></button></form></section>
+  return <section className="job-panel"><span className="section-kicker">YOUR REVIEW</span><h2>Does this parts list look right?</h2><p className="job-panel-intro">AI extraction can miss or misname parts. Check each part before we search sellers.</p><ProjectCard project={job.project} /><SourcesCard job={job} />{account.identity && account.identity !== 'legacy' && account.identity.kind === 'guest' && <p className="guest-limit">Guest limit: source up to {account.identity.part_limit} parts in this build. You can mark owned parts without using this limit.</p>}<SafetyBanners flags={job.safety_flags} lineNames={Object.fromEntries(job.items.map(item => [item.line_id, item.raw_name]))} /><ConflictBanner items={job.items} /><form onSubmit={submit}><div className="review-list">{rows.map((row) => <div id={`line-${row.item.line_id}`} className={`review-row ${row.removed ? 'removed' : ''}`} key={row.item.line_id}>{(row.item.confidence || job.safety_flags?.some(flag => flag.line_ids.includes(row.item.line_id))) && <div className="review-row-meta"><span>{row.item.line_id}</span><ConfidenceChip item={row.item} /><SafetyLineBadges flags={job.safety_flags} lineId={row.item.line_id} /></div>}<div className="review-fields"><label>Part name<input value={row.name} disabled={row.removed} onChange={(event) => update(row.item.line_id, { name: event.target.value })} /></label><label className="qty-field">Qty<input type="number" min="1" max="10000" value={row.qty} disabled={row.removed} onChange={(event) => update(row.item.line_id, { qty: event.target.value })} /></label></div>{row.item.qty_source === 'inferred' && row.qty === (row.item.qty?.toString() ?? '') && <p className="qty-inferred" title={row.item.qty_reason ?? undefined}><span className="inferred-tag">inferred qty</span> {row.item.qty_reason || 'The source did not state a count.'} Change it if you need a different number.</p>}<ConflictNotes item={row.item} /><LookalikeNotes item={row.item} /><div className="review-row-bottom"><label className="check-label"><input type="checkbox" checked={row.owned} disabled={row.removed} onChange={(event) => update(row.item.line_id, { owned: event.target.checked })} /> I already have this</label><button type="button" className="remove-button" onClick={() => update(row.item.line_id, { removed: !row.removed })}>{row.removed ? 'Undo remove' : 'Remove'}</button></div><Requirements value={row.requirements} disabled={row.removed} onChange={requirements => update(row.item.line_id, { requirements })} /><SpecPanel value={row.spec} disabled={row.removed} onChange={spec => update(row.item.line_id, { spec })} />{row.spec && row.spec.origin !== 'user' && row.name.trim() !== row.item.raw_name && <p className="qty-inferred"><span className="inferred-tag">renamed</span> Renaming drops this suggested buying spec; sourcing builds one from the new name unless you edit the spec.</p>}<EvidenceList evidence={row.item.evidence} />{row.item.clarifications.length ? <div className="evidence-note">Still unclear: {row.item.clarifications.map((entry) => entry.question).join(' ')}</div> : null}</div>)}</div>{error ? <p className="form-error" role="alert">{error}</p> : null}<button className="primary-button job-action" disabled={busy} type="submit">{busy ? 'Confirming…' : 'Confirm BOM and find offers'} <ArrowIcon /></button></form></section>
 }
 
 function AnalysisProgress({ job }: { job: Job }) {
@@ -421,9 +447,9 @@ function JobPage({ id }: { id: string }) {
   const statusLabel: Record<string, string> = { queued: 'Queued', extracting: 'Reading the video', awaiting_confirmation: 'Ready for your review', resolving: 'Preparing parts', sourcing: 'Checking seller pages', done: 'Analysis finished', failed: 'Analysis stopped', paused: 'Sourcing paused' }
 
   return <main id="main" className="job-page"><div className="container job-container">
-    <div className="job-hero"><div className="eyebrow"><span className="eyebrow-line" /> YOUR BUILD PLAN</div></div>
+    <div className="job-hero"><div className="eyebrow"><span className="eyebrow-line" /> YOUR BUILD PLAN</div><h1>From video to parts.</h1><p>Follow the analysis, review the draft, and inspect the result.</p></div>
     {!account.ready ? <p role="status">Checking your session…</p> : (!token && (!account.identity || account.identity === 'legacy')) ? <section className="job-panel"><h2>Session access ended</h2><p>Sign in to the account that owns this project to continue. Older projects also need their original browser-session token.</p><button className="primary-button job-action" onClick={account.open}>Sign in to continue <ArrowIcon /></button></section> : fatalError ? <section className="job-panel"><h2>We couldn’t load this job</h2><p role="alert">{fatalError}</p><button className="primary-button job-action" onClick={() => { setFatalError(''); setRevision((value) => value + 1) }}>Try again <ArrowIcon /></button>{token && account.identity && account.identity !== 'legacy' && account.identity.kind === 'account' && <div className="legacy-claim"><p>If this project was created before accounts were enabled in this browser, you can save it to your account using its original access token.</p><button className="nav-cta" disabled={actionBusy} onClick={async () => { setActionBusy(true); setActionError(''); try { await claimProject(id, token); setFatalError(''); setRevision(n => n + 1) } catch (cause) { setActionError(cause instanceof Error ? cause.message : 'Could not claim this project.') } finally { setActionBusy(false) } }}>Save older project to my account</button>{actionError && <p className="form-error" role="alert">{actionError}</p>}</div>}</section> : !job ? <section className="job-panel loading-panel" role="status"><span className="loading-indicator" /> Connecting to your job…{connectionIssue ? <p>{connectionIssue}</p> : null}</section> : <>
-      <div className="job-status-bar" role="status" aria-live="polite"><span className={`status-pulse ${['done', 'failed', 'awaiting_confirmation'].includes(job.status) ? 'paused' : ''}`} /><strong>{statusLabel[job.status]}</strong><span className="job-status-kind">{job.demo ? 'Demo mode · sample data' : 'Live analysis'}</span>{/^https?:\/\//i.test(job.input.url) && <a className="job-source-link" href={job.input.url} target="_blank" rel="noopener noreferrer" aria-label="Open original source in a new tab">Source ↗</a>}</div>
+      <div className="job-status-bar" role="status" aria-live="polite"><span className={`status-pulse ${['done', 'failed', 'awaiting_confirmation'].includes(job.status) ? 'paused' : ''}`} /><strong>{statusLabel[job.status]}</strong><span>{job.demo ? 'Demo mode · sample data' : 'Live analysis'}</span></div>
       {connectionIssue ? <div className="connection-warning" role="status">{connectionIssue} Your saved BOM and conversation remain visible.</div> : null}
       <ProjectHeading key={job.project?.title_source + ':' + job.project?.title + ':' + job.project?.description} job={job} token={token} onJob={applySnapshot} />
       {!job.demo && ['resolving', 'sourcing', 'paused'].includes(job.status) && <div className="guest-banner"><p>{job.status === 'paused' ? 'Your progress is saved. Resume when you are ready.' : 'You can pause sourcing without using your action quota.'}</p><button className="nav-cta" disabled={actionBusy || job.pause_requested && job.status !== 'paused'} onClick={async () => { setActionBusy(true); setActionError(''); try { await (job.status === 'paused' ? resumeJob(id, token) : pauseJob(id, token)); setRevision(n => n + 1) } catch (cause) { setActionError(cause instanceof Error ? cause.message : 'Could not update sourcing') } finally { setActionBusy(false) } }}>{job.pause_requested && job.status !== 'paused' ? 'Pausing after current part…' : actionBusy ? 'Updating…' : job.status === 'paused' ? 'Resume sourcing' : 'Pause sourcing'}</button></div>}
@@ -444,5 +470,6 @@ export default function App() {
   function navigate(next: string) { if (import.meta.env.DEV && new URLSearchParams(window.location.search).get('preview') === '1') next += '?preview=1'; window.history.pushState({}, '', next); setPath(next.split('?')[0]); window.scrollTo({ top: 0, behavior: 'instant' }) }
   const account = useAccount()
   const jobId = path.startsWith('/job/') ? path.slice(5) : null
-  return <>{import.meta.env.DEV && new URLSearchParams(window.location.search).get('preview') === '1' && <div className="preview-toolbar"><strong>LOCAL DEMO · Sample data · No API calls</strong><a href="/?preview=1">Landing</a><a href="/projects?preview=1">My projects</a><a href="/job/ui-preview?preview=1">Review</a><a href="/job/ui-preview?preview=1&stage=sourcing">Parallel progress</a><a href="/job/ui-preview?preview=1&stage=done">Results</a></div>}<a className="skip-link" href="#main">Skip to content</a><Header onHome={() => navigate('/')} isHome={path === '/'} onProjects={() => navigate('/projects')} />{path === '/projects' ? <Projects onOpen={id => navigate(`/job/${encodeURIComponent(id)}`)} onNew={() => navigate('/')} /> : jobId ? <JobPage key={jobId + account.revision + (account.identity && account.identity !== 'legacy' ? account.identity.kind : 'none')} id={jobId} /> : <Landing onCreated={(id) => navigate(`/job/${encodeURIComponent(id)}`)} />}</>
+  const shareToken = path.startsWith('/shared/') ? path.slice(8) : null
+  return <>{import.meta.env.DEV && new URLSearchParams(window.location.search).get('preview') === '1' && <div className="preview-toolbar"><strong>LOCAL DEMO · Sample data · No API calls</strong><a href="/?preview=1">Landing</a><a href="/projects?preview=1">My projects</a><a href="/job/ui-preview?preview=1">Review</a><a href="/job/ui-preview?preview=1&stage=sourcing">Parallel progress</a><a href="/job/ui-preview?preview=1&stage=done">Results</a><a href="/job/ui-preview?preview=1&stage=plan">Order plan</a><a href="/shared/ui-preview.dummy?preview=1">Shared link</a></div>}<a className="skip-link" href="#main">Skip to content</a><Header onHome={() => navigate('/')} isHome={path === '/'} onProjects={() => navigate('/projects')} />{shareToken ? <SharedReport shareToken={shareToken} /> : path === '/projects' ? <Projects onOpen={id => navigate(`/job/${encodeURIComponent(id)}`)} onNew={() => navigate('/')} /> : jobId ? <JobPage key={jobId + account.revision + (account.identity && account.identity !== 'legacy' ? account.identity.kind : 'none')} id={jobId} /> : <Landing onCreated={(id) => navigate(`/job/${encodeURIComponent(id)}`)} />}</>
 }

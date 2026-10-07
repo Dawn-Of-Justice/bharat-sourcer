@@ -24,3 +24,4 @@ frontend/HANDOFF.md
 Thumbs.db
 .idea/
 .vscode/
+build/

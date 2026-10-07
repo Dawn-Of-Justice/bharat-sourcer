@@ -1,7 +1,28 @@
-# Implemented API contract — v0.19.3
+# Implemented API contract — v0.22.0
 
 This directory is the handoff between backend and frontend. The architecture docs describe
 the target system; this contract describes the runnable local milestone.
+
+Unreleased: automatic [recommendations](recommendations.md). Adds optional `report.order_plan`, `lines[].selection_source`, `user_offer_url`, `recommended_offer_url`, `recommendation` and `line_image`; `GET /plans` adds a `recommended` plan and `seller_penalty_inr`. Completed live reports now arrive with default selections.
+
+v0.22.0 adds `research_skipped` to `stages`, `part_name` to `BuyableSpec`, Shopify variant
+offers (`verification: shopify_storefront_json` with `?variant=` URLs) and AI buying specs for
+older jobs. The v0.20 and v0.21 frontend handoffs are now built in `frontend/`.
+
+v0.21.0 adds the sourcing engine: buyable specs, seller catalogue search, an LLM spec
+judge (`offers[].match`), automatic recommendations and selections, a seller-grouped
+`report.order_plan`, `line_image`, cost controls (`job.cost_estimate`), nearby markets and
+YouTube description intake. All new fields are optional. Frontend work is listed in the
+[v0.21 frontend handoff](frontend-handoff-v0.21.md).
+
+v0.20.0 adds safety flags, costing breakdowns and cart plans, multi-source intake with
+conflicts, look-alikes and confidence, seller trust labels, export and share links, catalogue-backed
+compatibility grades A–D/X, and disabled-by-default Gemini extras. All new fields are optional. Frontend work is listed in
+the [v0.20 frontend handoff](frontend-handoff-v0.20.md).
+
+Unreleased (`mvp/cost`): [cost controls](cost-controls.md) add optional
+`job.cost_estimate`, research status `skipped` and line error `JOB_BUDGET_REACHED`
+(refresh the line to retry). All additive.
 
 v0.19.2 adds internal Gemini usage logging only; no API changes.
 
@@ -96,11 +117,21 @@ and `/openapi.json` are public. `/health` is the cloud-safe liveness path.
 The API base URL has no `/api` suffix.
 
 [Backend roadmap](backend-roadmap.md) tracks agreed features still to implement.
+[Export and share](export-and-share.md): CSV, printable HTML report and revocable read-only share links.
 [Frontend quickstart](frontend-quickstart.md) includes local configuration, request code,
 credentials guidance and the integration acceptance checklist.
+[Gemini extras](gemini-extras.md): opt-in explain-aloud audio, clip zoom and parts-bin scan.
+[Nearby markets](nearby-markets.md): `GET /v1/jobs/{job_id}/markets?pin=` lists Maps-grounded electronics shops near the maker, with required Google Maps attribution.
+[Seller trust labels and storefront JSON fast path](seller-trust.md): `offers[].trust` and new `verification` values.
+[Safety flags](safety-flags.md): deterministic MAINS / LIPO / HIGH_CURRENT / LEVEL_SHIFT banners on `job.safety_flags`.
 
 **New: [conversation integration guide](conversation.md).** Add chat beside the BOM,
 reviewable edit proposals and a live snapshot stream. Existing endpoints remain available.
+
+[Multi-source intake](multi-source-intake.md): Adafruit Learn and tutorial blog sources,
+GitHub code evidence, extra `sources` per job, fused BOM lines with `conflicts`,
+`lookalikes` and a `confidence` chip. YouTube description intake (§8): evidence
+`source: "youtube_description"`, `job.video_meta` and 30-day retention.
 
 Base URL: `http://127.0.0.1:8000` (no `/api` prefix locally).
 
@@ -144,6 +175,7 @@ Base URL: `http://127.0.0.1:8000` (no `/api` prefix locally).
 Draft `items[]` includes `specs` (nullable typed fields) and `clarifications[]` with `field`
 and `question`. Use OpenAPI for typed-field answer controls; `family` is now free text.
 Use [generic requirements and research](part-research.md) for arbitrary categories.
+See [compatibility rules](compatibility-rules.md) for the part catalogue, resolver and A–X rules engine.
 Example confirmation:
 
 ```json
@@ -264,6 +296,9 @@ Selection does not purchase anything or verify delivery, seller trust or final c
 
 Selection errors: 409 `INVALID_STATE` / `OFFER_STALE`; 422 `INVALID_SELECTION`,
 `OFFER_UNAVAILABLE`, `COMPATIBILITY_UNRESOLVED`, or `CHANGES_REQUIRED`.
+
+GST, shipping and import estimates, import reference prices and cart plans: see
+[costing](costing.md).
 
 ## Targeted offer refresh (v0.7)
 

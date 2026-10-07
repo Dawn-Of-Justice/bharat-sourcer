@@ -1,0 +1,149 @@
+{
+  "project_id": "dronebot-stepper-motors-arduino",
+  "plan_row": 9,
+  "title": "Stepper Motors with Arduino - Getting Started with Stepper Motors",
+  "creator": "DroneBot Workshop",
+  "kind": "text",
+  "label_status": "agent_draft_needs_human_review",
+  "inputs": {
+    "url": "https://dronebotworkshop.com/stepper-motors-with-arduino/",
+    "video_url": "https://www.youtube.com/watch?v=0qwrnUeSpYQ"
+  },
+  "source": {
+    "url": "https://dronebotworkshop.com/stepper-motors-with-arduino/",
+    "fetched_on": "2026-10-06",
+    "http_status": 200,
+    "robots_txt": "allowed (robots.txt disallows only /wp-admin/, /mailstat/ and a stats CSV)",
+    "method": "one curl GET; parts list transcribed by hand from the fetched text"
+  },
+  "gold_bom": [
+    {
+      "name": "Arduino Uno",
+      "aliases": [],
+      "qty": 1,
+      "canonical_chip": "ATmega328P",
+      "category": "mcu_board"
+    },
+    {
+      "name": "28BYJ-48 stepper motor",
+      "aliases": [
+        "28BYJ-48",
+        "unipolar stepper motor"
+      ],
+      "qty": 2,
+      "category": "motor",
+      "notes": "Two in Demo 2."
+    },
+    {
+      "name": "ULN2003 driver board",
+      "aliases": [
+        "ULN2003",
+        "ULN2003 stepper driver"
+      ],
+      "qty": 2,
+      "canonical_chip": "ULN2003",
+      "category": "motor_driver",
+      "notes": "One per 28BYJ-48."
+    },
+    {
+      "name": "NEMA 17 bipolar stepper motor",
+      "aliases": [
+        "NEMA 17 stepper",
+        "bipolar stepper motor"
+      ],
+      "qty": 1,
+      "category": "motor",
+      "notes": "12 V rated."
+    },
+    {
+      "name": "L298N motor driver module",
+      "aliases": [
+        "L298N",
+        "L298N H-bridge"
+      ],
+      "qty": 1,
+      "canonical_chip": "L298N",
+      "category": "motor_driver"
+    },
+    {
+      "name": "A4988 stepper driver",
+      "aliases": [
+        "A4988"
+      ],
+      "qty": 1,
+      "canonical_chip": "A4988",
+      "category": "motor_driver"
+    },
+    {
+      "name": "100uF capacitor",
+      "aliases": [
+        "100 uF capacitor",
+        "electrolytic capacitor"
+      ],
+      "qty": 1,
+      "category": "passive",
+      "notes": "Decoupling for A4988 VMOT; 'any value from 47uf up'."
+    },
+    {
+      "name": "10k potentiometer",
+      "aliases": [
+        "potentiometer"
+      ],
+      "qty": 1,
+      "category": "passive",
+      "notes": "Speed control; 'any value from 10k up'."
+    },
+    {
+      "name": "5V power supply",
+      "aliases": [
+        "external 5 volt power supply"
+      ],
+      "qty": 1,
+      "category": "power_supply",
+      "notes": "For the 28BYJ-48 demos."
+    },
+    {
+      "name": "12V power supply",
+      "aliases": [
+        "motor power supply"
+      ],
+      "qty": 1,
+      "category": "power_supply",
+      "notes": "For the 12 V NEMA 17; exact rating not stated."
+    }
+  ],
+  "gold_substitutions": [
+    {
+      "original": "A4988 stepper driver",
+      "aliases": [
+        "A4988"
+      ],
+      "acceptable": [
+        "DRV8825 clone (B, Case 4)",
+        "MKS TMC2209 V2.0 (C, Case 3)"
+      ],
+      "required_changes": [
+        "DRV8825: current limit = VREF x 2, FAULT pin, min 1.9 us STEP pulse",
+        "TMC2209: MS tables differ, MS3 -> SPREAD, PDN/UART, 5.5-28 V motor supply",
+        "re-tune Vref"
+      ],
+      "grade_range": [
+        "B",
+        "C"
+      ],
+      "case_ref": 4,
+      "notes": "Cases 3 and 4 combined: either substitute; B for DRV8825, C for TMC2209."
+    }
+  ],
+  "must_flag": [
+    "HIGH_CURRENT"
+  ],
+  "notes": "Parts List says 'COMING SOON!'; parts drafted from the four demos.",
+  "ambiguities": [
+    "Demos run separately; one Uno serves all of them.",
+    "HIGH_CURRENT: the A4988 handles up to 2 A with a heatsink and needs current tuning; reviewer: confirm the flag.",
+    "Supply ratings beyond voltage are not stated."
+  ],
+  "drafted_by": "Claude Code agent (stream mvp/eval), not a human labeller",
+  "reviewed_by": []
+}

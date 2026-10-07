@@ -38,14 +38,20 @@ export interface ResearchCandidate { url: string; title: string; category: strin
 export interface Evidence {
   timestamp?: string | null
   observation: string
-  source?: 'video' | 'project_page'
+  // 'code': a GitHub file line (file, line, quote = the line's text, url = link to it). 'youtube_description': a checked quote from the video description.
+  source?: 'video' | 'project_page' | 'code' | 'youtube_description'
   quote?: string | null
   url?: string | null
+  file?: string | null
+  line?: number | null
 }
 
-// Video evidence cites a timestamp; project-page evidence cites a server-checked quote.
+// Video evidence cites a timestamp; page, code and description evidence cite a server-checked quote.
 export function evidenceText(entry: Evidence) {
-  return entry.source === 'project_page' ? `Page quote “${entry.quote}” — ${entry.observation}` : `${entry.timestamp} — ${entry.observation}`
+  if (entry.source === 'project_page') return `Page quote “${entry.quote}” — ${entry.observation}`
+  if (entry.source === 'code') return `Code ${entry.file ?? 'file'}${entry.line ? ':' + entry.line : ''}${entry.quote ? ` “${entry.quote}”` : ''} — ${entry.observation}`
+  if (entry.source === 'youtube_description') return `Video description${entry.quote ? ` “${entry.quote}”` : ''} — ${entry.observation}`
+  return entry.timestamp ? `${entry.timestamp} — ${entry.observation}` : `Video — ${entry.observation}`
 }
 
 export interface PartResearch { status: 'ready' | 'no_evidence' | 'failed' | 'stale'; summary: string; checked_at?: string; questions?: string[]; sources?: { url: string; status: 'read' | 'unavailable'; reason?: string | null; reviewed?: boolean }[]; candidates?: ResearchCandidate[] }
@@ -62,7 +68,40 @@ export interface BomItem {
   evidence: Evidence[]
   clarifications: { field: string; question: string }[]
   requirements?: PartRequirement[]
+  lookalikes?: Lookalike[]
+  conflicts?: ItemConflict[]
+  // Deterministic rule over the evidence; null means not assessed (user-added or renamed lines).
+  confidence?: 'verified' | 'likely' | 'check' | null
+  confidence_reason?: string | null
+  buyable_spec?: BuyableSpec | null
 }
+
+export type EvidenceSource = NonNullable<Evidence['source']>
+export interface Lookalike { name: string; note?: string | null; origin: 'table' | 'ai' }
+export interface ItemConflict { kind: 'identity_mismatch' | 'qty_mismatch'; message: string; values: { value: string; source: EvidenceSource; url?: string | null; locator?: string | null }[] }
+// What to buy, stated the way sellers list parts. ai_inferred and seed specs are suggestions; user specs are the maker's own.
+export interface SpecParam { name: string; value: string; operator: 'equals' | 'at_least' | 'at_most' | 'between'; value_max?: string | null; unit?: string | null; si_value?: number | null; si_value_max?: number | null; required?: boolean; origin?: 'stated' | 'inferred' | 'user'; reason?: string | null }
+export interface BuyableSpec {
+  origin: 'seed' | 'ai_inferred' | 'user'
+  part_name?: string | null
+  category: 'resistor' | 'capacitor_electrolytic' | 'capacitor_ceramic' | 'led' | 'ldr' | 'wire' | 'diode' | 'transistor' | 'ic' | 'module' | 'board' | 'sensor' | 'connector' | 'switch' | 'battery' | 'other'
+  mount: 'tht' | 'smd' | 'any'
+  mount_origin?: 'stated' | 'inferred' | 'user' | 'default'
+  mount_reason?: string | null
+  params: SpecParam[]
+  must?: string[]
+  prefer?: string[]
+  exclude?: string[]
+  synonyms?: string[]
+  queries?: string[]
+  needs_value?: boolean
+  needs_value_reason?: string | null
+  reasons?: string[]
+}
+// Deterministic rule checks (MAINS, LIPO, HIGH_CURRENT, LEVEL_SHIFT). Advice, not a safety review.
+export interface SafetyFlag { code: 'MAINS' | 'LIPO' | 'HIGH_CURRENT' | 'LEVEL_SHIFT'; severity: 'danger' | 'warning' | 'caution'; title: string; message: string; guidance: string[]; line_ids: string[]; triggers?: { line_id?: string | null; field: string; matched: string }[]; method?: 'deterministic_rules'; rule_version?: string }
+export interface SourceReport { url: string; kind: 'video' | 'instructables' | 'hackster' | 'github' | 'adafruit' | 'blog' | 'youtube_description'; role: 'primary' | 'additional'; status: 'read' | 'failed'; item_count: number; code_item_count?: number; error?: { code: string; message: string } | null; found_in?: 'youtube_description' | null }
+export interface VideoMeta { video_id: string; title?: string | null; channel?: string | null; published_at?: string | null; fetched_at: string; links?: { url: string; kind: 'project_source' | 'video' | 'store' | 'other'; followed: boolean }[]; expired?: boolean }
 
 export interface ReportLine {
   item: BomItem
@@ -124,10 +163,13 @@ export interface Job {
   chat_state: 'idle' | 'queued' | 'thinking' | 'failed'
   chat_error: { code: string; message: string } | null
   actions?: ActionRecord[]
+  safety_flags?: SafetyFlag[]
+  source_reports?: SourceReport[]
+  video_meta?: VideoMeta | null
 }
 
 type JobEdit =
-  | { op: 'update'; line_id: string; raw_name?: string; qty?: number; requirements?: PartRequirement[] }
+  | { op: 'update'; line_id: string; raw_name?: string; qty?: number; requirements?: PartRequirement[]; buyable_spec?: BuyableSpec }
   | { op: 'have_it'; line_id: string; user_has_it: boolean }
   | { op: 'remove'; line_id: string }
 
@@ -173,10 +215,11 @@ async function request<T>(path: string, options: RequestInit = {}, token?: strin
   return response.json() as Promise<T>
 }
 
-export function createJob(url: string, pin?: string) {
+// sources: up to 3 extra project URLs read alongside url (at most one video across all of them).
+export function createJob(url: string, pin?: string, sources: string[] = []) {
   return request<{ job_id: string; job_token: string; demo: boolean }>('/v1/jobs', {
     method: 'POST',
-    body: JSON.stringify({ url, ...(pin ? { pin } : {}), lang: 'en' }),
+    body: JSON.stringify({ url, ...(pin ? { pin } : {}), ...(sources.length ? { sources: sources.slice(0, 3) } : {}), lang: 'en' }),
   })
 }
 
@@ -237,3 +280,78 @@ export const resumeJob = (id: string, token: string) => request('/v1/jobs/' + en
 export const selectOffer = (id: string, token: string, lineId: string, url: string | null, acceptChanges = false, acceptResearchAssessment = false) => request<Job>('/v1/jobs/' + encodeURIComponent(id) + '/selections', { method: 'POST', body: JSON.stringify({ selections: [{ line_id: lineId, offer_url: url, accept_changes: acceptChanges, accept_research_assessment: acceptResearchAssessment }] }) }, token)
 export const refreshOffers = (id: string, token: string, lineIds: string[]) => request('/v1/jobs/' + encodeURIComponent(id) + '/refresh', { method: 'POST', body: JSON.stringify({ line_ids: lineIds }) }, token)
 export const updateRequirements = (id: string, token: string, lineId: string, requirements: PartRequirement[]) => request<Job>('/v1/jobs/' + encodeURIComponent(id) + '/specs', { method: 'POST', body: JSON.stringify({ updates: [{ line_id: lineId, requirements }] }) }, token)
+
+// --- report v0.21 ---
+// Report-side types (costing, order plan, recommendations, matching, trust, grades, markets, share, extras).
+// The ReportLine and Job interfaces below merge into the ones above; offers and report are widened through ReportOffer and Report.
+export interface CostAmount { amount_inr?: string | null; status?: 'known' | 'estimated' | 'unknown'; partial_inr?: string | null; assumptions?: string[] }
+export interface ShippingPolicyRef { seller: string; free_above_inr?: string | null; free_when?: 'above' | 'at_or_above'; flat_fee_inr?: string | null; fee_plus_gst?: boolean; unverified?: boolean; source_url?: string | null; checked_on?: string | null; note?: string | null }
+export interface SellerCost { seller: string; line_ids?: string[]; parts: CostAmount; gst: CostAmount; shipping: CostAmount; total: CostAmount; free_shipping_gap_inr?: string | null; policy?: ShippingPolicyRef | null }
+export interface ImportBaseline { line_ids?: string[]; complete?: boolean; goods_usd: string; fx_usd_inr: string; goods_inr: CostAmount; courier_inr: CostAmount; duty_inr: CostAmount; landed_inr: CostAmount; formula: string; sources?: string[] }
+export interface CostBreakdown { basis?: 'selected_offers' | 'plan'; complete?: boolean; sellers?: SellerCost[]; parts: CostAmount; gst: CostAmount; shipping: CostAmount; total: CostAmount; excluded_line_ids?: string[]; import_baseline?: ImportBaseline | null; savings_vs_import?: { amount_inr: string; status?: 'estimated'; assumptions?: string[] } | null; rates_checked_on?: string | null; disclaimer?: string }
+export type PlanGrade = 'A' | 'B' | 'C' | 'D' | 'X'
+export interface OrderPlanLine { line_id: string; name: string; offer_url: string; title?: string | null; qty: number; pack_qty?: number | null; packs: number; units: number; unit_price_inr: string; line_price_inr: string; selection_source?: 'recommended' | 'user' | null; selected?: boolean; grade?: PlanGrade | null; changes_required?: boolean; blocked_reason?: string | null }
+export interface OrderPlanSeller { seller: string; lines?: OrderPlanLine[]; subtotal_inr: string; gst: CostAmount; shipping: CostAmount; total: CostAmount; free_shipping_gap_inr?: string | null; policy?: ShippingPolicyRef | null; product_links?: string[] }
+export interface UnsourcedLine { line_id: string; name: string; reason: 'pending' | 'needs_value' | 'no_offers' | 'no_acceptable_offer' | 'needs_quantity' | 'cleared_by_user'; message: string; next_steps?: string[]; research_urls?: string[] }
+export interface OrderPlan { sellers?: OrderPlanSeller[]; unsourced?: UnsourcedLine[]; seller_count?: number; costing: CostBreakdown; ready?: boolean; disclaimer?: string }
+export interface LineImage { url: string; kind: 'selected_offer' | 'recommended_offer' | 'offer' | 'reference' | 'category' | 'placeholder'; label: string; source_url?: string | null }
+export interface LineRecommendation { status: 'recommended' | 'unsourced'; offer_url?: string | null; seller?: string | null; score?: number | null; reasons?: string[]; blocked_reason?: string | null; unsourced_reason?: Exclude<UnsourcedLine['reason'], 'cleared_by_user'> | null; next_steps?: string[]; qty?: number | null; pack_qty?: number | null; packs?: number | null }
+export interface OfferMatch { status: 'exact' | 'compatible' | 'partial' | 'mismatch'; score: number; matched?: string[]; missing?: string[]; conflicts?: string[]; reasons?: string[]; claims?: { claim: string; quote: string }[]; dropped_claims?: number; variant?: string | null; pack_qty?: number | null; method?: 'llm_judge' | 'deterministic_shortcut'; model?: string | null }
+export interface SellerTrust { label: 'established' | 'verified_basics' | 'unverified'; new_seller?: boolean; reasons?: string[]; signals?: { domain?: string | null; gstin?: string | null; price_anomaly?: boolean; policies?: ('returns' | 'shipping' | 'contact')[]; domain_age_days?: number | null }; checked_at?: string }
+export interface CompatFinding { rule: string; grade: PlanGrade; area: 'wiring' | 'code' | 'power' | 'safety' | 'verify'; message: string; change?: string | null; basis?: string[] }
+export interface OfferCompatibility { status: string; grade?: PlanGrade | null; reasons?: string[]; changes?: string[]; missing_fields?: string[]; method?: 'declared_specs' | 'catalog_rules'; grade_label?: string | null; findings?: CompatFinding[]; what_changes?: { wiring?: string[]; code?: string[]; power?: string[]; safety?: string[]; verify?: string[] } | null }
+export type ReportOffer = Omit<ReportLine['offers'][number], 'compatibility'> & { compatibility?: OfferCompatibility | null; match?: OfferMatch | null; pack_qty?: number | null; trust?: SellerTrust | null; tax_included?: boolean | null; tax_evidence?: string | null }
+export interface CostEstimate { total_usd?: number; budget_reached?: boolean; calls?: number; prices_checked?: string | null }
+export interface ReportLine { line_image?: LineImage | null; selection_source?: 'recommended' | 'user' | null; user_offer_url?: string | null; recommended_offer_url?: string | null; recommendation?: LineRecommendation | null; changes_accepted?: boolean; import_reference?: { price_usd: string; source?: 'user' | 'research_fact'; source_url?: string | null; quote?: string | null } | null; seller_search?: { queries?: string[]; candidate_urls?: string[]; sellers_checked?: number; blocked_sellers?: string[]; message?: string } | null }
+export interface Job { cost_estimate?: CostEstimate | null }
+export type Report = NonNullable<Job['report']> & { costing?: CostBreakdown | null; order_plan?: OrderPlan | null }
+export const reportOf = (job: Job) => job.report as Report | null
+export const offersOf = (line: ReportLine) => (line.offers ?? []) as ReportOffer[]
+
+export interface PlanPick { line_id: string; offer_url: string; seller: string; price_inr: string; grade: 'A' | 'B' | 'C' | 'D' | null; changes_required?: boolean; qty?: number | null; packs?: number | null }
+export interface CartPlan { kind: 'cheapest' | 'fewest_sellers' | 'recommended'; picks?: PlanPick[]; seller_count?: number; costing: CostBreakdown; matches_selection?: boolean }
+export interface CartPlans { plans?: CartPlan[]; method?: 'exhaustive' | 'greedy' | 'none'; uncovered_line_ids?: string[]; rules?: string[]; seller_penalty_inr?: string | null }
+export interface SelectionInput { line_id: string; offer_url: string | null; accept_changes?: boolean; accept_research_assessment?: boolean }
+const jobPath = (id: string, rest: string) => '/v1/jobs/' + encodeURIComponent(id) + rest
+export const getPlans = (id: string, token: string) => request<CartPlans>(jobPath(id, '/plans'), {}, token)
+export const selectOffers = (id: string, token: string, selections: SelectionInput[]) => request<Job>(jobPath(id, '/selections'), { method: 'POST', body: JSON.stringify({ selections }) }, token)
+export const setImportReferences = (id: string, token: string, references: { line_id: string; price_usd: string | null; source_url?: string | null }[]) => request<Job>(jobPath(id, '/import-references'), { method: 'POST', body: JSON.stringify({ references }) }, token)
+
+export interface MarketsResult { demo: boolean; location: { source: 'pin' | 'coordinates'; pin?: string | null; city?: string | null; latitude: number; longitude: number; approximate: boolean; label: string }; categories: string[]; summary?: string | null; summary_label?: string; places: { title: string; uri?: string | null; address?: string | null; place_id?: string | null }[]; attribution: { provider?: 'Google Maps'; sources: { title: string; uri: string; kind: 'place' | 'review' | 'web' }[]; rules?: string }; cached: boolean; model?: string | null; label: string }
+export const getMarkets = (id: string, token: string, place: { pin: string } | { lat: number; lng: number }) => request<MarketsResult>(jobPath(id, '/markets?' + new URLSearchParams('pin' in place ? { pin: place.pin } : { lat: String(place.lat), lng: String(place.lng) })), {}, token)
+
+export interface ShareStatus { active: boolean; created_at?: string | null }
+export interface ShareLink { share_token: string; path: string; created_at: string }
+export interface SharedProject { shared?: true; demo: boolean; status: JobStatus; source_url: string; project?: ProjectUnderstanding | null; created_at: string; updated_at: string; items: BomItem[]; report?: Report | null; notice: string }
+export const getShare = (id: string, token: string) => request<ShareStatus>(jobPath(id, '/share'), {}, token)
+export const createShare = (id: string, token: string) => request<ShareLink>(jobPath(id, '/share'), { method: 'POST' }, token)
+export const revokeShare = (id: string, token: string) => request<void>(jobPath(id, '/share'), { method: 'DELETE' }, token)
+export const getShared = (shareToken: string) => request<SharedProject>('/v1/shared/' + encodeURIComponent(shareToken))
+export const shareUrl = (shareToken: string) => window.location.origin + '/shared/' + encodeURIComponent(shareToken)
+
+export interface FeatureStatus { enabled: boolean; daily_limit: number; remaining: number }
+export interface ExtrasStatus { demo: boolean; explain: FeatureStatus; zoom: FeatureStatus; scan: FeatureStatus; languages: string[]; zoom_line_ids: string[]; scan_max_bytes: number; scan_mime_types: string[] }
+export interface Explanation { language: string; transcript: string; translated: boolean; audio_mime?: 'audio/wav'; audio_base64: string; duration_s: number; cached: boolean; demo: boolean; label: string }
+export const getExtras = (id: string, token: string) => request<ExtrasStatus>(jobPath(id, '/extras'), {}, token)
+export const explainAloud = (id: string, token: string, language: string) => request<Explanation>(jobPath(id, '/explain'), { method: 'POST', body: JSON.stringify({ language }) }, token)
+
+// CSV and printable HTML exports, fetched through the proxy so credentials are attached.
+// `path` is '/v1/jobs/{id}/export.csv' style, or '/v1/shared/{share_token}/export.html' for share links.
+export async function exportBlob(path: string, token?: string): Promise<Blob> {
+  if (import.meta.env.DEV && new URLSearchParams(window.location.search).get('preview') === '1') {
+    const csv = path.endsWith('.csv')
+    return new Blob([csv ? '# DEMO JOB,Dummy preview export; no API request was sent\r\ndata_label,line_id,part_name\r\ndemo_sample,L01,Sample controller board\r\n' : '<!doctype html><meta charset="utf-8"><title>Dummy export</title><p><strong>DEMO JOB</strong> · Dummy preview export; no API request was sent.</p>'], { type: csv ? 'text/csv' : 'text/html' })
+  }
+  const bearer = await identityToken()
+  let response: Response
+  try {
+    response = await fetch(`${API_BASE}${path}`, { credentials: 'include', cache: 'no-store', headers: { 'X-Requested-With': 'BharatSourcer', ...(bearer ? { Authorization: 'Bearer ' + bearer } : {}), ...(token ? { 'X-Job-Token': token } : {}) } })
+  } catch {
+    throw new Error('Could not reach the backend. Check the API URL and connection.')
+  }
+  if (!response.ok) {
+    const data = await response.json().catch(() => null)
+    throw new ApiError(response.status === 429 ? 'Usage limit reached. Please try again later.' : data?.error?.message || `Export failed (${response.status}).`, response.status, data?.error?.code)
+  }
+  return response.blob()
+}

@@ -1,0 +1,10 @@
+{
+ "_fixture": {
+  "url": "https://compoindia.com/wp-json/wc/store/v1/products?search=33k%20resistor&per_page=10",
+  "fetched_on": "2026-10-07",
+  "note": "Recorded live response, trimmed to the fields the adapter reads. Prices are search hints only, never verified offers."
+ },
+ "status": 200,
+ "content_type": "application/json; charset=UTF-8",
+ "body": []
+}

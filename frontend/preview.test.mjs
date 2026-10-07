@@ -68,6 +68,29 @@ test('preview labels AI project understanding, inferred qty and inferred build d
   assert.equal(requests, 0)
 })
 
+test('evidence text renders code, description, page and video evidence without null placeholders', () => {
+  assert.equal(api.evidenceText({ source: 'code', file: 'src/main.cpp', line: 3, quote: '#include <Adafruit_BME280.h>', url: 'https://github.com/o/r/blob/HEAD/src/main.cpp#L3', observation: 'includes the library' }), 'Code src/main.cpp:3 “#include <Adafruit_BME280.h>” — includes the library')
+  assert.equal(api.evidenceText({ source: 'youtube_description', quote: 'BME280 module', timestamp: null, observation: 'Listed in the description.' }), 'Video description “BME280 module” — Listed in the description.')
+  assert.equal(api.evidenceText({ source: 'project_page', quote: 'Arduino Uno', observation: 'Supplies list' }), 'Page quote “Arduino Uno” — Supplies list')
+  assert.equal(api.evidenceText({ timestamp: '03:07', observation: 'Shown on the bench' }), '03:07 — Shown on the bench')
+  assert.doesNotMatch(api.evidenceText({ source: 'video', timestamp: null, observation: 'x' }), /null/)
+})
+
+test('preview review fixtures are labelled dummy data and accept a buyable spec edit without network', async () => {
+  const { previewRequest } = load('./preview')
+  const job = previewRequest('/v1/jobs/ui-preview', {})
+  assert.ok(job.safety_flags.length > 0 && job.safety_flags.every(flag => /Dummy/.test(flag.title) && /Dummy/.test(flag.message)))
+  assert.ok(job.source_reports.some(report => report.status === 'failed' && /Dummy/.test(report.error.message)))
+  const needsValue = job.items.find(item => item.buyable_spec?.needs_value)
+  assert.ok(needsValue && /Dummy/.test(needsValue.buyable_spec.needs_value_reason))
+  assert.ok(job.items.some(item => item.conflicts?.length && item.conflicts.every(conflict => /Dummy/.test(conflict.message))))
+  const spec = { ...needsValue.buyable_spec, origin: 'user', needs_value: false, params: [{ name: 'resistance', value: '4.7kΩ', operator: 'equals', origin: 'user' }] }
+  await api.confirmJob('ui-preview', 'dummy-token', [{ op: 'update', line_id: needsValue.line_id, buyable_spec: spec }])
+  const saved = previewRequest('/v1/jobs/ui-preview', {})
+  assert.equal(saved.items.find(item => item.line_id === needsValue.line_id).buyable_spec.params[0].value, '4.7kΩ')
+  assert.equal(requests, 0)
+})
+
 test('preview saves project details and serves a labelled part fallback without network', async () => {
   const saved = await api.updateProject('ui-preview', 'dummy-token', { title: 'My sample build', description: 'Dummy edited description' })
   assert.equal(saved.project.title, 'My sample build')
@@ -76,5 +99,26 @@ test('preview saves project details and serves a labelled part fallback without 
   const images = await api.getPartImages('ui-preview', 'dummy-token', 'L01')
   assert.equal(images.fallback.kind, 'category')
   assert.match(images.fallback.label, /Dummy illustration/)
+  assert.equal(requests, 0)
+})
+
+test('preview report endpoints (share, shared page, markets, plans, extras, exports) stay local and labelled', async () => {
+  assert.equal((await api.getShare('ui-preview', 'dummy-token')).active, false)
+  const link = await api.createShare('ui-preview', 'dummy-token')
+  assert.equal((await api.getShare('ui-preview', 'dummy-token')).active, true)
+  const shared = await api.getShared(link.share_token)
+  assert.match(shared.notice, /Dummy/)
+  assert.ok(shared.report.order_plan.sellers.every(seller => /dummy/.test(seller.seller)))
+  assert.ok(shared.report.lines.every(line => line.line_image && line.line_image.label))
+  await api.revokeShare('ui-preview', 'dummy-token')
+  assert.equal((await api.getShare('ui-preview', 'dummy-token')).active, false)
+  const sample = await api.getMarkets('ui-preview', 'dummy-token', { pin: '560002' })
+  assert.equal(sample.demo, true)
+  assert.equal(sample.attribution.sources.length, 0)
+  await assert.rejects(api.getMarkets('ui-preview', 'dummy-token', { pin: '012345' }), error => error.code === 'INVALID_PIN')
+  const plans = await api.getPlans('ui-preview', 'dummy-token')
+  assert.deepEqual(plans.plans.map(plan => plan.kind), ['cheapest', 'fewest_sellers', 'recommended'])
+  assert.equal((await api.getExtras('ui-preview', 'dummy-token')).explain.enabled, true)
+  assert.match(await (await api.exportBlob('/v1/jobs/ui-preview/export.csv', 'dummy-token')).text(), /DEMO JOB/)
   assert.equal(requests, 0)
 })
