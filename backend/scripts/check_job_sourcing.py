@@ -23,6 +23,7 @@ from bharat_sourcer.sourcing.cache import build_cache
 from bharat_sourcer.sourcing.judge import GeminiJudge
 from bharat_sourcer.sourcing.research import GeminiResearch
 from bharat_sourcer.sourcing.service import GeminiDiscovery, SourcingService
+from bharat_sourcer.sourcing.spec_writer import GeminiSpecWriter
 from bharat_sourcer.sourcing.trust import TrustChecker
 from bharat_sourcer.storage import MemoryJobStore
 from bharat_sourcer.usage import JobLedger, attribute
@@ -43,10 +44,17 @@ sourcing = SourcingService(
     seller_fetch_budget=settings.seller_search_fetch_budget,
     seller_limit=settings.seller_search_per_seller,
     judge=GeminiJudge(settings, cache=cache) if settings.judge_enabled else None,
+    spec_writer=GeminiSpecWriter(settings, cache=cache) if settings.spec_writer_enabled else None,
 )
 ledger = JobLedger(job.job_id, settings.job_gemini_budget_usd)
 lines = []
 started = time.monotonic()
+# As JobService does: one batched spec call for lines without an AI buying spec.
+with attribute(ledger, None):
+    specs = sourcing.write_specs(job.items, job.project)
+for item in job.items:
+    if item.line_id in specs:
+        item.buyable_spec = specs[item.line_id]
 for item in job.items:
     with attribute(ledger, item.line_id):
         lines.append(sourcing.source_for_project(item, job.items, project=job.project))
