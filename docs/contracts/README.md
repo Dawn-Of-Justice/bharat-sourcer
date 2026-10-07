@@ -1,9 +1,15 @@
-# Implemented API contract — v0.20.0
+# Implemented API contract — v0.21.0
 
 This directory is the handoff between backend and frontend. The architecture docs describe
 the target system; this contract describes the runnable local milestone.
 
 Unreleased: automatic [recommendations](recommendations.md). Adds optional `report.order_plan`, `lines[].selection_source`, `user_offer_url`, `recommended_offer_url`, `recommendation` and `line_image`; `GET /plans` adds a `recommended` plan and `seller_penalty_inr`. Completed live reports now arrive with default selections.
+
+v0.21.0 adds the sourcing engine: buyable specs, seller catalogue search, an LLM spec
+judge (`offers[].match`), automatic recommendations and selections, a seller-grouped
+`report.order_plan`, `line_image`, cost controls (`job.cost_estimate`), nearby markets and
+YouTube description intake. All new fields are optional. Frontend work is listed in the
+[v0.21 frontend handoff](frontend-handoff-v0.21.md).
 
 v0.20.0 adds safety flags, costing breakdowns and cart plans, multi-source intake with
 conflicts, look-alikes and confidence, seller trust labels, export and share links, catalogue-backed

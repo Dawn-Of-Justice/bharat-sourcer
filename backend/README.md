@@ -6,6 +6,21 @@ guest authentication enabled. The frontend origin is included in CORS. The
 
 Unreleased (recommendations): when sourcing completes the backend scores every offer, picks one per line with a basket that consolidates sellers (a configurable `BS_RECOMMEND_SELLER_PENALTY_INR`, default ₹60, per extra seller), applies it as the selection where the selection rules allow (`selection_source: "recommended"`), and exposes a seller-grouped `report.order_plan` plus one resolved `line_image` per line. User choices are never overwritten. See [recommendations](../docs/contracts/recommendations.md).
 
+v0.21.0 rebuilds sourcing into an engine that picks parts for you. Each line gets a
+[buyable spec](../docs/contracts/part-matching.md) (written by the extraction call), then
+[seller catalogue search](../docs/contracts/seller-search.md) across Indian sellers' own
+public search endpoints runs first (free), an LLM spec judge decides which listings are the
+right part (quotes verified server-side), and paid Google-grounded discovery runs only if
+nothing acceptable was found. [Recommendations](../docs/contracts/recommendations.md) score
+offers, apply the best one as the default selection (judge-confirmed offers included; user
+choices are never overwritten) and build a seller-grouped `order_plan` that consolidates
+orders to save shipping; every line gets a `line_image`. [Cost controls](../docs/contracts/cost-controls.md)
+add a shared cross-job cache, research only when needed, refresh without rediscovery, a
+per-job budget (default $0.25) and `job.cost_estimate`. Also new: [nearby markets](../docs/contracts/nearby-markets.md)
+via Maps grounding (`GET /markets`), YouTube description intake (key mounted as
+`BS_YOUTUBE_API_KEY`; quotes expire after 30 days), and bot-protection detection that stops
+and reports instead of circumventing.
+
 v0.20.0 closes most of the planned MVP gaps. Deterministic [safety flags](../docs/contracts/safety-flags.md)
 (MAINS, LIPO, HIGH_CURRENT, LEVEL_SHIFT) appear on every job. [Costing](../docs/contracts/costing.md) adds
 GST detection, dated seller shipping policies, a per-seller breakdown with known/estimated/unknown

@@ -12,6 +12,12 @@ after sourcing should be the **order plan**, not a list of offers to pick from.
 General rules from v0.20 apply: label estimates, AI judgements and demo data; text plus an
 icon, never colour alone; re-read fields from every job snapshot.
 
+**Needed now:** evidence can also have `source: "youtube_description"` with a `quote`
+(no timestamp). Extend the v0.20 item 1 fix in `evidenceText()`: render it as
+"Video description “quote” — observation". Until then such evidence shows as `null — …`.
+Description quotes disappear from responses 30 days after `job.video_meta.fetched_at`
+(YouTube API policy); `video_meta.links` lists the description's store and other links.
+
 ## Priority order
 
 | # | Item | Size | Contract |
