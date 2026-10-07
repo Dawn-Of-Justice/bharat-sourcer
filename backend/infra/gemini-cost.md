@@ -20,6 +20,7 @@ record the source URL and the date you read it.
 | `explain_tts` | `gemini_extras.py` `_speak` | 0 unless `BS_EXPLAIN_ENABLED`; 1 per uncached explanation | transcript | audio output (`BS_TTS_MODEL`) |
 | `clip_zoom` | `gemini_extras.py` `zoom` | 0 unless `BS_ZOOM_ENABLED`; 1 per user click | 15 s YouTube clip, 2 fps, high resolution | none |
 | `parts_scan` | `gemini_extras.py` `scan` | 0 unless `BS_SCAN_ENABLED`; 1 per uploaded photo | ≤ 1536 px JPEG + BOM names | none |
+| `markets` | `markets.py` `nearby_markets` | 0–1 per user lookup (cached 7 days per rounded location + category set; ≤ `BS_MARKETS_DAILY_LIMIT` per owner per day) | short prompt with part categories + lat/lng | `googleMaps` grounding |
 
 A 10-part live job is roughly 1 extraction + 10 discovery + 10–20 research calls
 (21–31 calls), plus 2 per chat message. All text calls use `BS_GEMINI_MODEL`
@@ -219,3 +220,27 @@ real bills lower than these figures while it lasts.
 2. Whether to A/B `thinkingLevel: low` for research and the Flex tier for Cloud-Tasks
    research (grounding on Flex is still unconfirmed).
 3. The default budget ($0.25 per run): about 5 cold paid discoveries plus research.
+
+### 2026-10-07: nearby markets via Google Maps grounding (branch `mvp/markets`, unreleased)
+
+One live call (owner-approved) from Bengaluru (12.9716, 77.5946) on `gemini-3.8-flash` with
+`tools: [{googleMaps: {}}]` and `toolConfig.retrievalConfig.latLng`: HTTP 200, `STOP`, 5 SP
+Road shops, 8 grounding chunks (places plus review links), **1 grounding query and about
+783 total tokens**. So Maps grounding works for India.
+
+- **Pricing:** Maps grounding shares the paid tier's **5,000 grounded queries/month free
+  pool with Search grounding**, then **$14 per 1,000 queries**
+  ([pricing](https://ai.google.dev/gemini-api/docs/pricing), as read 2026-10-05). Every
+  Maps lookup eats into the pool that sourcing discovery uses.
+- **Per lookup:** ≈ 1 query ($0.014 after the free pool) + ~800 tokens (≈ $0.001–0.003 at
+  2026 Flash prices) ≈ **$0.015**. The usage line logs `search_queries` ≥ 1 for a
+  Maps-grounded answer (`record_usage(..., queries=)`), so `usd_est` is an upper bound while
+  the free pool lasts.
+- **Controls:** site `markets`, `thinkingLevel: low`; cached 7 days per rounded lat/lng
+  (2 decimals) + category set across all jobs; quota `BS_MARKETS_DAILY_LIMIT` (5/owner/day)
+  and `BS_MARKETS_GLOBAL_DAILY_LIMIT` (200/day); blocked when the job's run budget is
+  reached; demo jobs make no call. Worst case at the global cap ≈ 200 × $0.015 ≈ **$3/day**
+  (≈ 6,000 queries/month, more than the whole free pool: lower the global cap if sourcing
+  needs the pool).
+- Untested: whether `thinkingLevel: low` changes Maps answers (the live call used the
+  default). Check with `usage_report.py` and a few real lookups.

@@ -19,6 +19,7 @@ from bharat_sourcer.gemini_extras import GeminiExtras, add_extras_routes
 from bharat_sourcer.identity import Principal
 from bharat_sourcer.images import PartImageService
 from bharat_sourcer.jobs import JobError, JobService
+from bharat_sourcer.markets import MarketsService, add_markets_routes
 from bharat_sourcer.plans import cart_plans, set_import_references
 from bharat_sourcer.schemas import (
     CartPlans,
@@ -175,6 +176,9 @@ def create_app(
     extras = GeminiExtras(settings, service)
     app.state.extras = extras
     add_extras_routes(app, extras)
+    markets = MarketsService(settings, service, shared_cache)
+    app.state.markets = markets
+    add_markets_routes(app, markets)
 
     @app.exception_handler(StorageError)
     @app.exception_handler(GoogleAPICallError)

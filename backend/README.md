@@ -516,6 +516,17 @@ while the BOM is awaiting confirmation and only produce reviewable chat proposal
 get labelled samples without Gemini calls. See
 [the contract](../docs/contracts/gemini-extras.md).
 
+## Nearby markets (on by default)
+
+`markets.py` adds `GET /v1/jobs/{id}/markets?pin=560002` (or `?lat=..&lng=..`): one Gemini
+call with Google Maps grounding that lists electronics shops near the maker, sent only a
+short list of part categories from the BOM. A PIN maps to an approximate city centre from a
+static prefix table (no Geocoding API). Results are cached for 7 days per rounded location
+and category set, with a per-owner daily quota (`BS_MARKETS_DAILY_LIMIT`, 5) and a global cap
+(`BS_MARKETS_GLOBAL_DAILY_LIMIT`, 200); `BS_MARKETS_ENABLED=false` turns it off. Demo jobs get
+a labelled fictional sample. Google Maps attribution rules for the frontend are in
+[the contract](../docs/contracts/nearby-markets.md).
+
 ## Offer selection and costs
 
 `POST /v1/jobs/{job_id}/selections` accepts a batch of `{line_id, offer_url, accept_changes}`

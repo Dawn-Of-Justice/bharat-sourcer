@@ -171,15 +171,20 @@ def record_cache_hit(namespace: str) -> None:
         log.debug("GEMINI_CACHE_HIT unavailable for %s", namespace)
 
 
-def record_usage(site: str, model: str, data: object) -> None:
-    """Log one GEMINI_USAGE line from a generateContent response; never raises."""
+def record_usage(site: str, model: str, data: object, queries: int | None = None) -> None:
+    """Log one GEMINI_USAGE line from a generateContent response; never raises.
+
+    `queries` overrides the counted search queries, for tools (Google Maps grounding) whose
+    executed queries are not listed in `webSearchQueries`.
+    """
     try:
         meta = data.get("usageMetadata") or {} if isinstance(data, dict) else {}
         candidates = data.get("candidates") or [] if isinstance(data, dict) else []
         grounding = [c.get("groundingMetadata") or {} for c in candidates if isinstance(c, dict)]
         grounded = any(g.get("groundingChunks") for g in grounding)
         # Gemini 3 bills grounding per executed search query, so count them.
-        queries = sum(len(g.get("webSearchQueries") or []) for g in grounding)
+        if queries is None:
+            queries = sum(len(g.get("webSearchQueries") or []) for g in grounding)
         fields = {
             "site": site,
             "model": model,

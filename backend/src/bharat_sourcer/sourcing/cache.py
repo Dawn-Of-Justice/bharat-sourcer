@@ -32,6 +32,7 @@ TTL = {
     "page": 8 * HOUR,  # URL -> extracted offer (price/stock)
     "seller_search": 6 * HOUR,  # seller + query -> candidate URLs
     "research": 7 * DAY,  # normalised spec + documents -> quote-checked research evidence
+    "markets": 7 * DAY,  # rounded lat/lng + part categories -> Maps-grounded shop list
 }
 NAMESPACES = frozenset(TTL)
 
