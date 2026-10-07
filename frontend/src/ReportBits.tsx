@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { getPartImages, reportFailedImages, type CostAmount, type CostBreakdown, type Job, type OfferCompatibility, type OfferMatch, type PartImages, type ReportLine, type ReportOffer, type SellerTrust, type ShippingPolicyRef } from './api'
+import { getPartImages, reportFailedImages, type CostAmount, type CostBreakdown, type Job, type OfferCompatibility, type OfferMatch, type PartImages, type ReportLine, type ReportOffer, type SellerTrust } from './api'
 
 // Shared report pieces: images, chips (text plus icon, never colour alone), cost summaries and seller policies.
 const money = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' })
@@ -73,21 +73,9 @@ export function amountText(amount: CostAmount) {
   return amount.partial_inr ? `at least ${price(amount.partial_inr)} + unknown` : 'Unknown'
 }
 
-export function AmountRow({ label, amount }: { label: string; amount: CostAmount }) {
-  return <div className="cost-row"><dt>{label}</dt><dd><strong>{amountText(amount)}</strong> <StatusChip amount={amount} /></dd></div>
-}
-
-export function SellerPolicy({ seller, gap, policy }: { seller: string; gap?: string | null; policy?: ShippingPolicyRef | null }) {
-  return <div className="seller-policy">{gap && Number(gap) > 0 && <p className="free-gap">🚚 Add {price(gap)} at {seller} for free shipping</p>}{policy && <p>{policy.unverified ? <span className="cost-chip cost-unknown">? Unverified policy</span> : null} Shipping policy{policy.checked_on ? ` checked ${policy.checked_on}` : ''}{policy.free_above_inr ? ` · free ${policy.free_when === 'at_or_above' ? 'at or above' : 'above'} ${price(policy.free_above_inr)}` : ''}{policy.note ? ` · ${policy.note}` : ''} {secureLink(policy.source_url) && <a href={policy.source_url!} target="_blank" rel="noopener noreferrer">Policy source ↗</a>}</p>}</div>
-}
-
-// The costing footer: parts, GST, shipping and total, each with its status, assumptions as numbered notes.
-export function CostSummary({ costing, title, lineNames }: { costing: CostBreakdown; title: string; lineNames?: Record<string, string> }) {
-  const notes = [costing.parts, costing.gst, costing.shipping, costing.total].flatMap(amount => amount.assumptions ?? [])
-  const unique = [...new Set(notes)]
-  const unknown = ([['parts', costing.parts], ['GST', costing.gst], ['shipping', costing.shipping]] as const).filter(([, amount]) => amount.status === 'unknown').map(([name]) => name)
-  const excluded = costing.excluded_line_ids ?? []
-  return <section className="cost-summary" aria-label={title}><h3>{title}</h3><dl><AmountRow label="Parts" amount={costing.parts} /><AmountRow label="GST" amount={costing.gst} /><AmountRow label="Shipping" amount={costing.shipping} /><AmountRow label="Estimated total" amount={costing.total} /></dl>{costing.total.status === 'unknown' && unknown.length > 0 && <p className="cost-unknown-note">Unknown: {unknown.join(', ')}. The total is not complete.</p>}{excluded.length > 0 && <p className="cost-unknown-note">Not included (no selection): {excluded.map(id => lineNames?.[id] ?? id).join(', ')}.</p>}{costing.sellers?.length ? <ul className="cost-sellers">{costing.sellers.map(seller => <li key={seller.seller}><div><strong>{seller.seller}</strong><span>{amountText(seller.total)} <StatusChip amount={seller.total} /></span></div><SellerPolicy seller={seller.seller} gap={seller.free_shipping_gap_inr} policy={seller.policy} /></li>)}</ul> : null}{unique.length > 0 && <details className="cost-notes"><summary>Assumptions ({unique.length})</summary><ol>{unique.map(note => <li key={note}>{note}</li>)}</ol></details>}<p className="cost-disclaimer">{costing.disclaimer || 'Estimate from seller-published prices and dated assumptions; not a final payable total.'}{costing.rates_checked_on ? ` Rates checked ${costing.rates_checked_on}.` : ''}</p></section>
+// The listed parts subtotal is the useful number here; unknown charges stay out of it.
+export function CostSummary({ costing, title }: { costing: CostBreakdown; title: string; lineNames?: Record<string, string> }) {
+  return <section className="cost-summary cost-summary-simple" aria-label={title}><span>Subtotal{costing.excluded_line_ids?.length ? ' · selected parts' : ''}</span><strong>{amountText(costing.parts)}</strong></section>
 }
 
 export function GstChip({ offer }: { offer: ReportOffer }) {
@@ -108,10 +96,7 @@ export function PackPrice({ offer }: { offer: ReportOffer }) {
 }
 
 export function TrustBadges({ trust }: { trust?: SellerTrust | null }) {
-  if (!trust) return <span className="trust-badge trust-none">? Trust not checked</span>
-  const label = trust.label === 'established' ? '✓ Established' : trust.label === 'verified_basics' ? '◐ Verified basics' : '⚠ Unverified seller — check before paying'
-  const fresh = trust.new_seller ? (trust.label === 'verified_basics' ? (trust.signals?.gstin ? 'New seller · GSTIN verified' : 'New seller · policies found') : 'New seller') : null
-  return <span className="trust-badges"><span className={`trust-badge trust-${trust.label}`}>{label}</span>{trust.label === 'unverified' && <span className="trust-hint">Prefer cash on delivery</span>}{fresh && <span className="trust-badge trust-new">✦ {fresh}</span>}{trust.signals?.price_anomaly && <span className="trust-badge trust-cheap">⚠ Unusually cheap — check seller</span>}<details className="trust-why"><summary>Why?</summary><ul>{(trust.reasons ?? []).map((reason, index) => <li key={index}>{reason}</li>)}</ul><small>Rule-based label from public signals, not a guarantee. A GSTIN is checked for format and checksum only.{trust.checked_at ? ` Checked ${new Date(trust.checked_at).toLocaleString('en-IN')}.` : ''}</small></details></span>
+  return <details className="seller-checks"><summary>Seller checks</summary><div className="seller-checks-content">{trust ? <>{trust.label === 'unverified' && <p>Some seller details could not be confirmed. Review the seller before paying.</p>}{trust.signals?.price_anomaly && <p>This price is unusually low compared with other listings.</p>}{trust.new_seller && <p>New seller.</p>}{trust.reasons?.length ? <ul>{trust.reasons.map((reason, index) => <li key={index}>{reason}</li>)}</ul> : <p>No check details recorded.</p>}{trust.checked_at && <small>Checked {new Date(trust.checked_at).toLocaleString('en-IN')}</small>}</> : <p>No seller checks recorded.</p>}</div></details>
 }
 
 const gradeText: Record<string, string> = { A: '✓ A · Works as is', B: '⇄ B · Small setting change', C: '⚠ C · Wiring or power changes', D: '◐ D · Different part, similar result', X: '⛔ X · Don’t use' }

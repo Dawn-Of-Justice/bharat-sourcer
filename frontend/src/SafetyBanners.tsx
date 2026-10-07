@@ -3,25 +3,27 @@ import type { SafetyFlag } from './api'
 // Deterministic rule checks from the backend (docs/contracts/safety-flags.md). Text is rendered verbatim.
 const order: SafetyFlag['code'][] = ['MAINS', 'LIPO', 'HIGH_CURRENT', 'LEVEL_SHIFT']
 const severity: Record<SafetyFlag['severity'], { icon: string; label: string }> = { danger: { icon: '⛔', label: 'Danger' }, warning: { icon: '⚠', label: 'Warning' }, caution: { icon: 'ℹ', label: 'Caution' } }
-const codeLabel: Record<SafetyFlag['code'], string> = { MAINS: 'Mains', LIPO: 'Lithium battery', HIGH_CURRENT: 'High current', LEVEL_SHIFT: 'Logic levels' }
 const sorted = (flags: SafetyFlag[]) => [...flags].sort((a, b) => order.indexOf(a.code) - order.indexOf(b.code))
 
 function lineLabel(lineId: string, names: Record<string, string>) {
   return names[lineId] ? `${lineId} · ${names[lineId]}` : lineId
 }
 
-// One banner per flag, above the BOM. MAINS is never collapsed; every banner shows its guidance as a checklist.
-export default function SafetyBanners({ flags, lineNames = {} }: { flags?: SafetyFlag[] | null; lineNames?: Record<string, string> }) {
+// Keep checks beside the report. Mains guidance stays expanded because it needs immediate attention.
+export default function SafetyBanners({ flags, lineNames = {}, onShowLine }: { flags?: SafetyFlag[] | null; lineNames?: Record<string, string>; onShowLine?: (lineId: string) => void }) {
   if (!flags?.length) return null
   return <section className="safety-banners" aria-label="Safety checks">
-    <p className="safety-label"><span aria-hidden="true">⚙</span> Automatic safety check, not a guarantee</p>
-    {sorted(flags).map(flag => <div key={flag.code} className={`safety-banner safety-${flag.severity}`} role={flag.severity === 'danger' ? 'alert' : undefined}>
-      <div className="safety-banner-head"><span className="safety-severity"><span aria-hidden="true">{severity[flag.severity].icon}</span> {severity[flag.severity].label} · {codeLabel[flag.code]}</span><strong>{flag.title}</strong></div>
-      <p>{flag.message}</p>
-      {flag.guidance.length > 0 && <ul className="safety-guidance" aria-label={`${flag.title}: checklist`}>{flag.guidance.map((entry, index) => <li key={index}><span aria-hidden="true">☐</span> {entry}</li>)}</ul>}
-      {flag.line_ids.length > 0 && <p className="safety-lines">Parts involved: {flag.line_ids.map((id, index) => <span key={id}>{index > 0 && ', '}<a href={`#line-${id}`}>{lineLabel(id, lineNames)}</a></span>)}</p>}
-      {flag.triggers?.length ? <details className="safety-why"><summary>Why this flag</summary><ul>{flag.triggers.map((trigger, index) => <li key={index}>{trigger.line_id ? `${trigger.line_id} · ` : ''}{trigger.field}: “{trigger.matched}”</li>)}</ul></details> : null}
-    </div>)}
+    <h3>Build checks <span>{flags.length}</span></h3>
+    <p className="safety-label">Automatic checks · review before ordering</p>
+    {sorted(flags).map(flag => <details key={flag.code} className={`safety-banner safety-${flag.severity}`} open={flag.code === 'MAINS' ? true : undefined}>
+      <summary><span className="safety-severity"><span aria-hidden="true">{severity[flag.severity].icon}</span> {severity[flag.severity].label}</span><strong>{flag.title}</strong></summary>
+      <div className="safety-banner-content" role={flag.severity === 'danger' ? 'alert' : undefined}>
+        <p>{flag.message}</p>
+        {flag.guidance.length > 0 && <ul className="safety-guidance" aria-label={`${flag.title}: checklist`}>{flag.guidance.map((entry, index) => <li key={index}>{entry}</li>)}</ul>}
+        {flag.line_ids.length > 0 && <p className="safety-lines">Parts involved: {flag.line_ids.map((id, index) => <span key={id}>{index > 0 && ', '}<a href={`#line-${id}`} onClick={onShowLine ? event => { event.preventDefault(); onShowLine(id) } : undefined}>{lineLabel(id, lineNames)}</a></span>)}</p>}
+        {flag.triggers?.length ? <details className="safety-why"><summary>What triggered this</summary><ul>{flag.triggers.map((trigger, index) => <li key={index}>{trigger.line_id ? `${trigger.line_id} · ` : ''}{trigger.field}: “{trigger.matched}”</li>)}</ul></details> : null}
+      </div>
+    </details>)}
   </section>
 }
 
