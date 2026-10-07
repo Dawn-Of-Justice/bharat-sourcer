@@ -2,6 +2,7 @@
 
 import json
 import time
+import tomllib
 from pathlib import Path
 from uuid import uuid4
 
@@ -15,7 +16,9 @@ def main():
         health = client.get("/health")
         health.raise_for_status()
         print("Health:", health.json(), flush=True)
-        assert client.get("/openapi.json").json()["info"]["version"] == "0.22.0"
+        pyproject = tomllib.loads(Path("pyproject.toml").read_text(encoding="utf-8"))
+        version = pyproject["project"]["version"]
+        assert client.get("/openapi.json").json()["info"]["version"] == version
         assert client.post("/v1/jobs", json={"url": "https://example.com"}).status_code == 401
         for origin in ["http://localhost:5173", "http://localhost:3000"]:
             preflight = client.options(
