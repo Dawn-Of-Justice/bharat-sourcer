@@ -31,7 +31,7 @@ export function ExportButtons({ base, token, name }: { base: string; token?: str
     } catch (cause) { tab?.close(); setError(errorText(cause, 'Could not open the printable report.')) }
     finally { setBusy('') }
   }
-  return <div className="report-export"><button type="button" className="nav-cta" disabled={!!busy} onClick={() => void download()}>⬇ {busy === 'csv' ? 'Preparing…' : 'Download CSV'}</button><button type="button" className="nav-cta" disabled={!!busy} onClick={() => void print()}>🖨 {busy === 'html' ? 'Opening…' : 'Print / PDF'}</button>{error && <p className="form-error" role="alert">{error}</p>}</div>
+  return <div className="report-export"><button type="button" className="report-action" disabled={!!busy} onClick={() => void download()}>{busy === 'csv' ? 'Preparing…' : 'Download CSV'}</button><button type="button" className="report-action" disabled={!!busy} onClick={() => void print()}>{busy === 'html' ? 'Opening…' : 'Print / PDF'}</button>{error && <p className="form-error" role="alert">{error}</p>}</div>
 }
 
 export function ShareControl({ job, token }: { job: Job; token: string }) {
@@ -60,7 +60,7 @@ export function ShareControl({ job, token }: { job: Job; token: string }) {
   async function copy() {
     try { await navigator.clipboard.writeText(link); setCopied(true) } catch { setError('Copy failed. Select the link and copy it manually.') }
   }
-  return <details className="share-control"><summary>🔗 Share a read-only link{status?.active ? ' · active' : ''}</summary><p>{status?.active ? `A share link is active${status.created_at ? ` since ${new Date(status.created_at).toLocaleString('en-IN')}` : ''}. Anyone with it can view this report without signing in.` : 'No share link is active. Anyone with a link can view the parts list and offers, but not your chat or account.'}</p>{link && <div className="share-copy"><label>Share link (shown only once)<input readOnly value={link} onFocus={event => event.target.select()} /></label><button type="button" className="nav-cta" onClick={() => void copy()}>{copied ? '✓ Copied' : 'Copy'}</button></div>}<p className="share-warning">⚠ The link is shown only once. Creating a new link replaces the old one, which stops working.</p><div className="share-buttons"><button type="button" className="nav-cta" disabled={busy} onClick={() => void create()}>{busy ? 'Working…' : status?.active ? 'Create new link' : 'Create link'}</button>{status?.active && <button type="button" className="remove-button" disabled={busy} onClick={() => void revoke()}>Revoke link</button>}</div>{error && <p className="form-error" role="alert">{error}</p>}</details>
+  return <details className="share-control"><summary>Share link</summary><div className="share-content"><p>{status?.active ? 'A read-only report link is active.' : 'Create a read-only link to this report.'}</p>{link && <div className="share-copy"><label>Link<input readOnly value={link} onFocus={event => event.target.select()} /></label><button type="button" className="report-action" onClick={() => void copy()}>{copied ? '✓ Copied' : 'Copy'}</button></div>}<div className="share-buttons"><button type="button" className="report-action" disabled={busy} onClick={() => void create()}>{busy ? 'Working…' : status?.active ? 'Create new link' : 'Create link'}</button>{status?.active && <button type="button" className="report-action" disabled={busy} onClick={() => void revoke()}>Revoke</button>}</div>{error && <p className="form-error" role="alert">{error}</p>}</div></details>
 }
 
 const languageNames: Record<string, string> = { en: 'English', hi: 'हिन्दी (Hindi)', ta: 'தமிழ் (Tamil)', ml: 'മലയാളം (Malayalam)', bn: 'বাংলা (Bengali)', te: 'తెలుగు (Telugu)', kn: 'ಕನ್ನಡ (Kannada)', mr: 'मराठी (Marathi)' }
@@ -68,7 +68,7 @@ const languageNames: Record<string, string> = { en: 'English', hi: 'हिन्
 // Hidden unless GET /extras reports explain as enabled. Calls can take tens of seconds.
 export function ExplainAloud({ job, token }: { job: Job; token: string }) {
   const [extras, setExtras] = useState<ExtrasStatus | null>(null)
-  const [language, setLanguage] = useState('en')
+  const [language, setLanguage] = useState('hi')
   const [result, setResult] = useState<Explanation | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -78,11 +78,14 @@ export function ExplainAloud({ job, token }: { job: Job; token: string }) {
     return () => { active = false }
   }, [job.job_id, token])
   if (!extras?.explain.enabled) return null
+  const languages = extras.languages.filter(code => code !== 'en')
+  if (!languages.length) return null
+  const selectedLanguage = languages.includes(language) ? language : languages[0]
   async function explain() {
     setBusy(true); setError('')
-    try { setResult(await explainAloud(job.job_id, token, language)); setExtras(current => current && { ...current, explain: { ...current.explain, remaining: Math.max(0, current.explain.remaining - 1) } }) }
+    try { setResult(await explainAloud(job.job_id, token, selectedLanguage)); setExtras(current => current && { ...current, explain: { ...current.explain, remaining: Math.max(0, current.explain.remaining - 1) } }) }
     catch (cause) { setError(errorText(cause, 'Could not prepare the explanation.')) }
     finally { setBusy(false) }
   }
-  return <section className="explain-aloud" aria-label="Explain aloud"><div className="explain-controls"><label>Language<select value={language} onChange={event => setLanguage(event.target.value)} disabled={busy}>{extras.languages.map(code => <option key={code} value={code}>{languageNames[code] ?? code}</option>)}</select></label><button type="button" className="nav-cta" disabled={busy || extras.explain.remaining < 1} onClick={() => void explain()}>🔊 {busy ? 'Preparing audio…' : 'Explain aloud'}</button><small>{extras.explain.remaining} of {extras.explain.daily_limit} left today</small></div>{busy && <p role="status"><span className="loading-indicator" /> This can take up to a minute.</p>}{error && <p className="form-error" role="alert">{error}</p>}{result && <div className="explain-result">{result.demo && <p className="demo-alert"><strong>Demo sample</strong> · Not generated for this project.</p>}<audio controls src={'data:audio/wav;base64,' + result.audio_base64} /><details><summary>Transcript · {result.label}</summary><p>{result.transcript}</p></details></div>}</section>
+  return <section className="explain-aloud" aria-label="Explain aloud"><div className="explain-controls"><label>Language<select value={selectedLanguage} onChange={event => setLanguage(event.target.value)} disabled={busy}>{languages.map(code => <option key={code} value={code}>{languageNames[code] ?? code}</option>)}</select></label><button type="button" className="nav-cta" disabled={busy || extras.explain.remaining < 1} onClick={() => void explain()}>🔊 {busy ? 'Preparing audio…' : 'Explain aloud'}</button><small>{extras.explain.remaining} of {extras.explain.daily_limit} left today</small></div>{busy && <p role="status"><span className="loading-indicator" /> This can take up to a minute.</p>}{error && <p className="form-error" role="alert">{error}</p>}{result && <div className="explain-result">{result.demo && <p className="demo-alert"><strong>Demo sample</strong> · Not generated for this project.</p>}<audio controls src={'data:audio/wav;base64,' + result.audio_base64} /><details><summary>Transcript · {result.label}</summary><p>{result.transcript}</p></details></div>}</section>
 }

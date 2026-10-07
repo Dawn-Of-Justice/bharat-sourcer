@@ -5,13 +5,6 @@ import { AmountRow, CostSummary, GradeChip, GstChip, MatchChip, ProductImage, Se
 type Props = { job: Job; token: string; onJob: (job: Job) => void; readOnly: boolean; renderOffers: (line: ReportLine) => ReactNode; onShowLine: (lineId: string) => void }
 const errorText = (cause: unknown, fallback: string) => cause instanceof Error ? cause.message : fallback
 
-// Selection state of one plan line: applied automatically, the user's own choice, or recommended but blocked.
-function SelectionBadge({ line, plan }: { line?: ReportLine; plan: OrderPlanLine }) {
-  const reasons = line?.recommendation?.reasons ?? []
-  if (plan.selection_source === 'user') return <span className="selection-badges"><span className="report-chip choice-user">✓ Your choice</span>{line?.recommendation?.offer_url && line.recommendation.offer_url !== plan.offer_url && <small>Recommended: {line.recommendation.seller ?? 'another listing'}</small>}</span>
-  return <span className="selection-badges"><details className="why-popover"><summary><span className="report-chip choice-recommended">★ Recommended</span> why?</summary><div role="note">{reasons.length ? <ul>{reasons.map((reason, index) => <li key={index}>{reason}</li>)}</ul> : <p>No reasons were recorded.</p>}{line?.recommendation?.score != null && <small>Score {line.recommendation.score.toFixed(2)} of 1 · deterministic rules, not an AI pick</small>}</div></details>{plan.selected === false && <span className="report-chip choice-blocked">⚠ Not selected yet</span>}</span>
-}
-
 function PlanLine({ job, token, onJob, readOnly, renderOffers, plan, line }: Omit<Props, 'onShowLine'> & { plan: OrderPlanLine; line?: ReportLine }) {
   const [changing, setChanging] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -25,7 +18,38 @@ function PlanLine({ job, token, onJob, readOnly, renderOffers, plan, line }: Omi
     catch (cause) { setError(errorText(cause, 'Could not save the acknowledgement.')) }
     finally { setBusy(false) }
   }
-  return <li className={`plan-line ${plan.selected === false ? 'plan-line-blocked' : ''}`}>{line ? <ProductImage job={job} line={line} token={token} readOnly={readOnly} /> : null}<div className="plan-line-body"><div className="plan-line-head"><div><strong>{plan.name}</strong>{plan.title && <span className="plan-line-title">{plan.title}</span>}{offer?.match?.variant && <span className="plan-variant">Variant: {offer.match.variant}</span>}</div><div className="plan-line-price"><strong>{price(plan.line_price_inr)}</strong><small>{price(plan.unit_price_inr)} {plan.pack_qty ? `per pack of ${plan.pack_qty}` : 'each'}</small></div></div><p className="plan-qty">Need {plan.qty} · {pack}{spare > 0 ? ` (${spare} spare)` : ''}</p><div className="plan-chips"><SelectionBadge line={line} plan={plan} />{offer && <MatchChip match={offer.match} />}{offer ? <GradeChip compatibility={offer.compatibility} match={offer.match} /> : plan.grade ? <span className="report-chip">Grade {plan.grade}</span> : null}{offer && <GstChip offer={offer} />}</div>{plan.selected === false && plan.blocked_reason && <p className="plan-blocked">Why it is not selected: {plan.blocked_reason}</p>}{plan.changes_required && <div className="plan-changes"><p>⇄ Acknowledge the listed changes before ordering{offer?.compatibility?.changes?.length ? `: ${offer.compatibility.changes.join('; ')}` : '.'}</p>{!readOnly && !job.demo && <button type="button" className="nav-cta" disabled={busy} onClick={() => void acknowledge()}>{busy ? 'Saving…' : 'I reviewed the changes'}</button>}</div>}<div className="plan-line-actions">{secureLink(plan.offer_url) && <a href={plan.offer_url} target="_blank" rel="noopener noreferrer">Product page ↗</a>}{!readOnly && line && <button type="button" className="remove-button" aria-expanded={changing} onClick={() => setChanging(open => !open)}>{changing ? 'Close offers' : 'Change'}</button>}</div>{error && <p className="form-error" role="alert">{error}</p>}{changing && line && <div className="plan-change">{renderOffers(line)}</div>}</div></li>
+  return <li className="plan-line">
+    <details className="plan-line-card">
+      <summary className="plan-line-summary">
+        {line && <ProductImage job={job} line={line} token={token} readOnly={readOnly} />}
+        <div className="plan-line-identity">
+          <strong>{plan.name}</strong>
+          <span>Need {plan.qty} · {offer?.seller ?? 'Seller listing'}</span>
+          {plan.selected === false && <small>Selection pending</small>}
+          {plan.changes_required && <small>Changes to review</small>}
+        </div>
+        <div className="plan-line-price"><strong>{price(plan.line_price_inr)}</strong><small>{price(plan.unit_price_inr)} {plan.pack_qty ? `per pack of ${plan.pack_qty}` : 'each'}</small><b className="result-card-toggle">View details</b></div>
+      </summary>
+      <div className="plan-line-content">
+        {plan.title && <p className="result-card-description">{plan.title}</p>}
+        {offer?.match?.variant && <p className="plan-variant">Variant: {offer.match.variant}</p>}
+        <p className="plan-qty">Need {plan.qty} · {pack}{spare > 0 ? ` (${spare} spare)` : ''}</p>
+        <div className="plan-chips">
+          <span className={`report-chip ${plan.selection_source === 'user' ? 'choice-user' : 'choice-recommended'}`}>{plan.selection_source === 'user' ? 'Your choice' : 'Recommended'}</span>
+          {offer && <MatchChip match={offer.match} />}
+          {offer ? <GradeChip compatibility={offer.compatibility} match={offer.match} /> : plan.grade ? <span className="report-chip">Grade {plan.grade}</span> : null}
+          {offer && <GstChip offer={offer} />}
+        </div>
+        {plan.selection_source === 'user' && line?.recommendation?.offer_url && line.recommendation.offer_url !== plan.offer_url && <p className="plan-qty">Recommended alternative: {line.recommendation.seller ?? 'another listing'}</p>}
+        {!!line?.recommendation?.reasons?.length && <details className="plan-reasons"><summary>Why this listing was recommended</summary><ul>{line.recommendation.reasons.map((reason, index) => <li key={index}>{reason}</li>)}</ul></details>}
+        {plan.selected === false && plan.blocked_reason && <p className="plan-blocked">Selection pending: {plan.blocked_reason}</p>}
+        {plan.changes_required && <div className="plan-changes"><p>Review required changes before ordering{offer?.compatibility?.changes?.length ? `: ${offer.compatibility.changes.join('; ')}` : '.'}</p>{!readOnly && !job.demo && <button type="button" className="nav-cta" disabled={busy} onClick={() => void acknowledge()}>{busy ? 'Saving…' : 'I reviewed the changes'}</button>}</div>}
+        <div className="plan-line-actions">{secureLink(plan.offer_url) && <a href={plan.offer_url} target="_blank" rel="noopener noreferrer">Open seller page ↗</a>}{!readOnly && line && <button type="button" className="report-action" aria-expanded={changing} onClick={() => setChanging(open => !open)}>{changing ? 'Close seller options' : 'Change seller'}</button>}</div>
+        {error && <p className="form-error" role="alert">{error}</p>}
+        {changing && line && <div className="plan-change">{renderOffers(line)}</div>}
+      </div>
+    </details>
+  </li>
 }
 
 function SellerCard(props: Omit<Props, 'onShowLine'> & { seller: OrderPlanSeller; lines: Map<string, ReportLine> }) {

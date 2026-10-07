@@ -54,7 +54,7 @@ export function evidenceText(entry: Evidence) {
   return entry.timestamp ? `${entry.timestamp} — ${entry.observation}` : `Video — ${entry.observation}`
 }
 
-export interface PartResearch { status: 'ready' | 'no_evidence' | 'failed' | 'stale'; summary: string; checked_at?: string; questions?: string[]; sources?: { url: string; status: 'read' | 'unavailable'; reason?: string | null; reviewed?: boolean }[]; candidates?: ResearchCandidate[] }
+export interface PartResearch { status: 'ready' | 'no_evidence' | 'failed' | 'stale' | 'skipped'; summary: string; checked_at?: string; questions?: string[]; sources?: { url: string; status: 'read' | 'unavailable'; reason?: string | null; reviewed?: boolean }[]; candidates?: ResearchCandidate[] }
 
 export interface BomItem {
   line_id: string
@@ -307,7 +307,7 @@ export interface CompatFinding { rule: string; grade: PlanGrade; area: 'wiring' 
 export interface OfferCompatibility { status: string; grade?: PlanGrade | null; reasons?: string[]; changes?: string[]; missing_fields?: string[]; method?: 'declared_specs' | 'catalog_rules'; grade_label?: string | null; findings?: CompatFinding[]; what_changes?: { wiring?: string[]; code?: string[]; power?: string[]; safety?: string[]; verify?: string[] } | null }
 export type ReportOffer = Omit<ReportLine['offers'][number], 'compatibility'> & { compatibility?: OfferCompatibility | null; match?: OfferMatch | null; pack_qty?: number | null; trust?: SellerTrust | null; tax_included?: boolean | null; tax_evidence?: string | null }
 export interface CostEstimate { total_usd?: number; budget_reached?: boolean; calls?: number; prices_checked?: string | null }
-export interface ReportLine { line_image?: LineImage | null; selection_source?: 'recommended' | 'user' | null; user_offer_url?: string | null; recommended_offer_url?: string | null; recommendation?: LineRecommendation | null; changes_accepted?: boolean; import_reference?: { price_usd: string; source?: 'user' | 'research_fact'; source_url?: string | null; quote?: string | null } | null; seller_search?: { queries?: string[]; candidate_urls?: string[]; sellers_checked?: number; blocked_sellers?: string[]; message?: string } | null }
+export interface ReportLine { buyable_spec?: BuyableSpec | null; stages?: ('seller_search' | 'judge' | 'grounded' | 'known_urls' | 'research' | 'research_skipped' | 'followup')[]; gemini_calls?: number; line_image?: LineImage | null; selection_source?: 'recommended' | 'user' | null; user_offer_url?: string | null; recommended_offer_url?: string | null; recommendation?: LineRecommendation | null; changes_accepted?: boolean; import_reference?: { price_usd: string; source?: 'user' | 'research_fact'; source_url?: string | null; quote?: string | null } | null; seller_search?: { queries?: string[]; candidate_urls?: string[]; sellers_checked?: number; blocked_sellers?: string[]; message?: string } | null }
 export interface Job { cost_estimate?: CostEstimate | null }
 export type Report = NonNullable<Job['report']> & { costing?: CostBreakdown | null; order_plan?: OrderPlan | null }
 export const reportOf = (job: Job) => job.report as Report | null
