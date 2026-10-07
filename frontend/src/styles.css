@@ -161,6 +161,8 @@ svg { display: block; }
 .how-number { color: #679084; font-size: 11px; font-weight: 850; letter-spacing: .13em; }
 .how-icon { display: grid; place-items: center; width: 52px; height: 52px; margin: 29px 0 22px; border-radius: 14px; font-size: 25px; font-weight: 700; }
 .video-icon { color: #c75548; background: #faeae4; }.review-icon { color: #0d766b; background: #e2f2e8; }.source-icon { color: #a56e2f; background: #fff0d9; }
+.promise-symbol svg { width: 21px; height: 21px; }
+.how-icon svg { width: 27px; height: 27px; }
 .how-card h3 { margin: 0 0 9px; color: #15323b; font-size: 21px; letter-spacing: -.03em; }.how-card p { max-width: 290px; margin: 0; color: #6a7a77; font-size: 14px; line-height: 1.6; }
 
 .trust-section { position: relative; overflow: hidden; padding: 110px 0; background: #0d2a33; color: #e4efeb; }

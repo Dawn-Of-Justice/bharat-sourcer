@@ -3,6 +3,7 @@ import SharedReport from './SharedReport'
 import { watchJob } from './stream'
 import { useAccount, Projects } from './Account'
 import { useEffect, useLayoutEffect, useRef, useState, type FormEvent } from 'react'
+import { BagIcon, ChecklistIcon, CompatibilityIcon, EvidenceIcon, LinkIcon, StoreIcon } from './LandingIcons'
 import { ApiError, claimProject, pauseJob, resumeJob, confirmJob, createJob, getJob, updateProject, type BomItem, type BuyableSpec, type Job } from './api'
 import ChatPanel from './ChatPanel'
 import Requirements, { requirementPayload, validRequirements } from './Requirements'
@@ -249,9 +250,9 @@ function Landing({ onCreated }: { onCreated: (id: string) => void }) {
 
       <section className="promise-strip" aria-label="What Bharat Sourcer helps you do">
         <div className="container promise-grid">
-          <div><span className="promise-symbol">◉</span><span>See the source behind each part</span></div>
-          <div><span className="promise-symbol">⌁</span><span>Understand compatibility changes</span></div>
-          <div><span className="promise-symbol">↗</span><span>Explore Indian seller pages</span></div>
+          <div><span className="promise-symbol"><EvidenceIcon /></span><span>See the source behind each part</span></div>
+          <div><span className="promise-symbol"><CompatibilityIcon /></span><span>Understand compatibility changes</span></div>
+          <div><span className="promise-symbol"><StoreIcon /></span><span>Explore Indian seller pages</span></div>
         </div>
       </section>
 
@@ -259,9 +260,9 @@ function Landing({ onCreated }: { onCreated: (id: string) => void }) {
         <div className="container">
           <div className="section-heading"><div><span className="section-kicker">THE SIMPLE IDEA</span><h2>From “I want to make that”<br />to “here’s what I need.”</h2></div></div>
           <div className="how-grid">
-            <article className="how-card"><span className="how-number">01 / INPUT</span><div className="how-icon video-icon" aria-hidden="true">✳</div><h3>Bring in your project</h3><p>Start with a YouTube video, blog post, GitHub repository, or audio file</p></article>
-            <article className="how-card"><span className="how-number">02 / REVIEW</span><div className="how-icon review-icon" aria-hidden="true">✓</div><h3>Shape your build plan</h3><p>Check the evidence, adjust parts and quantities, mark what you own, and ask questions before confirming the list.</p></article>
-            <article className="how-card"><span className="how-number">03 / SOURCE</span><div className="how-icon source-icon" aria-hidden="true">↗</div><h3>Explore Indian options</h3><p>After you confirm, inspect seller listings, prices, and compatibility notes—with unknowns left visible for you to verify.</p></article>
+            <article className="how-card"><span className="how-number">01 / INPUT</span><div className="how-icon video-icon"><LinkIcon /></div><h3>Bring in your project</h3><p>Start with a YouTube video, blog post, GitHub repository, or audio file</p></article>
+            <article className="how-card"><span className="how-number">02 / REVIEW</span><div className="how-icon review-icon"><ChecklistIcon /></div><h3>Shape your build plan</h3><p>Check the evidence, adjust parts and quantities, mark what you own, and ask questions before confirming the list.</p></article>
+            <article className="how-card"><span className="how-number">03 / SOURCE</span><div className="how-icon source-icon"><BagIcon /></div><h3>Explore Indian options</h3><p>After you confirm, inspect seller listings, prices, and compatibility notes—with unknowns left visible for you to verify.</p></article>
           </div>
         </div>
       </section>
