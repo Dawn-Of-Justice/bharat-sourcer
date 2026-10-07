@@ -222,3 +222,39 @@ def test_sourcing_uses_storefront_json_when_jsonld_is_missing():
     assert line.sourcing_status == "offers_found"
     assert line.offers[0].verification == "shopify_storefront_json"
     assert line.offers[0].trust is None  # no trust checker configured
+
+
+def test_shopify_variant_group_reaches_the_judge_with_per_variant_prices():
+    """Synthetic Shopify product JSON (shape of a colour-variant LED pack)."""
+    import json
+
+    from bharat_sourcer.schemas import OfferMatch
+    from bharat_sourcer.sourcing.fetch import Page
+    from bharat_sourcer.sourcing.judge import judged_offer
+    from bharat_sourcer.sourcing.matching import build_candidate
+    from bharat_sourcer.sourcing.platforms import shopify_variants
+
+    base = "https://shop.example.in/products/5mm-led-pack-of-10"
+    product = {
+        "handle": "5mm-led-pack-of-10",
+        "title": "Transparent 5mm LED (Pack of 10)",
+        "variants": [
+            {"id": 1, "title": "Red", "price": "19.00", "price_currency": "INR"},
+            {"id": 2, "title": "White", "price": "21.00", "price_currency": "INR"},
+        ],
+    }
+    storefront = {"variants": [{"id": 1, "available": True}, {"id": 2, "available": True}]}
+
+    class Fetcher:
+        def get(self, url, max_bytes=None):
+            body = {base + ".json": {"product": product}, base + ".js": storefront}[url]
+            return Page(url, 200, {"content-type": "application/json"}, json.dumps(body).encode())
+
+    page = Page(base, 200, {"content-type": "text/html"}, b"<html><title>LED</title></html>")
+    group = shopify_variants(page, Fetcher())
+    assert group is not None and [o.name for o in group.options] == ["Red", "White"]
+    candidate = build_candidate(page, None, extracted=group)
+    assert candidate.variant_names() == ["Red", "White"]
+    offer = judged_offer(candidate, OfferMatch(status="exact", score=0.9, variant="White"))
+    assert offer.price_inr == "21.00" and str(offer.url).endswith("?variant=2")
+    assert offer.verification == "shopify_storefront_json"

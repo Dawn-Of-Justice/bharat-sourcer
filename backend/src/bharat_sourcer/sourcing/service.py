@@ -35,10 +35,16 @@ from bharat_sourcer.sourcing.listings import (
 )
 from bharat_sourcer.sourcing.matching import Candidate, build_candidate
 from bharat_sourcer.sourcing.part_spec import buyable_spec
-from bharat_sourcer.sourcing.platforms import storefront_offer
+from bharat_sourcer.sourcing.platforms import shopify_variants, storefront_offer
 from bharat_sourcer.sourcing.politeness import BlockedError
 from bharat_sourcer.sourcing.research import Researcher, needs_followup, review_or_skip
-from bharat_sourcer.sourcing.seller_search import SearchResult, SellerSearch, query_variants
+from bharat_sourcer.sourcing.seller_search import (
+    SearchResult,
+    SellerSearch,
+    normalise,
+    query_variants,
+)
+from bharat_sourcer.sourcing.spec_writer import needs_spec
 from bharat_sourcer.sourcing.trust import TrustChecker
 from bharat_sourcer.usage import record_usage
 
@@ -57,6 +63,12 @@ class DiscoveryError(Exception):
 
 class Discoverer(Protocol):
     def discover(self, query: str) -> SearchAttribution: ...
+
+
+class SpecWriter(Protocol):
+    def write(
+        self, items: list[BomItem], project: ProjectContext | None
+    ) -> dict[str, BuyableSpec]: ...
 
 
 # Grounding chunk titles are source domains. Ranking only reorders grounded URLs; it
@@ -210,6 +222,15 @@ def accepted_offer(offer: VerifiedOffer) -> bool:
     )
 
 
+def seller_queries(spec_queries: list[str], name: str, query: str) -> list[str]:
+    """Three store searches: the spec's best query, the part name's plain form, then the
+    spec's other wording. Store searches need every word, so a plain form is always kept."""
+    own = [normalise(q) for q in spec_queries if q and q.strip()]
+    names = query_variants([name, query])
+    ordered = [*own[:1], *names[:1], *own[1:], *names[1:]]
+    return [q for q in dict.fromkeys(ordered) if q][:3]
+
+
 def enough_offers(offers: list[VerifiedOffer]) -> bool:
     """Stop fetching at 3 in-stock offers from at least 2 sellers."""
     in_stock = [o for o in offers if o.stock == "in_stock"]
@@ -243,6 +264,7 @@ class SourcingService:
         judge: Judge | None = None,
         seller_fetch_budget: int = 8,
         seller_limit: int = 5,
+        spec_writer: "SpecWriter | None" = None,
     ):
         self.discovery = discovery
         self.fetcher = fetcher
@@ -254,8 +276,22 @@ class SourcingService:
         self.judge = judge
         self.seller_fetch_budget = seller_fetch_budget
         self.seller_limit = seller_limit
+        # Writes AI buying specs for lines without one (older jobs); None keeps seed specs.
+        self.spec_writer = spec_writer
         self._recent: dict[str, tuple[float, Future, str]] = {}
         self._recent_lock = threading.Lock()
+
+    def write_specs(
+        self, items: list[BomItem], project: ProjectContext | None
+    ) -> dict[str, BuyableSpec]:
+        """AI buying specs (by line_id) for lines that have none; {} on any failure."""
+        if self.spec_writer is None or not any(needs_spec(item) for item in items):
+            return {}
+        try:
+            return self.spec_writer.write(items, project)
+        except Exception:
+            logging.getLogger(__name__).warning("SPEC_WRITER_FAILED", exc_info=True)
+            return {}
 
     def _review(
         self,
@@ -450,6 +486,12 @@ class SourcingService:
                     sources=captured[0][2],
                     summary="Part research failed; verified offers remain available.",
                 )
+            if line.research.status != "skipped":
+                # The probe recorded a skipped review; the real one ran here.
+                line.stages = [
+                    "research" if stage == "research_skipped" else stage for stage in line.stages
+                ]
+                line.gemini_calls += 1
             candidates = {str(c.url): c for c in line.research.candidates}
             for offer in line.offers:
                 if str(offer.url) in candidates:
@@ -489,7 +531,7 @@ class SourcingService:
             stages.append("seller_search")
             try:
                 search = self.seller_search.search(
-                    query_variants([*spec.queries, item.raw_name, resolution.query]),
+                    seller_queries(spec.queries, item.raw_name, resolution.query),
                     self.seller_limit,
                     self.seller_fetch_budget,
                 )
@@ -557,7 +599,6 @@ class SourcingService:
                 logging.getLogger(__name__).warning("SELLER_TRUST_FAILED", exc_info=True)
         research = None
         if self.researcher:
-            stages.append("research")
             try:
                 research = review_or_skip(
                     self.researcher, item, pages, sources[:16], project_items, offers
@@ -568,6 +609,8 @@ class SourcingService:
                     sources=sources[:16],
                     summary="Part research failed; verified offers remain available.",
                 )
+            # A skipped review made no model call: label it and do not count it.
+            stages.append("research_skipped" if research.status == "skipped" else "research")
             if research.status != "skipped":
                 gemini_calls += 1
             candidates = {str(c.url): c for c in research.candidates}
@@ -628,7 +671,9 @@ class SourcingService:
         query = None if self.judge else resolution.query
         for url in urls:
             # Per stage: rejected earlier offers must not stop the next stage from fetching.
-            if enough_offers([c.offer if isinstance(c, Candidate) else c for c in new]):
+            # Variant groups have no single offer until the judge picks a variant.
+            offers = [c.offer if isinstance(c, Candidate) else c for c in new]
+            if enough_offers([offer for offer in offers if offer is not None]):
                 break
             try:
                 validate_url(url)
@@ -666,6 +711,10 @@ class SourcingService:
                 if self.judge:
                     # A variant group without a single price still goes to the judge.
                     candidate = build_candidate(offer_page, offer)
+                    if candidate is None and offer is None:
+                        # A Shopify variant group (e.g. LED colours) without page JSON-LD.
+                        group = shopify_variants(page, fetcher)
+                        candidate = group and build_candidate(page, None, extracted=group)
                     if candidate and candidate.url not in {
                         c.url for c in new if isinstance(c, Candidate)
                     }:

@@ -259,6 +259,8 @@ def test_service_skips_review_when_offer_is_compatible(monkeypatch):
     assert line.sourcing_status == "offers_found"
     assert researcher.calls == 0
     assert line.research.status == "skipped"
+    # No review call was made: the stage says so and only discovery is counted.
+    assert line.stages == ["grounded", "research_skipped"] and line.gemini_calls == 1
 
 
 def test_followup_needs_no_offer_and_no_candidate():

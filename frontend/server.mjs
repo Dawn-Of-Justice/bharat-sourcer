@@ -24,7 +24,8 @@ function send(res, status, body) {
 }
 
 async function proxy(req, res, backendBase, integrationKey, fetchImpl) {
-  if (!['GET', 'POST'].includes(req.method)) return send(res, 405, 'Method not allowed')
+  // DELETE is needed to revoke share links (DELETE /v1/jobs/{id}/share).
+  if (!['GET', 'POST', 'DELETE'].includes(req.method)) return send(res, 405, 'Method not allowed')
   const parsed = new URL(req.url, 'http://localhost')
   const upstreamPath = parsed.pathname === '/api/healthz' || parsed.pathname === '/api/health'
     ? '/health'

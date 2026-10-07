@@ -48,6 +48,7 @@ from bharat_sourcer.sourcing.cache import build_cache
 from bharat_sourcer.sourcing.judge import GeminiJudge
 from bharat_sourcer.sourcing.research import GeminiResearch
 from bharat_sourcer.sourcing.service import GeminiDiscovery, SourcingService
+from bharat_sourcer.sourcing.spec_writer import GeminiSpecWriter
 from bharat_sourcer.sourcing.trust import TrustChecker
 from bharat_sourcer.storage import FirestoreJobStore, JobStore, MemoryJobStore, StorageError
 from bharat_sourcer.streaming import snapshots
@@ -91,6 +92,9 @@ def create_app(
                 seller_fetch_budget=settings.seller_search_fetch_budget,
                 seller_limit=settings.seller_search_per_seller,
                 judge=GeminiJudge(settings, cache=shared_cache) if settings.judge_enabled else None,
+                spec_writer=GeminiSpecWriter(settings, cache=shared_cache)
+                if settings.spec_writer_enabled
+                else None,
             )
             if settings.sourcing_enabled and not settings.demo_mode
             else None
@@ -156,7 +160,7 @@ def create_app(
 
     app = FastAPI(
         title="Bharat Sourcer API",
-        version="0.21.0",
+        version="0.22.0",
         description=(
             "Demo or live YouTube and project-page extraction with optional Firestore job "
             "persistence."

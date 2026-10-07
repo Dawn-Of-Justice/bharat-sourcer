@@ -23,15 +23,19 @@ from bharat_sourcer.sourcing.cache import build_cache
 from bharat_sourcer.sourcing.judge import GeminiJudge
 from bharat_sourcer.sourcing.research import GeminiResearch
 from bharat_sourcer.sourcing.service import GeminiDiscovery, SourcingService
+from bharat_sourcer.sourcing.spec_writer import GeminiSpecWriter
 from bharat_sourcer.sourcing.trust import TrustChecker
 from bharat_sourcer.storage import MemoryJobStore
 from bharat_sourcer.usage import JobLedger, attribute
 
 parser = argparse.ArgumentParser()
 parser.add_argument("job_json")
+parser.add_argument("--lines", nargs="*", help="only these line ids")
 args = parser.parse_args()
 
 job = Job.model_validate(json.load(open(args.job_json, encoding="utf-8")))
+if args.lines:
+    job.items = [item for item in job.items if item.line_id in args.lines]
 settings = Settings(demo_mode=False, storage_backend="memory", sourcing_enabled=True)
 cache = build_cache(settings, MemoryJobStore())
 sourcing = SourcingService(
@@ -43,10 +47,17 @@ sourcing = SourcingService(
     seller_fetch_budget=settings.seller_search_fetch_budget,
     seller_limit=settings.seller_search_per_seller,
     judge=GeminiJudge(settings, cache=cache) if settings.judge_enabled else None,
+    spec_writer=GeminiSpecWriter(settings, cache=cache) if settings.spec_writer_enabled else None,
 )
 ledger = JobLedger(job.job_id, settings.job_gemini_budget_usd)
 lines = []
 started = time.monotonic()
+# As JobService does: one batched spec call for lines without an AI buying spec.
+with attribute(ledger, None):
+    specs = sourcing.write_specs(job.items, job.project)
+for item in job.items:
+    if item.line_id in specs:
+        item.buyable_spec = specs[item.line_id]
 for item in job.items:
     with attribute(ledger, item.line_id):
         lines.append(sourcing.source_for_project(item, job.items, project=job.project))
@@ -71,6 +82,8 @@ for line in report.lines:
             f" | match={match.status if match else None}"
             f" | grade={offer.compatibility.grade if offer.compatibility else None}"
         )
+        if match:
+            print(f"       why: {'; '.join(match.reasons)[:300]} | claims={len(match.claims)}")
     print(
         f"   selected={line.selected_offer_url} ({line.selection_source})"
         f" image={line.line_image.kind if line.line_image else None}"

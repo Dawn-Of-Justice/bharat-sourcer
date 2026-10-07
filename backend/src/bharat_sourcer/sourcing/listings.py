@@ -288,6 +288,8 @@ class ExtractedProduct:
     title: str
     options: list[OfferOption]
     meta_images: list[str]
+    # How the prices were read; Shopify variant groups come from the public product JSON.
+    verification: str = "seller_structured_data"
 
     def resolved(self) -> OfferOption | None:
         """The one offer this page unambiguously sells, or None for a variant group."""
@@ -324,6 +326,7 @@ class ExtractedProduct:
             spec_conflicts=conflicts,
             tax_included=tax_included,
             tax_evidence=tax_evidence,
+            verification=self.verification,
         )
 
 

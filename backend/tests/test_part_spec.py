@@ -303,7 +303,9 @@ def test_invented_values_are_dropped_and_flagged():
 
 def test_seed_spec_without_ai_spec_normalises_the_name_only():
     spec = buyable_spec(BomItem(line_id="L01", raw_name="22µF 16V electrolytic capacitor"))
-    assert spec.origin == "seed" and spec.category == "other" and spec.mount == "any"
+    # The seed classifies the category from the name (v0.21 seeds were always "other").
+    assert spec.origin == "seed" and spec.category == "capacitor_electrolytic"
+    assert spec.mount == "any" and not spec.needs_value
     assert [(p.name, p.si_value) for p in spec.params] == [
         ("capacitance", pytest.approx(22e-6)),
         ("voltage_rating", 16),

@@ -485,3 +485,57 @@ def test_research_is_skipped_for_a_judge_confirmed_offer():
     assert sufficient_offer([offer]) is offer
     offer.match = OfferMatch(status="partial", score=0.5)
     assert sufficient_offer([offer]) is None
+
+
+def led_spec():
+    from bharat_sourcer.schemas import BomItem
+    from bharat_sourcer.sourcing.part_spec import buyable_spec
+
+    return buyable_spec(BomItem(line_id="L1", raw_name="5mm clear LED"))
+
+
+def test_colour_conflict_flags_a_blue_led_for_a_clear_led():
+    from bharat_sourcer.sourcing.judge import colour_conflict
+
+    spec = led_spec()
+    assert colour_conflict(spec, "Blue Led 5mm(Pack of 10)") == ["blue"]
+    assert colour_conflict(spec, "5mm White LED - Clear") == []
+    assert colour_conflict(spec, "5mm LED water clear") == []  # no colour stated
+    assert colour_conflict(spec, "Infrared LED 5mm") == ["infrared"]
+
+
+def test_spec_rows_only_compare_the_quantity_their_label_names():
+    from bharat_sourcer.schemas import BuyableSpec, SpecParam
+    from bharat_sourcer.sourcing.part_spec import measure_conflicts
+
+    spec = BuyableSpec(
+        category="ldr",
+        params=[SpecParam(name="size", operator="equals", value="5mm", unit="m", si_value=0.005)],
+    )
+    title = "5mm LDR (Light Dependent Resistor)"
+    assert measure_conflicts(spec, [title, "Lead Length: 30 mm"]) == []
+    assert measure_conflicts(spec, [title, "Diameter: 5.1 mm"]) == []  # within tolerance
+    assert measure_conflicts(spec, [title, "Diameter: 12 mm"]) == ["size"]
+
+
+def test_clear_led_also_searches_the_white_wording_sellers_use():
+    spec = led_spec()
+    assert any("white" in q.lower() for q in spec.queries)
+    from bharat_sourcer.schemas import BomItem
+    from bharat_sourcer.sourcing.part_spec import buyable_spec
+
+    red = buyable_spec(BomItem(line_id="L1", raw_name="5mm red LED"))
+    assert not any("white" in q.lower() for q in red.queries)
+
+
+def test_package_dimensions_are_not_read_as_the_part_size():
+    from bharat_sourcer.schemas import BuyableSpec, SpecParam
+    from bharat_sourcer.sourcing.part_spec import measure_conflicts
+
+    spec = BuyableSpec(
+        category="led",
+        params=[SpecParam(name="size", operator="equals", value="5mm", unit="m", si_value=0.005)],
+    )
+    title = "5mm White LED - Clear"
+    assert measure_conflicts(spec, [title, "Dimensions: 11.5 × 11.5 × 5.5 cm"]) == []
+    assert measure_conflicts(spec, [title, "Size: 3 mm"]) == ["size"]

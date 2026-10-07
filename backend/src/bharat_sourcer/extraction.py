@@ -209,19 +209,31 @@ class ExtractionResult(Model):
     description_failed: bool = False
 
 
+def spec_from_draft(buyable: BuyableDraft, source: str, context: str) -> BuyableSpec | None:
+    """An `ai_inferred` spec from a model draft, through the no-basis guardrails.
+
+    `source` is what the source states about the part (stated values must appear in it);
+    `context` is the project text an inferred part value must appear in.
+    """
+    draft = buyable.model_dump()
+    params = [SpecParam(**p) for p in draft.pop("params")]
+    try:
+        spec = BuyableSpec(
+            origin="ai_inferred",
+            mount_origin="inferred" if draft["mount"] != "any" else "default",
+            params=params,
+            reasons=["Buying spec inferred by AI from the project; review and edit if needed."],
+            **draft,
+        )
+        return guard_spec(spec, source, context)
+    except ValueError:
+        return None
+
+
 def buying_spec(part: PartDraft, project: ProjectDraft | None) -> BuyableSpec | None:
     """The model's buying spec, with unit normalisation and the no-basis guardrails."""
     if part.buyable is None:
         return None
-    draft = part.buyable.model_dump()
-    params = [SpecParam(**p) for p in draft.pop("params")]
-    spec = BuyableSpec(
-        origin="ai_inferred",
-        mount_origin="inferred" if draft["mount"] != "any" else "default",
-        params=params,
-        reasons=["Buying spec inferred by AI from the project; review and edit if needed."],
-        **draft,
-    )
     evidence = getattr(part, "evidence", [])
     source = " \n".join(
         [part.raw_name]
@@ -236,10 +248,7 @@ def buying_spec(part: PartDraft, project: ProjectDraft | None) -> BuyableSpec | 
             else []
         )
     )
-    try:
-        return guard_spec(spec, source, context)
-    except ValueError:
-        return None
+    return spec_from_draft(part.buyable, source, context)
 
 
 def decided_part(part: PartDraft, project: ProjectDraft | None = None) -> dict:
@@ -361,6 +370,9 @@ words that should not block a match (clear, bare); exclude lists listing terms t
 a listing out (e.g. SMD, 0603, chip resistor for a through-hole build); synonyms lists
 other names sellers use (LDR: photoresistor, GL5528; electrolytic: elko). queries are 2-4
 short searches as a seller catalogue would phrase them ("33k ohm 1/4 watt resistor").
+Judge physical suitability from the build and put it in params with a reason: wire for a
+small breadboard, perfboard or freeform/dead-bug circuit is thin solid wire (gauge 18-24
+AWG, about 0.5-1 mm diameter; tinned copper bus wire for freeform), never a thick rod.
 """
 
 PROMPT = (

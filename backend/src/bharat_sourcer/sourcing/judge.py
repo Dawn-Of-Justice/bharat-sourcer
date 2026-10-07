@@ -11,6 +11,7 @@ Verdicts are cached per (spec, candidate URL, listing content).
 import hashlib
 import json
 import logging
+import re
 import threading
 import time
 from typing import Literal, Protocol
@@ -35,7 +36,12 @@ from bharat_sourcer.sourcing.matching import (
     shortcut_match,
     title_conflicts,
 )
-from bharat_sourcer.sourcing.part_spec import pack_quantity, spec_hash
+from bharat_sourcer.sourcing.part_spec import (
+    is_assortment,
+    measure_conflicts,
+    pack_quantity,
+    spec_hash,
+)
 from bharat_sourcer.sourcing.research import clean
 from bharat_sourcer.usage import record_usage
 
@@ -155,6 +161,12 @@ match everything the part name says.
 Judge physical suitability from the project context: size, wire gauge, current, voltage
 and power that a build like this needs. A grossly oversized or unsuitable form (a 4 mm
 copper rod for a small freeform circuit that needs thin 0.5-1 mm wire) is partial at best.
+Compare every numeric spec param (diameter, gauge, size, rating) with the numbers the
+listing states, after converting units; a stated value outside the param is partial.
+When the spec has needs_value true, the part's value is NOT known: a listing for one fixed
+value (e.g. "220 Ohm Resistor (Pack of 10)") is at most partial, because buying it would
+guess the value; a kit or assortment covering the range in the params or the project
+assumptions may be compatible, never exact.
 For each key claim (value, package, rating, pack size, variant) copy a short quote
 verbatim from that candidate's title, spec_rows, description, page_text or variant names.
 Claims whose quote is not verbatim are discarded. When a candidate has variants, set
@@ -202,6 +214,43 @@ def quoted(quote: str, text: str) -> bool:
     return len(quote) >= 3 and quote in text
 
 
+LED_COLOURS = {
+    "red",
+    "green",
+    "blue",
+    "yellow",
+    "orange",
+    "white",
+    "pink",
+    "purple",
+    "violet",
+    "rgb",
+    "uv",
+    "infrared",
+    "ir",
+}
+
+
+def colour_conflict(spec: BuyableSpec, title: str) -> list[str]:
+    """LED emission colours the title states that the part does not ask for.
+
+    "Clear" (water clear, transparent) LEDs are listed as white by Indian sellers, so a clear
+    LED with no colour named asks for white.
+    """
+    if spec.category != "led":
+        return []
+    asked = " ".join(
+        [spec.part_name or "", *spec.prefer, *(str(p.value) for p in spec.params)]
+    ).lower()
+    wanted = {c for c in LED_COLOURS if re.search(rf"\b{c}\b", asked)}
+    if not wanted and re.search(r"\b(clear|transparent)\b", asked):
+        wanted = {"white"}
+    stated = {c for c in LED_COLOURS if re.search(rf"\b{c}\b", title.lower())}
+    if not wanted or not stated or stated & wanted:
+        return []
+    return sorted(stated)
+
+
 def checked_verdict(
     draft: VerdictDraft, candidate: Candidate, spec: BuyableSpec, model: str
 ) -> OfferMatch:
@@ -216,6 +265,8 @@ def checked_verdict(
     if status in {"exact", "compatible"}:
         found = title_conflicts(spec, candidate.title)
         excluded = excluded_terms(spec, candidate.title)
+        stated = measure_conflicts(spec, [candidate.title, *candidate.rows])
+        colours = colour_conflict(spec, candidate.title)
         if not claims:
             status, reason = "partial", "No supporting quote was found in the listing."
         elif found:
@@ -223,11 +274,28 @@ def checked_verdict(
             conflicts += found
         elif excluded:
             status, reason = "partial", "The title contains excluded terms: " + ", ".join(excluded)
+        elif colours:
+            status = "partial"
+            reason = "The listing is a different LED colour: " + ", ".join(colours)
+            conflicts += ["colour"]
+        elif stated:
+            status = "partial"
+            reason = "The listing states a value outside the spec: " + ", ".join(stated)
+            conflicts += stated
+        elif spec.needs_value and not is_assortment(candidate.title):
+            # The value is unknown: a single fixed-value listing would be a guess.
+            status = "partial"
+            reason = "The part's value is not known; a single-value listing would guess it."
         else:
             reason = None
         if reason:
             score = min(score, 0.6)
             reasons = [reason, *reasons][:6]
+        elif spec.needs_value and status == "exact":
+            # A kit can cover an unknown value but is never the exact part.
+            status, score = "compatible", min(score, 0.8)
+            note = "The value is not known; a kit covering it is compatible, not exact."
+            reasons = [note, *reasons][:6]
     pack = None
     if draft.pack_qty and draft.pack_quote and quoted(draft.pack_quote, text):
         if str(draft.pack_qty) in draft.pack_quote:
@@ -273,7 +341,8 @@ class GeminiJudge:
     def cache_key(self, spec: BuyableSpec, candidate: Candidate) -> str:
         # The listing JSON is a deterministic function of the page body (and bounded).
         listing = json.dumps(candidate.listing(0), sort_keys=True, ensure_ascii=False)
-        return cache_key("judge", spec_hash(spec), candidate.url[:500], stable_hash(listing))
+        # "v2": verdicts cached before the measure and needs_value checks are not reused.
+        return cache_key("judge", "v2", spec_hash(spec), candidate.url[:500], stable_hash(listing))
 
     @staticmethod
     def cached_value(verdict: OfferMatch) -> dict:

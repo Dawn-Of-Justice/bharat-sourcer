@@ -111,6 +111,31 @@ def tokens(text: str) -> set[str]:
     return {w.removesuffix("s") if len(w) > 3 and not w[0].isdigit() else w for w in words} - FILLER
 
 
+# Descriptive words many store searches cannot match (they require every word).
+DESCRIPTORS = {
+    "clear",
+    "water",
+    "transparent",
+    "diffused",
+    "through",
+    "hole",
+    "tht",
+    "round",
+    "bright",
+    "super",
+    "standard",
+    "radial",
+    "axial",
+    "lens",
+}
+
+
+def short_query(query: str) -> str:
+    """The query without descriptive words, at most three words: a fallback search."""
+    words = [w for w in normalise(query).split() if w not in DESCRIPTORS]
+    return " ".join(words[:3])
+
+
 def query_variants(names: list[str], limit: int = 3) -> list[str]:
     """Plain search strings: the normalised name, its bracketed alias, a short core form."""
     out = []
@@ -338,7 +363,7 @@ class SellerSearch:
         *,
         max_workers: int = 6,
         deadline_s: float = 20,
-        queries_per_seller: int = 2,
+        queries_per_seller: int = 3,
     ):
         self.politeness = politeness or Politeness()
         self.fetcher = fetcher or SafeFetcher()
@@ -361,7 +386,17 @@ class SellerSearch:
     def _search_one(self, seller: dict, queries: list[str], limit: int):
         adapter = ADAPTERS[seller["search"]["adapter"]]
         diagnostic = SellerDiagnostic(seller=seller["domain"], status="no_results")
-        for query in queries[: self.queries_per_seller]:
+        tried = queries[: self.queries_per_seller]
+        # One shorter retry when the store finds nothing for the full wording.
+        # The most specific short form first ("5mm white led" before "5mm led").
+        shorts = [s for s in dict.fromkeys(map(short_query, tried)) if s and s not in tried]
+        shorts = [s for s in shorts if len(s.split()) > 1]
+        fallback = max(shorts, key=lambda s: len(s.split()), default=None)
+        collected: list[Candidate] = []
+        seen: set[str] = set()
+        for query in [*tried, *([fallback] if fallback else [])]:
+            if query == fallback and collected:
+                break  # the fallback is only for stores that found nothing
             diagnostic.queries.append(query)
             try:
                 found = adapter(self._fetcher_for(seller, query), seller, query, limit)
@@ -372,15 +407,22 @@ class SellerSearch:
                 return [], SellerDiagnostic(seller["domain"], status, detail=str(exc)[:200])
             except (ValueError, KeyError, TypeError, AttributeError, RecursionError) as exc:
                 return [], SellerDiagnostic(seller["domain"], "error", detail=str(exc)[:200])
-            if found:
-                for position, candidate in enumerate(found):
-                    candidate.query, candidate.rank = query, position
-                    candidate.score = overlap(query, candidate.title)
-                # Seller order, with title overlap as a light tie-break; nothing is dropped.
-                found.sort(key=lambda c: (-round(c.score, 1), c.rank))
-                diagnostic.status, diagnostic.candidates = "ok", len(found)
-                return found, diagnostic
-        return [], diagnostic
+            for position, candidate in enumerate(found):
+                if url_key(candidate.url) in seen:
+                    continue
+                seen.add(url_key(candidate.url))
+                candidate.query, candidate.rank = query, len(collected) + position
+                candidate.score = overlap(query, candidate.title)
+                collected.append(candidate)
+            # Stop once a title names everything a query asked for; otherwise the next query
+            # may find the right listing (a store's "5mm clear led" can return LED holders).
+            if any(c.score >= 1.0 for c in collected) or len(collected) >= limit * 2:
+                break
+        if collected:
+            # Seller order, with title overlap as a light tie-break; nothing is dropped.
+            collected.sort(key=lambda c: (-round(c.score, 1), c.rank))
+            diagnostic.status, diagnostic.candidates = "ok", len(collected)
+        return collected, diagnostic
 
     def search(
         self, queries: list[str], limit_per_seller: int = 5, total_budget: int = 12

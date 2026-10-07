@@ -511,3 +511,22 @@ def test_plans_endpoint_includes_recommended_alternative():
     kinds = [plan.kind for plan in result.plans]
     assert kinds == ["cheapest", "fewest_sellers", "recommended"]
     assert result.plans[-1].matches_selection
+
+
+def test_a_selectable_offer_beats_a_cheaper_recommendation_only_offer():
+    cheap_partial = offer(ROBO + "cheap", price="10.00", grade=None, match=judged("partial"))
+    confirmed = offer(COMPO + "ok", price="53.00", grade=None, match=judged("compatible"))
+    result = report(line("L01", [cheap_partial, confirmed]))
+    apply_recommendations(result)
+    assert str(result.lines[0].selected_offer_url) == COMPO + "ok"
+
+
+def test_generic_clarification_is_not_reported_as_a_missing_value():
+    target = line("L01", [])
+    target.item.clarifications = [
+        Clarification(field="requirements", question="What must this part do?")
+    ]
+    target.sourcing_status = "no_verified_offers"
+    result = report(target)
+    apply_recommendations(result)
+    assert result.lines[0].recommendation.unsourced_reason == "no_offers"

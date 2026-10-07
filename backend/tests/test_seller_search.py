@@ -639,3 +639,53 @@ def test_rejected_seller_offers_do_not_stop_grounded_fetching():
         Discovery([grounded]), pages, seller_search=FakeSearch(urls), judge=judge
     ).source(BomItem(line_id="L1", raw_name=LED))
     assert grounded in pages.calls and len(line.offers) == 4
+
+
+def test_short_query_drops_descriptive_words():
+    from bharat_sourcer.sourcing.seller_search import short_query
+
+    assert short_query("5mm white LED clear") == "5mm white led"
+    assert short_query("5mm water clear LED") == "5mm led"
+
+
+def test_variant_group_candidates_do_not_break_the_fetch_stop_rule():
+    from bharat_sourcer.schemas import BomItem, OfferMatch
+    from bharat_sourcer.sourcing import service as sourcing_service
+
+    calls = []
+
+    class Judge:
+        def judge_candidates(self, spec, project, candidates):
+            calls.append(len(candidates))
+            return [OfferMatch(status="partial", score=0.5) for _ in candidates]
+
+    urls = [f"https://a.in/p/{i}" for i in range(4)]
+    pages = Pages({u: product_page(u, LED) for u in urls})
+    real = sourcing_service.build_candidate
+
+    def builder(page, offer, *args, **kwargs):
+        candidate = real(page, offer, *args, **kwargs)
+        if candidate is not None and page.url.endswith("/0"):
+            candidate.offer = None  # behaves like a variant group with no single price
+        return candidate
+
+    sourcing_service.build_candidate = builder
+    try:
+        line = SourcingService(
+            Discovery([]), pages, seller_search=FakeSearch(urls), judge=Judge()
+        ).source(BomItem(line_id="L1", raw_name=LED))
+    finally:
+        sourcing_service.build_candidate = real
+    assert calls and line.sourcing_status in {"offers_found", "no_verified_offers"}
+
+
+def test_seller_queries_keep_the_plain_part_name():
+    from bharat_sourcer.sourcing.service import seller_queries
+
+    queries = seller_queries(
+        ["33k ohm resistor 1/4w", "33k carbon film resistor tht"], "33kΩ resistor", "33kΩ resistor"
+    )
+    assert queries[0] == "33k ohm resistor 1/4w" and len(queries) == 3
+    assert any("1/4w" not in q and "33k" in q for q in queries[1:])
+    led = seller_queries(["5mm clear LED", "5mm white LED"], "5mm clear LED", "5mm clear LED")
+    assert "5mm white led" in led

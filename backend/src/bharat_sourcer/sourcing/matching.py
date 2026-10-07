@@ -133,10 +133,17 @@ def snippet_of(page: Page, title: str, limit: int) -> str:
 
 
 def build_candidate(
-    page: Page, offer: VerifiedOffer | None, snippet_chars: int = SNIPPET_CHARS
+    page: Page,
+    offer: VerifiedOffer | None,
+    snippet_chars: int = SNIPPET_CHARS,
+    extracted: ExtractedProduct | None = None,
 ) -> Candidate | None:
-    """Candidate from a fetched page and the offer verified from it (if unambiguous)."""
-    extracted = extract_product(page)
+    """Candidate from a fetched page and the offer verified from it (if unambiguous).
+
+    `extracted` overrides the page's own structured data (a Shopify variant group read from
+    the store's product JSON).
+    """
+    extracted = extracted or extract_product(page)
     options = extracted.options if extracted else []
     if offer is None and len(options) < 2:
         return None
