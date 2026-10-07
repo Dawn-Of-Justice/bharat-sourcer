@@ -96,6 +96,10 @@ The YouTube player and PWA share target remain future frontend work. The impleme
 
 Run npm run dev and open http://localhost:5173/?preview=1. The preview toolbar switches between landing, review, parallel progress, and results. API actions use in-memory dummy responses; the sample image is a local labelled illustration. Preview mode is development-only and requires preview=1 in the URL. Normal URLs retain the configured backend connection.
 
+## Responsive layout
+
+Every screen is checked for zero horizontal scroll at 320, 375, 414, 768, 1024, 1280, 1440 and 1920px. Main breakpoints in `styles.css`: 1000px (chat panel moves below the report), 600px (phone layout: stacked cards, wrapping totals) and 380–420px (narrow phones: account dialog, review fields, hero chips). Single-column grids use `minmax(0, 1fr)` so long seller names and prices wrap instead of widening the page. On touch screens (`pointer: coarse`) buttons, form fields, disclosure summaries and plan action links get a 44px hit area; small report chips grow to about 30px. The account dialog's close button stays visible while a long panel scrolls on phones.
+
 
 ## Accounts and saved projects (5 October 2026)
 
