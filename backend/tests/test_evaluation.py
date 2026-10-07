@@ -41,8 +41,10 @@ def case(*parts, case_id="c1"):
     return EvaluationCase(id=case_id, url=URL, parts=list(parts))
 
 
-def real_set(*cases):
-    return EvaluationSet(synthetic=False, description="test labels", cases=list(cases))
+def real_set(*cases, label_status="human_reviewed"):
+    return EvaluationSet(
+        synthetic=False, description="test labels", label_status=label_status, cases=list(cases)
+    )
 
 
 # --- normalization and name matching ---------------------------------------------------

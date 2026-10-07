@@ -1,7 +1,12 @@
-# Implemented API contract — v0.19.3
+# Implemented API contract — v0.20.0
 
 This directory is the handoff between backend and frontend. The architecture docs describe
 the target system; this contract describes the runnable local milestone.
+
+v0.20.0 adds safety flags, costing breakdowns and cart plans, multi-source intake with
+conflicts, look-alikes and confidence, seller trust labels, export and share links, catalogue-backed
+compatibility grades A–D/X, and disabled-by-default Gemini extras. All new fields are optional. Frontend work is listed in
+the [v0.20 frontend handoff](frontend-handoff-v0.20.md).
 
 v0.19.2 adds internal Gemini usage logging only; no API changes.
 
@@ -97,11 +102,19 @@ and `/openapi.json` are public. `/health` is the cloud-safe liveness path.
 The API base URL has no `/api` suffix.
 
 [Backend roadmap](backend-roadmap.md) tracks agreed features still to implement.
+[Export and share](export-and-share.md): CSV, printable HTML report and revocable read-only share links.
 [Frontend quickstart](frontend-quickstart.md) includes local configuration, request code,
 credentials guidance and the integration acceptance checklist.
+[Gemini extras](gemini-extras.md): opt-in explain-aloud audio, clip zoom and parts-bin scan.
+[Seller trust labels and storefront JSON fast path](seller-trust.md): `offers[].trust` and new `verification` values.
+[Safety flags](safety-flags.md): deterministic MAINS / LIPO / HIGH_CURRENT / LEVEL_SHIFT banners on `job.safety_flags`.
 
 **New: [conversation integration guide](conversation.md).** Add chat beside the BOM,
 reviewable edit proposals and a live snapshot stream. Existing endpoints remain available.
+
+[Multi-source intake](multi-source-intake.md): Adafruit Learn and tutorial blog sources,
+GitHub code evidence, extra `sources` per job, fused BOM lines with `conflicts`,
+`lookalikes` and a `confidence` chip.
 
 Base URL: `http://127.0.0.1:8000` (no `/api` prefix locally).
 
@@ -145,6 +158,7 @@ Base URL: `http://127.0.0.1:8000` (no `/api` prefix locally).
 Draft `items[]` includes `specs` (nullable typed fields) and `clarifications[]` with `field`
 and `question`. Use OpenAPI for typed-field answer controls; `family` is now free text.
 Use [generic requirements and research](part-research.md) for arbitrary categories.
+See [compatibility rules](compatibility-rules.md) for the part catalogue, resolver and A–X rules engine.
 Example confirmation:
 
 ```json
@@ -265,6 +279,9 @@ Selection does not purchase anything or verify delivery, seller trust or final c
 
 Selection errors: 409 `INVALID_STATE` / `OFFER_STALE`; 422 `INVALID_SELECTION`,
 `OFFER_UNAVAILABLE`, `COMPATIBILITY_UNRESOLVED`, or `CHANGES_REQUIRED`.
+
+GST, shipping and import estimates, import reference prices and cart plans: see
+[costing](costing.md).
 
 ## Targeted offer refresh (v0.7)
 

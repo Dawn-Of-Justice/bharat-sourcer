@@ -1,0 +1,95 @@
+{
+  "project_id": "rnt-esp32-hc-sr04",
+  "plan_row": 13,
+  "title": "ESP32 with HC-SR04 Ultrasonic Sensor with Arduino IDE",
+  "creator": "Random Nerd Tutorials",
+  "kind": "text",
+  "label_status": "agent_draft_needs_human_review",
+  "inputs": {
+    "url": "https://randomnerdtutorials.com/esp32-hc-sr04-ultrasonic-arduino/"
+  },
+  "source": {
+    "url": "https://randomnerdtutorials.com/esp32-hc-sr04-ultrasonic-arduino/",
+    "fetched_on": "2026-10-06",
+    "http_status": 200,
+    "robots_txt": "allowed (robots.txt disallows only /wp-admin/)",
+    "method": "one curl GET; parts list transcribed by hand from the fetched text"
+  },
+  "gold_bom": [
+    {
+      "name": "HC-SR04 ultrasonic sensor",
+      "aliases": [
+        "HC-SR04",
+        "ultrasonic distance sensor"
+      ],
+      "qty": 1,
+      "category": "sensor"
+    },
+    {
+      "name": "ESP32 development board",
+      "aliases": [
+        "ESP32"
+      ],
+      "qty": 1,
+      "canonical_chip": "ESP32",
+      "category": "mcu_board"
+    },
+    {
+      "name": "0.96 inch SSD1306 OLED display",
+      "aliases": [
+        "SSD1306 OLED",
+        "0.96 inch I2C OLED"
+      ],
+      "qty": 1,
+      "canonical_chip": "SSD1306",
+      "category": "display",
+      "notes": "Only in the second example (distance on an OLED)."
+    },
+    {
+      "name": "Breadboard",
+      "aliases": [],
+      "qty": 1,
+      "category": "prototyping"
+    },
+    {
+      "name": "Jumper wires",
+      "aliases": [
+        "hookup wires"
+      ],
+      "qty": null,
+      "category": "wire"
+    }
+  ],
+  "gold_substitutions": [
+    {
+      "original": "HC-SR04 ultrasonic sensor",
+      "aliases": [
+        "HC-SR04"
+      ],
+      "acceptable": [
+        "HC-SR04 + 1 kohm/2 kohm divider on ECHO (C)",
+        "HC-SR04P (B)",
+        "RCWL-1601 (B)"
+      ],
+      "required_changes": [
+        "ECHO is 5 V: divider or level shifter",
+        "avoid strapping pins 0/2/12/15 and input-only 34-39 for TRIG",
+        "pulseIn() fallback if NewPing fails"
+      ],
+      "grade_range": [
+        "B",
+        "C"
+      ],
+      "case_ref": 7
+    }
+  ],
+  "must_flag": [
+    "LEVEL_SHIFT"
+  ],
+  "notes": "RNT wires ECHO (5 V) straight to GPIO 18 with VCC on VIN; Case 7 takes the conservative path, so LEVEL_SHIFT is required.",
+  "ambiguities": [
+    "Two examples; the OLED belongs to the second only."
+  ],
+  "drafted_by": "Claude Code agent (stream mvp/eval), not a human labeller",
+  "reviewed_by": []
+}

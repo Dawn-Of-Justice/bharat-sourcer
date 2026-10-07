@@ -1,0 +1,168 @@
+{
+  "project_id": "instructables-plant-watering-system",
+  "plan_row": 14,
+  "title": "Table-Top Electric Plant (Plant-Watering-System)",
+  "creator": "Instructables author",
+  "kind": "text",
+  "label_status": "agent_draft_needs_human_review",
+  "inputs": {
+    "url": "https://www.instructables.com/Plant-Watering-System/"
+  },
+  "source": {
+    "url": "https://www.instructables.com/json-api/showInstructableModel?urlString=Plant-Watering-System",
+    "fetched_on": "2026-10-06",
+    "http_status": 200,
+    "robots_txt": "allowed (the page-model JSON the backend reads; robots.txt blocks only pdf/txt/html, /file, /howto and /image paths for *)",
+    "method": "one curl GET; parts list transcribed by hand from the fetched text"
+  },
+  "gold_bom": [
+    {
+      "name": "5V USB power supply",
+      "aliases": [
+        "5v power supply",
+        "USB charger"
+      ],
+      "qty": 1,
+      "category": "power_supply"
+    },
+    {
+      "name": "S9014 NPN transistor",
+      "aliases": [
+        "NPN transistor",
+        "S9014"
+      ],
+      "qty": 1,
+      "canonical_chip": "S9014",
+      "category": "discrete"
+    },
+    {
+      "name": "S9015 PNP transistor",
+      "aliases": [
+        "PNP transistor",
+        "S9015"
+      ],
+      "qty": 1,
+      "canonical_chip": "S9015",
+      "category": "discrete"
+    },
+    {
+      "name": "100k ohm resistor",
+      "aliases": [
+        "100k resistor"
+      ],
+      "qty": 2,
+      "category": "passive"
+    },
+    {
+      "name": "1k ohm resistor",
+      "aliases": [
+        "1k resistor"
+      ],
+      "qty": 1,
+      "category": "passive"
+    },
+    {
+      "name": "47 ohm resistor",
+      "aliases": [
+        "47R resistor"
+      ],
+      "qty": 1,
+      "category": "passive"
+    },
+    {
+      "name": "Stripboard",
+      "aliases": [
+        "perfboard"
+      ],
+      "qty": 1,
+      "category": "prototyping"
+    },
+    {
+      "name": "Diode",
+      "aliases": [],
+      "qty": 1,
+      "category": "discrete",
+      "notes": "Type not given (flyback across pump)."
+    },
+    {
+      "name": "SW2N60 N-channel MOSFET",
+      "aliases": [
+        "N-channel MOSFET",
+        "SW2N60"
+      ],
+      "qty": 1,
+      "canonical_chip": "SW2N60",
+      "category": "discrete"
+    },
+    {
+      "name": "LED",
+      "aliases": [
+        "LEDs"
+      ],
+      "qty": 2,
+      "category": "led"
+    },
+    {
+      "name": "Aluminum foil",
+      "aliases": [
+        "aluminium foil"
+      ],
+      "qty": 1,
+      "category": "consumable",
+      "notes": "Used as soil and reservoir electrodes (no moisture sensor module)."
+    },
+    {
+      "name": "Binder clips",
+      "aliases": [
+        "paper clips"
+      ],
+      "qty": 4,
+      "category": "mechanical"
+    },
+    {
+      "name": "Pump tubing",
+      "aliases": [
+        "tubing",
+        "silicone tube"
+      ],
+      "qty": 30,
+      "qty_unit": "cm",
+      "category": "plumbing",
+      "notes": "'1 foot' converted to 30 cm; length rule (+-10%) applies."
+    },
+    {
+      "name": "Wire",
+      "aliases": [
+        "hookup wire"
+      ],
+      "qty": null,
+      "category": "wire"
+    },
+    {
+      "name": "Switch",
+      "aliases": [],
+      "qty": 1,
+      "category": "switch",
+      "notes": "Optional."
+    },
+    {
+      "name": "5V submersible water pump",
+      "aliases": [
+        "submersible pump",
+        "mini water pump"
+      ],
+      "qty": 1,
+      "category": "pump"
+    }
+  ],
+  "gold_substitutions": [],
+  "must_flag": [],
+  "notes": "The slug now resolves to 'Table-Top Electric Plant'. Its Supplies field is empty; the list comes from the 'Materials' step. The plan's 'pump, relay, moisture sensor' summary does not match: there is no relay or sensor module, only transistors, a MOSFET and foil electrodes.",
+  "ambiguities": [
+    "Plan row 14 may have meant another project; reviewer: confirm the URL is intended.",
+    "Two glasses and plywood house the build; not included.",
+    "Quantities of wire are open."
+  ],
+  "drafted_by": "Claude Code agent (stream mvp/eval), not a human labeller",
+  "reviewed_by": []
+}

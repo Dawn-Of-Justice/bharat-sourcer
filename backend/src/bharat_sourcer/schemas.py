@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from typing import Annotated, Literal
 from uuid import UUID
 
@@ -34,6 +34,9 @@ class CreateJob(Model):
     lang: Literal["en", "hi", "ta", "ml"] = "en"
     user_level: Literal["beginner", "intermediate"] = "beginner"
     visibility: Literal["unlisted"] = "unlisted"
+    # Extra sources about the same build (e.g. its project page or repository), fused into
+    # one BOM with the primary `url`. Same validation as `url`; at most one video in total.
+    sources: list[HttpUrl] = Field(default_factory=list, max_length=3)
 
 
 class Evidence(Model):
@@ -42,19 +45,28 @@ class Evidence(Model):
     `source` defaults to `video` so snapshots saved before project-page support still
     validate. Video evidence carries a timestamp. Project-page evidence carries the fetched
     document `url` and a `quote` the server found verbatim (whitespace-normalised) in it.
+    Code evidence is deterministic: the repository `file` and 1-based `line`, the line's
+    text as `quote`, and a `url` to that line.
     """
 
     timestamp: str | None = Field(default=None, pattern=r"^\d{2,}:[0-5]\d$")
     observation: str = Field(min_length=1, max_length=1000)
-    source: Literal["video", "project_page"] = "video"
+    source: Literal["video", "project_page", "code"] = "video"
     quote: str | None = Field(default=None, min_length=3, max_length=500)
     url: HttpUrl | None = None
+    file: str | None = Field(default=None, min_length=1, max_length=300)
+    line: int | None = Field(default=None, ge=1)
 
     @model_validator(mode="after")
     def locator_matches_source(self):
+        if self.source != "code" and (self.file is not None or self.line is not None):
+            raise ValueError("Only code evidence has a file and line")
         if self.source == "video":
             if self.timestamp is None or self.quote is not None or self.url is not None:
                 raise ValueError("Video evidence needs a timestamp and no page quote or URL")
+        elif self.source == "code":
+            if self.timestamp is not None or None in (self.quote, self.url, self.file, self.line):
+                raise ValueError("Code evidence needs a quote, URL, file and line")
         elif self.timestamp is not None or self.quote is None or self.url is None:
             raise ValueError("Project-page evidence needs a quote and URL and no timestamp")
         return self
@@ -106,7 +118,10 @@ class PartSpecs(Model):
 class SpecEvidence(Model):
     field: str
     value: str
-    source: Literal["part_name", "user", "seller_title", "seller_property", "seller_table"]
+    # "catalog" values come from the curated parts catalogue, never from a seller.
+    source: Literal[
+        "part_name", "user", "seller_title", "seller_property", "seller_table", "catalog"
+    ]
     locator: str
 
 
@@ -218,6 +233,25 @@ class PartResearch(Model):
     checked_at: datetime = Field(default_factory=now)
 
 
+class CompatFinding(Model):
+    """One deterministic rule result; `grade` is the floor this finding imposes."""
+
+    rule: str
+    grade: Literal["A", "B", "C", "D", "X"]
+    area: Literal["wiring", "code", "power", "safety", "verify"]
+    message: str
+    change: str | None = None
+    basis: list[str] = Field(default_factory=list)
+
+
+class WhatChanges(Model):
+    wiring: list[str] = Field(default_factory=list)
+    code: list[str] = Field(default_factory=list)
+    power: list[str] = Field(default_factory=list)
+    safety: list[str] = Field(default_factory=list)
+    verify: list[str] = Field(default_factory=list)
+
+
 class Compatibility(Model):
     status: Literal["unknown", "compatible", "changes_required", "incompatible"]
     grade: Literal["A", "B", "C", "D", "X"] | None = None
@@ -226,6 +260,37 @@ class Compatibility(Model):
     missing_fields: list[str] = Field(default_factory=list)
     changes: list[str] = Field(default_factory=list)
     references: list[str] = Field(default_factory=list)
+    # Added by the catalogue rules engine; absent fields mean the original comparison ran.
+    method: Literal["declared_specs", "catalog_rules"] = "declared_specs"
+    grade_label: str | None = None
+    findings: list[CompatFinding] = Field(default_factory=list)
+    what_changes: WhatChanges | None = None
+    required_catalog_id: str | None = None
+    offered_catalog_id: str | None = None
+
+
+class Lookalike(Model):
+    """A part easily confused with this line; a warning, never a suggested substitute."""
+
+    name: Name
+    note: str | None = Field(default=None, max_length=300)
+    # table: the server's curated confusables list; ai: named by the extraction model.
+    origin: Literal["table", "ai"]
+
+
+class ConflictValue(Model):
+    value: str = Field(min_length=1, max_length=200)
+    source: Literal["video", "project_page", "code"]
+    url: HttpUrl | None = None
+    locator: str | None = Field(default=None, max_length=300)
+
+
+class ItemConflict(Model):
+    """Sources disagree about this line; nothing is picked silently (see multi-source-intake)."""
+
+    kind: Literal["identity_mismatch", "qty_mismatch"]
+    message: str = Field(min_length=1, max_length=500)
+    values: list[ConflictValue] = Field(default_factory=list, max_length=6)
 
 
 class BomItem(Model):
@@ -242,6 +307,12 @@ class BomItem(Model):
     specs: PartSpecs = Field(default_factory=PartSpecs)
     requirements: list[PartRequirement] = Field(default_factory=list, max_length=20)
     clarifications: list[Clarification] = Field(default_factory=list)
+    lookalikes: list[Lookalike] = Field(default_factory=list, max_length=10)
+    conflicts: list[ItemConflict] = Field(default_factory=list, max_length=10)
+    # Deterministic, from evidence at extraction time; None for lines without an assessment
+    # (user-added, renamed or saved before confidence existed).
+    confidence: Literal["verified", "likely", "check"] | None = None
+    confidence_reason: str | None = Field(default=None, max_length=300)
 
 
 class UpdateLine(Model):
@@ -445,6 +516,32 @@ class ActionRecord(Model):
     result_message_id: str | None = None
 
 
+class CatalogCandidate(Model):
+    id: str
+    name: str
+    confidence: float = Field(ge=0, le=1)
+
+
+class CatalogMatch(Model):
+    """Deterministic catalogue lookup of a part name; reference facts, not seller facts."""
+
+    status: Literal["matched", "ambiguous", "unmatched"]
+    id: str | None = None
+    name: str | None = None
+    category: str | None = None
+    chip: str | None = None
+    confidence: float = Field(default=0, ge=0, le=1)
+    candidates: list[CatalogCandidate] = Field(default_factory=list, max_length=6)
+    facts: dict[str, str] = Field(default_factory=dict)
+    requirements: list[PartRequirement] = Field(default_factory=list, max_length=20)
+    lookalikes: list[str] = Field(default_factory=list)
+    verify: str | None = None
+    notes: str | None = None
+    source_url: str | None = None
+    verified: bool = False
+    origin: Literal["curated_catalog"] = "curated_catalog"
+
+
 class PartResolution(Model):
     query: str
     missing_specs: list[str] = Field(default_factory=list)
@@ -452,6 +549,36 @@ class PartResolution(Model):
     specs: PartSpecs = Field(default_factory=PartSpecs)
     evidence: list[SpecEvidence] = Field(default_factory=list)
     clarifications: list[Clarification] = Field(default_factory=list)
+    catalog: CatalogMatch | None = None
+
+
+StorePlatform = Literal["shopify", "woocommerce", "magento", "jsonld", "unknown"]
+
+
+class TrustSignals(Model):
+    """Deterministic, free seller checks. Absent evidence is recorded, never assumed."""
+
+    domain: str | None = None
+    https: bool = False
+    # Curated seed list maintained by the project, not a fact reported by the seller.
+    known_seller: bool = False
+    platform: StorePlatform | None = None
+    domain_registered: datetime | None = None
+    domain_age_days: int | None = None
+    # Format and checksum only; not verified against the GST portal.
+    gstin: str | None = None
+    policies: list[Literal["returns", "shipping", "contact"]] = Field(default_factory=list)
+    price_anomaly: bool = False
+    web_risk: Literal["not_checked"] = "not_checked"
+    unavailable: list[Literal["domain_age", "policies", "all"]] = Field(default_factory=list)
+
+
+class SellerTrust(Model):
+    label: Literal["established", "verified_basics", "unverified"]
+    new_seller: bool = False
+    reasons: list[str] = Field(default_factory=list)
+    signals: TrustSignals = Field(default_factory=TrustSignals)
+    checked_at: datetime = Field(default_factory=now)
 
 
 class VerifiedOffer(Model):
@@ -463,9 +590,13 @@ class VerifiedOffer(Model):
     currency: Literal["INR"] = "INR"
     stock: Literal["in_stock", "out_of_stock", "preorder", "unknown"] = "unknown"
     checked_at: datetime = Field(default_factory=now)
-    verification: Literal["seller_structured_data"] = "seller_structured_data"
+    verification: Literal[
+        "seller_structured_data", "shopify_storefront_json", "woocommerce_store_api"
+    ] = "seller_structured_data"
     seller_trust: Literal["unverified"] = "unverified"
-    tax_included: None = None
+    # Seller-declared only (JSON-LD or fixed page phrases); None means unknown or conflicting.
+    tax_included: bool | None = None
+    tax_evidence: str | None = Field(default=None, max_length=300)
     shipping_inr: None = None
     compatibility_status: Literal[
         "not_checked", "unknown", "compatible", "changes_required", "incompatible"
@@ -475,6 +606,7 @@ class VerifiedOffer(Model):
     spec_conflicts: list[SpecConflict] = Field(default_factory=list)
     compatibility: Compatibility | None = None
     research_assessment: ResearchAssessment | None = None
+    trust: SellerTrust | None = None
 
 
 class SearchAttribution(Model):
@@ -500,6 +632,126 @@ class ImageRequest(Model):
     failed_urls: list[str] = Field(default_factory=list, max_length=10)
 
 
+CostStatus = Literal["known", "estimated", "unknown"]
+SignedMoney = Annotated[str, Field(pattern=r"^-?\d+\.\d{2}$")]
+
+
+class CostAmount(Model):
+    """An auditable amount; `unknown` has no amount, only the parts that could be estimated."""
+
+    amount_inr: Money | None = None
+    status: CostStatus = "unknown"
+    partial_inr: Money | None = None
+    assumptions: list[str] = Field(default_factory=list)
+
+
+class ShippingPolicyRef(Model):
+    seller: str
+    free_above_inr: Money | None = None
+    free_when: Literal["above", "at_or_above"] = "above"
+    flat_fee_inr: Money | None = None
+    fee_plus_gst: bool = False
+    unverified: bool = False
+    source_url: HttpUrl | None = None
+    checked_on: date | None = None
+    note: str | None = None
+
+
+class SellerCost(Model):
+    seller: str
+    line_ids: list[str] = Field(default_factory=list)
+    parts: CostAmount
+    gst: CostAmount
+    shipping: CostAmount
+    total: CostAmount
+    free_shipping_gap_inr: Money | None = None
+    policy: ShippingPolicyRef | None = None
+
+
+class ImportReference(Model):
+    """Unit price from a US/global distributor, used only for the import comparison."""
+
+    price_usd: Money
+    source: Literal["user", "research_fact"] = "user"
+    source_url: HttpUrl | None = None
+    quote: str | None = Field(default=None, max_length=1000)
+
+
+class ImportBaseline(Model):
+    line_ids: list[str] = Field(default_factory=list)
+    complete: bool = False
+    goods_usd: Money
+    fx_usd_inr: str
+    goods_inr: CostAmount
+    courier_inr: CostAmount
+    duty_inr: CostAmount
+    landed_inr: CostAmount
+    formula: str
+    sources: list[str] = Field(default_factory=list)
+
+
+class SavingsEstimate(Model):
+    amount_inr: SignedMoney
+    status: Literal["estimated"] = "estimated"
+    assumptions: list[str] = Field(default_factory=list)
+
+
+class CostBreakdown(Model):
+    """Estimated cost of chosen offers; never a final payable or checkout total."""
+
+    basis: Literal["selected_offers", "plan"] = "selected_offers"
+    complete: bool = False
+    sellers: list[SellerCost] = Field(default_factory=list)
+    parts: CostAmount
+    gst: CostAmount
+    shipping: CostAmount
+    total: CostAmount
+    excluded_line_ids: list[str] = Field(default_factory=list)
+    import_baseline: ImportBaseline | None = None
+    savings_vs_import: SavingsEstimate | None = None
+    rates_checked_on: date | None = None
+    disclaimer: str = (
+        "Estimate from seller-published prices and dated policy and tax assumptions; "
+        "not a final payable total. Check the seller's checkout."
+    )
+
+
+class PlanPick(Model):
+    line_id: str
+    offer_url: HttpUrl
+    seller: str
+    price_inr: Money
+    grade: Literal["A", "B"]
+    changes_required: bool = False
+
+
+class CartPlan(Model):
+    kind: Literal["cheapest", "fewest_sellers"]
+    picks: list[PlanPick] = Field(default_factory=list)
+    seller_count: int = 0
+    costing: CostBreakdown
+    matches_selection: bool = False
+
+
+class CartPlans(Model):
+    """Suggestions only: plans never change the user's selection."""
+
+    plans: list[CartPlan] = Field(default_factory=list)
+    method: Literal["exhaustive", "greedy", "none"] = "none"
+    uncovered_line_ids: list[str] = Field(default_factory=list)
+    rules: list[str] = Field(default_factory=list)
+
+
+class SetImportReference(Model):
+    line_id: str
+    price_usd: Money | None = None
+    source_url: HttpUrl | None = None
+
+
+class SetImportReferences(Model):
+    references: list[SetImportReference] = Field(min_length=1, max_length=100)
+
+
 class ReportLine(Model):
     item: BomItem
     sourcing_status: Literal[
@@ -517,6 +769,7 @@ class ReportLine(Model):
     grade: Literal["A", "B"] | None = None
     changes_accepted: bool = False
     research_accepted: bool = False
+    import_reference: ImportReference | None = None
 
 
 class Report(Model):
@@ -529,6 +782,29 @@ class Report(Model):
     shipping_inr: None = None
     tax_inr: None = None
     unselected_line_ids: list[str] = Field(default_factory=list)
+    costing: CostBreakdown | None = None
+
+
+class SafetyTrigger(Model):
+    """Which saved text made a deterministic safety rule fire."""
+
+    line_id: str | None = None
+    field: str = Field(min_length=1, max_length=100)
+    matched: str = Field(min_length=1, max_length=200)
+
+
+class SafetyFlag(Model):
+    """Hard-coded rule output (`safety.py`) with templated text; never written by a model."""
+
+    code: Literal["MAINS", "LIPO", "HIGH_CURRENT", "LEVEL_SHIFT"]
+    severity: Literal["danger", "warning", "caution"]
+    title: str
+    message: str
+    guidance: list[str] = Field(default_factory=list)
+    line_ids: list[str] = Field(default_factory=list)
+    triggers: list[SafetyTrigger] = Field(default_factory=list, max_length=20)
+    method: Literal["deterministic_rules"] = "deterministic_rules"
+    rule_version: str
 
 
 class UpdateProject(Model):
@@ -540,6 +816,18 @@ class UpdateProject(Model):
         if self.title is None and self.description is None:
             raise ValueError("Provide a title or a description")
         return self
+
+
+class SourceReport(Model):
+    """How one submitted source was read during extraction."""
+
+    url: str
+    kind: Literal["video", "instructables", "hackster", "github", "adafruit", "blog"]
+    role: Literal["primary", "additional"] = "primary"
+    status: Literal["read", "failed"]
+    item_count: int = Field(default=0, ge=0)
+    code_item_count: int = Field(default=0, ge=0)
+    error: "ErrorDetail | None" = None
 
 
 class Job(Model):
@@ -564,6 +852,8 @@ class Job(Model):
     chat_error: "ErrorDetail | None" = None
     resistor_advice: list[ResistorAdvice] = Field(default_factory=list)
     actions: list[ActionRecord] = Field(default_factory=list)
+    safety_flags: list[SafetyFlag] = Field(default_factory=list)
+    source_reports: list[SourceReport] = Field(default_factory=list, max_length=4)
 
 
 class CreatedJob(Model):

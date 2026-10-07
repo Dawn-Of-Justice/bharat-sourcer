@@ -143,6 +143,7 @@ class GeminiAssistant:
             else None,
             "messages": [{"role": m.role, "text": m.text} for m in job.messages[-12:]],
             "resistor_advice": [a.model_dump(mode="json") for a in job.resistor_advice[-10:]],
+            "safety_flags": [flag.model_dump(mode="json") for flag in job.safety_flags],
         }
         prompt = (
             "You help a maker review this saved project. Answer the latest user message. "
@@ -188,6 +189,8 @@ class GeminiAssistant:
             "driver allowable design current. The deterministic calculator supports one LED series "
             "resistor only. Piezo input/protection, pull-ups and unknown topology need schematic "
             "details and are unsupported; do not apply an LED formula to them. "
+            "safety_flags come from fixed deterministic rules: when relevant, repeat their "
+            "guidance, never say a flagged hazard is safe and never dismiss or soften a flag. "
             "Distinguish suggestions from extracted facts. Return JSON matching the schema."
         )
         with httpx.Client(timeout=45, transport=self.transport) as client:

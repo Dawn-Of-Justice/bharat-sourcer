@@ -1,0 +1,36 @@
+{
+  "source_url": "https://rdap.nixiregistry.in/rdap/domain/robu.in",
+  "fetched": "2026-10-06",
+  "note": "Trimmed recorded RDAP response (entities, links and notices removed).",
+  "content_type": "application/rdap+json",
+  "response": {
+    "objectClassName": "domain",
+    "ldhName": "robu.in",
+    "status": [
+      "client transfer prohibited"
+    ],
+    "events": [
+      {
+        "eventAction": "registration",
+        "eventActor": "8134-dw",
+        "eventDate": "2012-05-11T01:02:58.093Z"
+      },
+      {
+        "eventAction": "expiration",
+        "eventDate": "2031-05-11T01:02:58.093Z"
+      },
+      {
+        "eventAction": "last changed",
+        "eventDate": "2025-05-30T05:10:54.388Z"
+      },
+      {
+        "eventAction": "transfer",
+        "eventDate": "2013-05-11T10:20:02.365Z"
+      },
+      {
+        "eventAction": "last update of RDAP database",
+        "eventDate": "2026-10-06T16:08:43.608Z"
+      }
+    ]
+  }
+}

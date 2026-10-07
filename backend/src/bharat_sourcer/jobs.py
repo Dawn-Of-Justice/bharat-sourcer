@@ -8,10 +8,12 @@ from hashlib import sha256
 from uuid import UUID, uuid4
 
 from bharat_sourcer.actions import complete_refresh
-from bharat_sourcer.compat import assess, resolve_part
+from bharat_sourcer.compat import assess_offer, reassess_report, resolve_part
 from bharat_sourcer.costing import update_costs
-from bharat_sourcer.extraction import ExtractionError, Extractor, supported_source
+from bharat_sourcer.extraction import ExtractionError, Extractor
 from bharat_sourcer.identity import Principal
+from bharat_sourcer.intake import extract_sources, validate_sources
+from bharat_sourcer.safety import flags_for
 from bharat_sourcer.schemas import (
     AddLine,
     BomItem,
@@ -76,12 +78,13 @@ class JobService:
     def create(
         self, request: CreateJob, principal: Principal | None = None, part_limit: int | None = None
     ) -> tuple[Job, str]:
-        kind = "demo"
+        kind, count = "demo", 1
         if self.extractor:
             try:
-                kind, _ = supported_source(str(request.url))
+                sources = validate_sources([str(url) for url in [request.url, *request.sources]])
             except ExtractionError as exc:
                 raise JobError(400, exc.code, exc.message) from exc
+            kind, count = sources[0][0], len(sources)
         job = Job(
             job_id=str(uuid4()),
             input=request,
@@ -95,6 +98,9 @@ class JobService:
             "video": "Video queued.",
             "project_page": "Project page queued.",
         }[kind]
+        if count > 1:
+            more = count - 1
+            message = message.removesuffix(".") + f" with {more} more source{'s' * (more > 1)}."
         self._transition(job, "queued", message)
         self.store.create(
             StoredJob(
@@ -158,6 +164,7 @@ class JobService:
         error = None
         items = []
         project = None
+        reports = []
         try:
             if claimed.job.demo:
                 items = [
@@ -171,10 +178,11 @@ class JobService:
                     summary="Demo sample: an ESP32 reads a BME280 sensor over jumper wires.",
                 )
             else:
-                result = self.extractor.extract(str(claimed.job.input.url))
-                # Simple extractors (and tests) may return only the item list.
-                items = result if isinstance(result, list) else result.items
-                project = None if isinstance(result, list) else result.project
+                job_input = claimed.job.input
+                result = extract_sources(
+                    self.extractor, [str(url) for url in [job_input.url, *job_input.sources]]
+                )
+                items, project, reports = result.items, result.project, result.sources
         except Exception as exc:
             error = (
                 exc
@@ -195,8 +203,10 @@ class JobService:
             else:
                 record.job.items = items
                 record.job.project = project
+                record.job.source_reports = reports
                 for item in record.job.items:
                     item.clarifications = resolve_part(item).clarifications
+                record.job.safety_flags = flags_for(record.job)
                 self._transition(record.job, "awaiting_confirmation", "Review parts and evidence.")
 
         self.store.mutate(job_id, complete)
@@ -413,8 +423,7 @@ class JobService:
             line.item = item.model_copy(deep=True)
             line.resolution = resolution
             for offer in line.offers:
-                offer.compatibility = assess(resolution.specs, offer.specs)
-                offer.compatibility.references.append(str(offer.url))
+                offer.compatibility = assess_offer(resolution, offer, job.project, job.items, item)
                 offer.compatibility_status = offer.compatibility.status
             line.selected_offer_url = None
             line.price_inr = line.grade = None
@@ -450,6 +459,7 @@ class JobService:
                     line.research_accepted = False
                     line.changes_accepted = False
             update_costs(job.report)
+            job.safety_flags = flags_for(job)
             self._transition(job, "done", "Updated required specs for " + ", ".join(changed))
 
     def update_project(self, job_id: str, token: str | None, request: UpdateProject) -> Job:
@@ -464,6 +474,7 @@ class JobService:
             if request.description is not None:
                 project.description, project.description_source = request.description, "user"
             job.project = project
+            job.safety_flags = flags_for(job)
             job.updated_at = now()
 
         record = self.store.mutate(job_id, change)
@@ -608,6 +619,10 @@ class JobService:
             else:
                 items[edit.line_id].user_edited = True
                 if edit.raw_name is not None:
+                    if edit.raw_name != items[edit.line_id].raw_name:
+                        # Evidence was assessed for the extracted name, not the new one.
+                        items[edit.line_id].confidence = None
+                        items[edit.line_id].confidence_reason = None
                     items[edit.line_id].raw_name = edit.raw_name
                 if edit.qty is not None and edit.qty != items[edit.line_id].qty:
                     items[edit.line_id].qty = edit.qty
@@ -645,6 +660,7 @@ class JobService:
                 raise JobError(
                     422, "INVALID_SPECS", "Name and part specifications conflict"
                 ) from exc
+        job.safety_flags = flags_for(job)
         if finalize:
             self._transition(job, "resolving", "Confirmed edits; preparing the report.")
         else:
@@ -816,6 +832,7 @@ class JobService:
                 "Sourcing finished. Compatibility compares declared specs only; review evidence "
                 "and missing fields. Seller trust, tax and shipping remain unverified."
             )
+            reassess_report(record.job.report, record.job.project)
             update_costs(record.job.report)
             # Same transaction as the transition, so redelivered work cannot repeat it.
             complete_refresh(record.job)

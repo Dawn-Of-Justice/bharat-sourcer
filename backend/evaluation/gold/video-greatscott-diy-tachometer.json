@@ -1,0 +1,21 @@
+{
+  "project_id": "video-greatscott-diy-tachometer",
+  "plan_row": null,
+  "title": "DIY Tachometer (RPM Meter)",
+  "creator": "GreatScott!",
+  "kind": "video",
+  "label_status": "needs_human_labelling",
+  "inputs": {
+    "url": "https://www.youtube.com/watch?v=6QZMt4yyylU"
+  },
+  "source": null,
+  "gold_bom": [],
+  "gold_substitutions": [],
+  "must_flag": [],
+  "notes": "Video-first case: BOM must come from watching the video. Not labelled: the agent cannot watch videos. The companion Instructables page (if any) can help the labeller but the video is the primary source. Companion page https://www.instructables.com/DIY-Tachometer-RPM-Meter/.",
+  "ambiguities": [
+    "Candidate URL found from the creator's Instructables page embed on 2026-10-06; confirm the video is public and video-first before labelling."
+  ],
+  "drafted_by": "Claude Code agent (stream mvp/eval), not a human labeller",
+  "reviewed_by": []
+}

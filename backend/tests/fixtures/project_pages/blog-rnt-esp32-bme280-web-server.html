@@ -1,0 +1,63 @@
+<!-- Trimmed copy of https://randomnerdtutorials.com/esp32-web-server-with-bme280-mini-weather-station/
+fetched once on 2026-10-06 (robots.txt allows / for all agents). Long attributes, the sketch
+walkthrough and most related posts and comments were removed. Test fixture only: NOT verified
+parts data. -->
+<!doctype html><html lang="en-US"><head><meta charset="UTF-8">
+<title>ESP32 Web Server with BME280 – Advanced Weather Station | Random Nerd Tutorials</title>
+</head><body>
+<div class="rntn-top-menu-wrap">
+	<a class="rntn-top-menu" href="https://randomnerdtutorials.com/">HOME</a>
+	<a class="rntn-top-menu" href="https://randomnerdtutorials.com/projects-esp32/">ESP32</a>
+	<a class="rntn-top-menu" href="https://randomnerdtutorials.com/projects-esp8266/">ESP8266</a>
+	<a class="rntn-top-menu" href="https://randomnerdtutorials.com/projects-esp32-cam/">ESP32-CAM</a>
+	<a class="rntn-top-menu" href="https://randomnerdtutorials.com/projects-raspberry-pi/">RASPBERRY PI</a>
+	<a class="rntn-top-menu" href="https://randomnerdtutorials.com/projects-esp32-esp8266-micropython/">MICROPYTHON</a>
+	<a class="rntn-top-menu" href="https://randomnerdtutorials.com/projects-raspberry-pi-pico/">RPi PICO</a>
+	<a class="rntn-top-menu" href="https://randomnerdtutorials.com/projects-arduino/">ARDUINO</a>
+	<a class="rntn-top-menu" href="https://makeradvisor.com/" target="_blank" rel="noopener">REVIEWS</a>
+</div>		<div class="site-content" id="content">
+	<div class="content-area grid-parent mobile-grid-100 push-15 grid-60 tablet-push-15 tablet-grid-60" id="primary">
+		<main class="site-main" id="main">
+<article id="post-69087" class="post-69087 post type-post status-publish format-standard has-post-thumbnail hentry category-esp32-project category-esp32 category-esp32-arduino-ide category-0-esp32 category-project mv-content-wrapper" itemtype="https://schema.org/CreativeWork" itemscope>
+	<div class="inside-article">
+					<header class="entry-header">
+				<h1 class="entry-title" itemprop="headline">ESP32 Web Server with BME280 – Advanced Weather Station</h1>			</header>
+		<div class="entry-content" itemprop="text">
+<p>In this tutorial you’re going to learn how to create a web server with the ESP32 to display readings from the BME280 sensor module. The BME280 sensor measures temperature, humidity, and pressure. So, you can easily build a mini and compact weather station and monitor the measurements using your ESP32 web server. That&#8217;s what we&#8217;re going to do in this project.</p>
+<div class="wp-block-image"><figure class="aligncenter"><img width="828" height="466" src="https://i0.wp.com/randomnerdtutorials.com/wp-content/uploads/2018/08/BME_ESP32_WEB_SERVER.jpg?resize=828%2C466&#038;quality=100&#038;strip=all&#038;ssl=1" alt="ESP32 Web Server with BME280 Weather Station" class="wp-image-69102"  loading="eager"/></figure></div>
+<p>Before proceeding with this tutorial you should have the ESP32 add-on installed in your Arduino IDE. Follow one of the following tutorials to install the ESP32 on the Arduino IDE, if you haven’t already.</p>
+<ul class="wp-block-list"><li><a href="https://randomnerdtutorials.com/installing-the-esp32-board-in-arduino-ide-windows-instructions/">Installing the ESP32 Board in Arduino IDE (Windows, Mac OS X, and Linux instructions)</a></li></ul>
+<p>You might also like reading other BME280 guides:</p>
+<ul class="wp-block-list"><li><span><a href="https://randomnerdtutorials.com/esp32-bme280-arduino-ide-pressure-temperature-humidity/">ESP32 with BME280 Sensor using Arduino IDE</a></span></li><li><a href="https://randomnerdtutorials.com/esp8266-bme280-arduino-ide/">ESP8266 with BME280 using Arduino IDE</a></li><li><a href="https://randomnerdtutorials.com/micropython-bme280-esp32-esp8266/">ESP32/ESP8266 with BME280 using MicroPython</a></li><li><a href="https://randomnerdtutorials.com/bme280-sensor-arduino-pressure-temperature-humidity/">Arduino Board with BME280</a></li></ul>
+<h2 class="wp-block-heading">Watch the Video Tutorial</h2>
+<p><em>This tutorial is available in video format (watch below) and in written format (continue reading).</em></p>
+<p><iframe width="720" height="405" frameborder="0" allowfullscreen data-lazy-src="https://www.youtube.com/embed/6LjbTgX046w?rel=0" data-lazy-method="viewport" data-lazy-attributes="src"></iframe></p>
+<h2 class="wp-block-heading">Parts Required</h2>
+<p>To follow this tutorial you need the following parts:</p>
+<ul class="wp-block-list"><li><a rel="noreferrer noopener" href="https://makeradvisor.com/tools/esp32-dev-board-wi-fi-bluetooth/" target="_blank">ESP32 DOIT DEVKIT V1 Board</a>&nbsp;&#8211; <a rel="noreferrer noopener" href="https://makeradvisor.com/esp32-development-boards-review-comparison/" target="_blank">read ESP32 Development Boards Review and Comparison</a></li><li><a rel="noreferrer noopener" href="https://makeradvisor.com/bme280-sensor-module/" target="_blank">BME280 sensor module</a></li><li><a rel="noreferrer noopener" href="https://makeradvisor.com/tools/mb-102-solderless-breadboard-830-points/" target="_blank">Breadboard</a></li><li><a rel="noreferrer noopener" href="https://makeradvisor.com/tools/jumper-wires-kit-120-pieces/" target="_blank">Jumper wires</a></li></ul>
+<p>You can use the preceding links or go directly to <a href="https://makeradvisor.com/tools/?utm_source=rnt&utm_medium=post&utm_campaign=post" target="_blank">MakerAdvisor.com/tools</a> to find all the parts for your projects at the best price!</p><p><a href="https://makeradvisor.com/tools/?utm_source=rnt&utm_medium=post&utm_campaign=post" target="_blank"><img src="https://i0.wp.com/randomnerdtutorials.com/wp-content/uploads/2017/10/header-200.png?w=828&#038;quality=100&#038;strip=all&#038;ssl=1" loading="eager"></a></p>
+<h2 class="wp-block-heading">Introducing the BME280 Sensor Module</h2>
+<p>The BME280 sensor module reads temperature, humidity, and pressure. Because pressure changes with altitude, you can also estimate altitude. There are several versions of this sensor module, but we&#8217;re using the one shown in the figure below.</p>
+<div class="wp-block-image"><figure class="aligncenter"><img width="750" height="474" src="https://i0.wp.com/randomnerdtutorials.com/wp-content/uploads/2018/08/BME280-1.jpg?resize=750%2C474&#038;quality=100&#038;strip=all&#038;ssl=1" alt="BME280 Sensor Module Read temperature, humidity, and pressure" class="wp-image-69094"  loading="eager"/></figure></div>
+<p>The sensor can communicate using either SPI or I2C communication protocols (there are modules of this sensor that just communicate with I2C, these just come with four pins).</p>
+<p>To use SPI communication protocol, you use the following pins:</p>
+<ul class="wp-block-list"><li>SCK &#8211; this is the SPI Clock pin</li><li>SDO&nbsp;&#8211; MISO</li><li>SDI&nbsp;&#8211; MOSI</li><li>CS&nbsp;&#8211; Chip Select</li></ul>
+<p>To use I2C communication protocol, the sensor uses the following pins:</p>
+<ul class="wp-block-list"><li>SCK&nbsp;&#8211; this is also the SCL pin</li><li>SDI&nbsp;&#8211; this is also the SDA pin</li></ul>
+<h2 class="wp-block-heading">Schematic</h2>
+<!-- [trimmed: sketch walkthrough] -->
+<p>The code starts by including the needed libraries</p>
+<pre class="wp-block-code language-c"><code>#include &lt;Wire.h>
+#include &lt;Adafruit_Sensor.h>
+#include &lt;Adafruit_BME280.h></code></pre>
+</div></div></article>
+<!-- [trimmed: related posts grid, one card kept] -->
+<section class="elementor-section"><h3>What to Read Next&#8230;</h3>
+<article class="elementor-post"><h3 class="elementor-post__title">
+<a href="https://randomnerdtutorials.com/esp32-esp8266-thermostat-web-server/">ESP32/ESP8266 Thermostat Web Server</a></h3></article></section>
+			<div class="comments-area">
+				<div id="comments">
+	<h2 class="comments-title">101 thoughts on &ldquo;ESP32 Web Server with BME280 – Advanced Weather Station&rdquo;</h2>
+<ol class="comment-list"><li><article class="comment-body"><div class="comment-content"><p>Interesting, but seems a bit overkill to use an esp32 for this as an esp 8266  can do the same.</p></div></article></li></ol></div></div>
+</main>
+<footer class="site-info">Copyright Random Nerd Tutorials</footer></body></html>

@@ -1,0 +1,156 @@
+{
+  "project_id": "adafruit-sousviduino",
+  "plan_row": 5,
+  "title": "Sous-vide controller powered by Arduino - The SousViduino!",
+  "creator": "Adafruit",
+  "kind": "text",
+  "label_status": "agent_draft_needs_human_review",
+  "inputs": {
+    "url": "https://learn.adafruit.com/sous-vide-powered-by-arduino-the-sous-viduino"
+  },
+  "source": {
+    "url": "https://learn.adafruit.com/sous-vide-powered-by-arduino-the-sous-viduino.md?view=all",
+    "fetched_on": "2026-10-06",
+    "http_status": 200,
+    "robots_txt": "learn.adafruit.com robots.txt has no Disallow rules for User-agent: *",
+    "method": "one curl GET; parts list transcribed by hand from the fetched text"
+  },
+  "gold_bom": [
+    {
+      "name": "Arduino Uno",
+      "aliases": [
+        "Arduino UNO"
+      ],
+      "qty": 1,
+      "canonical_chip": "ATmega328P",
+      "module": "Arduino Uno",
+      "category": "mcu_board"
+    },
+    {
+      "name": "Wing Shield",
+      "aliases": [
+        "Proto Shield",
+        "Arduino proto shield"
+      ],
+      "qty": 1,
+      "category": "prototyping",
+      "notes": "Proto Shield or Wing Shield; assembly uses the Wing Shield."
+    },
+    {
+      "name": "RGB LCD shield",
+      "aliases": [
+        "RGB LCD Shield",
+        "LCD shield with buttons"
+      ],
+      "qty": 1,
+      "category": "display"
+    },
+    {
+      "name": "PowerSwitch Tail II",
+      "aliases": [
+        "Power Switch Tail",
+        "PowerSwitch Tail"
+      ],
+      "qty": 1,
+      "module": "PowerSwitch Tail II",
+      "category": "mains_switching"
+    },
+    {
+      "name": "High temperature DS18B20 sensor",
+      "aliases": [
+        "DS18B20",
+        "waterproof DS18B20 probe"
+      ],
+      "qty": 1,
+      "canonical_chip": "DS18B20",
+      "module": "waterproof probe",
+      "category": "sensor"
+    },
+    {
+      "name": "Food grade heat-shrink tubing",
+      "aliases": [
+        "heat shrink tubing"
+      ],
+      "qty": 1,
+      "category": "consumable"
+    },
+    {
+      "name": "Servo extension cable",
+      "aliases": [
+        "servo extension"
+      ],
+      "qty": 1,
+      "category": "cable"
+    },
+    {
+      "name": "JST power wire connector male",
+      "aliases": [
+        "JST connector male"
+      ],
+      "qty": 1,
+      "category": "connector"
+    },
+    {
+      "name": "JST power wire connector female",
+      "aliases": [
+        "JST connector female"
+      ],
+      "qty": 1,
+      "category": "connector"
+    },
+    {
+      "name": "4.7K ohm resistor",
+      "aliases": [
+        "4.7k resistor",
+        "4k7 resistor"
+      ],
+      "qty": 1,
+      "category": "passive",
+      "notes": "Comes with the DS18B20 sensor; DS18B20 pull-up."
+    },
+    {
+      "name": "Rice cooker",
+      "aliases": [
+        "slow cooker"
+      ],
+      "qty": 1,
+      "category": "appliance",
+      "notes": "Manual-control rice cooker (>=10 cups) or slow cooker (>=4 l)."
+    }
+  ],
+  "gold_substitutions": [
+    {
+      "original": "PowerSwitch Tail II",
+      "aliases": [
+        "Power Switch Tail"
+      ],
+      "acceptable": [
+        "SSR-25DA in enclosure",
+        "230V relay module (enclosed)",
+        "certified smart plug"
+      ],
+      "required_changes": [
+        "230V rated",
+        "Type D/M plug",
+        "enclosure",
+        "relay polarity check"
+      ],
+      "grade_range": [
+        "C",
+        "X"
+      ],
+      "case_ref": 2
+    }
+  ],
+  "must_flag": [
+    "MAINS"
+  ],
+  "notes": "Rice cooker must be a 230 V Indian model. Adafruit sells the controller parts as pack #1401.",
+  "ambiguities": [
+    "Positive vs negative RGB LCD shield: either.",
+    "Tools (cutters, strippers, iron, solder, screwdriver) excluded.",
+    "Generic 'shrink wrap tubing' in the tools list vs food-grade heat-shrink: one line."
+  ],
+  "drafted_by": "Claude Code agent (stream mvp/eval), not a human labeller",
+  "reviewed_by": []
+}

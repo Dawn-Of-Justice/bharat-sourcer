@@ -15,10 +15,13 @@ from bharat_sourcer.config import Settings
 from bharat_sourcer.conversation import Assistant, ConversationService, GeminiAssistant
 from bharat_sourcer.dispatch import CloudDispatcher, Work, work_once
 from bharat_sourcer.extraction import Extractor, GeminiExtractor
+from bharat_sourcer.gemini_extras import GeminiExtras, add_extras_routes
 from bharat_sourcer.identity import Principal
 from bharat_sourcer.images import PartImageService
 from bharat_sourcer.jobs import JobError, JobService
+from bharat_sourcer.plans import cart_plans, set_import_references
 from bharat_sourcer.schemas import (
+    CartPlans,
     ConfirmationAccepted,
     ConfirmJob,
     CreatedJob,
@@ -33,12 +36,15 @@ from bharat_sourcer.schemas import (
     ResistorInputs,
     SelectOffers,
     SendMessage,
+    SetImportReferences,
     UpdateJobSpecs,
     UpdateProject,
     now,
 )
+from bharat_sourcer.sharing import add_share_routes
 from bharat_sourcer.sourcing.research import GeminiResearch
 from bharat_sourcer.sourcing.service import GeminiDiscovery, SourcingService
+from bharat_sourcer.sourcing.trust import TrustChecker
 from bharat_sourcer.storage import FirestoreJobStore, JobStore, MemoryJobStore, StorageError
 from bharat_sourcer.streaming import snapshots
 
@@ -72,6 +78,7 @@ def create_app(
                 GeminiDiscovery(settings),
                 researcher=GeminiResearch(settings) if settings.research_enabled else None,
                 followup_enabled=settings.research_followup_enabled,
+                trust=TrustChecker() if settings.seller_trust_enabled else None,
             )
             if settings.sourcing_enabled and not settings.demo_mode
             else None
@@ -135,7 +142,7 @@ def create_app(
 
     app = FastAPI(
         title="Bharat Sourcer API",
-        version="0.19.3",
+        version="0.20.0",
         description=(
             "Demo or live YouTube and project-page extraction with optional Firestore job "
             "persistence."
@@ -150,6 +157,10 @@ def create_app(
     access = Access(settings, service, identity_verifier)
     app.state.access = access
     add_access_routes(app, access)
+    add_share_routes(app, service, access)
+    extras = GeminiExtras(settings, service)
+    app.state.extras = extras
+    add_extras_routes(app, extras)
 
     @app.exception_handler(StorageError)
     @app.exception_handler(GoogleAPICallError)
@@ -175,7 +186,7 @@ def create_app(
                 )
         if settings.auth_enabled and request.url.path.startswith("/v1/"):
             try:
-                if request.method == "POST" and request.url.path.startswith("/v1/jobs"):
+                if request.method in {"POST", "DELETE"} and request.url.path.startswith("/v1/jobs"):
                     access.csrf(request)
                     principal = await asyncio.to_thread(access.identity, request)
                     parts = request.url.path.split("/")
@@ -183,8 +194,12 @@ def create_app(
                         await asyncio.to_thread(service.get, parts[3], principal)
                     # Users must always be able to stop work after exhausting their quota.
                     # Image fallbacks have separate generation quotas; broken-image retries
-                    # must not consume the project action budget; nor do title/description edits.
-                    if not request.url.path.endswith(("/pause", "/image", "/project")):
+                    # must not consume the project action budget; nor do title/description edits
+                    # or creating/revoking a read-only share link (no work is started).
+                    # Gemini extras (explain, zoom, scan) are charged by their own quotas.
+                    if not request.url.path.endswith(
+                        ("/pause", "/image", "/project", "/share", "/explain", "/zoom", "/scan")
+                    ):
                         await asyncio.to_thread(access.charge, request, principal)
             except JobError as exc:
                 return JSONResponse(
@@ -210,7 +225,7 @@ def create_app(
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins,
-        allow_methods=["GET", "POST"],
+        allow_methods=["GET", "POST", "DELETE"],
         allow_headers=[
             "Content-Type",
             "X-Job-Token",
@@ -325,6 +340,24 @@ def create_app(
     )
     def select_offers(job_id: str, body: SelectOffers, x_job_token: JobToken = None):
         return service.select_offers(job_id, x_job_token, body)
+
+    @app.get(
+        "/v1/jobs/{job_id}/plans",
+        response_model=CartPlans,
+        tags=["jobs"],
+        responses={404: {"model": ErrorResponse}, 409: {"model": ErrorResponse}},
+    )
+    def get_plans(job_id: str, x_job_token: JobToken = None):
+        return cart_plans(service, job_id, x_job_token)
+
+    @app.post(
+        "/v1/jobs/{job_id}/import-references",
+        response_model=Job,
+        tags=["jobs"],
+        responses={404: {"model": ErrorResponse}, 409: {"model": ErrorResponse}},
+    )
+    def import_references(job_id: str, body: SetImportReferences, x_job_token: JobToken = None):
+        return set_import_references(service, job_id, x_job_token, body)
 
     @app.post(
         "/v1/jobs/{job_id}/refresh",

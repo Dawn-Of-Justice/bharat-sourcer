@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "bharat-sourcer-backend"
-version = "0.19.3"
+version = "0.20.0"
 description = "Bharat Sourcer API and analysis workflow"
 requires-python = ">=3.12"
 dependencies = [
@@ -24,6 +24,10 @@ dev = ["httpx>=0.28,<1", "pytest>=8.3,<10", "ruff>=0.11,<1"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+"bharat_sourcer.sourcing" = ["*.json"]
+bharat_sourcer = ["data/*.json"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

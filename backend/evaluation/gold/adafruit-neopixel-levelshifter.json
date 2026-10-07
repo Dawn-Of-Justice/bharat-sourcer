@@ -1,0 +1,90 @@
+{
+  "project_id": "adafruit-neopixel-levelshifter",
+  "plan_row": 7,
+  "title": "Level Shifting 3.3V microcontrollers and NeoPixels",
+  "creator": "Adafruit",
+  "kind": "text",
+  "label_status": "agent_draft_needs_human_review",
+  "inputs": {
+    "url": "https://learn.adafruit.com/neopixel-levelshifter"
+  },
+  "source": {
+    "url": "https://learn.adafruit.com/neopixel-levelshifter.md?view=all",
+    "fetched_on": "2026-10-06",
+    "http_status": 200,
+    "robots_txt": "learn.adafruit.com robots.txt has no Disallow rules for User-agent: *",
+    "method": "one curl GET; parts list transcribed by hand from the fetched text"
+  },
+  "gold_bom": [
+    {
+      "name": "Adafruit Feather M0 Basic Proto",
+      "aliases": [
+        "Feather M0"
+      ],
+      "qty": 1,
+      "canonical_chip": "ATSAMD21G18",
+      "category": "mcu_board",
+      "notes": "Example 3.3 V microcontroller in the connections text."
+    },
+    {
+      "name": "TXB0108 8-channel level shifter",
+      "aliases": [
+        "8-channel logic level converter",
+        "LXB0108 level shifter",
+        "logic level shifter"
+      ],
+      "qty": 1,
+      "canonical_chip": "TXB0108",
+      "module": "Adafruit 8-channel bi-directional level shifter (#395)",
+      "category": "level_shifter",
+      "notes": "Guide text says 'LXB0108'; product #395 is the TXB0108 breakout."
+    },
+    {
+      "name": "NeoPixel strip",
+      "aliases": [
+        "NeoPixel LED strip",
+        "WS2812B strip"
+      ],
+      "qty": 6,
+      "category": "led",
+      "notes": "'six channels of NeoPixel strips'; length and LED count not given."
+    },
+    {
+      "name": "5V power supply",
+      "aliases": [
+        "5V power brick",
+        "large 5V power supply"
+      ],
+      "qty": 1,
+      "category": "power_supply"
+    },
+    {
+      "name": "Breadboard",
+      "aliases": [],
+      "qty": 1,
+      "category": "prototyping"
+    },
+    {
+      "name": "Perma-Proto board",
+      "aliases": [
+        "PermaProto board"
+      ],
+      "qty": 1,
+      "category": "prototyping",
+      "notes": "Optional permanent build."
+    }
+  ],
+  "gold_substitutions": [],
+  "must_flag": [
+    "LEVEL_SHIFT",
+    "HIGH_CURRENT"
+  ],
+  "notes": "An explainer, not a build guide: there is no parts list. Parts are drafted from prose; the 74AHCT125 (#1787) and Adafruit Pixel Shifter (#6066) are named as alternative shifters.",
+  "ambiguities": [
+    "Whole BOM is inferred from prose; reviewer may decide this case tests the rule only.",
+    "Six strips at full brightness from a 'large 5V power brick' motivates HIGH_CURRENT; current is not stated.",
+    "74AHCT125 vs TXB0108: gold uses the shifter the author used."
+  ],
+  "drafted_by": "Claude Code agent (stream mvp/eval), not a human labeller",
+  "reviewed_by": []
+}

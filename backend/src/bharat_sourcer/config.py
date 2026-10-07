@@ -44,9 +44,23 @@ class Settings(BaseSettings):
     sourcing_candidates_per_part: int = Field(default=5, ge=1, le=8)
     sourcing_lease_s: int = Field(default=1800, ge=600, le=7200)
     research_enabled: bool = True
+    seller_trust_enabled: bool = True
     research_followup_enabled: bool = True
     research_pages_per_part: int = Field(default=3, ge=1, le=5)
     research_page_chars: int = Field(default=12000, ge=2000, le=20000)
+    # Opt-in Gemini extras (gemini_extras.py); each has its own per-owner daily quota.
+    explain_enabled: bool = False
+    explain_daily_limit: int = Field(default=10, ge=1, le=200)
+    explain_max_chars: int = Field(default=900, ge=500, le=2000)
+    tts_model: str = Field(default="gemini-3.8-flash-tts", pattern=r"^[a-zA-Z0-9.-]+$")
+    tts_voice: str = Field(default="Kore", pattern=r"^[A-Za-z]+$")
+    zoom_enabled: bool = False
+    zoom_daily_limit: int = Field(default=10, ge=1, le=200)
+    zoom_clip_s: int = Field(default=15, ge=10, le=20)
+    scan_enabled: bool = False
+    scan_daily_limit: int = Field(default=5, ge=1, le=100)
+    scan_max_bytes: int = Field(default=4_000_000, ge=100_000, le=5_000_000)
+    extras_global_daily_limit: int = Field(default=200, ge=1)
     cors_origins: list[str] = ["http://localhost:5173", "http://127.0.0.1:5173"]
 
     @model_validator(mode="after")

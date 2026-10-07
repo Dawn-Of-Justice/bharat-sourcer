@@ -1,0 +1,83 @@
+{
+  "project_id": "rnt-esp32-bme280-web-server",
+  "plan_row": 12,
+  "title": "ESP32 Web Server with BME280 - Mini Weather Station",
+  "creator": "Random Nerd Tutorials",
+  "kind": "text",
+  "label_status": "agent_draft_needs_human_review",
+  "inputs": {
+    "url": "https://randomnerdtutorials.com/esp32-web-server-with-bme280-mini-weather-station/",
+    "video_url": "https://www.youtube.com/watch?v=6LjbTgX046w"
+  },
+  "source": {
+    "url": "https://randomnerdtutorials.com/esp32-web-server-with-bme280-mini-weather-station/",
+    "fetched_on": "2026-10-06",
+    "http_status": 200,
+    "robots_txt": "allowed (robots.txt disallows only /wp-admin/)",
+    "method": "one curl GET; parts list transcribed by hand from the fetched text"
+  },
+  "gold_bom": [
+    {
+      "name": "ESP32 DOIT DevKit V1",
+      "aliases": [
+        "ESP32 development board",
+        "ESP32 DevKit"
+      ],
+      "qty": 1,
+      "canonical_chip": "ESP32",
+      "module": "ESP32 DOIT DEVKIT V1",
+      "category": "mcu_board"
+    },
+    {
+      "name": "BME280 sensor module",
+      "aliases": [
+        "BME280"
+      ],
+      "qty": 1,
+      "canonical_chip": "BME280",
+      "category": "sensor"
+    },
+    {
+      "name": "Breadboard",
+      "aliases": [],
+      "qty": 1,
+      "category": "prototyping"
+    },
+    {
+      "name": "Jumper wires",
+      "aliases": [
+        "hookup wires"
+      ],
+      "qty": null,
+      "category": "wire"
+    }
+  ],
+  "gold_substitutions": [
+    {
+      "original": "BME280 sensor module",
+      "aliases": [
+        "BME280"
+      ],
+      "acceptable": [
+        "GY-BME280 3.3 V module"
+      ],
+      "required_changes": [
+        "I2C address 0x76 (code already uses bme.begin(0x76))",
+        "verify chip id 0x60 (BMP280 lookalike risk)"
+      ],
+      "grade_range": [
+        "A",
+        "B"
+      ],
+      "case_ref": 1,
+      "notes": "Related to Case 1; RNT already uses a generic module at 0x76, so a GY-BME280 should be near drop-in. Reviewer: confirm the range."
+    }
+  ],
+  "must_flag": [],
+  "notes": "Parts Required list transcribed. Code calls bme.begin(0x76).",
+  "ambiguities": [
+    "Breadboard and jumper quantities are not given."
+  ],
+  "drafted_by": "Claude Code agent (stream mvp/eval), not a human labeller",
+  "reviewed_by": []
+}
