@@ -3,6 +3,7 @@
 import hashlib
 import hmac
 import ipaddress
+import logging
 import math
 import time
 from datetime import UTC, datetime
@@ -15,6 +16,8 @@ from bharat_sourcer.countries import COUNTRIES, DEFAULT_COUNTRY
 from bharat_sourcer.identity import FirebaseVerifier, GuestSessions, IdentityUnavailable
 from bharat_sourcer.jobs import JobError
 from bharat_sourcer.schemas import AccountSettings, CountryCode, Job, Model, Status
+
+log = logging.getLogger(__name__)
 
 
 def credential(request: Request, x_job_token: str | None = Header(default=None)):
@@ -320,6 +323,19 @@ def add_access_routes(app, access):
             ],
             next_cursor=records[limit - 1].job.job_id if len(records) > limit else None,
         )
+
+    @app.delete("/v1/projects/{job_id}", status_code=204, tags=["projects"])
+    def delete_project(job_id: str, request: Request):
+        """Permanently delete an owned project: its parts list, offers, conversation and
+        share link. Work still running for it stops at its next save."""
+        principal = access.identity(request)
+        access.csrf(request)
+        access.service._validate_id(job_id)
+        record = access.service.store.get(job_id)
+        if record is None or record.owner_id != principal.owner:
+            raise JobError(404, "JOB_NOT_FOUND", "Project not found")
+        access.service.store.delete(job_id)
+        log.info("PROJECT_DELETED job_id=%s", job_id)
 
     @app.post("/v1/projects/{job_id}/claim", response_model=Job, tags=["projects"])
     def claim(job_id: str, body: ClaimProject, request: Request):

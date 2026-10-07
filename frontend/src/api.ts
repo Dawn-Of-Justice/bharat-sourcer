@@ -271,6 +271,7 @@ export const getSession = () => request<Session>('/v1/session')
 export const startGuest = () => request<Session>('/v1/session/guest', { method: 'POST' })
 export const logoutSession = () => request<void>('/v1/session/logout', { method: 'POST' })
 export const listProjects = (cursor?: string) => request<{ projects: Project[]; next_cursor: string | null }>('/v1/projects?limit=20' + (cursor ? '&cursor=' + encodeURIComponent(cursor) : ''))
+export const deleteProject = (id: string) => request<void>('/v1/projects/' + encodeURIComponent(id), { method: 'DELETE' })
 export const claimProject = (id: string, token?: string) => request('/v1/projects/' + encodeURIComponent(id) + '/claim', { method: 'POST', body: JSON.stringify(token ? { job_token: token } : {}) })
 
 export interface UsageWindow { limit: number; used: number; remaining: number; resets_at: number }
