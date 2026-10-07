@@ -2,9 +2,9 @@ import { useState, type FormEvent } from 'react'
 import { evidenceText, offersOf, refreshOffers, reportOf, selectOffer, updateRequirements, type BuyableSpec, type Job, type ReportLine, type ResearchAssessment, type PartRequirement } from './api'
 import Requirements, { requirementPayload, validRequirements } from './Requirements'
 import { CostSummary, GradeChip, GstChip, MatchChip, PackPrice, ProductImage, TrustBadges, price, secureLink } from './ReportBits'
-import OrderPlanView, { ImportCard } from './OrderPlan'
+import OrderPlanView from './OrderPlan'
 import Markets from './Markets'
-import { ExplainAloud, ExportButtons, ShareControl } from './ReportActions'
+import { ExportButtons, ShareControl } from './ReportActions'
 import SafetyBanners from './SafetyBanners'
 
 function Assessment({ value }: { value: ResearchAssessment }) {
@@ -99,20 +99,17 @@ export default function Results({ job, token, onJob, shareToken }: { job: Job; t
     })
   }
   const offerPicker = (line: ReportLine) => <OfferList job={job} line={line} token={token} onJob={onJob} readOnly={readOnly} />
-  const cost = job.cost_estimate?.total_usd
   return (
     <section className="job-panel report-panel">
       <header className="report-heading">
         <div>
           <span className="section-kicker">YOUR DESI BOM</span>
           <h2>{hasPlan && shown === 'plan' ? 'Your order plan' : 'Explore the parts'}</h2>
-          {job.demo
-            ? <div className="demo-alert"><strong>Demo data</strong> · Fixed sample. Sellers, prices and compatibility were not verified.</div>
-            : <p className="job-panel-intro">Seller listings are snapshots. Check price, stock and fit on the seller page before ordering.</p>}
+          {job.demo && <div className="demo-alert"><strong>Demo data</strong> · Fixed sample. Sellers, prices and compatibility were not verified.</div>}
         </div>
         <div className="report-toolbar" aria-label="Report actions">
           <ExportButtons base={readOnly ? '/v1/shared/' + encodeURIComponent(shareToken!) : '/v1/jobs/' + encodeURIComponent(job.job_id)} token={readOnly ? undefined : token} name={(job.project?.title || 'bharat-sourcer-bom').replace(/[^\w-]+/g, '-').slice(0, 60)} />
-          {!readOnly && <ShareControl job={job} token={token} />}
+          {!readOnly && <ShareControl key={job.job_id} job={job} token={token} />}
         </div>
       </header>
       {hasPlan && <div className="report-views" role="group" aria-label="Report view">
@@ -161,13 +158,7 @@ export default function Results({ job, token, onJob, shareToken }: { job: Job; t
               {report.costing ? <CostSummary costing={report.costing} title={report.costing.complete ? 'Selected parts estimate' : 'Partial estimate (selected parts only)'} lineNames={names} /> : !job.demo && <div className="subtotal"><span>Selected parts subtotal</span><strong>{price(report.parts_subtotal_inr ?? report.selected_parts_subtotal_inr)}</strong></div>}
               {refreshable && <div className="refresh-controls"><p>New seller search may use paid analysis. Selected parts lose their old quotes; other parts stay saved. {2 - (job.refresh_count ?? 0)} of 2 refresh batches remain.</p><button className="nav-cta" disabled={!refreshIds.length || refreshIds.length > 10 || refreshing} onClick={() => void refresh()}>{refreshing ? 'Starting search…' : `Refresh ${refreshIds.length} selected ${refreshIds.length === 1 ? 'part' : 'parts'}`}</button>{refreshIds.length > 10 && <p>Select at most 10 parts per batch.</p>}{error && <p className="form-error" role="alert">{error}</p>}</div>}
             </>}
-          <div className="report-extras">
-            <ImportCard key={JSON.stringify(report.lines.map(line => line.import_reference ?? null))} job={job} token={token} onJob={onJob} readOnly={readOnly} />
-            {!readOnly && <Markets job={job} token={token} />}
-            {!readOnly && <ExplainAloud job={job} token={token} />}
-          </div>
-          {cost != null && !readOnly && <p className="report-diagnostics">Estimated AI cost for this project: ${cost.toFixed(cost < 0.1 ? 4 : 2)} · estimated from token counts, not a charge{job.cost_estimate?.budget_reached ? ' · this run reached its AI budget' : ''}.</p>}
-          <p className="result-disclaimer">Seller prices, stock and compatibility need your review before ordering. Selecting a quote does not purchase anything.</p>
+          {!readOnly && <div className="report-extras"><Markets job={job} token={token} /></div>}
         </div>
         {!!job.safety_flags?.length && <aside className="report-safety"><SafetyBanners flags={job.safety_flags} lineNames={names} onShowLine={showLine} /></aside>}
       </div>

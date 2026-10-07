@@ -1,10 +1,9 @@
 import { useEffect, useState } from 'react'
-import { createShare, explainAloud, exportBlob, getExtras, getShare, revokeShare, shareUrl, type Explanation, type ExtrasStatus, type Job, type ShareStatus } from './api'
+import { createShare, exportBlob, shareUrl, type Job } from './api'
 
 const errorText = (cause: unknown, fallback: string) => cause instanceof Error ? cause.message : fallback
 
 // Exports go through the proxy so credentials are attached; the blob is saved or opened locally.
-// `base` is '/v1/jobs/{id}' for owners or '/v1/shared/{share_token}' on the public share page.
 export function ExportButtons({ base, token, name }: { base: string; token?: string; name: string }) {
   const [busy, setBusy] = useState('')
   const [error, setError] = useState('')
@@ -20,7 +19,6 @@ export function ExportButtons({ base, token, name }: { base: string; token?: str
     finally { setBusy('') }
   }
   async function print() {
-    // Open the tab during the click so popup blockers allow it, then point it at the fetched report.
     const tab = window.open('', '_blank')
     setBusy('html'); setError('')
     try {
@@ -35,57 +33,24 @@ export function ExportButtons({ base, token, name }: { base: string; token?: str
 }
 
 export function ShareControl({ job, token }: { job: Job; token: string }) {
-  const [status, setStatus] = useState<ShareStatus | null>(null)
   const [link, setLink] = useState('')
-  const [copied, setCopied] = useState(false)
   const [busy, setBusy] = useState(false)
+  const [notice, setNotice] = useState('')
   const [error, setError] = useState('')
   useEffect(() => {
-    let active = true
-    void getShare(job.job_id, token).then(value => { if (active) setStatus(value) }).catch(() => { /* Share state is optional; the create button still works. */ })
-    return () => { active = false }
-  }, [job.job_id, token])
-  async function create() {
-    setBusy(true); setError(''); setCopied(false)
-    try { const created = await createShare(job.job_id, token); setLink(shareUrl(created.share_token)); setStatus({ active: true, created_at: created.created_at }) }
-    catch (cause) { setError(errorText(cause, 'Could not create a share link.')) }
+    if (!notice) return
+    const timer = window.setTimeout(() => setNotice(''), 2500)
+    return () => window.clearTimeout(timer)
+  }, [notice])
+  async function share() {
+    setBusy(true); setNotice(''); setError('')
+    try {
+      const url = link || shareUrl((await createShare(job.job_id, token)).share_token)
+      setLink(url)
+      await navigator.clipboard.writeText(url)
+      setNotice('Link copied')
+    } catch (cause) { setError(errorText(cause, 'Could not copy the link.')) }
     finally { setBusy(false) }
   }
-  async function revoke() {
-    setBusy(true); setError('')
-    try { await revokeShare(job.job_id, token); setLink(''); setStatus({ active: false, created_at: null }) }
-    catch (cause) { setError(errorText(cause, 'Could not revoke the share link.')) }
-    finally { setBusy(false) }
-  }
-  async function copy() {
-    try { await navigator.clipboard.writeText(link); setCopied(true) } catch { setError('Copy failed. Select the link and copy it manually.') }
-  }
-  return <details className="share-control"><summary>Share link</summary><div className="share-content"><p>{status?.active ? 'A read-only report link is active.' : 'Create a read-only link to this report.'}</p>{link && <div className="share-copy"><label>Link<input readOnly value={link} onFocus={event => event.target.select()} /></label><button type="button" className="report-action" onClick={() => void copy()}>{copied ? '✓ Copied' : 'Copy'}</button></div>}<div className="share-buttons"><button type="button" className="report-action" disabled={busy} onClick={() => void create()}>{busy ? 'Working…' : status?.active ? 'Create new link' : 'Create link'}</button>{status?.active && <button type="button" className="report-action" disabled={busy} onClick={() => void revoke()}>Revoke</button>}</div>{error && <p className="form-error" role="alert">{error}</p>}</div></details>
-}
-
-const languageNames: Record<string, string> = { en: 'English', hi: 'हिन्दी (Hindi)', ta: 'தமிழ் (Tamil)', ml: 'മലയാളം (Malayalam)', bn: 'বাংলা (Bengali)', te: 'తెలుగు (Telugu)', kn: 'ಕನ್ನಡ (Kannada)', mr: 'मराठी (Marathi)' }
-
-// Hidden unless GET /extras reports explain as enabled. Calls can take tens of seconds.
-export function ExplainAloud({ job, token }: { job: Job; token: string }) {
-  const [extras, setExtras] = useState<ExtrasStatus | null>(null)
-  const [language, setLanguage] = useState('hi')
-  const [result, setResult] = useState<Explanation | null>(null)
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState('')
-  useEffect(() => {
-    let active = true
-    void getExtras(job.job_id, token).then(value => { if (active) setExtras(value) }).catch(() => { /* Extras stay hidden. */ })
-    return () => { active = false }
-  }, [job.job_id, token])
-  if (!extras?.explain.enabled) return null
-  const languages = extras.languages.filter(code => code !== 'en')
-  if (!languages.length) return null
-  const selectedLanguage = languages.includes(language) ? language : languages[0]
-  async function explain() {
-    setBusy(true); setError('')
-    try { setResult(await explainAloud(job.job_id, token, selectedLanguage)); setExtras(current => current && { ...current, explain: { ...current.explain, remaining: Math.max(0, current.explain.remaining - 1) } }) }
-    catch (cause) { setError(errorText(cause, 'Could not prepare the explanation.')) }
-    finally { setBusy(false) }
-  }
-  return <section className="explain-aloud" aria-label="Explain aloud"><div className="explain-controls"><label>Language<select value={selectedLanguage} onChange={event => setLanguage(event.target.value)} disabled={busy}>{languages.map(code => <option key={code} value={code}>{languageNames[code] ?? code}</option>)}</select></label><button type="button" className="nav-cta" disabled={busy || extras.explain.remaining < 1} onClick={() => void explain()}>🔊 {busy ? 'Preparing audio…' : 'Explain aloud'}</button><small>{extras.explain.remaining} of {extras.explain.daily_limit} left today</small></div>{busy && <p role="status"><span className="loading-indicator" /> This can take up to a minute.</p>}{error && <p className="form-error" role="alert">{error}</p>}{result && <div className="explain-result">{result.demo && <p className="demo-alert"><strong>Demo sample</strong> · Not generated for this project.</p>}<audio controls src={'data:audio/wav;base64,' + result.audio_base64} /><details><summary>Transcript · {result.label}</summary><p>{result.transcript}</p></details></div>}</section>
+  return <div className="share-control"><button type="button" className="report-action" disabled={busy} onClick={() => void share()}>{busy ? 'Sharing…' : 'Share link'}</button>{notice && <div className="share-toast" role="status">{notice}</div>}{error && <div className="share-toast share-toast-error" role="alert">{error}{link && <input aria-label="Share link to copy" readOnly value={link} onFocus={event => event.target.select()} />}</div>}</div>
 }
