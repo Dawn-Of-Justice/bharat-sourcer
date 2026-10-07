@@ -33,9 +33,7 @@ def client():
 
 
 def create_done_job(client, headers=None, edits=None):
-    response = client.post(
-        "/v1/jobs", json={"url": "https://example.com/build"}, headers=headers
-    )
+    response = client.post("/v1/jobs", json={"url": "https://example.com/build"}, headers=headers)
     assert response.status_code == 202
     created = response.json()
     auth = headers or {"X-Job-Token": created["job_token"]}
