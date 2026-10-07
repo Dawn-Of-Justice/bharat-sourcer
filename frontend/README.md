@@ -99,7 +99,7 @@ Run npm run dev and open http://localhost:5173/?preview=1. The preview toolbar s
 ## Accounts and saved projects (5 October 2026)
 
 - Google sign-in creates or reopens a Firebase account. The SDK refreshes ID tokens before API requests, including chat and fetch-based SSE reconnects. All browser requests include credentials; POSTs send `X-Requested-With: BharatSourcer`.
-- Signed-in accounts choose a **Country** in the account panel (`countries` in `Account.tsx`, exposed as `useAccount().country`). Only India is offered today; the choice is saved in this browser's localStorage and is not yet sent to the backend, which sources for India only.
+- Signed-in accounts choose a **Country** from a flag dropdown in the account panel (`countries` and the SVG flags in `CountryPicker.tsx`, exposed as `useAccount().country`). Only India is offered today; the choice is saved in this browser's localStorage and is not yet sent to the backend, which sources for India only.
 - The account panel also supports explicit guest entry and logout. `/projects` lists owner-only saved projects with pagination and opens their existing job IDs without creating another job. Guest-to-account saving is explicit after sign-in and does not rerun analysis.
 - The proxy forwards Authorization, Cookie, Origin and X-Requested-With, preserves separate Set-Cookie headers, Retry-After and Cache-Control, and applies no-store if upstream has no cache policy. It deliberately does not trust browser-supplied client-IP headers.
 - A 401 prompts sign-in recovery. Provider outages preserve the session. Quota errors show the retry time and leave saved work readable; the account panel reads personal usage when opened. Live sourcing can be paused/resumed.

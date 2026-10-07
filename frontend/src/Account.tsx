@@ -1,11 +1,9 @@
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import { ApiError, getUsage, getSession, startGuest, logoutSession, listProjects, claimProject, type Session, type Project, type UsageWindow } from './api'
 import { auth, firebaseLogout, googleLogin, localPreview } from './auth'
+import { countries, CountryPicker, type CountryCode } from './CountryPicker'
 
 type Identity = Session | 'legacy' | null
-// Countries we source for. Only India is supported today; add entries here as sellers are added.
-export const countries = [{ code: 'IN', name: 'India', dial: '+91' }] as const
-export type CountryCode = typeof countries[number]['code']
 const countryKey = 'bharat-sourcer:country'
 function savedCountry(): CountryCode {
   try { const value = localStorage.getItem(countryKey); return countries.find(country => country.code === value)?.code ?? 'IN' } catch { return 'IN' }
@@ -110,11 +108,9 @@ export function AccountProvider({ children }: { children: ReactNode }) {
         <p>Actions this minute: {usage.minute_actions.remaining} of {usage.minute_actions.limit} remaining. Resets {resetTime(usage.minute_actions)}. Saved projects remain readable at the limit.</p>
       </div>}
       {identity && identity !== 'legacy' && identity.kind === 'account' && <div className="country-setting">
-        <label htmlFor="account-country">Country</label>
-        <select id="account-country" value={country} onChange={event => chooseCountry(event.target.value as CountryCode)}>
-          {countries.map(option => <option key={option.code} value={option.code}>{option.name} ({option.dial})</option>)}
-        </select>
-        <p>We find sellers that deliver to this country. Only India is available for now; more countries are coming. Saved on this device.</p>
+        <span className="country-label" id="account-country">Country</span>
+        <CountryPicker labelId="account-country" value={country} onChange={chooseCountry} />
+        <p>We find sellers that deliver to this country. Saved on this device.</p>
       </div>}
       <div className="account-actions">
         <button className="primary-button" disabled={busy || !ready || checkingGuestProjects || !!guestCaptureError || !!(identity && identity !== 'legacy' && identity.kind === 'guest' && !guestCaptureDone)} onClick={() => void act('google')}>{busy || checkingGuestProjects || (identity && identity !== 'legacy' && identity.kind === 'guest' && !guestCaptureDone) ? 'Please wait…' : localPreview ? 'Try demo account' : identity && identity !== 'legacy' && identity.kind === 'account' ? 'Switch Google account' : 'Sign in with Google'}</button>
