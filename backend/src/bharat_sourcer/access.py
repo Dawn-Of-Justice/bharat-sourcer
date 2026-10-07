@@ -11,9 +11,10 @@ from typing import Annotated
 from fastapi import Depends, Header, Query, Request, Response
 from pydantic import Field
 
+from bharat_sourcer.countries import COUNTRIES, DEFAULT_COUNTRY
 from bharat_sourcer.identity import FirebaseVerifier, GuestSessions, IdentityUnavailable
 from bharat_sourcer.jobs import JobError
-from bharat_sourcer.schemas import Job, Model, Status
+from bharat_sourcer.schemas import AccountSettings, CountryCode, Job, Model, Status
 
 
 def credential(request: Request, x_job_token: str | None = Header(default=None)):
@@ -62,6 +63,29 @@ class ProjectSummary(Model):
 class ProjectList(Model):
     projects: list[ProjectSummary]
     next_cursor: str | None = None
+
+
+class CountryInfo(Model):
+    code: str
+    name: str
+    currency: str
+    locale: str
+    # Cities the nearby-markets lookup accepts as `city`.
+    market_cities: list[str]
+
+
+class CountryList(Model):
+    default: str
+    countries: list[CountryInfo]
+
+
+class AccountSettingsResponse(AccountSettings):
+    # False until the account saves settings; guests always get the defaults.
+    saved: bool = False
+
+
+class UpdateAccountSettings(Model):
+    country: CountryCode
 
 
 class ClaimProject(Model):
@@ -238,6 +262,40 @@ def add_access_routes(app, access):
         access.enabled()
         access.csrf(request)
         response.delete_cookie(access.sessions.cookie_name, path="/", secure=True, httponly=True)
+
+    @app.get("/v1/countries", response_model=CountryList, tags=["identity"])
+    def countries():
+        return CountryList(
+            default=DEFAULT_COUNTRY,
+            countries=[
+                CountryInfo(
+                    code=c.code,
+                    name=c.name,
+                    currency=c.currency,
+                    locale=c.locale,
+                    market_cities=[city.name for city in c.cities],
+                )
+                for c in COUNTRIES.values()
+            ],
+        )
+
+    @app.get("/v1/account/settings", response_model=AccountSettingsResponse, tags=["identity"])
+    def account_settings(request: Request):
+        principal = access.identity(request)
+        saved = None if principal.guest else access.service.store.get_account(principal.owner)
+        if saved is None:
+            return AccountSettingsResponse()
+        return AccountSettingsResponse(**saved.model_dump(), saved=True)
+
+    @app.post("/v1/account/settings", response_model=AccountSettingsResponse, tags=["identity"])
+    def update_account_settings(body: UpdateAccountSettings, request: Request):
+        principal = access.identity(request)
+        if principal.guest:
+            raise JobError(401, "ACCOUNT_REQUIRED", "Sign in to save settings")
+        access.csrf(request)
+        settings = AccountSettings(country=body.country, updated_at=datetime.now(UTC))
+        access.service.store.put_account(principal.owner, settings)
+        return AccountSettingsResponse(**settings.model_dump(), saved=True)
 
     @app.get("/v1/projects", response_model=ProjectList, tags=["projects"])
     def projects(request: Request, cursor: str = "", limit: int = Query(default=20, ge=1, le=50)):

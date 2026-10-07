@@ -9,6 +9,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from bharat_sourcer.catalog import CatalogEntry
+from bharat_sourcer.countries import INDIA
 
 ORDER = {"A": 0, "B": 1, "C": 2, "D": 3, "X": 4}
 LABELS = {
@@ -89,7 +90,7 @@ class Context:
     source_controller: str | None = None
     strapping_pins: tuple[int, ...] = ()
     input_only_pins: tuple[int, ...] = ()
-    mains_vac: float = 230
+    mains_vac: float = INDIA.mains_vac
     uses_battery: bool | None = None
     needs: frozenset[str] = frozenset()
     motor_supply_v: float | None = None

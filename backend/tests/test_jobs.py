@@ -16,7 +16,7 @@ def client():
 
 
 def create_job(client):
-    response = client.post("/v1/jobs", json={"url": "https://example.com/build", "pin": "560001"})
+    response = client.post("/v1/jobs", json={"url": "https://example.com/build"})
     assert response.status_code == 202
     created = response.json()
     return created["watch"], {"X-Job-Token": created["job_token"]}
@@ -111,7 +111,8 @@ def test_empty_bom_rejected(client):
     "body",
     [
         {"url": "file:///etc/passwd"},
-        {"url": "https://example.com", "pin": "000000"},
+        {"url": "https://example.com", "country": "US"},
+        {"url": "https://example.com", "country": "india"},
         {"url": "https://example.com", "surprise": True},
     ],
 )

@@ -1,9 +1,10 @@
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
-import { ApiError, getUsage, getSession, startGuest, logoutSession, listProjects, claimProject, type Session, type Project, type UsageWindow } from './api'
+import { ApiError, getAccountSettings, getCountries, saveAccountSettings, getUsage, getSession, startGuest, logoutSession, listProjects, claimProject, type Session, type Project, type UsageWindow } from './api'
 import { auth, firebaseLogout, googleLogin, localPreview } from './auth'
+import { CountryPicker, fallbackCountries, type CountryOption } from './CountryPicker'
 
 type Identity = Session | 'legacy' | null
-const AccountContext = createContext<{ identity: Identity; ready: boolean; revision: number; requireIdentity: () => boolean; open: () => void }>({ identity: null, ready: false, revision: 0, requireIdentity: () => false, open: () => {} })
+const AccountContext = createContext<{ identity: Identity; ready: boolean; revision: number; country: string; requireIdentity: () => boolean; open: () => void }>({ identity: null, ready: false, revision: 0, country: 'IN', requireIdentity: () => false, open: () => {} })
 export const useAccount = () => useContext(AccountContext)
 
 function resetTime(window: UsageWindow) {
@@ -28,6 +29,26 @@ export function AccountProvider({ children }: { children: ReactNode }) {
   const [captureAttempt, setCaptureAttempt] = useState(0)
   const [revision, setRevision] = useState(0)
   const [usage, setUsage] = useState<Awaited<ReturnType<typeof getUsage>> | null>(null)
+  // Delivery country: saved on the account by the backend, which also lists the supported countries.
+  const [country, setCountry] = useState('IN')
+  const [countryOptions, setCountryOptions] = useState<CountryOption[]>(fallbackCountries)
+  const [countryStatus, setCountryStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+  const isAccount = !!identity && identity !== 'legacy' && identity.kind === 'account'
+  useEffect(() => {
+    let active = true
+    setCountryStatus('idle')
+    if (!isAccount) { setCountry('IN'); return }
+    getAccountSettings().then(settings => { if (active) setCountry(settings.country) }).catch(() => {})
+    getCountries().then(list => { if (active && list.countries.length) setCountryOptions(list.countries) }).catch(() => {})
+    return () => { active = false }
+  }, [isAccount, revision])
+  async function chooseCountry(code: string) {
+    if (code === country) return
+    const previous = country
+    setCountry(code); setCountryStatus('saving')
+    try { setCountry((await saveAccountSettings({ country: code })).country); setCountryStatus('saved') }
+    catch { setCountry(previous); setCountryStatus('error') }
+  }
   useEffect(() => {
     let active = true
     if (!visible || !identity || identity === 'legacy' || identity.kind !== 'guest') return
@@ -81,7 +102,7 @@ export function AccountProvider({ children }: { children: ReactNode }) {
     }
     finally { setBusy(false) }
   }
-  const value = { identity, ready, revision, requireIdentity: () => { if (ready && identity) return true; setVisible(true); return false }, open: () => { if (identity && identity !== 'legacy' && identity.kind === 'guest') setGuestCaptureDone(false); setVisible(true) } }
+  const value = { identity, ready, revision, country, requireIdentity: () => { if (ready && identity) return true; setVisible(true); return false }, open: () => { if (identity && identity !== 'legacy' && identity.kind === 'guest') setGuestCaptureDone(false); setVisible(true) } }
   return <AccountContext.Provider value={value}>{children}
     {guestProjects.length > 0 && identity && identity !== 'legacy' && identity.kind === 'account' && <section className="claim-panel container"><h2>Keep your guest projects</h2><p>Choose which projects to save to this account. The saved parts, research, offers, and conversation will come with them.</p>{guestProjects.map(project => <div className="claim-row" key={project.job_id}><span>{project.url}</span><button className="nav-cta" disabled={busy} onClick={async () => { setBusy(true); setError(''); try { await claimProject(project.job_id); setGuestProjects(rows => rows.filter(row => row.job_id !== project.job_id)); setRevision(n => n + 1) } catch (cause) { setError(cause instanceof Error ? cause.message : 'Could not save project') } finally { setBusy(false) } }}>Save this project to my account</button></div>)}{error && <p role="alert">{error}</p>}</section>}
     {visible && <AccountDialog close={() => !busy && setVisible(false)}>
@@ -96,6 +117,12 @@ export function AccountProvider({ children }: { children: ReactNode }) {
         <p>New projects: {usage.daily_projects.remaining} of {usage.daily_projects.limit} remaining. Resets {resetTime(usage.daily_projects)}.</p>
         <p>Actions today: {usage.daily_actions.remaining} of {usage.daily_actions.limit} remaining. Resets {resetTime(usage.daily_actions)}.</p>
         <p>Actions this minute: {usage.minute_actions.remaining} of {usage.minute_actions.limit} remaining. Resets {resetTime(usage.minute_actions)}. Saved projects remain readable at the limit.</p>
+      </div>}
+      {isAccount && <div className="country-setting">
+        <span className="country-label" id="account-country">Country</span>
+        <CountryPicker labelId="account-country" options={countryOptions} value={country} onChange={code => void chooseCountry(code)} disabled={countryStatus === 'saving'} />
+        <p>New projects find sellers that deliver to this country.</p>
+        {countryStatus !== 'idle' && <p className={countryStatus === 'error' ? 'form-error' : 'country-status'} role={countryStatus === 'error' ? 'alert' : 'status'}>{countryStatus === 'saving' ? 'Saving…' : countryStatus === 'saved' ? '✓ Saved to your account' : 'Could not save the country. Please try again.'}</p>}
       </div>}
       <div className="account-actions">
         <button className="primary-button" disabled={busy || !ready || checkingGuestProjects || !!guestCaptureError || !!(identity && identity !== 'legacy' && identity.kind === 'guest' && !guestCaptureDone)} onClick={() => void act('google')}>{busy || checkingGuestProjects || (identity && identity !== 'legacy' && identity.kind === 'guest' && !guestCaptureDone) ? 'Please wait…' : localPreview ? 'Try demo account' : identity && identity !== 'legacy' && identity.kind === 'account' ? 'Switch Google account' : 'Sign in with Google'}</button>

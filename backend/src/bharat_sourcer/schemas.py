@@ -2,7 +2,17 @@ from datetime import UTC, date, datetime
 from typing import Annotated, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, HttpUrl, StringConstraints, model_validator
+from pydantic import (
+    AfterValidator,
+    BaseModel,
+    ConfigDict,
+    Field,
+    HttpUrl,
+    StringConstraints,
+    model_validator,
+)
+
+from bharat_sourcer.countries import COUNTRIES, DEFAULT_COUNTRY
 
 
 def now() -> datetime:
@@ -28,15 +38,38 @@ Status = Literal[
 ]
 
 
+def supported_country(code: str) -> str:
+    if code not in COUNTRIES:
+        raise ValueError(f"country {code} is not supported yet; supported: {', '.join(COUNTRIES)}")
+    return code
+
+
+# ISO 3166-1 alpha-2 code of a country in `countries.COUNTRIES`.
+CountryCode = Annotated[
+    str, Field(pattern=r"^[A-Z]{2}$", examples=["IN"]), AfterValidator(supported_country)
+]
+
+
 class CreateJob(Model):
     url: HttpUrl
-    pin: str | None = Field(default=None, pattern=r"^[1-9][0-9]{5}$")
+    # Where the parts are delivered. When omitted, a signed-in account's saved country is
+    # used, else the default (India).
+    country: CountryCode = DEFAULT_COUNTRY
     lang: Literal["en", "hi", "ta", "ml"] = "en"
     user_level: Literal["beginner", "intermediate"] = "beginner"
     visibility: Literal["unlisted"] = "unlisted"
     # Extra sources about the same build (e.g. its project page or repository), fused into
     # one BOM with the primary `url`. Same validation as `url`; at most one video in total.
     sources: list[HttpUrl] = Field(default_factory=list, max_length=3)
+
+    @model_validator(mode="before")
+    @classmethod
+    def drop_legacy_pin(cls, data):
+        # The PIN code was never used for sourcing and was removed in v0.23. Snapshots saved
+        # earlier and older clients may still carry it; ignore it rather than fail them.
+        if isinstance(data, dict) and "pin" in data:
+            data = {key: value for key, value in data.items() if key != "pin"}
+        return data
 
 
 class Evidence(Model):
@@ -1162,6 +1195,14 @@ class Job(Model):
     source_reports: list[SourceReport] = Field(default_factory=list, max_length=5)
     video_meta: JobVideoMeta | None = None
     cost_estimate: CostEstimate | None = None
+
+
+class AccountSettings(Model):
+    """Per-account preferences, saved by the owner (accounts only, not guests)."""
+
+    # Default delivery country for new projects.
+    country: CountryCode = DEFAULT_COUNTRY
+    updated_at: datetime | None = None
 
 
 class CreatedJob(Model):

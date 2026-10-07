@@ -147,7 +147,7 @@ export interface Job {
   refresh_count?: number
   updated_at: string
   demo: boolean
-  input: { url: string }
+  input: { url: string; country?: string }
   items: BomItem[]
   project?: ProjectUnderstanding | null
   events: { seq: number; status: JobStatus; message: string; timestamp: string }[]
@@ -216,10 +216,10 @@ async function request<T>(path: string, options: RequestInit = {}, token?: strin
 }
 
 // sources: up to 3 extra project URLs read alongside url (at most one video across all of them).
-export function createJob(url: string, pin?: string, sources: string[] = []) {
+export function createJob(url: string, sources: string[] = []) {
   return request<{ job_id: string; job_token: string; demo: boolean }>('/v1/jobs', {
     method: 'POST',
-    body: JSON.stringify({ url, ...(pin ? { pin } : {}), ...(sources.length ? { sources: sources.slice(0, 3) } : {}), lang: 'en' }),
+    body: JSON.stringify({ url, ...(sources.length ? { sources: sources.slice(0, 3) } : {}), lang: 'en' }),
   })
 }
 
@@ -274,6 +274,11 @@ export const listProjects = (cursor?: string) => request<{ projects: Project[]; 
 export const claimProject = (id: string, token?: string) => request('/v1/projects/' + encodeURIComponent(id) + '/claim', { method: 'POST', body: JSON.stringify(token ? { job_token: token } : {}) })
 
 export interface UsageWindow { limit: number; used: number; remaining: number; resets_at: number }
+export interface CountryInfo { code: string; name: string; currency: string; locale: string; market_cities: string[] }
+export interface AccountSettings { country: string; updated_at: string | null; saved: boolean }
+export const getCountries = () => request<{ default: string; countries: CountryInfo[] }>('/v1/countries')
+export const getAccountSettings = () => request<AccountSettings>('/v1/account/settings')
+export const saveAccountSettings = (settings: { country: string }) => request<AccountSettings>('/v1/account/settings', { method: 'POST', body: JSON.stringify(settings) })
 export const getUsage = () => request<{ daily_actions: UsageWindow; daily_projects: UsageWindow; minute_actions: UsageWindow }>('/v1/session/usage')
 export const pauseJob = (id: string, token: string) => request('/v1/jobs/' + encodeURIComponent(id) + '/pause', { method: 'POST' }, token)
 export const resumeJob = (id: string, token: string) => request('/v1/jobs/' + encodeURIComponent(id) + '/resume', { method: 'POST' }, token)
@@ -317,8 +322,8 @@ export const getPlans = (id: string, token: string) => request<CartPlans>(jobPat
 export const selectOffers = (id: string, token: string, selections: SelectionInput[]) => request<Job>(jobPath(id, '/selections'), { method: 'POST', body: JSON.stringify({ selections }) }, token)
 export const setImportReferences = (id: string, token: string, references: { line_id: string; price_usd: string | null; source_url?: string | null }[]) => request<Job>(jobPath(id, '/import-references'), { method: 'POST', body: JSON.stringify({ references }) }, token)
 
-export interface MarketsResult { demo: boolean; location: { source: 'pin' | 'coordinates'; pin?: string | null; city?: string | null; latitude: number; longitude: number; approximate: boolean; label: string }; categories: string[]; summary?: string | null; summary_label?: string; places: { title: string; uri?: string | null; address?: string | null; place_id?: string | null }[]; attribution: { provider?: 'Google Maps'; sources: { title: string; uri: string; kind: 'place' | 'review' | 'web' }[]; rules?: string }; cached: boolean; model?: string | null; label: string }
-export const getMarkets = (id: string, token: string, place: { pin: string } | { lat: number; lng: number }) => request<MarketsResult>(jobPath(id, '/markets?' + new URLSearchParams('pin' in place ? { pin: place.pin } : { lat: String(place.lat), lng: String(place.lng) })), {}, token)
+export interface MarketsResult { demo: boolean; location: { source: 'city' | 'coordinates'; city?: string | null; latitude: number; longitude: number; approximate: boolean; label: string }; categories: string[]; summary?: string | null; summary_label?: string; places: { title: string; uri?: string | null; address?: string | null; place_id?: string | null }[]; attribution: { provider?: 'Google Maps'; sources: { title: string; uri: string; kind: 'place' | 'review' | 'web' }[]; rules?: string }; cached: boolean; model?: string | null; label: string }
+export const getMarkets = (id: string, token: string, place: { city: string } | { lat: number; lng: number }) => request<MarketsResult>(jobPath(id, '/markets?' + new URLSearchParams('city' in place ? { city: place.city } : { lat: String(place.lat), lng: String(place.lng) })), {}, token)
 
 export interface ShareStatus { active: boolean; created_at?: string | null }
 export interface ShareLink { share_token: string; path: string; created_at: string }

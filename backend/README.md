@@ -6,6 +6,14 @@ guest authentication enabled. The frontend origin is included in CORS. The
 
 Unreleased (recommendations): when sourcing completes the backend scores every offer, picks one per line with a basket that consolidates sellers (a configurable `BS_RECOMMEND_SELLER_PENALTY_INR`, default ₹60, per extra seller), applies it as the selection where the selection rules allow (`selection_source: "recommended"`), and exposes a seller-grouped `report.order_plan` plus one resolved `line_image` per line. User choices are never overwritten. See [recommendations](../docs/contracts/recommendations.md).
 
+v0.23.0 removes the PIN code and adds countries. `countries.py` is a registry of the facts
+that differ per country (currency, mains, sellers, map area, market cities); only India is
+supported. Projects carry `country` (`POST /v1/jobs`, defaulting to the account's saved
+country, else `IN`), accounts save it via `GET`/`POST /v1/account/settings` (Firestore
+`<jobs collection>_accounts`), `GET /v1/countries` lists supported countries, and nearby
+markets take `city` instead of `pin`. A legacy `pin` is accepted and ignored. The checklist
+for adding a country is in [countries](../docs/contracts/countries.md).
+
 v0.22.0 fixes the picks a live re-check of a real job got wrong. Older jobs get AI buying
 specs from one batched call per job (`spec` call site), so every line has a category, value
 and physical size. A part with no value is never auto-selected (kits are recommended with
@@ -469,7 +477,7 @@ Only a single Product with a single Offer in seller JSON-LD qualifies. Its title
 match the query, currency must be INR, and price must be a positive decimal. Stock is
 copied from explicit availability or marked unknown. Aggregate prices and unresolved
 variant URLs are rejected. This verifies seller-published data, not merchant honesty,
-delivery to the PIN, tax inclusion, electrical suitability or an independent stock check.
+delivery to the buyer, tax inclusion, electrical suitability or an independent stock check.
 If the verified Product JSON-LD includes an HTTPS image URL, it is returned as optional
 `image_url` for the frontend to display. The backend does not download or proxy seller
 images; missing or invalid image metadata does not affect the offer. Placeholder assets are rejected; when the Product JSON-LD has no real
@@ -559,10 +567,11 @@ get labelled samples without Gemini calls. See
 
 ## Nearby markets (on by default)
 
-`markets.py` adds `GET /v1/jobs/{id}/markets?pin=560002` (or `?lat=..&lng=..`): one Gemini
+`markets.py` adds `GET /v1/jobs/{id}/markets?city=Bengaluru` (or `?lat=..&lng=..`): one Gemini
 call with Google Maps grounding that lists electronics shops near the maker, sent only a
-short list of part categories from the BOM. A PIN maps to an approximate city centre from a
-static prefix table (no Geocoding API). Results are cached for 7 days per rounded location
+short list of part categories from the BOM. A city from the country's `market_cities` maps to
+its approximate centre from a static table (no Geocoding API); coordinates must lie inside the
+job's country. Results are cached for 7 days per rounded location
 and category set, with a per-owner daily quota (`BS_MARKETS_DAILY_LIMIT`, 5) and a global cap
 (`BS_MARKETS_GLOBAL_DAILY_LIMIT`, 200); `BS_MARKETS_ENABLED=false` turns it off. Demo jobs get
 a labelled fictional sample. Google Maps attribution rules for the frontend are in

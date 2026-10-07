@@ -1,7 +1,7 @@
 import { ApiError } from './api'
 import { reviewItems, reviewJobFields } from './previewReview'
 import type { ChatMessage, Job, JobStatus, BomItem, ProjectUnderstanding } from './api'
-import { planPreview, previewReportRequest } from './previewReport'
+import { planPreview, previewCities, previewReportRequest } from './previewReport'
 
 const items: BomItem[] = ['Sample controller board', 'Sample sensor module', 'Jumper wires'].map((raw_name, index) => ({ line_id: 'L0' + (index + 1), raw_name, qty: index === 2 ? 10 : 1, user_has_it: false, user_edited: false, evidence: [], clarifications: [] }))
 // Dummy AI-inferred states: a quantity the source did not state and pre-filled build details, each with a reason.
@@ -35,6 +35,12 @@ if (status === 'done') {
 if (phase === 'plan') job = planPreview(job)
 
 export function previewRequest(path: string, options: RequestInit): unknown {
+  if (path === '/v1/countries') return { default: 'IN', countries: [{ code: 'IN', name: 'India', currency: 'INR', locale: 'en-IN', market_cities: previewCities }] }
+  if (path === '/v1/account/settings') {
+    if (options.method === 'POST') { const { country } = JSON.parse(String(options.body)); sessionStorage.setItem('bs-preview-country', country); return { country, updated_at: new Date().toISOString(), saved: true } }
+    const country = sessionStorage.getItem('bs-preview-country')
+    return { country: country ?? 'IN', updated_at: null, saved: !!country }
+  }
   if (path === '/v1/session/usage') return { daily_actions: { limit: 40, remaining: 36 }, daily_projects: { limit: 5, remaining: 4 }, minute_actions: { limit: 5, remaining: 5 } }
   if (path.endsWith('/pause')) { job.status = 'paused'; return {} }
   if (path.endsWith('/resume')) { job.status = 'sourcing'; return {} }

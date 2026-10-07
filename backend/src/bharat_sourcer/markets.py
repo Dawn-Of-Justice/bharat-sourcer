@@ -19,9 +19,11 @@ from datetime import UTC, datetime, timedelta
 from typing import Literal
 
 import httpx
+from fastapi import Query
 
 from bharat_sourcer.access import ProjectAccess
 from bharat_sourcer.config import Settings, site_generation, site_model
+from bharat_sourcer.countries import Country, country
 from bharat_sourcer.jobs import JobError
 from bharat_sourcer.resilience import post_with_retry
 from bharat_sourcer.schemas import ErrorResponse, Job, Model
@@ -39,33 +41,6 @@ ATTRIBUTION_RULES = (
 )
 MAX_PLACES = 10
 MAX_SOURCES = 20
-# India's bounding box; the feature is for Indian makers.
-INDIA = {"lat": (6.0, 37.6), "lng": (68.0, 97.5)}
-
-# Approximate city centres by PIN prefix (longest prefix wins). Labelled approximate:
-# a PIN is mapped to its city's centre, never geocoded.
-PIN_CITIES: dict[str, tuple[str, float, float]] = {
-    "56": ("Bengaluru", 12.9716, 77.5946),
-    "600": ("Chennai", 13.0827, 80.2707),
-    "400": ("Mumbai", 19.0760, 72.8777),
-    "110": ("Delhi", 28.6139, 77.2090),
-    "500": ("Hyderabad", 17.3850, 78.4867),
-    "700": ("Kolkata", 22.5726, 88.3639),
-    "411": ("Pune", 18.5204, 73.8567),
-    "682": ("Kochi", 9.9312, 76.2673),
-    "380": ("Ahmedabad", 23.0225, 72.5714),
-    "641": ("Coimbatore", 11.0168, 76.9558),
-    "302": ("Jaipur", 26.9124, 75.7873),
-    "226": ("Lucknow", 26.8467, 80.9462),
-    "695": ("Thiruvananthapuram", 8.5241, 76.9366),
-    "122": ("Gurugram", 28.4595, 77.0266),
-    "160": ("Chandigarh", 30.7333, 76.7794),
-    "452": ("Indore", 22.7196, 75.8577),
-    "440": ("Nagpur", 21.1458, 79.0882),
-    "395": ("Surat", 21.1702, 72.8311),
-    "530": ("Visakhapatnam", 17.6868, 83.2185),
-}
-PIN = re.compile(r"[1-9]\d{5}")
 
 CATEGORY_LABELS = {
     "resistor": "resistors",
@@ -109,8 +84,7 @@ ADDRESS = re.compile(r"\*\*Address:\*\*\s*([^\n]+)")
 
 
 class MarketLocation(Model):
-    source: Literal["pin", "coordinates"]
-    pin: str | None = None
+    source: Literal["city", "coordinates"]
     city: str | None = None
     # Rounded to 2 decimals (about 1 km); this is what is sent to Gemini and cached.
     latitude: float
@@ -154,38 +128,34 @@ class MarketsResult(Model):
 # Deterministic helpers.
 
 
-def resolve_location(pin: str | None, lat: float | None, lng: float | None) -> MarketLocation:
-    """A PIN (approximate city centre) or coordinates inside India, rounded to 2 decimals."""
-    if pin is not None and (lat is not None or lng is not None):
-        raise JobError(422, "INVALID_LOCATION", "Send either pin or lat and lng, not both")
-    if pin is not None:
-        pin = pin.strip()
-        if not PIN.fullmatch(pin):
-            raise JobError(422, "INVALID_PIN", "PIN must be 6 digits")
-        prefix = max((p for p in PIN_CITIES if pin.startswith(p)), key=len, default=None)
-        if prefix is None:
+def resolve_location(
+    where: Country, city: str | None, lat: float | None, lng: float | None
+) -> MarketLocation:
+    """A market city (approximate centre) or coordinates inside the job's country, rounded
+    to 2 decimals."""
+    if city is not None and (lat is not None or lng is not None):
+        raise JobError(422, "INVALID_LOCATION", "Send either city or lat and lng, not both")
+    if city is not None:
+        found = where.city(city)
+        if found is None:
             raise JobError(
                 422,
-                "PIN_NOT_SUPPORTED",
-                "This PIN area is not in the supported city list yet; share your location "
-                "(lat and lng) instead",
+                "CITY_NOT_SUPPORTED",
+                f"Choose a city from GET /v1/countries for {where.name}, or share your "
+                "location (lat and lng) instead",
             )
-        city, latitude, longitude = PIN_CITIES[prefix]
         return MarketLocation(
-            source="pin",
-            pin=pin,
-            city=city,
-            latitude=latitude,
-            longitude=longitude,
+            source="city",
+            city=found.name,
+            latitude=found.latitude,
+            longitude=found.longitude,
             approximate=True,
-            label=f"Approximate: PIN {pin} mapped to the centre of {city}.",
+            label=f"Approximate: the centre of {found.name}.",
         )
     if lat is None or lng is None:
-        raise JobError(422, "INVALID_LOCATION", "Send pin, or both lat and lng")
-    if not (
-        INDIA["lat"][0] <= lat <= INDIA["lat"][1] and INDIA["lng"][0] <= lng <= INDIA["lng"][1]
-    ):
-        raise JobError(422, "LOCATION_OUTSIDE_INDIA", "Nearby markets cover India only")
+        raise JobError(422, "INVALID_LOCATION", "Send city, or both lat and lng")
+    if not where.contains(lat, lng):
+        raise JobError(422, "LOCATION_OUTSIDE_COUNTRY", f"Nearby markets cover {where.name} only")
     return MarketLocation(
         source="coordinates",
         latitude=round(lat, 2),
@@ -402,12 +372,12 @@ class MarketsService:
         )
 
     def lookup(
-        self, job_id: str, token, pin: str | None, lat: float | None, lng: float | None
+        self, job_id: str, token, city: str | None, lat: float | None, lng: float | None
     ) -> MarketsResult:
         job = self.jobs.get(job_id, token)
         if not self.settings.markets_enabled:
             raise JobError(503, "FEATURE_DISABLED", "This feature is not enabled")
-        location = resolve_location(pin, lat, lng)
+        location = resolve_location(country(job.input.country), city, lat, lng)
         if not job.items:
             raise JobError(409, "NOTHING_TO_SOURCE", "Wait until the parts list is ready")
         categories = part_categories(job)
@@ -480,9 +450,9 @@ def add_markets_routes(app, markets: MarketsService) -> None:
     )
     def nearby(
         job_id: str,
-        pin: str | None = None,
+        city: str | None = Query(default=None, max_length=80),
         lat: float | None = None,
         lng: float | None = None,
         x_job_token: ProjectAccess = None,
     ):
-        return markets.lookup(job_id, x_job_token, pin, lat, lng)
+        return markets.lookup(job_id, x_job_token, city, lat, lng)

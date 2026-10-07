@@ -1,6 +1,8 @@
 import { ApiError } from './api'
 import type { CartPlans, CostAmount, CostBreakdown, Explanation, ExtrasStatus, Job, MarketsResult, OrderPlanLine, Report, ReportLine, ReportOffer, SharedProject } from './api'
 
+export const previewCities = ['Bengaluru', 'Chennai', 'Delhi', 'Kochi', 'Mumbai', 'Pune']
+
 // Dummy report fixtures for ?preview=1&stage=plan (order plan, costing, trust, grades, markets, share, extras).
 // Every seller, price, grade and shop here is invented and labelled "dummy"; nothing is sent to a server.
 const svg = (text: string) => 'data:image/svg+xml,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 84 84"><rect width="84" height="84" rx="10" fill="#eaf4e9"/><text x="42" y="46" font-size="10" text-anchor="middle" fill="#28594f">${text}</text></svg>`)
@@ -109,11 +111,11 @@ export function previewReportRequest(path: string, options: RequestInit, job: Jo
   if (path === base + '/explain') return { language: 'en', transcript: 'Dummy transcript: this preview plays a short silent sample. No speech was generated.', translated: false, audio_mime: 'audio/wav', audio_base64: silentWav(), duration_s: 0.1, cached: false, demo: true, label: 'Dummy sample · not generated for this project' } satisfies Explanation
   if (path.startsWith(base + '/markets?')) {
     const params = new URLSearchParams(path.split('?')[1])
-    const pin = params.get('pin')
-    if (pin && !/^[1-9]\d{5}$/.test(pin)) throw new ApiError('PIN must be 6 digits.', 422, 'INVALID_PIN')
-    const location = { source: pin ? 'pin' as const : 'coordinates' as const, pin, city: 'Bengaluru', latitude: 12.97, longitude: 77.59, approximate: true, label: pin ? `Approximate: PIN ${pin} mapped to the centre of Bengaluru (dummy preview).` : 'Your location, rounded to about 1 km (dummy preview).' }
-    // PIN 560001 shows a grounded layout with dummy sources; any other PIN shows the demo sample (no sources).
-    if (pin === '560001') return { demo: false, location, categories: ['controller boards', 'sensors'], summary: '1. Dummy Electronics (preview) — SP Road\n2. Sample Components (preview) — SP Road', summary_label: 'Shops likely to carry these parts — call first; stock is not confirmed', places: [{ title: 'Dummy Electronics (preview)', uri: url('maps-place-1'), address: 'Dummy address, SP Road' }, { title: 'Sample Components (preview)', uri: url('maps-place-2'), address: null }], attribution: { provider: 'Google Maps', sources: [{ title: 'Dummy Electronics (preview) - Google Maps', uri: url('maps-place-1'), kind: 'place' }, { title: 'Review of Dummy Electronics (preview)', uri: url('maps-review-1'), kind: 'review' }] }, cached: false, label: 'AI summary grounded in Google Maps (dummy preview)' } satisfies MarketsResult
+    const city = params.get('city')
+    if (city !== null && !previewCities.includes(city)) throw new ApiError('Choose a supported city.', 422, 'CITY_NOT_SUPPORTED')
+    const location = { source: city ? 'city' as const : 'coordinates' as const, city: city ?? null, latitude: 12.97, longitude: 77.59, approximate: true, label: city ? `Approximate: the centre of ${city} (dummy preview).` : 'Your location, rounded to about 1 km (dummy preview).' }
+    // Bengaluru shows a grounded layout with dummy sources; any other city shows the demo sample (no sources).
+    if (city === 'Bengaluru') return { demo: false, location, categories: ['controller boards', 'sensors'], summary: '1. Dummy Electronics (preview) — SP Road\n2. Sample Components (preview) — SP Road', summary_label: 'Shops likely to carry these parts — call first; stock is not confirmed', places: [{ title: 'Dummy Electronics (preview)', uri: url('maps-place-1'), address: 'Dummy address, SP Road' }, { title: 'Sample Components (preview)', uri: url('maps-place-2'), address: null }], attribution: { provider: 'Google Maps', sources: [{ title: 'Dummy Electronics (preview) - Google Maps', uri: url('maps-place-1'), kind: 'place' }, { title: 'Review of Dummy Electronics (preview)', uri: url('maps-review-1'), kind: 'review' }] }, cached: false, label: 'AI summary grounded in Google Maps (dummy preview)' } satisfies MarketsResult
     return { demo: true, location, categories: ['controller boards', 'sensors'], summary: '1. Sample Market (demo) — fictional\n2. Example Parts Shop (demo) — fictional', summary_label: 'Shops likely to carry these parts — call first; stock is not confirmed', places: [{ title: 'Sample Market (demo)' }, { title: 'Example Parts Shop (demo)' }], attribution: { sources: [] }, cached: false, label: 'Demo sample · fictional shops' } satisfies MarketsResult
   }
   if (path === base + '/plans') return { method: 'exhaustive', uncovered_line_ids: ['L03', 'L04'], rules: ['Dummy rule: only offers that can be selected now (grade A or B, in stock, fresh).'], seller_penalty_inr: '60.00', plans: [
