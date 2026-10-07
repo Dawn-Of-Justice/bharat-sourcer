@@ -695,7 +695,9 @@ details > summary:focus-visible { outline: 2px solid #167f70; outline-offset: 4p
 .unsourced-group h3, .cost-summary h3, .import-card h3, .markets-card h3 { margin: 0 0 10px; color: #1b3b42; font-size: 16px; }
 .unsourced-group > ul { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
 .unsourced-group > ul > li { padding: 12px; border: 1px dashed #d5dfd5; border-radius: 8px; background: #fff; font-size: 13px; color: #35564d; }
-.unsourced-head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; }
+.unsourced-head { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: 8px 14px; }
+.unsourced-head strong { min-width: 0; overflow-wrap: anywhere; line-height: 1.4; }
+.unsourced-head .report-chip { justify-self: end; background: #f4f7f2; color: #49685c; }
 .unsourced-group p { margin: 6px 0; line-height: 1.5; }
 .next-steps { margin: 6px 0; padding-left: 18px; line-height: 1.5; }
 .research-links a { margin-left: 6px; }
@@ -892,13 +894,31 @@ details > summary:focus-visible { outline: 2px solid #167f70; outline-offset: 4p
 .seller-totals .cost-row { color: #315b50; font-size: 14px; font-weight: 750; }
 .seller-totals .cost-row strong { color: #163e39; font-size: 17px; }
 .share-control { position: relative; padding: 0; border: 0; background: transparent; }
-.share-toast { position: absolute; z-index: 8; right: 0; top: calc(100% + 7px); width: max-content; max-width: min(300px, calc(100vw - 40px)); padding: 10px 14px; border: 1px solid #b9dcc4; border-radius: 9px; background: #f2faf3; box-shadow: 0 12px 28px #1b3b4220; color: #286d51; font-size: 12px; font-weight: 750; }
-.share-toast-error { width: 280px; border-color: #e4c3bd; background: #fff7f4; color: #8a3a2f; white-space: normal; }
+.share-button { gap: 7px; transition: border-color 180ms ease, background-color 180ms ease, color 180ms ease, box-shadow 180ms ease; }
+.share-button svg { width: 15px; height: 15px; flex: none; }
+.share-button:hover { box-shadow: 0 3px 10px #225f4814; }
+.share-button-copied { border-color: #8ac7a1; background: #edf8f0; color: #21704e; }
+.share-toast { position: absolute; z-index: 8; right: 0; bottom: calc(100% + 10px); display: inline-flex; align-items: center; gap: 8px; width: max-content; max-width: min(300px, calc(100vw - 40px)); padding: 9px 13px; border: 1px solid #b9dcc4; border-radius: 9px; background: #fff; box-shadow: 0 10px 25px #1b3b421b; color: #286d51; font-size: 12px; font-weight: 750; animation: copy-confirmation 4.2s ease-out forwards; pointer-events: none; }
+.share-toast::after { content: ""; position: absolute; right: 19px; top: 100%; width: 9px; height: 9px; border-right: 1px solid #b9dcc4; border-bottom: 1px solid #b9dcc4; background: #fff; transform: translateY(-5px) rotate(45deg); }
+.share-toast-icon { display: grid; place-items: center; width: 19px; height: 19px; border-radius: 50%; background: #e7f5e9; color: #21704e; font-size: 12px; }
+.share-toast-error { display: grid; width: 280px; border-color: #e4c3bd; background: #fff7f4; color: #8a3a2f; white-space: normal; animation: none; pointer-events: auto; }
+.share-toast-error::after { border-color: #e4c3bd; background: #fff7f4; }
 .share-toast input { width: 100%; margin-top: 8px; padding: 7px; border: 1px solid #d5dfd5; border-radius: 6px; font-size: 11px; }
+@keyframes copy-confirmation {
+  0% { opacity: 0; transform: translateY(8px) scale(.97); }
+  10%, 48% { opacity: 1; transform: translateY(0) scale(1); }
+  100% { opacity: 0; transform: translateY(-6px) scale(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .share-toast { animation: copy-confirmation-reduced 4.2s linear forwards !important; }
+  @keyframes copy-confirmation-reduced { 0%, 70% { opacity: 1; } 100% { opacity: 0; } }
+}
 @media (max-width: 600px) {
   .seller-card-head { gap: 8px; }
   .seller-checks > summary { min-width: 0; }
   .cost-summary-simple { flex-wrap: wrap; }
+  .unsourced-head { grid-template-columns: minmax(0, 1fr); }
+  .unsourced-head .report-chip { justify-self: start; }
 }
 /* Responsive pass: keep every screen inside the viewport from 320px up. */
 /* Single-column grids default to an auto track that grows to the widest child's
@@ -936,7 +956,7 @@ img, video, audio { max-width: 100%; }
 /* Touch screens: give controls a ~44px hit area without changing the desktop look. */
 @media (pointer: coarse) {
   .nav-cta, .spec-edit-button, .remove-button, .remove-requirement, .add-source-button, .chat-compose-bottom button,
-  .proposal-actions button, .add-requirement, .report-export button, .share-buttons button { min-height: 44px; }
+  .proposal-actions button, .add-requirement, .report-export button, .share-control > button, .share-buttons button { min-height: 44px; }
   .remove-button, .add-source-button, .citation-detail button { display: inline-flex; align-items: center; }
   .citation-detail button { min-height: 44px; }
   .check-label, .brand { min-height: 44px; }
