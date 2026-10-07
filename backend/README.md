@@ -126,7 +126,7 @@ illustrations. Merges to `main` now deploy to Cloud Run automatically.
 
 v0.17.4 adds part image fallbacks: matching page product photos, labelled SVG category
 illustrations and opt-in AI illustrations with separate daily quotas. Image requests do not
-consume the project action quota. See the [image handoff](../docs/contracts/frontend-image-handoff.md).
+consume the project action quota. See the [part image contract](../docs/contracts/part-images.md).
 
 v0.17.3 preserves grounded discovery URLs when Gemini ends with MAX_TOKENS,
 while keeping downstream evidence verification and blocked-response rejection.
@@ -151,8 +151,8 @@ See the [research limits and cost controls](../docs/contracts/part-research.md).
 v0.16 adds [general part research](../docs/contracts/part-research.md): arbitrary
 categories, source-linked facts, AI suitability assessments, flexible user requirements,
 and deterministic comparisons. Research candidates survive missing structured offers.
-Chat can answer from these results. The frontend needs the documented research cards
-and requirement controls; research candidates are separate from verified price offers.
+Chat can answer from these results. The frontend renders research and requirement controls inside expandable part cards;
+research candidates are separate from verified price offers.
 
 v0.15 adds optional seller product image URLs to verified offers. The frontend can
 display these directly; image metadata is optional and never affects offer verification.

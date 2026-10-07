@@ -1,120 +1,36 @@
 # Connect the local frontend
 
-As of 5 October 2026, the integration backend has account and guest access enabled.
-The earlier job-token example below describes legacy jobs; current browser requests
-also need the Firebase bearer token or guest cookie. Use the same-origin frontend
-proxy for credentials and the server-held integration key. See [authentication](authentication.md).
+The frontend implements account/guest access, saved projects, editable project details,
+BOM review, sourcing progress, part cards, research, images, requirements and chat actions.
+The API reference is in [README](README.md) and the topic contracts linked there.
 
-v0.16.1 can try one extra source search when the first provides no usable evidence.
-Keep showing sourcing progress until the line completes; extra latency is expected.
-Research source diagnostics can contain up to 32 entries across both rounds.
+## Local configuration
 
-v0.16 adds [research results for arbitrary parts](part-research.md). Display
-`line.research.candidates` independently of `line.offers`; show cited facts, AI
-assessments, conditions, and follow-up questions. A missing verified quote does not
-mean there are no useful candidates. The current tracked UI needs these controls.
+From `frontend/`, install dependencies and run `npm run dev`. Keep configuration
+in the ignored `frontend/.env.local`:
 
-v0.14 runs on Cloud Tasks and can scale to zero. Allow for cold starts and keep watching through intermediate
-`resolving` states; see [queued dispatch](queued-dispatch.md).
+- `VITE_API_BASE_URL`: backend origin, without a `/v1` suffix.
+- `INTEGRATION_KEY`: privately shared key. No `VITE_` prefix; the proxy holds it.
+- The four public Firebase web values from `frontend/.env.example`.
 
-The backend supports [chat refresh approval controls](chat-actions.md); approval uses the
-existing message decision endpoint and sourcing progress uses existing SSE snapshots.
+The integration backend is
+`https://bharat-sourcer-integration-diahnrbuna-el.a.run.app`.
+The frontend uses same-origin `/api` requests. The proxy injects the integration key,
+forwards bearer tokens and cookies, and preserves response cookies separately.
+New jobs require an account or guest identity; legacy jobs can be claimed with their
+original job token. See [authentication](authentication.md).
 
-For v0.11 sourcing controls, see [pause/resume](pause-resume.md). Render the new
-`paused` status and distinguish a pending pause from an acknowledged pause.
+## Preview and checks
 
-For v0.14, display `sourcing_error` diagnostics when a line has no verified offers.
-This means candidates did not pass page verification; it does not establish that no
-sellers exist. The current workspace chat types still render BOM edit proposals only.
-Add a card for `ChatMessage.refresh_proposal` before using chat to approve a targeted
-seller refresh; the existing decision endpoint performs the approval. See
-[chat actions](chat-actions.md). Pause acknowledgement waits for the active sourcing
-batch to finish and save.
+Open `http://127.0.0.1:5173/?preview=1` for labelled local fixtures with no API or
+Firebase calls. The toolbar switches between review, progress and results. Inline
+project editing, build details and chat work against in-memory preview responses.
 
-The v0.15 API adds optional nullable `image_url` to each verified offer. Display it
-when present; older snapshots and offers without seller image metadata remain valid.
-See the [image handoff](frontend-image-handoff.md) for source limits and planned fallbacks.
+Run `npm run build`, `npm run test:preview`, `npm run test:integration` and
+`npm run test:server` from the frontend directory. Current local UI behavior and
+browser verification are documented in [frontend/README](../../frontend/README.md).
 
-## Connection
-
-Base URL: `https://bharat-sourcer-integration-diahnrbuna-el.a.run.app`
-
-- Health: `GET /health` (public).
-- API explorer: `/docs`; generated schema: `/openapi.json` (public).
-- Allowed browser origins: localhost and 127.0.0.1 on ports **5173** and **3000**.
-- All `/v1/` calls require the team's `X-Integration-Key`.
-- Job reads and mutations also require the job's `X-Job-Token` returned at creation.
-
-The backend owner has the shared development key in the ignored local file
-`backend/.data/integration-access.json`. Share that value privately with the teammate;
-never commit it. It is a development access key, not the Gemini key. Browser-held keys
-are visible to users of that browser; this arrangement is for team integration only.
-
-For a Vite frontend, put this in its own ignored `.env.local` (do not add it to the repo):
-
-```dotenv
-VITE_API_BASE_URL=https://bharat-sourcer-integration-diahnrbuna-el.a.run.app
-VITE_INTEGRATION_KEY=<privately-shared-team-key>
-```
-
-## Minimal client example
-
-```js
-const base = import.meta.env.VITE_API_BASE_URL;
-const teamKey = import.meta.env.VITE_INTEGRATION_KEY;
-
-async function api(path, { method = "GET", body, jobToken } = {}) {
-  const response = await fetch(`${base}${path}`, {
-    method,
-    headers: {
-      "X-Integration-Key": teamKey,
-      ...(jobToken ? { "X-Job-Token": jobToken } : {}),
-      ...(body !== undefined ? { "Content-Type": "application/json" } : {}),
-    },
-    ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
-  });
-  const result = await response.json();
-  if (!response.ok) throw new Error(result.error?.message || `HTTP ${response.status}`);
-  return result;
-}
-
-const created = await api("/v1/jobs", {
-  method: "POST",
-  body: { url: "https://www.youtube.com/shorts/En4KD0c3XXs" },
-});
-// Retain created.job_token privately for this job. Never put it in URLs or logs.
-const path = `/v1/jobs/${created.job_id}`;
-const job = await api(path, { jobToken: created.job_token });
-
-await api(`${path}/messages`, {
-  method: "POST",
-  jobToken: created.job_token,
-  body: { message_id: crypto.randomUUID(), text: "What remains uncertain in this BOM?" },
-});
-```
-
-Live creation and chat may incur charges. For rendering the current state, use the
-[conversation guide's SSE client](conversation.md#receive-live-snapshots), passing
-`integrationKey: teamKey`. Polling is also supported. Keep messages visible after job
-status becomes `done`: chat has its own lifecycle. Generation does not stream tokens yet.
-
-## First integration acceptance check
-
-1. Create a job; display extracting state, then editable BOM and model-reported evidence.
-2. Ask a question; show queued/thinking and then the persisted answer with line references.
-3. Request a draft edit; show a review card and accept/reject actions.
-4. Accept an edit and verify the BOM changes but remains awaiting confirmation.
-5. Explicitly confirm the BOM; stream per-line sourcing progress and unknown specs.
-6. Handle errors: 401 means team key missing/incorrect; 404 means job/token unavailable;
-   409 is a state conflict or limit; 422 needs input correction; 503 is service/storage trouble.
-7. Reconnect the stream and avoid duplicating messages by using their message IDs.
-
-See [all implemented routes](README.md), [conversation integration](conversation.md),
-and [agreed remaining features](backend-roadmap.md). The backend deployment does not
-modify or scaffold the teammate's frontend.
-# Authentication integration (v0.17)
-
-Before enabling account access, follow the [authentication handoff](authentication.md)
-for Firebase login, guest cookies, saved projects, claiming and proxy headers.
-The examples above describe legacy token access. Authentication is enabled on the
-integration backend; use the account or guest flow for new projects.
+Real Google login, guest claim, account isolation, revocation and cookie expiry still
+need live browser acceptance checks. The completed proxy and UI implementation does
+not replace those checks. Do not automatically replay mutations after a lost response;
+quota attempts and explicit refreshes can have side effects.

@@ -32,8 +32,7 @@ v0.19.0 adds [project understanding](project-understanding.md): `job.project` wi
 AI-written, editable title and description plus a summary; inferred quantities
 (`qty_source`, `qty_reason`) and inferred requirements (`origin`, `reason`);
 `POST /v1/jobs/{job_id}/project`; and title/description/summary on `GET /v1/projects`.
-`UNKNOWN_QUANTITY` is no longer returned. **Frontend to do:** project-list cards and an
-edit control for title/description.
+`UNKNOWN_QUANTITY` is no longer returned. Project-list cards and inline project editing are implemented.
 
 v0.18.1: Instructables extraction reads the project JSON; Hackster pages that refuse
 automated access fail with `SOURCE_UNAVAILABLE`. No schema changes.
@@ -51,11 +50,11 @@ v0.17.10 prefers Indian retail pages within the existing per-part fetch limit; n
 changes.
 
 v0.17.9 adds optional `messages[].spec_proposal` for reviewed chat spec changes; see
-[chat actions](chat-actions.md). The frontend needs an Approve/Reject card for it.
+[chat actions](chat-actions.md). The frontend renders its Approve/Reject controls.
 
 v0.17.8 returns real seller photos more often (placeholder rejection, `og:image` fallback);
-no schema changes. The frontend should also fall back to `report.lines[].image_candidates`
-and the part image endpoint; see the [image handoff](frontend-image-handoff.md).
+no schema changes. The frontend also falls back to `report.lines[].image_candidates`
+and the part image endpoint; see the [part image contract](part-images.md).
 
 v0.17.7 adds optional `offers[].spec_conflicts` (field plus candidate `SpecEvidence`
 entries) and the `seller_table` evidence source. Show conflicts as "sellers disagree";
@@ -65,7 +64,7 @@ v0.17.6 hardens the internal queue sweep; no public schema changes.
 
 v0.17.5 uses category illustrations for plural part names; no schema changes.
 
-v0.17.4 adds [part image fallbacks](frontend-image-handoff.md#implemented-in-v0174):
+v0.17.4 adds [part image fallbacks](part-images.md#response-fields-and-routes):
 `report.lines[].image_candidates` and `GET`/`POST /v1/jobs/{job_id}/parts/{line_id}/image`.
 All fields are optional; older snapshots stay valid. AI generation is disabled by default.
 
@@ -84,11 +83,11 @@ See the authentication handoff for error handling.
 
 v0.16 adds [general part research, flexible requirements and reviewed AI assessments](part-research.md).
 Render research candidates even when no verified offers exist. Existing chat receives
-research evidence; frontend research cards and requirement controls need integration.
+research evidence; frontend research cards and requirement controls are implemented.
 
 v0.15 adds optional seller product image URLs to verified offers. v0.14 added
 [project-only chat, parallel part sourcing and seller diagnostics](project-chat-and-sourcing.md).
-See the [image handoff](frontend-image-handoff.md) for the current field behavior
+See the [part image contract](part-images.md) for the current field behavior
 and future fallback plan.
 The deployed backend runs Cloud Tasks in request-billed mode; see [durable dispatch](queued-dispatch.md).
 

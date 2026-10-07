@@ -11,8 +11,7 @@ older typed fields and four-family deterministic compatibility checks remain ava
 
 Render `report.lines[].research` independently of `offers` and `sourcing_status`.
 `no_verified_offers` means no verified INR quote: a line can still have useful
-research candidates and specification evidence. The existing frontend only renders
-verified offers, so it needs a research section to display these new results.
+research candidates and specification evidence. The frontend displays research within each expandable part card, independently of verified offers.
 Saved project chat already receives the new research results.
 
 Use [the labelled UI fixture](fixtures/part-research.json) to build the empty-offers
@@ -83,8 +82,7 @@ All updates are atomic. A change marks the project's AI assessments stale becaus
 they used the shared BOM context, and clears selections based on AI assessments.
 Source facts remain saved; numeric checks are recomputed without model calls.
 Refresh affected lines using the existing approved refresh flow to reassess.
-The existing limit of two refresh batches per job still applies. The completed-job
-chat currently cannot apply requirements directly: the frontend uses `/specs`.
+The existing limit of two refresh batches per job still applies. Completed-job chat can propose reviewed requirement changes; direct edits use `/specs`.
 
 Checks compare exact normalized property names and compatible units. Decimal
 arithmetic handles equals/minimum/maximum and supported SI conversions for voltage,

@@ -54,6 +54,16 @@ export function previewRequest(path: string, options: RequestInit): unknown {
     job.project = { ...job.project!, ...changes, ...(changes.title ? { title_source: 'user' } : {}), ...(changes.description ? { description_source: 'user' } : {}) }
     return structuredClone({ ...job, updated_at: new Date().toISOString() })
   }
+  if (path === '/v1/jobs/ui-preview/specs' && options.method === 'POST') {
+    const updates = JSON.parse(String(options.body)).updates as { line_id: string; requirements?: BomItem['requirements'] }[]
+    for (const update of updates) {
+      const item = job.items.find(item => item.line_id === update.line_id)
+      if (item && update.requirements) item.requirements = update.requirements
+      const line = job.report?.lines.find(line => line.item.line_id === update.line_id)
+      if (line && update.requirements) line.item.requirements = update.requirements
+    }
+    return structuredClone({ ...job, updated_at: new Date().toISOString() })
+  }
   if (/^\/v1\/jobs\/ui-preview\/parts\/L0[1-3]\/image$/.test(path)) return { candidates: [], fallback: { url: '/preview-part.svg', kind: 'category', label: 'Dummy illustration · not a product photo' }, generation_status: 'not_needed' }
   if (path.endsWith('/confirm')) {
     const edits = JSON.parse(String(options.body)).edits
