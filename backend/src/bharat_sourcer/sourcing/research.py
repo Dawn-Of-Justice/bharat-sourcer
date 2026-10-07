@@ -1,4 +1,10 @@
-"""Category-independent research with source quotes and deterministic requirement checks."""
+"""Category-independent research with source quotes and deterministic requirement checks.
+
+Cost rules (docs/contracts/cost-controls.md): the document review is skipped when a line
+already has a verified, in-stock, compatible offer; document text is capped per call;
+quote-checked evidence is reused from the shared `research` cache; and the alternative-
+source follow-up runs only when there is no offer and no research candidate.
+"""
 
 import json
 import logging
@@ -12,7 +18,7 @@ from typing import Literal, Protocol
 import httpx
 from pydantic import Field
 
-from bharat_sourcer.config import Settings
+from bharat_sourcer.config import Settings, site_generation, site_model
 from bharat_sourcer.extraction import generation_schema
 from bharat_sourcer.resilience import post_with_retry
 from bharat_sourcer.schemas import (
@@ -20,15 +26,18 @@ from bharat_sourcer.schemas import (
     Model,
     PartRequirement,
     PartResearch,
+    ReportLine,
     RequirementCheck,
     ResearchAssessment,
     ResearchCandidate,
     ResearchFact,
     ResearchSource,
+    VerifiedOffer,
 )
+from bharat_sourcer.sourcing.cache import TTL, SharedCache, cache_key, normalise_part, stable_hash
 from bharat_sourcer.sourcing.fetch import Page
 from bharat_sourcer.sourcing.listings import ProductScripts
-from bharat_sourcer.usage import record_usage
+from bharat_sourcer.usage import BUDGET_MESSAGE, paid_allowed, record_usage
 
 
 def clean(text: str) -> str:
@@ -218,6 +227,71 @@ class Researcher(Protocol):
     ) -> PartResearch: ...
 
 
+def sufficient_offer(offers: list[VerifiedOffer]) -> VerifiedOffer | None:
+    """A verified, in-stock offer whose declared specs are compatible, if any.
+
+    Research reviews documents when offers fail; it adds nothing a buyer needs when such an
+    offer already exists, so the paid review is skipped for that line.
+    """
+    for offer in offers:
+        match = getattr(offer, "match", None)
+        if (
+            offer.stock == "in_stock"
+            and match is not None
+            and match.status in {"exact", "compatible"}
+            and (match.method == "deterministic_shortcut" or match.claims)
+            and not (offer.compatibility and offer.compatibility.grade in {"C", "D", "X"})
+        ):
+            # The spec judge confirmed this listing with verified quotes.
+            return offer
+        compatibility = offer.compatibility
+        if (
+            offer.stock == "in_stock"
+            and compatibility is not None
+            and compatibility.status == "compatible"
+            and compatibility.grade in {None, "A", "B"}
+        ):
+            return offer
+    return None
+
+
+def skipped_research(sources: list[ResearchSource], summary: str) -> PartResearch:
+    return PartResearch(status="skipped", summary=summary, sources=sources[:32])
+
+
+def review_or_skip(
+    researcher: Researcher,
+    item: BomItem,
+    pages: list[Page],
+    sources: list[ResearchSource],
+    project_items: list[BomItem],
+    offers: list[VerifiedOffer],
+) -> PartResearch:
+    """Run the research review unless a verified in-stock compatible offer makes it moot."""
+    if sufficient_offer(offers) is not None:
+        return skipped_research(
+            sources,
+            "Research review skipped: a verified in-stock offer matches the declared specs. "
+            "Refresh after changing requirements to review documents again.",
+        )
+    return researcher.research(item, pages, sources, project_items)
+
+
+def needs_followup(line: ReportLine) -> bool:
+    """The alternative-source search runs only with no offer AND no research candidate.
+
+    It is a paid grounded search, so it also stops once the job budget is reached.
+    Provider failures and skipped reviews never trigger it.
+    """
+    return (
+        not line.offers
+        and line.research is not None
+        and line.research.status == "no_evidence"
+        and not line.research.candidates
+        and paid_allowed()
+    )
+
+
 PROMPT = """Research the requested part using only the supplied source documents and project data.
 Handle ANY part category: electronics, mechanical, materials, tools or otherwise. Categories
 and specification names are free text. No fixed family list applies. Identify candidate products
@@ -241,6 +315,12 @@ knowledge assertions unsupported by the source documents. Skip unrelated documen
 document can be useful without a price, stock or structured Product schema. Return JSON.
 """
 
+CACHED_EXPLANATION = (
+    "Evidence reused from an earlier quote-checked review of the same documents; quotes were "
+    "re-checked against the pages fetched now. Suitability for this project was not "
+    "re-assessed by AI: review the requirement checks."
+)
+
 
 def supported_fact(fact: ResearchFact, text: str) -> bool:
     quote = clean(fact.quote)
@@ -258,26 +338,160 @@ def supported_fact(fact: ResearchFact, text: str) -> bool:
     return True
 
 
-class GeminiResearch:
-    def __init__(self, settings: Settings, transport: httpx.BaseTransport | None = None):
-        self.settings, self.transport = settings, transport
+def retain(entry: CandidateDraft, document: dict, item: BomItem) -> ResearchCandidate | None:
+    """Keep a candidate only when its identity and facts are quoted from its document."""
+    text = clean(document["text"])
+    if (
+        clean(entry.identity_quote) not in text
+        or clean(entry.title).casefold() not in clean(entry.identity_quote).casefold()
+    ):
+        return None
+    facts = [f for f in entry.facts if supported_fact(f, text)]
+    evidence_rejected = len(facts) != len(entry.facts)
+    assessment = entry.assessment.model_copy(deep=True)
+    assessment.checks = check_requirements(item.requirements, facts)
+    if any(c.status == "does_not_meet" for c in assessment.checks):
+        assessment.status = "not_suitable"
+        assessment.explanation = "A source value fails a declared requirement."
+    elif (
+        entry.match == "possible"
+        or not facts
+        or evidence_rejected
+        or any(c.status == "unknown" for c in assessment.checks)
+    ):
+        assessment.status = "needs_information"
+        assessment.conditions = (
+            ["Confirm missing identity or requirement evidence."] + assessment.conditions
+        )[:10]
+    if not item.requirements and not assessment.questions:
+        assessment.questions.append("What must this part do in your project?")
+    return ResearchCandidate(
+        url=document["url"],
+        title=entry.title,
+        category=entry.category,
+        kind=entry.kind,
+        identity_quote=entry.identity_quote,
+        match=entry.match,
+        facts=facts,
+        assessment=assessment,
+    )
 
-    def research(self, item, pages, sources, project_items):
-        documents = []
-        source_records = [s.model_copy(deep=True) for s in sources]
+
+def research_cache_key(item: BomItem, documents: list[dict]) -> str:
+    """Normalised part spec + requirements + document URLs. Project context is excluded so
+    common parts are shared across jobs; only project-independent evidence is cached."""
+    spec = {
+        "specs": item.specs.model_dump(mode="json", exclude_none=True),
+        "requirements": [
+            r.model_dump(mode="json", include={"name", "value", "unit", "operator"})
+            for r in item.requirements
+        ],
+    }
+    return cache_key(
+        "research",
+        normalise_part(item.raw_name),
+        stable_hash(spec),
+        sorted(d["url"] for d in documents),
+    )
+
+
+class GeminiResearch:
+    def __init__(
+        self,
+        settings: Settings,
+        transport: httpx.BaseTransport | None = None,
+        cache: SharedCache | None = None,
+    ):
+        self.settings, self.transport, self.cache = settings, transport, cache
+
+    def _documents(self, pages, source_records) -> list[dict]:
+        documents, budget = [], self.settings.research_total_chars
         for page in pages:
-            if len(documents) >= self.settings.research_pages_per_part:
+            if len(documents) >= self.settings.research_pages_per_part or budget < 500:
                 break
-            text = page_text(page, self.settings.research_page_chars)
+            text = page_text(page, min(self.settings.research_page_chars, budget))
             if not text:
                 for source in source_records:
                     if str(source.url) == page.url:
                         source.status, source.reason = "unavailable", "No readable document text"
                 continue
+            budget -= len(text)
             documents.append({"source_id": len(documents), "url": page.url, "text": text})
             for source in source_records:
                 if str(source.url) == page.url:
                     source.reviewed = True
+        return documents
+
+    def _from_cache(self, key, item, documents, source_records) -> PartResearch | None:
+        if self.cache is None:
+            return None
+        try:
+            cached = self.cache.get(key)
+            if not cached:
+                return None
+            by_url = {d["url"]: d for d in documents}
+            found = []
+            for raw in cached.get("candidates", [])[:8]:
+                document = by_url.get(raw.get("url"))
+                if document is None:
+                    continue
+                entry = CandidateDraft.model_validate(
+                    {
+                        **{k: v for k, v in raw.items() if k != "url"},
+                        "source_id": document["source_id"],
+                        "assessment": {
+                            "status": "potential_match"
+                            if item.requirements and raw.get("match") == "exact"
+                            else "needs_information",
+                            "explanation": CACHED_EXPLANATION,
+                        },
+                    }
+                )
+                candidate = retain(entry, document, item)
+                if candidate is not None:
+                    found.append(candidate)
+        except (ValueError, TypeError, KeyError, AttributeError):
+            logging.getLogger(__name__).warning("RESEARCH_CACHE_INVALID", exc_info=True)
+            return None
+        if not found:
+            return None
+        return PartResearch(
+            status="ready",
+            summary=f"Reused cached evidence for {len(documents)} source documents; retained "
+            f"{len(found)} candidates with source quotes re-checked now. "
+            "Assessments need human review.",
+            candidates=found,
+            sources=source_records,
+            model=cached.get("model"),
+        )
+
+    def _store(self, key: str, found: list[ResearchCandidate], model: str) -> None:
+        if self.cache is None or not found:
+            return
+        # Public document evidence only: no assessment text, questions or project data.
+        value = {
+            "model": model,
+            "candidates": [
+                c.model_dump(
+                    mode="json",
+                    include={
+                        "url",
+                        "title",
+                        "category",
+                        "kind",
+                        "identity_quote",
+                        "match",
+                        "facts",
+                    },
+                )
+                for c in found
+            ],
+        }
+        self.cache.set(key, value, TTL["research"])
+
+    def research(self, item, pages, sources, project_items):
+        source_records = [s.model_copy(deep=True) for s in sources]
+        documents = self._documents(pages, source_records)
         if not documents:
             return PartResearch(
                 status="no_evidence",
@@ -285,6 +499,13 @@ class GeminiResearch:
                 sources=source_records,
                 questions=["Can you provide an exact model or manufacturer for this part?"],
             )
+        key = research_cache_key(item, documents)
+        cached = self._from_cache(key, item, documents, source_records)
+        if cached is not None:
+            return cached
+        if not paid_allowed():
+            return skipped_research(source_records, BUDGET_MESSAGE)
+        model = site_model(self.settings, "research")
         # Bound project context independently of the user-controlled BOM size.
         project, used = [], 0
         for other in project_items:
@@ -298,6 +519,8 @@ class GeminiResearch:
             if used > 16000:
                 break
             project.append(entry)
+        # Stable prefix first for implicit caching: the fixed instructions, then the project
+        # context shared by every line of this job, then this line's part and documents.
         payload = {
             "systemInstruction": {"parts": [{"text": PROMPT}]},
             "contents": [
@@ -307,9 +530,9 @@ class GeminiResearch:
                         {
                             "text": json.dumps(
                                 {
-                                    "part": item.model_dump(mode="json"),
                                     "project_parts": project,
                                     "project_context_truncated": len(project) < len(project_items),
+                                    "part": item.model_dump(mode="json"),
                                     "documents": documents,
                                 }
                             )
@@ -321,20 +544,21 @@ class GeminiResearch:
                 "responseMimeType": "application/json",
                 "responseJsonSchema": generation_schema(ResearchDraft),
                 "maxOutputTokens": 8192,
+                **site_generation(self.settings, "research"),
             },
         }
         try:
             with httpx.Client(timeout=60, transport=self.transport) as client:
                 response = post_with_retry(
                     client,
-                    "https://generativelanguage.googleapis.com/v1beta/models/"
-                    f"{self.settings.gemini_model}:generateContent",
+                    f"https://generativelanguage.googleapis.com/v1beta/models/{model}"
+                    ":generateContent",
                     headers={"x-goog-api-key": self.settings.gemini_api_key.get_secret_value()},
                     json=payload,
                 )
             response.raise_for_status()
             data = response.json()
-            record_usage("research", self.settings.gemini_model, data)
+            record_usage("research", model, data)
             candidate = data["candidates"][0]
             if candidate.get("finishReason") != "STOP":
                 raise ValueError("Incomplete research")
@@ -349,46 +573,12 @@ class GeminiResearch:
             for entry in draft.candidates:
                 if entry.source_id >= len(documents) or entry.source_id in seen:
                     continue
-                document = documents[entry.source_id]
-                text = clean(document["text"])
-                if (
-                    clean(entry.identity_quote) not in text
-                    or clean(entry.title).casefold() not in clean(entry.identity_quote).casefold()
-                ):
+                retained = retain(entry, documents[entry.source_id], item)
+                if retained is None:
                     continue
-                facts = [f for f in entry.facts if supported_fact(f, text)]
-                evidence_rejected = len(facts) != len(entry.facts)
                 seen.add(entry.source_id)
-                assessment = entry.assessment.model_copy(deep=True)
-                assessment.checks = check_requirements(item.requirements, facts)
-                if any(c.status == "does_not_meet" for c in assessment.checks):
-                    assessment.status = "not_suitable"
-                    assessment.explanation = "A source value fails a declared requirement."
-                elif (
-                    entry.match == "possible"
-                    or not facts
-                    or evidence_rejected
-                    or any(c.status == "unknown" for c in assessment.checks)
-                ):
-                    assessment.status = "needs_information"
-                    assessment.conditions = (
-                        ["Confirm missing identity or requirement evidence."]
-                        + assessment.conditions
-                    )[:10]
-                if not item.requirements and not assessment.questions:
-                    assessment.questions.append("What must this part do in your project?")
-                found.append(
-                    ResearchCandidate(
-                        url=document["url"],
-                        title=entry.title,
-                        category=entry.category,
-                        kind=entry.kind,
-                        identity_quote=entry.identity_quote,
-                        match=entry.match,
-                        facts=facts,
-                        assessment=assessment,
-                    )
-                )
+                found.append(retained)
+            self._store(key, found, model)
             return PartResearch(
                 status="ready" if found else "no_evidence",
                 summary=f"Reviewed {len(documents)} source documents; retained {len(found)} "
@@ -396,7 +586,7 @@ class GeminiResearch:
                 candidates=found,
                 sources=source_records,
                 questions=[q[:400] for q in draft.questions if q.strip()],
-                model=self.settings.gemini_model,
+                model=model,
             )
         except (
             httpx.HTTPError,
@@ -411,5 +601,5 @@ class GeminiResearch:
                 status="failed",
                 summary="Part research could not be completed; retry via refresh.",
                 sources=source_records,
-                model=self.settings.gemini_model,
+                model=model,
             )

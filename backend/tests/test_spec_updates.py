@@ -98,8 +98,11 @@ def test_answer_required_specs_reassesses_and_preserves_evidence():
     )
     assert result.report.lines[0].offers[0].specs == before.report.lines[0].offers[0].specs
     assert result.report.lines[1] == before.report.lines[1]
-    assert result.report.selected_parts_subtotal_inr == "10.00"
-    assert result.report.parts_subtotal_inr is None
+    # L01 now grades A, so its recommendation is applied; L02 keeps the user's selection.
+    assert result.report.lines[0].selection_source == "recommended"
+    assert result.report.lines[1].selection_source == "user"
+    assert result.report.selected_parts_subtotal_inr == "20.00"
+    assert result.report.parts_subtotal_inr == "20.00"  # every line now has a selection
     assert all(e.source == "user" for e in result.report.lines[0].resolution.evidence)
     assert result.refresh_count == result.recovery_attempts == 0
 

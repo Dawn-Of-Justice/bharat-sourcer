@@ -4,6 +4,23 @@ The integration deployment was observed on 5 October 2026 with Firebase account 
 guest authentication enabled. The frontend origin is included in CORS. The
 `BS_AUTH_ENABLED=false` setting shown below remains the default for a fresh local setup.
 
+Unreleased (recommendations): when sourcing completes the backend scores every offer, picks one per line with a basket that consolidates sellers (a configurable `BS_RECOMMEND_SELLER_PENALTY_INR`, default ₹60, per extra seller), applies it as the selection where the selection rules allow (`selection_source: "recommended"`), and exposes a seller-grouped `report.order_plan` plus one resolved `line_image` per line. User choices are never overwritten. See [recommendations](../docs/contracts/recommendations.md).
+
+v0.21.0 rebuilds sourcing into an engine that picks parts for you. Each line gets a
+[buyable spec](../docs/contracts/part-matching.md) (written by the extraction call), then
+[seller catalogue search](../docs/contracts/seller-search.md) across Indian sellers' own
+public search endpoints runs first (free), an LLM spec judge decides which listings are the
+right part (quotes verified server-side), and paid Google-grounded discovery runs only if
+nothing acceptable was found. [Recommendations](../docs/contracts/recommendations.md) score
+offers, apply the best one as the default selection (judge-confirmed offers included; user
+choices are never overwritten) and build a seller-grouped `order_plan` that consolidates
+orders to save shipping; every line gets a `line_image`. [Cost controls](../docs/contracts/cost-controls.md)
+add a shared cross-job cache, research only when needed, refresh without rediscovery, a
+per-job budget (default $0.25) and `job.cost_estimate`. Also new: [nearby markets](../docs/contracts/nearby-markets.md)
+via Maps grounding (`GET /markets`), YouTube description intake (key mounted as
+`BS_YOUTUBE_API_KEY`; quotes expire after 30 days), and bot-protection detection that stops
+and reports instead of circumventing.
+
 v0.20.0 closes most of the planned MVP gaps. Deterministic [safety flags](../docs/contracts/safety-flags.md)
 (MAINS, LIPO, HIGH_CURRENT, LEVEL_SHIFT) appear on every job. [Costing](../docs/contracts/costing.md) adds
 GST detection, dated seller shipping policies, a per-seller breakdown with known/estimated/unknown
@@ -18,6 +35,13 @@ parts-bin scan) ship disabled. A curated [parts catalogue and rules engine](../d
 resolves BOM names and grades offers A, B, C, D or X with "what changes" findings. The [evaluation gold set](../docs/contracts/evaluation-gold-set.md) is an
 unreviewed agent draft; no accuracy figure is claimed. Items needing owner approval are in
 [`roadmap.md`](../roadmap.md).
+
+Cost controls (unreleased, branch `mvp/cost`): a cross-job shared cache
+(`sourcing/cache.py`), research skipped when a verified in-stock compatible offer exists,
+capped research text, refresh that re-fetches known offer pages before any paid search, a
+per-run Gemini budget (`BS_JOB_GEMINI_BUDGET_USD`, default $0.25), low thinking for
+classifier-like call sites and an estimated `job.cost_estimate`. See
+[cost controls](../docs/contracts/cost-controls.md).
 
 v0.19.3 counts grounding search queries in usage logs (Gemini 3 bills per query), logs the
 Gemini cost research, and defaults image generation to `gemini-3.1-flash-lite-image`.
@@ -178,6 +202,12 @@ BS_GEMINI_API_KEY=your-key-here
 BS_GEMINI_MODEL=gemini-3.8-flash
 BS_EXTRACTION_TIMEOUT_S=120
 ```
+
+Optional: with `BS_YOUTUBE_API_KEY` (a YouTube Data API v3 key) set, the same Gemini call
+also reads the video's description. Links in it to supported project pages are added as
+extra sources, and short server-checked description quotes are served for 30 days; see
+[multi-source intake §8](../docs/contracts/multi-source-intake.md#8-youtube-description-intake).
+Without it, video extraction is unchanged.
 
 Keep the real key in the ignored `.env` file. Restart the server, then submit a public
 YouTube `watch`, `youtu.be`, `shorts`, or `embed` URL, or a supported project page (see
@@ -397,6 +427,18 @@ new jobs extraction-only. Existing jobs retain the sourcing flag recorded at cre
 Demo jobs never call search or fetch sellers. Up to ten unowned parts are searched per
 job (`BS_SOURCING_MAX_PARTS`), with five candidate pages per part by default.
 
+Sourcing is staged to save cost. First, curated Indian sellers' own catalogues are searched
+for free (Shopify `suggest.json`, WooCommerce Store API; only where robots.txt allows) and up
+to `BS_SELLER_SEARCH_FETCH_BUDGET` (8) candidates are fetched and verified, stopping at 3
+in-stock offers from 2 sellers. A judge hook then rates the verified offers (stub: any
+verified INR offer is `compatible`). Paid Gemini grounded discovery runs only when no offer is
+accepted and in stock. Lines report `stages`, `gemini_calls` and a `seller_search` summary;
+identical parts in a job are sourced once. Requests are paced per host, cached, retried on
+429/503 with `Retry-After`, and stopped on bot-protection challenges (robu.in is
+Cloudflare-blocked), which are reported and never circumvented. `BS_SELLER_SEARCH_ENABLED=false`
+restores grounded-first discovery. See [seller search](../docs/contracts/seller-search.md);
+live check: `python scripts/check_seller_search.py` (no Gemini).
+
 Discovery uses Gemini Google Search grounding without a seller allow-list. Candidate
 URLs come from grounding metadata, never generated prose. The verifier follows HTTPS
 redirects, rejects non-public IPs at every hop, pins the checked address for TLS requests,
@@ -495,6 +537,17 @@ while the BOM is awaiting confirmation and only produce reviewable chat proposal
 get labelled samples without Gemini calls. See
 [the contract](../docs/contracts/gemini-extras.md).
 
+## Nearby markets (on by default)
+
+`markets.py` adds `GET /v1/jobs/{id}/markets?pin=560002` (or `?lat=..&lng=..`): one Gemini
+call with Google Maps grounding that lists electronics shops near the maker, sent only a
+short list of part categories from the BOM. A PIN maps to an approximate city centre from a
+static prefix table (no Geocoding API). Results are cached for 7 days per rounded location
+and category set, with a per-owner daily quota (`BS_MARKETS_DAILY_LIMIT`, 5) and a global cap
+(`BS_MARKETS_GLOBAL_DAILY_LIMIT`, 200); `BS_MARKETS_ENABLED=false` turns it off. Demo jobs get
+a labelled fictional sample. Google Maps attribution rules for the frontend are in
+[the contract](../docs/contracts/nearby-markets.md).
+
 ## Offer selection and costs
 
 `POST /v1/jobs/{job_id}/selections` accepts a batch of `{line_id, offer_url, accept_changes}`
@@ -538,8 +591,10 @@ New quotes must be selected again. Confirmed parts, specs and evidence remain un
 Each job supports two accepted refresh batches, each within the configured sourcing part
 limit. The counter and requested scope persist in Firestore. Invalid or concurrent requests
 do not consume the budget. A repeated POST after completion starts a new batch, so clients
-must check job status and `refresh_count` before retrying a lost response. Refresh can incur
-paid search calls. It does not reset the automatic recovery budget. Interrupted refresh
+must check job status and `refresh_count` before retrying a lost response. A refreshed line
+first re-fetches its previous offer pages (no Gemini search) and keeps them when at least
+one offer is not out of stock; only otherwise does refresh incur paid search calls. Each
+refresh run gets a fresh Gemini budget. It does not reset the automatic recovery budget. Interrupted refresh
 reuses completed lines and resumes only unfinished requested lines.
 
 ## Automatic recovery

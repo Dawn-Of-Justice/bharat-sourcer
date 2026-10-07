@@ -46,12 +46,15 @@ class Evidence(Model):
     validate. Video evidence carries a timestamp. Project-page evidence carries the fetched
     document `url` and a `quote` the server found verbatim (whitespace-normalised) in it.
     Code evidence is deterministic: the repository `file` and 1-based `line`, the line's
-    text as `quote`, and a `url` to that line.
+    text as `quote`, and a `url` to that line. YouTube description evidence carries a
+    `quote` (at most 300 characters) the server found verbatim in the video's description
+    and the canonical video `url`; it is dropped from responses 30 days after
+    `Job.video_meta.fetched_at` (YouTube API Services retention policy).
     """
 
     timestamp: str | None = Field(default=None, pattern=r"^\d{2,}:[0-5]\d$")
     observation: str = Field(min_length=1, max_length=1000)
-    source: Literal["video", "project_page", "code"] = "video"
+    source: Literal["video", "project_page", "code", "youtube_description"] = "video"
     quote: str | None = Field(default=None, min_length=3, max_length=500)
     url: HttpUrl | None = None
     file: str | None = Field(default=None, min_length=1, max_length=300)
@@ -69,6 +72,8 @@ class Evidence(Model):
                 raise ValueError("Code evidence needs a quote, URL, file and line")
         elif self.timestamp is not None or self.quote is None or self.url is None:
             raise ValueError("Project-page evidence needs a quote and URL and no timestamp")
+        elif self.source == "youtube_description" and len(self.quote) > 300:
+            raise ValueError("Description quotes are at most 300 characters")
         return self
 
 
@@ -222,7 +227,9 @@ class ResearchSource(Model):
 
 
 class PartResearch(Model):
-    status: Literal["ready", "no_evidence", "failed", "stale"]
+    # "skipped": no Gemini review ran, because a verified in-stock compatible offer made it
+    # unnecessary or the job budget was reached (see `summary`).
+    status: Literal["ready", "no_evidence", "failed", "stale", "skipped"]
     summary: str
     candidates: list[ResearchCandidate] = Field(default_factory=list, max_length=8)
     sources: list[ResearchSource] = Field(default_factory=list, max_length=32)
@@ -280,7 +287,7 @@ class Lookalike(Model):
 
 class ConflictValue(Model):
     value: str = Field(min_length=1, max_length=200)
-    source: Literal["video", "project_page", "code"]
+    source: Literal["video", "project_page", "code", "youtube_description"]
     url: HttpUrl | None = None
     locator: str | None = Field(default=None, max_length=300)
 
@@ -291,6 +298,72 @@ class ItemConflict(Model):
     kind: Literal["identity_mismatch", "qty_mismatch"]
     message: str = Field(min_length=1, max_length=500)
     values: list[ConflictValue] = Field(default_factory=list, max_length=6)
+
+
+PartCategory = Literal[
+    "resistor",
+    "capacitor_electrolytic",
+    "capacitor_ceramic",
+    "led",
+    "ldr",
+    "wire",
+    "diode",
+    "transistor",
+    "ic",
+    "module",
+    "board",
+    "sensor",
+    "connector",
+    "switch",
+    "battery",
+    "other",
+]
+ShortText = Annotated[str, Field(min_length=1, max_length=120)]
+
+
+class SpecParam(Model):
+    """One buyable parameter. `si_value` is filled by the server's unit normaliser."""
+
+    name: str = Field(min_length=1, max_length=60)
+    value: str = Field(min_length=1, max_length=80)
+    operator: Literal["equals", "at_least", "at_most", "between"] = "equals"
+    value_max: str | None = Field(default=None, max_length=80)
+    unit: str | None = Field(default=None, max_length=10)
+    si_value: float | None = Field(default=None, allow_inf_nan=False)
+    si_value_max: float | None = Field(default=None, allow_inf_nan=False)
+    # Required params must match a listing; others only add confidence.
+    required: bool = True
+    # stated: the source names it; inferred: decided from project context, with a reason.
+    origin: Literal["stated", "inferred", "user"] = "inferred"
+    reason: str | None = Field(default=None, max_length=300)
+
+
+class BuyableSpec(Model):
+    """What to buy for a BOM line, stated the way Indian sellers list parts.
+
+    `ai_inferred` specs come from the extraction call (one call per job, not per line);
+    `seed` specs are the deterministic fallback built from the part name only. Every
+    inferred value carries a reason and the whole spec is editable (`origin: user`).
+    """
+
+    origin: Literal["seed", "ai_inferred", "user"] = "seed"
+    # The BOM line's own name, so the judge always sees what the maker asked for.
+    part_name: ShortText | None = None
+    category: PartCategory = "other"
+    mount: Literal["tht", "smd", "any"] = "any"
+    mount_origin: Literal["stated", "inferred", "user", "default"] = "default"
+    mount_reason: str | None = Field(default=None, max_length=300)
+    params: list[SpecParam] = Field(default_factory=list, max_length=12)
+    # Names of required params; derived by the server from `params[].required`.
+    must: list[str] = Field(default_factory=list, max_length=12)
+    # Descriptive words ("clear", "bare"): they add confidence but never block a match.
+    prefer: list[ShortText] = Field(default_factory=list, max_length=10)
+    exclude: list[ShortText] = Field(default_factory=list, max_length=12)
+    synonyms: list[ShortText] = Field(default_factory=list, max_length=10)
+    queries: list[ShortText] = Field(default_factory=list, max_length=4)
+    needs_value: bool = False
+    needs_value_reason: str | None = Field(default=None, max_length=300)
+    reasons: list[str] = Field(default_factory=list, max_length=6)
 
 
 class BomItem(Model):
@@ -313,6 +386,8 @@ class BomItem(Model):
     # (user-added, renamed or saved before confidence existed).
     confidence: Literal["verified", "likely", "check"] | None = None
     confidence_reason: str | None = Field(default=None, max_length=300)
+    # AI-inferred or user-edited buying spec; None means sourcing uses a seed spec.
+    buyable_spec: BuyableSpec | None = None
 
 
 class UpdateLine(Model):
@@ -322,11 +397,18 @@ class UpdateLine(Model):
     qty: Quantity | None = None
     specs: PartSpecs | None = None
     requirements: list[PartRequirement] | None = Field(default=None, max_length=20)
+    # Replaces the line's buying spec; saved with origin "user".
+    buyable_spec: BuyableSpec | None = None
 
     @model_validator(mode="after")
     def require_change(self):
-        if all(v is None for v in (self.raw_name, self.qty, self.specs, self.requirements)):
-            raise ValueError("An update requires raw_name, qty, specs or requirements")
+        if all(
+            v is None
+            for v in (self.raw_name, self.qty, self.specs, self.requirements, self.buyable_spec)
+        ):
+            raise ValueError(
+                "An update requires raw_name, qty, specs, requirements or buyable_spec"
+            )
         return self
 
 
@@ -581,6 +663,34 @@ class SellerTrust(Model):
     checked_at: datetime = Field(default_factory=now)
 
 
+class MatchClaim(Model):
+    claim: str = Field(min_length=1, max_length=200)
+    # Verbatim from the listing text the judge was shown; checked by the server.
+    quote: str = Field(min_length=3, max_length=300)
+
+
+class OfferMatch(Model):
+    """How well a listing matches the line's buyable spec. A judgement, not a verification.
+
+    `llm_judge` verdicts keep only claims whose quotes appear verbatim in the listing;
+    `deterministic_shortcut` is used only when structured data states every spec param.
+    """
+
+    status: Literal["exact", "compatible", "partial", "mismatch"]
+    score: float = Field(ge=0, le=1)
+    matched: list[str] = Field(default_factory=list, max_length=12)
+    missing: list[str] = Field(default_factory=list, max_length=12)
+    conflicts: list[str] = Field(default_factory=list, max_length=12)
+    reasons: list[str] = Field(default_factory=list, max_length=6)
+    claims: list[MatchClaim] = Field(default_factory=list, max_length=8)
+    # Claims returned by the model whose quote was not found in the listing.
+    dropped_claims: int = Field(default=0, ge=0)
+    variant: str | None = Field(default=None, max_length=300)
+    pack_qty: int | None = Field(default=None, ge=1, le=100000)
+    method: Literal["llm_judge", "deterministic_shortcut"] = "llm_judge"
+    model: str | None = None
+
+
 class VerifiedOffer(Model):
     url: HttpUrl
     seller: str
@@ -591,7 +701,11 @@ class VerifiedOffer(Model):
     stock: Literal["in_stock", "out_of_stock", "preorder", "unknown"] = "unknown"
     checked_at: datetime = Field(default_factory=now)
     verification: Literal[
-        "seller_structured_data", "shopify_storefront_json", "woocommerce_store_api"
+        "seller_structured_data",
+        "shopify_storefront_json",
+        "woocommerce_store_api",
+        # Seller-declared OpenGraph product meta tags or microdata (one INR price).
+        "seller_meta_tags",
     ] = "seller_structured_data"
     seller_trust: Literal["unverified"] = "unverified"
     # Seller-declared only (JSON-LD or fixed page phrases); None means unknown or conflicting.
@@ -607,6 +721,10 @@ class VerifiedOffer(Model):
     compatibility: Compatibility | None = None
     research_assessment: ResearchAssessment | None = None
     trust: SellerTrust | None = None
+    # Spec match for this line (None: not judged, e.g. the judge is disabled).
+    match: OfferMatch | None = None
+    # Pieces per listing when the listing is a pack ("pack of 10"); None: not stated.
+    pack_qty: int | None = Field(default=None, ge=1, le=100000)
 
 
 class SearchAttribution(Model):
@@ -721,12 +839,16 @@ class PlanPick(Model):
     offer_url: HttpUrl
     seller: str
     price_inr: Money
-    grade: Literal["A", "B"]
+    # Cheapest and fewest-seller plans only use A/B offers; the recommended plan can include
+    # an offer whose compatibility is still unknown (None) or graded C/D.
+    grade: Literal["A", "B", "C", "D"] | None
     changes_required: bool = False
+    qty: int | None = None
+    packs: int | None = None
 
 
 class CartPlan(Model):
-    kind: Literal["cheapest", "fewest_sellers"]
+    kind: Literal["cheapest", "fewest_sellers", "recommended"]
     picks: list[PlanPick] = Field(default_factory=list)
     seller_count: int = 0
     costing: CostBreakdown
@@ -740,6 +862,99 @@ class CartPlans(Model):
     method: Literal["exhaustive", "greedy", "none"] = "none"
     uncovered_line_ids: list[str] = Field(default_factory=list)
     rules: list[str] = Field(default_factory=list)
+    seller_penalty_inr: Money | None = None
+
+
+class LineImage(Model):
+    """The one image to show for a line, resolved in a fixed order (recommendations.md)."""
+
+    url: str
+    kind: Literal[
+        "selected_offer", "recommended_offer", "offer", "reference", "category", "placeholder"
+    ]
+    label: str
+    source_url: HttpUrl | None = None
+
+
+class LineRecommendation(Model):
+    """Deterministic recommendation for one line; reasons explain every scoring factor."""
+
+    status: Literal["recommended", "unsourced"]
+    offer_url: HttpUrl | None = None
+    seller: str | None = None
+    score: float | None = Field(default=None, ge=0, le=1)
+    reasons: list[str] = Field(default_factory=list)
+    # Why the recommendation was not applied as the selection (selection rules), if not.
+    blocked_reason: str | None = None
+    unsourced_reason: (
+        Literal["pending", "needs_value", "no_offers", "no_acceptable_offer", "needs_quantity"]
+        | None
+    ) = None
+    next_steps: list[str] = Field(default_factory=list)
+    qty: int | None = None
+    pack_qty: int | None = None
+    packs: int | None = None
+    method: Literal["deterministic_score"] = "deterministic_score"
+
+
+class OrderPlanLine(Model):
+    line_id: str
+    name: str
+    offer_url: HttpUrl
+    title: str | None = None
+    qty: int
+    pack_qty: int | None = None
+    packs: int
+    units: int
+    unit_price_inr: Money
+    line_price_inr: Money
+    selection_source: Literal["recommended", "user"] | None = None
+    selected: bool = False
+    grade: Literal["A", "B", "C", "D", "X"] | None = None
+    changes_required: bool = False
+    blocked_reason: str | None = None
+
+
+class OrderPlanSeller(Model):
+    seller: str
+    lines: list[OrderPlanLine] = Field(default_factory=list)
+    subtotal_inr: Money
+    gst: CostAmount
+    shipping: CostAmount
+    total: CostAmount
+    free_shipping_gap_inr: Money | None = None
+    policy: ShippingPolicyRef | None = None
+    product_links: list[HttpUrl] = Field(default_factory=list)
+
+
+class UnsourcedLine(Model):
+    line_id: str
+    name: str
+    reason: Literal[
+        "pending",
+        "needs_value",
+        "no_offers",
+        "no_acceptable_offer",
+        "needs_quantity",
+        "cleared_by_user",
+    ]
+    message: str
+    next_steps: list[str] = Field(default_factory=list)
+    research_urls: list[HttpUrl] = Field(default_factory=list)
+
+
+class OrderPlan(Model):
+    """Seller-grouped order built from selections, else recommendations; an estimate only."""
+
+    sellers: list[OrderPlanSeller] = Field(default_factory=list)
+    unsourced: list[UnsourcedLine] = Field(default_factory=list)
+    seller_count: int = 0
+    costing: CostBreakdown
+    ready: bool = False
+    disclaimer: str = (
+        "Recommendations are automatic and deterministic; check each seller page and "
+        "checkout before ordering. Totals are estimates, not a payable amount."
+    )
 
 
 class SetImportReference(Model):
@@ -752,12 +967,28 @@ class SetImportReferences(Model):
     references: list[SetImportReference] = Field(min_length=1, max_length=100)
 
 
+class SellerSearchSummary(Model):
+    """Direct seller-catalogue search for one line. Candidate URLs are unverified leads."""
+
+    queries: list[str] = Field(default_factory=list, max_length=4)
+    candidate_urls: list[str] = Field(default_factory=list, max_length=20)
+    sellers_checked: int = 0
+    # Hosts that answered with a bot-protection challenge (or are recorded as doing so).
+    blocked_sellers: list[str] = Field(default_factory=list, max_length=20)
+    message: str = Field(default="", max_length=500)
+
+
+SourcingStage = Literal["seller_search", "judge", "grounded", "known_urls", "research", "followup"]
+
+
 class ReportLine(Model):
     item: BomItem
     sourcing_status: Literal[
         "not_run", "already_owned", "offers_found", "no_verified_offers", "failed"
     ]
     resolution: PartResolution | None = None
+    # The spec this line was sourced with (item spec, or a seed spec from the name).
+    buyable_spec: BuyableSpec | None = None
     offers: list[VerifiedOffer] = Field(default_factory=list)
     image_candidates: list[PartImage] = Field(default_factory=list)
     attribution: SearchAttribution | None = None
@@ -770,6 +1001,19 @@ class ReportLine(Model):
     changes_accepted: bool = False
     research_accepted: bool = False
     import_reference: ImportReference | None = None
+    # recommended: applied automatically; user: chosen (or cleared) through /selections and
+    # never replaced by recomputation. None: no selection yet, or saved before recommendations.
+    selection_source: Literal["recommended", "user"] | None = None
+    # The user's own choice, kept across refreshes and spec updates; None with
+    # selection_source "user" means the user cleared the line.
+    user_offer_url: HttpUrl | None = None
+    recommended_offer_url: HttpUrl | None = None
+    recommendation: LineRecommendation | None = None
+    line_image: LineImage | None = None
+    seller_search: SellerSearchSummary | None = None
+    # Sourcing stages in the order they ran, and the paid model calls the line used.
+    stages: list[SourcingStage] = Field(default_factory=list, max_length=12)
+    gemini_calls: int = Field(default=0, ge=0)
 
 
 class Report(Model):
@@ -783,6 +1027,7 @@ class Report(Model):
     tax_inr: None = None
     unselected_line_ids: list[str] = Field(default_factory=list)
     costing: CostBreakdown | None = None
+    order_plan: OrderPlan | None = None
 
 
 class SafetyTrigger(Model):
@@ -822,12 +1067,63 @@ class SourceReport(Model):
     """How one submitted source was read during extraction."""
 
     url: str
-    kind: Literal["video", "instructables", "hackster", "github", "adafruit", "blog"]
+    kind: Literal[
+        "video", "instructables", "hackster", "github", "adafruit", "blog", "youtube_description"
+    ]
     role: Literal["primary", "additional"] = "primary"
     status: Literal["read", "failed"]
     item_count: int = Field(default=0, ge=0)
     code_item_count: int = Field(default=0, ge=0)
     error: "ErrorDetail | None" = None
+    # "youtube_description" when this extra source was a link in the video's description.
+    found_in: Literal["youtube_description"] | None = None
+
+
+class VideoLink(Model):
+    """One link from a YouTube description; only project pages are followed as sources."""
+
+    url: str = Field(min_length=1, max_length=500)
+    kind: Literal["project_source", "video", "store", "other"]
+    followed: bool = False
+
+
+class JobVideoMeta(Model):
+    """YouTube Data API snippet facts kept on a job; never the full description.
+
+    API data must be refreshed or deleted after 30 days: once `fetched_at` is older,
+    responses clear `title`, `channel`, `published_at` and `links`, drop description
+    quotes from evidence and set `expired`.
+    """
+
+    video_id: str = Field(pattern=r"^[A-Za-z0-9_-]{11}$")
+    title: str | None = Field(default=None, max_length=200)
+    channel: str | None = Field(default=None, max_length=200)
+    published_at: datetime | None = None
+    fetched_at: datetime
+    links: list[VideoLink] = Field(default_factory=list, max_length=20)
+    expired: bool = False
+
+
+class CostEstimate(Model):
+    """Estimated Gemini spend for this job from logged token counts and a dated price table.
+
+    An estimate for budgeting, not a bill: grounding queries are priced as if the monthly
+    free tier were used up. `run_usd` is the current sourcing run, which the budget limits.
+    """
+
+    method: Literal["estimated_from_token_counts"] = "estimated_from_token_counts"
+    total_usd: float = Field(default=0, ge=0)
+    run_usd: float = Field(default=0, ge=0)
+    budget_usd: float | None = None
+    budget_reached: bool = False
+    calls: int = Field(default=0, ge=0)
+    search_queries: int = Field(default=0, ge=0)
+    calls_by_site: dict[str, int] = Field(default_factory=dict)
+    usd_by_site: dict[str, float] = Field(default_factory=dict)
+    # Shared-cache hits by namespace (discovery, judge, page, seller_search, research).
+    cache_hits: dict[str, int] = Field(default_factory=dict)
+    prices_checked: str | None = None
+    updated_at: datetime = Field(default_factory=now)
 
 
 class Job(Model):
@@ -853,7 +1149,9 @@ class Job(Model):
     resistor_advice: list[ResistorAdvice] = Field(default_factory=list)
     actions: list[ActionRecord] = Field(default_factory=list)
     safety_flags: list[SafetyFlag] = Field(default_factory=list)
-    source_reports: list[SourceReport] = Field(default_factory=list, max_length=4)
+    source_reports: list[SourceReport] = Field(default_factory=list, max_length=5)
+    video_meta: JobVideoMeta | None = None
+    cost_estimate: CostEstimate | None = None
 
 
 class CreatedJob(Model):

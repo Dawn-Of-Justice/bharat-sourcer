@@ -1,0 +1,107 @@
+{
+ "_fixture": {
+  "url": "https://robocraze.com/search/suggest.json?q=22uf%2016v%20capacitor&resources%5Btype%5D=product&resources%5Blimit%5D=10",
+  "fetched_on": "2026-10-07",
+  "note": "Recorded live response, trimmed to the fields the adapter reads. Prices are search hints only, never verified offers."
+ },
+ "status": 200,
+ "content_type": "application/json; charset=utf-8",
+ "body": {
+  "resources": {
+   "results": {
+    "products": [
+     {
+      "title": "1000uF 25V Electrolytic Capacitor – Through Hole DIP",
+      "handle": "1000uf-25v-electrolytic-capacitor-through-hole-dip",
+      "url": "/products/1000uf-25v-electrolytic-capacitor-through-hole-dip?_pos=1&_psq=22uf+16v+capacitor&_psid=3866bfd63&_ss=e",
+      "price": "6.00",
+      "image": "https://cdn.shopify.com/s/files/1/0559/1970/6265/files/1000uF_25V_Electrolytic_Capacitor_Through_Hole_DIP_-Basic_Components_-Robocraze.png?v=1780914710",
+      "available": true,
+      "vendor": "Robocraze"
+     },
+     {
+      "title": "Waveshare 4.3 Inch DSI Capacitive Touch Display 800×480 for Raspberry Pi",
+      "handle": "waveshare-4-3inch-dsi-lcd-capacitive-touch-display-800-480-for-raspberry-pi",
+      "url": "/products/waveshare-4-3inch-dsi-lcd-capacitive-touch-display-800-480-for-raspberry-pi?_pos=2&_psq=22uf+16v+capacitor&_psid=3866bfd63&_ss=e",
+      "price": "3525.00",
+      "image": "https://cdn.shopify.com/s/files/1/0559/1970/6265/files/Waveshare_4.3inch_DSI_LCD_Capacitive_Touch_Display_800_480_for_Raspberry_Pi.png?v=1747200213",
+      "available": true,
+      "vendor": "Waveshare"
+     },
+     {
+      "title": "15 Value Electrolytic Capacitor Kit with Box 200PC",
+      "handle": "15-value-electrolytic-capacitor-kit-with-box-200pc",
+      "url": "/products/15-value-electrolytic-capacitor-kit-with-box-200pc?_pos=3&_psq=22uf+16v+capacitor&_psid=3866bfd63&_ss=e",
+      "price": "251.00",
+      "image": "https://cdn.shopify.com/s/files/1/0559/1970/6265/files/1_9c907714-0a39-4b07-ab1f-9c4a75738828.png?v=1743772751",
+      "available": false,
+      "vendor": "Robocraze"
+     },
+     {
+      "title": "220µF 25V Electrolytic Capacitor (Pack of 5)",
+      "handle": "220µf-25v-electrolytic-capacitor-pack-of-5",
+      "url": "/products/220%C2%B5f-25v-electrolytic-capacitor-pack-of-5?_pos=4&_psq=22uf+16v+capacitor&_psid=3866bfd63&_ss=e",
+      "price": "16.00",
+      "image": "https://cdn.shopify.com/s/files/1/0559/1970/6265/files/220_F_25V_Electrolytic_Capacitor_Pack_of_5_ba8fb8c8-ebc5-4380-867e-1bcb06576730.png?v=1752209786",
+      "available": false,
+      "vendor": "Robocraze"
+     },
+     {
+      "title": "100uF / 25V Electrolytic Capacitor (Pack of 5)",
+      "handle": "100uf-25v-electrolytic-capacitor-pack-of-5",
+      "url": "/products/100uf-25v-electrolytic-capacitor-pack-of-5?_pos=5&_psq=22uf+16v+capacitor&_psid=3866bfd63&_ss=e",
+      "price": "23.00",
+      "image": "https://cdn.shopify.com/s/files/1/0559/1970/6265/products/1_37e8c8c3-63c5-43b2-b221-4c3947615549.png?v=1743773608",
+      "available": false,
+      "vendor": "Robocraze"
+     },
+     {
+      "title": "Ceramic Capacitor Box - 100 pieces",
+      "handle": "capacitor-box",
+      "url": "/products/capacitor-box?_pos=6&_psq=22uf+16v+capacitor&_psid=3866bfd63&_ss=e",
+      "price": "45.00",
+      "image": "https://cdn.shopify.com/s/files/1/0559/1970/6265/files/Ceramic_Capacitor_Box_100PC.png?v=1755605193",
+      "available": false,
+      "vendor": "Robocraze"
+     },
+     {
+      "title": "4700uF 25V Electrolytic Capacitor (Pack of 5)",
+      "handle": "4700uf-25v-electrolytic-capacitor",
+      "url": "/products/4700uf-25v-electrolytic-capacitor?_pos=7&_psq=22uf+16v+capacitor&_psid=3866bfd63&_ss=e",
+      "price": "102.00",
+      "image": "https://cdn.shopify.com/s/files/1/0559/1970/6265/products/1_6b4a24f2-95be-41cf-b20b-e5a569790f3f.png?v=1743773609",
+      "available": false,
+      "vendor": "Robocraze"
+     },
+     {
+      "title": "0.1 uF 50V Ceramic Capacitor (Pack of 10)",
+      "handle": "0-1-uf-50v-ceramic-capacitor",
+      "url": "/products/0-1-uf-50v-ceramic-capacitor?_pos=8&_psq=22uf+16v+capacitor&_psid=3866bfd63&_ss=e",
+      "price": "17.00",
+      "image": "https://cdn.shopify.com/s/files/1/0559/1970/6265/files/New_products_11.png?v=1753685291",
+      "available": false,
+      "vendor": "Robocraze"
+     },
+     {
+      "title": "470uF 50V Through-Hole Electrolytic Capacitor (Pack of 10)",
+      "handle": "470uf-50v-through-hole-electrolytic-capacitor-pack-of-10",
+      "url": "/products/470uf-50v-through-hole-electrolytic-capacitor-pack-of-10?_pos=9&_psq=22uf+16v+capacitor&_psid=3866bfd63&_ss=e",
+      "price": "67.00",
+      "image": "https://cdn.shopify.com/s/files/1/0559/1970/6265/files/470uF_50V_Through-Hole_Electrolytic_Capacitor_Pack_of_10.png?v=1789476038",
+      "available": false,
+      "vendor": "Robocraze"
+     },
+     {
+      "title": "100KPF Ceramic Cap (Pack of 20)",
+      "handle": "100kpf-ceramic-cap",
+      "url": "/products/100kpf-ceramic-cap?_pos=10&_psq=22uf+16v+capacitor&_psid=3866bfd63&_ss=e",
+      "price": "22.00",
+      "image": "https://cdn.shopify.com/s/files/1/0559/1970/6265/products/Untitleddesign_5_4ece1782-ce28-4125-a4c0-4347cfce90e1.png?v=1743773525",
+      "available": false,
+      "vendor": "Robocraze"
+     }
+    ]
+   }
+  }
+ }
+}

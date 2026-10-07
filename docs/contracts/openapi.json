@@ -3,7 +3,7 @@
   "info": {
     "title": "Bharat Sourcer API",
     "description": "Demo or live YouTube and project-page extraction with optional Firestore job persistence.",
-    "version": "0.20.0"
+    "version": "0.21.0"
   },
   "paths": {
     "/v1/session/guest": {
@@ -1275,6 +1275,162 @@
               }
             },
             "description": "Unsupported Media Type"
+          }
+        }
+      }
+    },
+    "/v1/jobs/{job_id}/markets": {
+      "get": {
+        "tags": [
+          "markets"
+        ],
+        "summary": "Nearby",
+        "operationId": "nearby_v1_jobs__job_id__markets_get",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Job Id"
+            }
+          },
+          {
+            "name": "pin",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Pin"
+            }
+          },
+          {
+            "name": "lat",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Lat"
+            }
+          },
+          {
+            "name": "lng",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Lng"
+            }
+          },
+          {
+            "name": "x-job-token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Job-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MarketsResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Gateway"
           }
         }
       }
@@ -3155,6 +3311,16 @@
               }
             ],
             "title": "Confidence Reason"
+          },
+          "buyable_spec": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BuyableSpec"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "additionalProperties": false,
@@ -3165,13 +3331,182 @@
         ],
         "title": "BomItem"
       },
+      "BuyableSpec": {
+        "properties": {
+          "origin": {
+            "type": "string",
+            "enum": [
+              "seed",
+              "ai_inferred",
+              "user"
+            ],
+            "title": "Origin",
+            "default": "seed"
+          },
+          "part_name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 120,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Part Name"
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "resistor",
+              "capacitor_electrolytic",
+              "capacitor_ceramic",
+              "led",
+              "ldr",
+              "wire",
+              "diode",
+              "transistor",
+              "ic",
+              "module",
+              "board",
+              "sensor",
+              "connector",
+              "switch",
+              "battery",
+              "other"
+            ],
+            "title": "Category",
+            "default": "other"
+          },
+          "mount": {
+            "type": "string",
+            "enum": [
+              "tht",
+              "smd",
+              "any"
+            ],
+            "title": "Mount",
+            "default": "any"
+          },
+          "mount_origin": {
+            "type": "string",
+            "enum": [
+              "stated",
+              "inferred",
+              "user",
+              "default"
+            ],
+            "title": "Mount Origin",
+            "default": "default"
+          },
+          "mount_reason": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 300
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mount Reason"
+          },
+          "params": {
+            "items": {
+              "$ref": "#/components/schemas/SpecParam"
+            },
+            "type": "array",
+            "maxItems": 12,
+            "title": "Params"
+          },
+          "must": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 12,
+            "title": "Must"
+          },
+          "prefer": {
+            "items": {
+              "type": "string",
+              "maxLength": 120,
+              "minLength": 1
+            },
+            "type": "array",
+            "maxItems": 10,
+            "title": "Prefer"
+          },
+          "exclude": {
+            "items": {
+              "type": "string",
+              "maxLength": 120,
+              "minLength": 1
+            },
+            "type": "array",
+            "maxItems": 12,
+            "title": "Exclude"
+          },
+          "synonyms": {
+            "items": {
+              "type": "string",
+              "maxLength": 120,
+              "minLength": 1
+            },
+            "type": "array",
+            "maxItems": 10,
+            "title": "Synonyms"
+          },
+          "queries": {
+            "items": {
+              "type": "string",
+              "maxLength": 120,
+              "minLength": 1
+            },
+            "type": "array",
+            "maxItems": 4,
+            "title": "Queries"
+          },
+          "needs_value": {
+            "type": "boolean",
+            "title": "Needs Value",
+            "default": false
+          },
+          "needs_value_reason": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 300
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Needs Value Reason"
+          },
+          "reasons": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 6,
+            "title": "Reasons"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "BuyableSpec",
+        "description": "What to buy for a BOM line, stated the way Indian sellers list parts.\n\n`ai_inferred` specs come from the extraction call (one call per job, not per line);\n`seed` specs are the deterministic fallback built from the part name only. Every\ninferred value carries a reason and the whole spec is editable (`origin: user`)."
+      },
       "CartPlan": {
         "properties": {
           "kind": {
             "type": "string",
             "enum": [
               "cheapest",
-              "fewest_sellers"
+              "fewest_sellers",
+              "recommended"
             ],
             "title": "Kind"
           },
@@ -3236,6 +3571,18 @@
             },
             "type": "array",
             "title": "Rules"
+          },
+          "seller_penalty_inr": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^\\d+\\.\\d{2}$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Seller Penalty Inr"
           }
         },
         "additionalProperties": false,
@@ -3882,7 +4229,8 @@
             "enum": [
               "video",
               "project_page",
-              "code"
+              "code",
+              "youtube_description"
             ],
             "title": "Source"
           },
@@ -4060,6 +4408,97 @@
         ],
         "title": "CostBreakdown",
         "description": "Estimated cost of chosen offers; never a final payable or checkout total."
+      },
+      "CostEstimate": {
+        "properties": {
+          "method": {
+            "type": "string",
+            "const": "estimated_from_token_counts",
+            "title": "Method",
+            "default": "estimated_from_token_counts"
+          },
+          "total_usd": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Total Usd",
+            "default": 0
+          },
+          "run_usd": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Run Usd",
+            "default": 0
+          },
+          "budget_usd": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Budget Usd"
+          },
+          "budget_reached": {
+            "type": "boolean",
+            "title": "Budget Reached",
+            "default": false
+          },
+          "calls": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Calls",
+            "default": 0
+          },
+          "search_queries": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Search Queries",
+            "default": 0
+          },
+          "calls_by_site": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Calls By Site"
+          },
+          "usd_by_site": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "type": "object",
+            "title": "Usd By Site"
+          },
+          "cache_hits": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Cache Hits"
+          },
+          "prices_checked": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Prices Checked"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "CostEstimate",
+        "description": "Estimated Gemini spend for this job from logged token counts and a dated price table.\n\nAn estimate for budgeting, not a bill: grounding queries are priced as if the monthly\nfree tier were used up. `run_usd` is the current sourcing run, which the budget limits."
       },
       "CreateJob": {
         "properties": {
@@ -4264,7 +4703,8 @@
             "enum": [
               "video",
               "project_page",
-              "code"
+              "code",
+              "youtube_description"
             ],
             "title": "Source",
             "default": "video"
@@ -4328,7 +4768,7 @@
           "observation"
         ],
         "title": "Evidence",
-        "description": "Model-reported provenance for an extracted BOM line.\n\n`source` defaults to `video` so snapshots saved before project-page support still\nvalidate. Video evidence carries a timestamp. Project-page evidence carries the fetched\ndocument `url` and a `quote` the server found verbatim (whitespace-normalised) in it.\nCode evidence is deterministic: the repository `file` and 1-based `line`, the line's\ntext as `quote`, and a `url` to that line."
+        "description": "Model-reported provenance for an extracted BOM line.\n\n`source` defaults to `video` so snapshots saved before project-page support still\nvalidate. Video evidence carries a timestamp. Project-page evidence carries the fetched\ndocument `url` and a `quote` the server found verbatim (whitespace-normalised) in it.\nCode evidence is deterministic: the repository `file` and 1-based `line`, the line's\ntext as `quote`, and a `url` to that line. YouTube description evidence carries a\n`quote` (at most 300 characters) the server found verbatim in the video's description\nand the canonical video `url`; it is dropped from responses 30 days after\n`Job.video_meta.fetched_at` (YouTube API Services retention policy)."
       },
       "ExplainRequest": {
         "properties": {
@@ -4908,8 +5348,28 @@
               "$ref": "#/components/schemas/SourceReport"
             },
             "type": "array",
-            "maxItems": 4,
+            "maxItems": 5,
             "title": "Source Reports"
+          },
+          "video_meta": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JobVideoMeta"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "cost_estimate": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CostEstimate"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "additionalProperties": false,
@@ -4919,6 +5379,263 @@
           "input"
         ],
         "title": "Job"
+      },
+      "JobVideoMeta": {
+        "properties": {
+          "video_id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{11}$",
+            "title": "Video Id"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "channel": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Channel"
+          },
+          "published_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published At"
+          },
+          "fetched_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Fetched At"
+          },
+          "links": {
+            "items": {
+              "$ref": "#/components/schemas/VideoLink"
+            },
+            "type": "array",
+            "maxItems": 20,
+            "title": "Links"
+          },
+          "expired": {
+            "type": "boolean",
+            "title": "Expired",
+            "default": false
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "video_id",
+          "fetched_at"
+        ],
+        "title": "JobVideoMeta",
+        "description": "YouTube Data API snippet facts kept on a job; never the full description.\n\nAPI data must be refreshed or deleted after 30 days: once `fetched_at` is older,\nresponses clear `title`, `channel`, `published_at` and `links`, drop description\nquotes from evidence and set `expired`."
+      },
+      "LineImage": {
+        "properties": {
+          "url": {
+            "type": "string",
+            "title": "Url"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "selected_offer",
+              "recommended_offer",
+              "offer",
+              "reference",
+              "category",
+              "placeholder"
+            ],
+            "title": "Kind"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "source_url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2083,
+                "minLength": 1,
+                "format": "uri"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Url"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "url",
+          "kind",
+          "label"
+        ],
+        "title": "LineImage",
+        "description": "The one image to show for a line, resolved in a fixed order (recommendations.md)."
+      },
+      "LineRecommendation": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "recommended",
+              "unsourced"
+            ],
+            "title": "Status"
+          },
+          "offer_url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2083,
+                "minLength": 1,
+                "format": "uri"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Offer Url"
+          },
+          "seller": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Seller"
+          },
+          "score": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 1.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Score"
+          },
+          "reasons": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Reasons"
+          },
+          "blocked_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Blocked Reason"
+          },
+          "unsourced_reason": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "pending",
+                  "needs_value",
+                  "no_offers",
+                  "no_acceptable_offer",
+                  "needs_quantity"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unsourced Reason"
+          },
+          "next_steps": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Next Steps"
+          },
+          "qty": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Qty"
+          },
+          "pack_qty": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pack Qty"
+          },
+          "packs": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Packs"
+          },
+          "method": {
+            "type": "string",
+            "const": "deterministic_score",
+            "title": "Method",
+            "default": "deterministic_score"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "title": "LineRecommendation",
+        "description": "Deterministic recommendation for one line; reasons explain every scoring factor."
       },
       "Lookalike": {
         "properties": {
@@ -4957,6 +5674,631 @@
         ],
         "title": "Lookalike",
         "description": "A part easily confused with this line; a warning, never a suggested substitute."
+      },
+      "MapsSource": {
+        "properties": {
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "uri": {
+            "type": "string",
+            "title": "Uri"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "place",
+              "review",
+              "web"
+            ],
+            "title": "Kind"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "title",
+          "uri",
+          "kind"
+        ],
+        "title": "MapsSource"
+      },
+      "MarketLocation": {
+        "properties": {
+          "source": {
+            "type": "string",
+            "enum": [
+              "pin",
+              "coordinates"
+            ],
+            "title": "Source"
+          },
+          "pin": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pin"
+          },
+          "city": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "City"
+          },
+          "latitude": {
+            "type": "number",
+            "title": "Latitude"
+          },
+          "longitude": {
+            "type": "number",
+            "title": "Longitude"
+          },
+          "approximate": {
+            "type": "boolean",
+            "title": "Approximate"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "source",
+          "latitude",
+          "longitude",
+          "approximate",
+          "label"
+        ],
+        "title": "MarketLocation"
+      },
+      "MarketPlace": {
+        "properties": {
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "uri": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Uri"
+          },
+          "address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address"
+          },
+          "place_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Place Id"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "title"
+        ],
+        "title": "MarketPlace"
+      },
+      "MarketsAttribution": {
+        "properties": {
+          "provider": {
+            "type": "string",
+            "const": "Google Maps",
+            "title": "Provider",
+            "default": "Google Maps"
+          },
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/MapsSource"
+            },
+            "type": "array",
+            "title": "Sources"
+          },
+          "rules": {
+            "type": "string",
+            "title": "Rules",
+            "default": "Show these Google Maps sources immediately after the summary, viewable within one interaction; link each title to its URI and do not modify the text \"Google Maps\"."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "sources"
+        ],
+        "title": "MarketsAttribution"
+      },
+      "MarketsResult": {
+        "properties": {
+          "demo": {
+            "type": "boolean",
+            "title": "Demo"
+          },
+          "location": {
+            "$ref": "#/components/schemas/MarketLocation"
+          },
+          "categories": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Categories"
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Summary"
+          },
+          "summary_label": {
+            "type": "string",
+            "title": "Summary Label",
+            "default": "Shops likely to carry these parts — call first; stock is not confirmed"
+          },
+          "places": {
+            "items": {
+              "$ref": "#/components/schemas/MarketPlace"
+            },
+            "type": "array",
+            "title": "Places"
+          },
+          "attribution": {
+            "$ref": "#/components/schemas/MarketsAttribution"
+          },
+          "cached": {
+            "type": "boolean",
+            "title": "Cached"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "demo",
+          "location",
+          "categories",
+          "places",
+          "attribution",
+          "cached",
+          "label"
+        ],
+        "title": "MarketsResult"
+      },
+      "MatchClaim": {
+        "properties": {
+          "claim": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Claim"
+          },
+          "quote": {
+            "type": "string",
+            "maxLength": 300,
+            "minLength": 3,
+            "title": "Quote"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "claim",
+          "quote"
+        ],
+        "title": "MatchClaim"
+      },
+      "OfferMatch": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "exact",
+              "compatible",
+              "partial",
+              "mismatch"
+            ],
+            "title": "Status"
+          },
+          "score": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Score"
+          },
+          "matched": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 12,
+            "title": "Matched"
+          },
+          "missing": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 12,
+            "title": "Missing"
+          },
+          "conflicts": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 12,
+            "title": "Conflicts"
+          },
+          "reasons": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 6,
+            "title": "Reasons"
+          },
+          "claims": {
+            "items": {
+              "$ref": "#/components/schemas/MatchClaim"
+            },
+            "type": "array",
+            "maxItems": 8,
+            "title": "Claims"
+          },
+          "dropped_claims": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Dropped Claims",
+            "default": 0
+          },
+          "variant": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 300
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Variant"
+          },
+          "pack_qty": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 100000.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pack Qty"
+          },
+          "method": {
+            "type": "string",
+            "enum": [
+              "llm_judge",
+              "deterministic_shortcut"
+            ],
+            "title": "Method",
+            "default": "llm_judge"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "status",
+          "score"
+        ],
+        "title": "OfferMatch",
+        "description": "How well a listing matches the line's buyable spec. A judgement, not a verification.\n\n`llm_judge` verdicts keep only claims whose quotes appear verbatim in the listing;\n`deterministic_shortcut` is used only when structured data states every spec param."
+      },
+      "OrderPlan": {
+        "properties": {
+          "sellers": {
+            "items": {
+              "$ref": "#/components/schemas/OrderPlanSeller"
+            },
+            "type": "array",
+            "title": "Sellers"
+          },
+          "unsourced": {
+            "items": {
+              "$ref": "#/components/schemas/UnsourcedLine"
+            },
+            "type": "array",
+            "title": "Unsourced"
+          },
+          "seller_count": {
+            "type": "integer",
+            "title": "Seller Count",
+            "default": 0
+          },
+          "costing": {
+            "$ref": "#/components/schemas/CostBreakdown"
+          },
+          "ready": {
+            "type": "boolean",
+            "title": "Ready",
+            "default": false
+          },
+          "disclaimer": {
+            "type": "string",
+            "title": "Disclaimer",
+            "default": "Recommendations are automatic and deterministic; check each seller page and checkout before ordering. Totals are estimates, not a payable amount."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "costing"
+        ],
+        "title": "OrderPlan",
+        "description": "Seller-grouped order built from selections, else recommendations; an estimate only."
+      },
+      "OrderPlanLine": {
+        "properties": {
+          "line_id": {
+            "type": "string",
+            "title": "Line Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "offer_url": {
+            "type": "string",
+            "maxLength": 2083,
+            "minLength": 1,
+            "format": "uri",
+            "title": "Offer Url"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "qty": {
+            "type": "integer",
+            "title": "Qty"
+          },
+          "pack_qty": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pack Qty"
+          },
+          "packs": {
+            "type": "integer",
+            "title": "Packs"
+          },
+          "units": {
+            "type": "integer",
+            "title": "Units"
+          },
+          "unit_price_inr": {
+            "type": "string",
+            "pattern": "^\\d+\\.\\d{2}$",
+            "title": "Unit Price Inr"
+          },
+          "line_price_inr": {
+            "type": "string",
+            "pattern": "^\\d+\\.\\d{2}$",
+            "title": "Line Price Inr"
+          },
+          "selection_source": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "recommended",
+                  "user"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Selection Source"
+          },
+          "selected": {
+            "type": "boolean",
+            "title": "Selected",
+            "default": false
+          },
+          "grade": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "A",
+                  "B",
+                  "C",
+                  "D",
+                  "X"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Grade"
+          },
+          "changes_required": {
+            "type": "boolean",
+            "title": "Changes Required",
+            "default": false
+          },
+          "blocked_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Blocked Reason"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "line_id",
+          "name",
+          "offer_url",
+          "qty",
+          "packs",
+          "units",
+          "unit_price_inr",
+          "line_price_inr"
+        ],
+        "title": "OrderPlanLine"
+      },
+      "OrderPlanSeller": {
+        "properties": {
+          "seller": {
+            "type": "string",
+            "title": "Seller"
+          },
+          "lines": {
+            "items": {
+              "$ref": "#/components/schemas/OrderPlanLine"
+            },
+            "type": "array",
+            "title": "Lines"
+          },
+          "subtotal_inr": {
+            "type": "string",
+            "pattern": "^\\d+\\.\\d{2}$",
+            "title": "Subtotal Inr"
+          },
+          "gst": {
+            "$ref": "#/components/schemas/CostAmount"
+          },
+          "shipping": {
+            "$ref": "#/components/schemas/CostAmount"
+          },
+          "total": {
+            "$ref": "#/components/schemas/CostAmount"
+          },
+          "free_shipping_gap_inr": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^\\d+\\.\\d{2}$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Free Shipping Gap Inr"
+          },
+          "policy": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ShippingPolicyRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "product_links": {
+            "items": {
+              "type": "string",
+              "maxLength": 2083,
+              "minLength": 1,
+              "format": "uri"
+            },
+            "type": "array",
+            "title": "Product Links"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "seller",
+          "subtotal_inr",
+          "gst",
+          "shipping",
+          "total"
+        ],
+        "title": "OrderPlanSeller"
       },
       "PartImage": {
         "properties": {
@@ -5109,7 +6451,8 @@
               "ready",
               "no_evidence",
               "failed",
-              "stale"
+              "stale",
+              "skipped"
             ],
             "title": "Status"
           },
@@ -5473,10 +6816,19 @@
             "title": "Price Inr"
           },
           "grade": {
-            "type": "string",
-            "enum": [
-              "A",
-              "B"
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "A",
+                  "B",
+                  "C",
+                  "D"
+                ]
+              },
+              {
+                "type": "null"
+              }
             ],
             "title": "Grade"
           },
@@ -5484,6 +6836,28 @@
             "type": "boolean",
             "title": "Changes Required",
             "default": false
+          },
+          "qty": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Qty"
+          },
+          "packs": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Packs"
           }
         },
         "additionalProperties": false,
@@ -5970,6 +7344,16 @@
                 "type": "null"
               }
             ]
+          },
+          "order_plan": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/OrderPlan"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "additionalProperties": false,
@@ -6000,6 +7384,16 @@
             "anyOf": [
               {
                 "$ref": "#/components/schemas/PartResolution"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "buyable_spec": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BuyableSpec"
               },
               {
                 "type": "null"
@@ -6122,6 +7516,101 @@
                 "type": "null"
               }
             ]
+          },
+          "selection_source": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "recommended",
+                  "user"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Selection Source"
+          },
+          "user_offer_url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2083,
+                "minLength": 1,
+                "format": "uri"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Offer Url"
+          },
+          "recommended_offer_url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2083,
+                "minLength": 1,
+                "format": "uri"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recommended Offer Url"
+          },
+          "recommendation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LineRecommendation"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "line_image": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LineImage"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "seller_search": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SellerSearchSummary"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "stages": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "seller_search",
+                "judge",
+                "grounded",
+                "known_urls",
+                "research",
+                "followup"
+              ]
+            },
+            "type": "array",
+            "maxItems": 12,
+            "title": "Stages"
+          },
+          "gemini_calls": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Gemini Calls",
+            "default": 0
           }
         },
         "additionalProperties": false,
@@ -6977,6 +8466,49 @@
         ],
         "title": "SellerCost"
       },
+      "SellerSearchSummary": {
+        "properties": {
+          "queries": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 4,
+            "title": "Queries"
+          },
+          "candidate_urls": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 20,
+            "title": "Candidate Urls"
+          },
+          "sellers_checked": {
+            "type": "integer",
+            "title": "Sellers Checked",
+            "default": 0
+          },
+          "blocked_sellers": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 20,
+            "title": "Blocked Sellers"
+          },
+          "message": {
+            "type": "string",
+            "maxLength": 500,
+            "title": "Message",
+            "default": ""
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "SellerSearchSummary",
+        "description": "Direct seller-catalogue search for one line. Candidate URLs are unverified leads."
+      },
       "SellerTrust": {
         "properties": {
           "label": {
@@ -7398,7 +8930,8 @@
               "hackster",
               "github",
               "adafruit",
-              "blog"
+              "blog",
+              "youtube_description"
             ],
             "title": "Kind"
           },
@@ -7440,6 +8973,18 @@
                 "type": "null"
               }
             ]
+          },
+          "found_in": {
+            "anyOf": [
+              {
+                "type": "string",
+                "const": "youtube_description"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Found In"
           }
         },
         "additionalProperties": false,
@@ -7511,6 +9056,114 @@
           "locator"
         ],
         "title": "SpecEvidence"
+      },
+      "SpecParam": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 60,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "value": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Value"
+          },
+          "operator": {
+            "type": "string",
+            "enum": [
+              "equals",
+              "at_least",
+              "at_most",
+              "between"
+            ],
+            "title": "Operator",
+            "default": "equals"
+          },
+          "value_max": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 80
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value Max"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 10
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit"
+          },
+          "si_value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Si Value"
+          },
+          "si_value_max": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Si Value Max"
+          },
+          "required": {
+            "type": "boolean",
+            "title": "Required",
+            "default": true
+          },
+          "origin": {
+            "type": "string",
+            "enum": [
+              "stated",
+              "inferred",
+              "user"
+            ],
+            "title": "Origin",
+            "default": "inferred"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 300
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "name",
+          "value"
+        ],
+        "title": "SpecParam",
+        "description": "One buyable parameter. `si_value` is filled by the server's unit normaliser."
       },
       "SpecProposal": {
         "properties": {
@@ -7656,6 +9309,60 @@
         "title": "TrustSignals",
         "description": "Deterministic, free seller checks. Absent evidence is recorded, never assumed."
       },
+      "UnsourcedLine": {
+        "properties": {
+          "line_id": {
+            "type": "string",
+            "title": "Line Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "reason": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "needs_value",
+              "no_offers",
+              "no_acceptable_offer",
+              "needs_quantity",
+              "cleared_by_user"
+            ],
+            "title": "Reason"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "next_steps": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Next Steps"
+          },
+          "research_urls": {
+            "items": {
+              "type": "string",
+              "maxLength": 2083,
+              "minLength": 1,
+              "format": "uri"
+            },
+            "type": "array",
+            "title": "Research Urls"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "line_id",
+          "name",
+          "reason",
+          "message"
+        ],
+        "title": "UnsourcedLine"
+      },
       "UpdateJobSpecs": {
         "properties": {
           "updates": {
@@ -7736,6 +9443,16 @@
               }
             ],
             "title": "Requirements"
+          },
+          "buyable_spec": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BuyableSpec"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "additionalProperties": false,
@@ -7910,7 +9627,8 @@
             "enum": [
               "seller_structured_data",
               "shopify_storefront_json",
-              "woocommerce_store_api"
+              "woocommerce_store_api",
+              "seller_meta_tags"
             ],
             "title": "Verification",
             "default": "seller_structured_data"
@@ -8006,6 +9724,29 @@
                 "type": "null"
               }
             ]
+          },
+          "match": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/OfferMatch"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "pack_qty": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 100000.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pack Qty"
           }
         },
         "additionalProperties": false,
@@ -8017,6 +9758,39 @@
           "price_inr"
         ],
         "title": "VerifiedOffer"
+      },
+      "VideoLink": {
+        "properties": {
+          "url": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Url"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "project_source",
+              "video",
+              "store",
+              "other"
+            ],
+            "title": "Kind"
+          },
+          "followed": {
+            "type": "boolean",
+            "title": "Followed",
+            "default": false
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "url",
+          "kind"
+        ],
+        "title": "VideoLink",
+        "description": "One link from a YouTube description; only project pages are followed as sources."
       },
       "WhatChanges": {
         "properties": {

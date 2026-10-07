@@ -19,6 +19,7 @@ from bharat_sourcer.schemas import (
     VerifiedOffer,
     now,
 )
+from bharat_sourcer.youtube_meta import apply_retention
 
 SNAPSHOT_NOTICE = (
     "Prices, stock and compatibility are snapshots taken at each offer's checked_at time, "
@@ -48,6 +49,7 @@ class SharedProject(Model):
 
 
 def redact(job: Job) -> SharedProject:
+    job = apply_retention(job.model_copy(deep=True))
     report = None
     if job.report:
         report = job.report.model_copy(deep=True)

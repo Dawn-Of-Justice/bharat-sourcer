@@ -4,6 +4,7 @@ import secrets
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import timedelta
+from decimal import Decimal
 from hashlib import sha256
 from uuid import UUID, uuid4
 
@@ -13,6 +14,14 @@ from bharat_sourcer.costing import update_costs
 from bharat_sourcer.extraction import ExtractionError, Extractor
 from bharat_sourcer.identity import Principal
 from bharat_sourcer.intake import extract_sources, validate_sources
+from bharat_sourcer.recommend import (
+    SELLER_PENALTY_INR,
+    apply_recommendations,
+    carry_selection,
+    clear_selection,
+    judge_confirmed,
+    release_recommendations,
+)
 from bharat_sourcer.safety import flags_for
 from bharat_sourcer.schemas import (
     AddLine,
@@ -38,6 +47,8 @@ from bharat_sourcer.schemas import (
 from bharat_sourcer.sourcing.research import check_requirements
 from bharat_sourcer.sourcing.service import SourcingService
 from bharat_sourcer.storage import JobStore, MemoryJobStore, StoredJob
+from bharat_sourcer.usage import BUDGET_MESSAGE, JobLedger, attribute
+from bharat_sourcer.youtube_meta import apply_retention
 
 
 class JobError(Exception):
@@ -59,7 +70,11 @@ class JobService:
         sourcing_max_parts: int = 10,
         sourcing_lease_seconds: int = 1800,
         sourcing_parallelism: int = 1,
+        seller_penalty_inr: Decimal = SELLER_PENALTY_INR,
+        gemini_budget_usd: float | None = None,
     ):
+        # Per-sourcing-run ceiling on estimated Gemini spend; None disables the guard.
+        self.gemini_budget_usd = gemini_budget_usd
         self.extractor = extractor
         self.model = model
         self.store = store or MemoryJobStore()
@@ -68,6 +83,7 @@ class JobService:
         self.sourcing_max_parts = sourcing_max_parts
         self.sourcing_lease_seconds = sourcing_lease_seconds
         self.sourcing_parallelism = max(1, min(sourcing_parallelism, 4))
+        self.seller_penalty_inr = Decimal(seller_penalty_inr)
 
     @staticmethod
     def _transition(job: Job, status: Status, message: str) -> None:
@@ -131,7 +147,8 @@ class JobService:
 
     def get(self, job_id: str, token: str | None) -> Job:
         self._validate_id(job_id)
-        return self._authorized(self.store.get(job_id), token).model_copy(deep=True)
+        job = self._authorized(self.store.get(job_id), token).model_copy(deep=True)
+        return apply_retention(job)  # YouTube API data older than 30 days is not served.
 
     @staticmethod
     def _validate_id(job_id: str) -> None:
@@ -165,6 +182,9 @@ class JobService:
         items = []
         project = None
         reports = []
+        video_meta = None
+        # Extraction counts toward the job's total; the budget limits sourcing runs only.
+        ledger = JobLedger(job_id, previous=claimed.job.cost_estimate)
         try:
             if claimed.job.demo:
                 items = [
@@ -179,10 +199,12 @@ class JobService:
                 )
             else:
                 job_input = claimed.job.input
-                result = extract_sources(
-                    self.extractor, [str(url) for url in [job_input.url, *job_input.sources]]
-                )
+                with attribute(ledger):
+                    result = extract_sources(
+                        self.extractor, [str(url) for url in [job_input.url, *job_input.sources]]
+                    )
                 items, project, reports = result.items, result.project, result.sources
+                video_meta = result.video_meta
         except Exception as exc:
             error = (
                 exc
@@ -197,6 +219,10 @@ class JobService:
                 return
             record.run_id = None
             record.lease_until = None
+            if ledger.calls:
+                estimate = ledger.snapshot()
+                estimate.run_usd, estimate.budget_usd = 0.0, None
+                record.job.cost_estimate = estimate
             if error:
                 record.job.error = ErrorDetail(code=error.code, message=error.message)
                 self._transition(record.job, "failed", error.message)
@@ -204,6 +230,7 @@ class JobService:
                 record.job.items = items
                 record.job.project = project
                 record.job.source_reports = reports
+                record.job.video_meta = video_meta
                 for item in record.job.items:
                     item.clarifications = resolve_part(item).clarifications
                 record.job.safety_flags = flags_for(record.job)
@@ -354,7 +381,9 @@ class JobService:
         lines = []
         for item in job.items:
             if item.line_id in wanted:
-                lines.append(ReportLine(item=item.model_copy(deep=True), sourcing_status="not_run"))
+                fresh = ReportLine(item=item.model_copy(deep=True), sourcing_status="not_run")
+                carry_selection(previous.get(item.line_id), fresh)
+                lines.append(fresh)
             elif item.line_id in previous:
                 lines.append(previous[item.line_id])
             else:
@@ -377,6 +406,18 @@ class JobService:
         update_costs(job.report)
         job.error = None
         job.refresh_count += 1
+        # Known offer pages are re-fetched first; paid rediscovery runs only if all are gone.
+        known = record.refresh_urls or {}  # an interrupted refresh keeps its known URLs
+        known = {
+            key: [str(offer.url) for offer in previous[key].offers]
+            if key in previous and previous[key].offers
+            else known.get(key, [])
+            for key in request.line_ids
+        }
+        record.refresh_urls = {key: urls for key, urls in known.items() if urls} or None
+        if job.cost_estimate:
+            # Each refresh is a new sourcing run with its own budget.
+            job.cost_estimate.run_usd, job.cost_estimate.budget_reached = 0.0, False
         record.sourcing_scope = request.line_ids.copy()
         record.run_id = None
         record.lease_until = None
@@ -425,10 +466,7 @@ class JobService:
             for offer in line.offers:
                 offer.compatibility = assess_offer(resolution, offer, job.project, job.items, item)
                 offer.compatibility_status = offer.compatibility.status
-            line.selected_offer_url = None
-            line.price_inr = line.grade = None
-            line.changes_accepted = False
-            line.research_accepted = False
+            clear_selection(line)
             changed.append(key)
         if changed:
             # Every LLM assessment used project context; sibling edits can invalidate it.
@@ -454,11 +492,9 @@ class JobService:
                         offer.research_assessment.conditions = []
                         offer.research_assessment.checks = []
                 if line.research_accepted:
-                    line.selected_offer_url = None
-                    line.price_inr = line.grade = None
-                    line.research_accepted = False
-                    line.changes_accepted = False
-            update_costs(job.report)
+                    clear_selection(line)
+            # Recommended lines are recomputed; user choices are restored only if still valid.
+            apply_recommendations(job.report, self.seller_penalty_inr)
             job.safety_flags = flags_for(job)
             self._transition(job, "done", "Updated required specs for " + ", ".join(changed))
 
@@ -515,6 +551,7 @@ class JobService:
                     line.price_inr = line.grade = None
                     line.changes_accepted = False
                     line.research_accepted = False
+                    line.selection_source, line.user_offer_url = "user", None
                     continue
                 offer = next((o for o in line.offers if o.url == selection.offer_url), None)
                 if offer is None:
@@ -524,6 +561,7 @@ class JobService:
                 if offer.checked_at < now() - timedelta(hours=24):
                     raise JobError(409, "OFFER_STALE", "Offer is over 24 hours old; source again")
                 compat = offer.compatibility
+                confirmed = judge_confirmed(offer)
                 if line.item.requirements:
                     candidate = (
                         next((c for c in line.research.candidates if c.url == offer.url), None)
@@ -533,14 +571,18 @@ class JobService:
                     checks = check_requirements(
                         line.item.requirements, candidate.facts if candidate else []
                     )
-                    if any(c.status != "meets" for c in checks):
+                    if any(c.status == "does_not_meet" for c in checks) or (
+                        not confirmed and any(c.status != "meets" for c in checks)
+                    ):
                         raise JobError(
                             422,
                             "REQUIREMENTS_UNRESOLVED",
                             "This offer has missing or conflicting requirement evidence",
                         )
                 reviewed = False
-                if compat is None or compat.grade not in {"A", "B"}:
+                # A judge-confirmed match with no rule grade needs no separate research approval.
+                judged_only = confirmed and (compat is None or compat.grade is None)
+                if not judged_only and (compat is None or compat.grade not in {"A", "B"}):
                     review = offer.research_assessment
                     reviewed = bool(
                         selection.accept_research_assessment
@@ -561,9 +603,10 @@ class JobService:
                     raise JobError(422, "CHANGES_REQUIRED", "Acknowledge the listed changes")
                 line.selected_offer_url = offer.url
                 line.price_inr = offer.price_inr
-                line.grade = None if reviewed else compat.grade
+                line.grade = None if reviewed or judged_only else compat.grade
                 line.changes_accepted = bool(compat and compat.grade == "B")
                 line.research_accepted = reviewed
+                line.selection_source, line.user_offer_url = "user", offer.url
             update_costs(job.report)
             job.updated_at = now()
 
@@ -623,7 +666,15 @@ class JobService:
                         # Evidence was assessed for the extracted name, not the new one.
                         items[edit.line_id].confidence = None
                         items[edit.line_id].confidence_reason = None
+                        # An AI buying spec describes the old name; a seed spec replaces it.
+                        spec = items[edit.line_id].buyable_spec
+                        if spec is not None and spec.origin != "user":
+                            items[edit.line_id].buyable_spec = None
                     items[edit.line_id].raw_name = edit.raw_name
+                if edit.buyable_spec is not None:
+                    items[edit.line_id].buyable_spec = edit.buyable_spec.model_copy(
+                        update={"origin": "user"}
+                    )
                 if edit.qty is not None and edit.qty != items[edit.line_id].qty:
                     items[edit.line_id].qty = edit.qty
                     items[edit.line_id].qty_source = "user"
@@ -740,6 +791,14 @@ class JobService:
             if item.line_id not in completed and (scope is None or item.line_id in scope)
         ]
 
+        ledger = JobLedger(job_id, self.gemini_budget_usd, previous=claimed.job.cost_estimate)
+        known_urls = claimed.refresh_urls or {}
+
+        def save_cost(record: StoredJob) -> None:
+            # The lease makes this run the only writer, so the running ledger is authoritative.
+            if ledger.calls or ledger.cache_hits or record.job.cost_estimate:
+                record.job.cost_estimate = ledger.snapshot()
+
         def source_item(item, limited):
             if limited:
                 return ReportLine(
@@ -749,10 +808,28 @@ class JobService:
                         code="SOURCING_LIMIT", message="Per-job sourcing limit reached"
                     ),
                 )
+            # Context variables do not cross the pool, so attribute inside the worker.
+            with attribute(ledger, item.line_id):
+                return attributed_source(item)
+
+        def attributed_source(item):
             try:
+                refresh_known = getattr(self.sourcing, "refresh_known", None)
+                if refresh_known and known_urls.get(item.line_id):
+                    refreshed = refresh_known(item, claimed.job.items, known_urls[item.line_id])
+                    if refreshed is not None:
+                        return refreshed
+                if ledger.exhausted():
+                    return ReportLine(
+                        item=item,
+                        sourcing_status="not_run",
+                        sourcing_error=ErrorDetail(
+                            code="JOB_BUDGET_REACHED", message=BUDGET_MESSAGE
+                        ),
+                    )
                 project_source = getattr(self.sourcing, "source_for_project", None)
                 if project_source:
-                    return project_source(item, claimed.job.items)
+                    return project_source(item, claimed.job.items, project=claimed.job.project)
                 return self.sourcing.source(item)
             except Exception:
                 return ReportLine(
@@ -793,6 +870,7 @@ class JobService:
                         if record.run_id != run_id or record.job.status != "sourcing":
                             return
                         lines = {line.item.line_id: line for line in record.job.report.lines}
+                        carry_selection(lines.get(result.item.line_id), result)
                         lines[result.item.line_id] = result
                         record.job.report.lines = [
                             lines[item.line_id]
@@ -800,6 +878,7 @@ class JobService:
                             if item.line_id in lines
                         ]
                         update_costs(record.job.report)
+                        save_cost(record)
                         record.lease_until = now() + timedelta(seconds=self.sourcing_lease_seconds)
                         self._transition(
                             record.job, "sourcing", f"Checked sourcing for {result.item.line_id}."
@@ -828,12 +907,21 @@ class JobService:
                 return
             record.run_id = None
             record.lease_until = None
+            record.refresh_urls = None
+            save_cost(record)
             record.job.report.summary = (
                 "Sourcing finished. Compatibility compares declared specs only; review evidence "
                 "and missing fields. Seller trust, tax and shipping remain unverified."
             )
+            release_recommendations(record.job.report)
+            if ledger.budget_reached:
+                record.job.report.summary += (
+                    " Some parts skipped paid search to stay within the job budget; refresh "
+                    "them to continue."
+                )
             reassess_report(record.job.report, record.job.project)
-            update_costs(record.job.report)
+            # Recommend and apply a default selection per line (user choices are kept).
+            apply_recommendations(record.job.report, self.seller_penalty_inr)
             # Same transaction as the transition, so redelivered work cannot repeat it.
             complete_refresh(record.job)
             self._transition(record.job, "done", "Sourcing report ready for review.")

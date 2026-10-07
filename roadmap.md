@@ -62,6 +62,7 @@ Gemini use.
 | 12 | S9 public library + votes | Firestore composite index, public collection, moderation | ≈ $0 | 4–5 d | After submission |
 | 13 | Ops bundle | Alert policy, scaling changes | ≈ $15 to 6 Nov | 0.25 d | **Now (#1)** |
 | 14 | Could list C1–C9 | — | — | — | Not before submission |
+| 15 | Optional headless renderer for client-side prices | New private Cloud Run service (Chromium), service account, invoker grant | ≈ $0.15–0.30 per 1,000 renders (estimate) | 2–3 d | Not now; no enabled seller needs it (7 Oct check) |
 
 ---
 
@@ -514,6 +515,54 @@ from 15 Oct.
 | C8 | ATL lab-kit mode | Not before submission; needs bulk pricing data |
 | C9 | Other countries | Not before submission; seller adapters per country |
 | C9b | Nightly discovery scan + "add a shop" | Not before submission; new Scheduler + Cloud Run job |
+
+---
+
+## 15. Optional headless renderer for sellers that render prices client-side (proposal only)
+
+**Problem.** Seller catalogue search (`sourcing/seller_search.py`, see
+[seller search](docs/contracts/seller-search.md)) finds product URLs, and the verifier reads
+prices from server-rendered JSON-LD or the public Shopify/WooCommerce product JSON. A seller
+whose product page builds the price in the browser (a JavaScript storefront with no JSON-LD
+and no public product JSON) yields "no supported offer" even when robots.txt allows the page.
+
+**Evidence today (7 Oct 2026).** The live check (`scripts/check_seller_search.py`, five parts,
+seven enabled sellers) fetched 40 seller-search candidates; 37 had an extractable INR offer
+without any rendering. All seven enabled sellers are Shopify or WooCommerce. No enabled seller
+needs a renderer yet, so this stays a proposal until one does.
+
+**What it would add.** A separate private Cloud Run service (`bharat-sourcer-render`) running
+Playwright with Chromium, called by the API only for sellers whose registry entry has
+`"render": true`. It returns the rendered HTML (or only the Product JSON-LD it finds); the
+existing verifier then reads it, so the INR/title/variant rules do not change.
+
+**Rules (non-negotiable).**
+- Only for hosts in `known_sellers.json` with `render: true`, after a dated robots.txt review
+  that allows the product path for `*`; robots.txt is checked again before every render.
+- **Never for challenge pages.** If the plain fetch saw a bot-protection challenge
+  (`blocked_by_bot_protection`: Cloudflare, captcha, Akamai, PerimeterX, DataDome), the
+  renderer is not called. If the rendered page itself shows a challenge, the result is
+  discarded and the host is marked blocked. No stealth plugins, fingerprint spoofing,
+  user-agent or proxy rotation, or captcha solving; the user agent stays `BharatSourcer/…`.
+- Same politeness as the fetcher: per-host concurrency 1, ≥ 2 s between renders, cached
+  rendered result (≤ 1 h), images/fonts/media blocked, 15 s page deadline, 3 MB cap.
+- Never logs in, never adds to cart, never checks out.
+
+**Size and cost (estimates; verify before approval).**
+
+| Item | Estimate |
+| --- | --- |
+| Image | Playwright Python base with Chromium only ≈ 1.2–1.6 GB (Microsoft's full image with all browsers is ≈ 2 GB) |
+| Instance | 1 vCPU / 2 GiB, concurrency 2, min instances 0, max 2, request timeout 30 s |
+| Per render | ≈ 3–6 s at 1 vCPU / 2 GiB: Cloud Run request-based Tier 1 (≈ $0.000024/vCPU-s + $0.0000025/GiB-s) ≈ **$0.0001–0.0002 per render, ≈ $0.15–0.30 per 1,000 renders**, mostly inside the free tier at demo scale |
+| Cold start | ≈ 5–10 s with Chromium; acceptable because renders are only a fallback |
+| New infra / IAM | One Cloud Run service, one service account, `run.invoker` grant for the API identity; no secrets |
+
+**Effort.** 2–3 d (service, client in `sourcing/`, registry flag, offline tests with
+recorded rendered HTML, contract update).
+
+**Recommendation.** Not now. Re-evaluate when a robots-allowed seller that matters is found
+to render prices client-side; approval needed because it is a new service (rule 3).
 
 ---
 

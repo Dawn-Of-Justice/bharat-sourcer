@@ -19,6 +19,7 @@ from bharat_sourcer.gemini_extras import GeminiExtras, add_extras_routes
 from bharat_sourcer.identity import Principal
 from bharat_sourcer.images import PartImageService
 from bharat_sourcer.jobs import JobError, JobService
+from bharat_sourcer.markets import MarketsService, add_markets_routes
 from bharat_sourcer.plans import cart_plans, set_import_references
 from bharat_sourcer.schemas import (
     CartPlans,
@@ -42,6 +43,9 @@ from bharat_sourcer.schemas import (
     now,
 )
 from bharat_sourcer.sharing import add_share_routes
+from bharat_sourcer.sourcing import seller_search
+from bharat_sourcer.sourcing.cache import build_cache
+from bharat_sourcer.sourcing.judge import GeminiJudge
 from bharat_sourcer.sourcing.research import GeminiResearch
 from bharat_sourcer.sourcing.service import GeminiDiscovery, SourcingService
 from bharat_sourcer.sourcing.trust import TrustChecker
@@ -68,6 +72,8 @@ def create_app(
             if settings.storage_backend == "firestore"
             else MemoryJobStore()
         )
+    # Cross-job cache for paid sourcing results, beside the job store (cost-controls.md).
+    shared_cache = build_cache(settings, store)
     service = JobService(
         live_extractor,
         settings.gemini_model if live_extractor else None,
@@ -76,9 +82,15 @@ def create_app(
         sourcing=(
             SourcingService(
                 GeminiDiscovery(settings),
-                researcher=GeminiResearch(settings) if settings.research_enabled else None,
+                researcher=GeminiResearch(settings, cache=shared_cache)
+                if settings.research_enabled
+                else None,
                 followup_enabled=settings.research_followup_enabled,
                 trust=TrustChecker() if settings.seller_trust_enabled else None,
+                seller_search=seller_search.from_settings(settings, cache=shared_cache),
+                seller_fetch_budget=settings.seller_search_fetch_budget,
+                seller_limit=settings.seller_search_per_seller,
+                judge=GeminiJudge(settings, cache=shared_cache) if settings.judge_enabled else None,
             )
             if settings.sourcing_enabled and not settings.demo_mode
             else None
@@ -86,6 +98,8 @@ def create_app(
         sourcing_max_parts=settings.sourcing_max_parts,
         sourcing_lease_seconds=settings.sourcing_lease_s,
         sourcing_parallelism=settings.sourcing_parallelism,
+        seller_penalty_inr=settings.recommend_seller_penalty_inr,
+        gemini_budget_usd=settings.job_gemini_budget_usd,
     )
 
     conversation = ConversationService(
@@ -142,7 +156,7 @@ def create_app(
 
     app = FastAPI(
         title="Bharat Sourcer API",
-        version="0.20.0",
+        version="0.21.0",
         description=(
             "Demo or live YouTube and project-page extraction with optional Firestore job "
             "persistence."
@@ -151,6 +165,7 @@ def create_app(
         responses={422: {"model": ErrorResponse}, 503: {"model": ErrorResponse}},
     )
     app.state.job_service = service
+    app.state.shared_cache = shared_cache
     images = PartImageService(settings, service)
     app.state.image_service = images
     app.state.conversation_service = conversation
@@ -161,6 +176,9 @@ def create_app(
     extras = GeminiExtras(settings, service)
     app.state.extras = extras
     add_extras_routes(app, extras)
+    markets = MarketsService(settings, service, shared_cache)
+    app.state.markets = markets
+    add_markets_routes(app, markets)
 
     @app.exception_handler(StorageError)
     @app.exception_handler(GoogleAPICallError)

@@ -1,0 +1,107 @@
+{
+ "_fixture": {
+  "url": "https://robocraze.com/search/suggest.json?q=33k%20resistor&resources%5Btype%5D=product&resources%5Blimit%5D=10",
+  "fetched_on": "2026-10-07",
+  "note": "Recorded live response, trimmed to the fields the adapter reads. Prices are search hints only, never verified offers."
+ },
+ "status": 200,
+ "content_type": "application/json; charset=utf-8",
+ "body": {
+  "resources": {
+   "results": {
+    "products": [
+     {
+      "title": "33k Ohm Resistor - (Pack of 10)",
+      "handle": "33k-ohm-resistor-pack-of-10",
+      "url": "/products/33k-ohm-resistor-pack-of-10?_pos=1&_psq=33k+resistor&_psid=1f6a77628&_ss=e",
+      "price": "12.00",
+      "image": "https://cdn.shopify.com/s/files/1/0559/1970/6265/products/33k_ohm_resistor_-_twins_chip_1-1500x150010.jpg?v=1743774513",
+      "available": true,
+      "vendor": "Robocraze"
+     },
+     {
+      "title": "330 Ohm Resistor - (Pack of 10)",
+      "handle": "330-ohm-resistor-pack-of-10",
+      "url": "/products/330-ohm-resistor-pack-of-10?_pos=2&_psq=33k+resistor&_psid=1f6a77628&_ss=e",
+      "price": "13.00",
+      "image": "https://cdn.shopify.com/s/files/1/0559/1970/6265/products/330_ohms10.jpg?v=1743774514",
+      "available": true,
+      "vendor": "Robocraze"
+     },
+     {
+      "title": "22k ohm Metal Film Resistor - pack of 10",
+      "handle": "22k-ohm-metal-film-resistor-pack-of-10",
+      "url": "/products/22k-ohm-metal-film-resistor-pack-of-10?_pos=3&_psq=33k+resistor&_psid=1f6a77628&_ss=e",
+      "price": "6.00",
+      "image": "https://cdn.shopify.com/s/files/1/0559/1970/6265/files/22k_ohm_Metal_Film_Resistor_-_pack_of_10.png?v=1785133236",
+      "available": true,
+      "vendor": "Robocraze"
+     },
+     {
+      "title": "100K Ohm Resistor (Pack of 10)",
+      "handle": "100k-ohm-resistor",
+      "url": "/products/100k-ohm-resistor?_pos=4&_psq=33k+resistor&_psid=1f6a77628&_ss=e",
+      "price": "13.00",
+      "image": "https://cdn.shopify.com/s/files/1/0559/1970/6265/products/100k-ohm-resistor-0-25-watt-component7-800x80010.jpg?v=1743774509",
+      "available": true,
+      "vendor": "Robocraze"
+     },
+     {
+      "title": "100 Ohm Resistor - (Pack of 10)",
+      "handle": "100-ohm-resistor-pack-of-10",
+      "url": "/products/100-ohm-resistor-pack-of-10?_pos=5&_psq=33k+resistor&_psid=1f6a77628&_ss=e",
+      "price": "15.00",
+      "image": "https://cdn.shopify.com/s/files/1/0559/1970/6265/products/61s_264flbl._sl1500_10.jpg?v=1743774508",
+      "available": true,
+      "vendor": "Robocraze"
+     },
+     {
+      "title": "1k Ohm Resistor - (Pack of 10)",
+      "handle": "1k-resistor-pack-of-10",
+      "url": "/products/1k-resistor-pack-of-10?_pos=6&_psq=33k+resistor&_psid=1f6a77628&_ss=e",
+      "price": "12.00",
+      "image": "https://cdn.shopify.com/s/files/1/0559/1970/6265/products/1_2_resistor-1000x100010.jpg?v=1743774519",
+      "available": true,
+      "vendor": "Robocraze"
+     },
+     {
+      "title": "4.7k Ohm Resistor - (Pack of 10)",
+      "handle": "4-7k-resistor-pack-of-10",
+      "url": "/products/4-7k-resistor-pack-of-10?_pos=7&_psq=33k+resistor&_psid=1f6a77628&_ss=e",
+      "price": "12.00",
+      "image": "https://cdn.shopify.com/s/files/1/0559/1970/6265/products/4.7k_ressitor.jpg?v=1743774520",
+      "available": true,
+      "vendor": "Robocraze"
+     },
+     {
+      "title": "1M Ohm Resistor - (Pack of 10)",
+      "handle": "1m-ohm-resistor-pack-of-10",
+      "url": "/products/1m-ohm-resistor-pack-of-10?_pos=8&_psq=33k+resistor&_psid=1f6a77628&_ss=e",
+      "price": "13.00",
+      "image": "https://cdn.shopify.com/s/files/1/0559/1970/6265/products/1m_ohm10.jpg?v=1743774511",
+      "available": true,
+      "vendor": "Robocraze"
+     },
+     {
+      "title": "47k Ohm Resistor - (Pack of 10)",
+      "handle": "47k-resistor-pack-of-10",
+      "url": "/products/47k-resistor-pack-of-10?_pos=9&_psq=33k+resistor&_psid=1f6a77628&_ss=e",
+      "price": "15.00",
+      "image": "https://cdn.shopify.com/s/files/1/0559/1970/6265/products/resitor-47k10.jpg?v=1743774518",
+      "available": true,
+      "vendor": "Robocraze"
+     },
+     {
+      "title": "12mm Light Sensitive Photoresistor LDR",
+      "handle": "light-sensitive-photoresistor-ldr-small",
+      "url": "/products/light-sensitive-photoresistor-ldr-small?_pos=10&_psq=33k+resistor&_psid=1f6a77628&_ss=e",
+      "price": "36.00",
+      "image": "https://cdn.shopify.com/s/files/1/0559/1970/6265/products/tech3213-ldr_sensor-1.jpg?v=1743775843",
+      "available": true,
+      "vendor": "Robocraze"
+     }
+    ]
+   }
+  }
+ }
+}
