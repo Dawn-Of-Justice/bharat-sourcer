@@ -57,11 +57,19 @@ without a research approval:
 
 - the offer is in stock;
 - it was checked within 24 hours;
-- every declared requirement is met by evidence;
-- its grade is **A or B**.
+- every declared requirement is met by evidence, and none is contradicted;
+- its grade is **A or B**, or it has no rule grade and is **judge-confirmed**.
 
-Unknown specs never get a positive grade, so an offer whose compatibility is unknown (or
-graded C or D) is **recommended but not selected**. In that case:
+**Judge-confirmed** means the spec judge ([part matching](part-matching.md)) rated the
+listing `exact` or `compatible`, backed by quotes the server found verbatim in the listing
+(or by the deterministic shortcut, where structured data states every spec param). Such an
+offer counts as meeting requirements that research did not cover, and is selected with
+`grade: null`. A rule finding (grade C, D or X) or a requirement the evidence contradicts
+always blocks automatic selection, whatever the judge said. `/selections` accepts the same
+offers manually.
+
+Unknown specs never get a positive grade, so an offer whose compatibility is unknown and
+not judge-confirmed (or graded C or D) is **recommended but not selected**. In that case:
 
 - `recommended_offer_url` and `recommendation` (with its reasons and `blocked_reason`) are set;
 - the line still appears in `order_plan` with `selected: false`;

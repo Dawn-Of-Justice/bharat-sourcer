@@ -121,6 +121,15 @@ def requirement_status(line: ReportLine, offer: VerifiedOffer) -> str:
     return "meets" if all(check.status == "meets" for check in checks) else "unknown"
 
 
+def judge_confirmed(offer: VerifiedOffer) -> bool:
+    """The spec judge found this listing an exact or compatible match, backed by quotes it
+    verified in the listing (or by structured data stating every spec param)."""
+    match = getattr(offer, "match", None)
+    if match is None or match.status not in {"exact", "compatible"}:
+        return False
+    return match.method == "deterministic_shortcut" or bool(match.claims)
+
+
 def eligible(line: ReportLine, offer: VerifiedOffer) -> bool:
     """Could /selections accept this offer without a research approval?"""
     return selection_block(line, offer) is None
@@ -132,12 +141,17 @@ def selection_block(line: ReportLine, offer: VerifiedOffer) -> str | None:
         return "Not selected automatically: the seller does not report it in stock."
     if offer.checked_at < now() - timedelta(hours=24):
         return "Not selected automatically: checked over 24 hours ago; refresh this part."
-    if requirement_status(line, offer) not in {"none", "meets"}:
+    confirmed = judge_confirmed(offer)
+    status = requirement_status(line, offer)
+    if status == "does_not_meet" or (status == "unknown" and not confirmed):
         return (
             "Not selected automatically: the declared requirements are not confirmed by "
             "evidence for this listing; review it and choose it yourself."
         )
     grade = offer.compatibility.grade if offer.compatibility else None
+    if grade is None and confirmed:
+        # The judge checked the listing against the buyable spec; rules had too little data.
+        return None
     if grade is None:
         return (
             "Not selected automatically: compatibility is unknown until the missing specs "

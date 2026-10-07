@@ -255,6 +255,43 @@ def test_unknown_grade_is_recommended_but_not_selected():
     assert result.costing.excluded_line_ids == ["L01"]  # selection costing is unchanged
 
 
+def judged(status, claims=True, method="llm_judge"):
+    from bharat_sourcer.schemas import MatchClaim, OfferMatch
+
+    return OfferMatch(
+        status=status,
+        score=0.9,
+        method=method,
+        claims=[MatchClaim(claim="Value is 33k", quote="33K Ohm")] if claims else [],
+    )
+
+
+def test_judge_confirmed_unknown_grade_is_selected_automatically():
+    result = report(line("L01", [offer(ROBO + "a", grade=None, match=judged("exact"))]))
+    apply_recommendations(result)
+    target = result.lines[0]
+    assert target.selection_source == "recommended"
+    assert str(target.selected_offer_url) == ROBO + "a" and target.grade is None
+    assert result.costing.excluded_line_ids == []
+
+
+@pytest.mark.parametrize(
+    "match",
+    [judged("partial"), judged("exact", claims=False)],
+    ids=["partial", "no-verified-quotes"],
+)
+def test_unconfirmed_judge_results_are_recommended_only(match):
+    result = report(line("L01", [offer(ROBO + "a", grade=None, match=match)]))
+    apply_recommendations(result)
+    assert result.lines[0].selected_offer_url is None
+
+
+def test_judge_confirmed_never_overrides_a_rule_failure():
+    result = report(line("L01", [offer(ROBO + "a", grade="C", match=judged("exact"))]))
+    apply_recommendations(result)
+    assert result.lines[0].selected_offer_url is None
+
+
 def test_grade_b_is_applied_without_acknowledging_changes():
     result = report(line("L01", [offer(ROBO + "b", grade="B")]))
     apply_recommendations(result)

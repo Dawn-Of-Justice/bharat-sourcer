@@ -19,6 +19,7 @@ from bharat_sourcer.recommend import (
     apply_recommendations,
     carry_selection,
     clear_selection,
+    judge_confirmed,
     release_recommendations,
 )
 from bharat_sourcer.safety import flags_for
@@ -555,6 +556,7 @@ class JobService:
                 if offer.checked_at < now() - timedelta(hours=24):
                     raise JobError(409, "OFFER_STALE", "Offer is over 24 hours old; source again")
                 compat = offer.compatibility
+                confirmed = judge_confirmed(offer)
                 if line.item.requirements:
                     candidate = (
                         next((c for c in line.research.candidates if c.url == offer.url), None)
@@ -564,14 +566,18 @@ class JobService:
                     checks = check_requirements(
                         line.item.requirements, candidate.facts if candidate else []
                     )
-                    if any(c.status != "meets" for c in checks):
+                    if any(c.status == "does_not_meet" for c in checks) or (
+                        not confirmed and any(c.status != "meets" for c in checks)
+                    ):
                         raise JobError(
                             422,
                             "REQUIREMENTS_UNRESOLVED",
                             "This offer has missing or conflicting requirement evidence",
                         )
                 reviewed = False
-                if compat is None or compat.grade not in {"A", "B"}:
+                # A judge-confirmed match with no rule grade needs no separate research approval.
+                judged_only = confirmed and (compat is None or compat.grade is None)
+                if not judged_only and (compat is None or compat.grade not in {"A", "B"}):
                     review = offer.research_assessment
                     reviewed = bool(
                         selection.accept_research_assessment
@@ -592,7 +598,7 @@ class JobService:
                     raise JobError(422, "CHANGES_REQUIRED", "Acknowledge the listed changes")
                 line.selected_offer_url = offer.url
                 line.price_inr = offer.price_inr
-                line.grade = None if reviewed else compat.grade
+                line.grade = None if reviewed or judged_only else compat.grade
                 line.changes_accepted = bool(compat and compat.grade == "B")
                 line.research_accepted = reviewed
                 line.selection_source, line.user_offer_url = "user", offer.url
