@@ -1,5 +1,6 @@
 """Atomic job transitions. External I/O stays outside storage transactions."""
 
+import logging
 import secrets
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -11,6 +12,7 @@ from uuid import UUID, uuid4
 from bharat_sourcer.actions import complete_refresh
 from bharat_sourcer.compat import assess_offer, reassess_report, resolve_part
 from bharat_sourcer.costing import update_costs
+from bharat_sourcer.countries import DEFAULT_COUNTRY
 from bharat_sourcer.extraction import ExtractionError, Extractor
 from bharat_sourcer.identity import Principal
 from bharat_sourcer.intake import extract_sources, validate_sources
@@ -49,6 +51,8 @@ from bharat_sourcer.sourcing.service import SourcingService
 from bharat_sourcer.storage import JobStore, MemoryJobStore, StoredJob
 from bharat_sourcer.usage import BUDGET_MESSAGE, JobLedger, attribute
 from bharat_sourcer.youtube_meta import apply_retention
+
+log = logging.getLogger(__name__)
 
 
 class JobError(Exception):
@@ -94,6 +98,8 @@ class JobService:
     def create(
         self, request: CreateJob, principal: Principal | None = None, part_limit: int | None = None
     ) -> tuple[Job, str]:
+        if "country" not in request.model_fields_set and principal and not principal.guest:
+            request = request.model_copy(update={"country": self.account_country(principal)})
         kind, count = "demo", 1
         if self.extractor:
             try:
@@ -127,6 +133,15 @@ class JobService:
             )
         )
         return job.model_copy(deep=True), token
+
+    def account_country(self, principal: Principal) -> str:
+        """The account's saved country, or the default when unset or unreadable."""
+        try:
+            saved = self.store.get_account(principal.owner)
+        except Exception:  # noqa: BLE001 - a preference must never block a new project
+            log.warning("ACCOUNT_SETTINGS_UNREADABLE", exc_info=True)
+            saved = None
+        return saved.country if saved else DEFAULT_COUNTRY
 
     @staticmethod
     def _hash(token: str | None) -> str:

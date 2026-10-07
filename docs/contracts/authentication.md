@@ -48,6 +48,7 @@ sign-in recovery rather than silently creating another guest identity.
 | `GET /v1/session` | Returns `kind`, `expires_at` (Unix seconds), `daily_action_limit`, `part_limit` |
 | `GET /v1/session/usage` | v0.17.1: personal daily actions, daily projects and minute actions, each with `limit`, `used`, `remaining`, `resets_at` (Unix seconds) |
 | `POST /v1/session/logout` | Clears guest cookie, 204; frontend must also call Firebase sign-out |
+| `GET` / `POST /v1/account/settings` | v0.23: saved account preferences (`country`); see [countries.md](countries.md) |
 | `GET /v1/projects?limit=20&cursor=...` | Owner-only summaries and nullable `next_cursor`; max limit 50 |
 | `POST /v1/projects/{job_id}/claim` | Account claims a guest project, or legacy project with `{"job_token":"..."}` |
 

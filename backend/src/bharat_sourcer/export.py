@@ -32,7 +32,7 @@ DEMO_NOTICE = "DEMO JOB: sample fixture data, not real extraction, sourcing or p
 class SharedProject(Model):
     """Read-only, redacted project view for share links and exports.
 
-    Excludes the job id, job token, owner identity, PIN, chat history, events, resistor
+    Excludes the job id, job token, owner identity, chat history, events, resistor
     advice and grounded-search attribution; nothing here grants access to the job.
     """
 

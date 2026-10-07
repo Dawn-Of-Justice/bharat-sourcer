@@ -11,6 +11,7 @@ import httpx
 
 from bharat_sourcer.compat import assess_offer, resolve_part
 from bharat_sourcer.config import Settings, site_generation
+from bharat_sourcer.countries import INDIA, Country
 from bharat_sourcer.resilience import post_with_retry
 from bharat_sourcer.schemas import (
     BomItem,
@@ -71,30 +72,6 @@ class SpecWriter(Protocol):
     ) -> dict[str, BuyableSpec]: ...
 
 
-# Grounding chunk titles are source domains. Ranking only reorders grounded URLs; it
-# never adds a URL or treats a seller as trusted.
-INDIAN_SELLERS = {
-    "robu.in",
-    "robocraze.com",
-    "quartzcomponents.com",
-    "evelta.com",
-    "electronicscomp.com",
-    "flyrobo.in",
-    "rytronics.in",
-    "compoindia.com",
-    "sharvielectronics.com",
-    "probots.co.in",
-    "thingbits.in",
-    "hubtronics.in",
-    "sunrobotics.in",
-    "zbotic.in",
-    "campuscomponent.com",
-    "roboelements.com",
-    "ktron.in",
-    "amazon.in",
-    "flipkart.com",
-    "in.element14.com",
-}
 # Datasheet hosts and global distributors that block automated reads or price in USD.
 LOW_PRIORITY = {
     "alldatasheet.com",
@@ -110,9 +87,11 @@ LOW_PRIORITY = {
 }
 
 
-def source_rank(web: dict) -> int:
+def source_rank(web: dict, where: Country = INDIA) -> int:
+    # Grounding chunk titles are source domains. Ranking only reorders grounded URLs; it
+    # never adds a URL or treats a seller as trusted. Local sellers come from the registry.
     domain = str(web.get("title") or "").strip().lower().removeprefix("www.")
-    if domain in INDIAN_SELLERS or domain.endswith(".in"):
+    if domain in where.seller_domains or domain.endswith(where.local_tld):
         return 0
     if domain in LOW_PRIORITY or any(domain.endswith("." + d) for d in LOW_PRIORITY):
         return 2

@@ -1,6 +1,6 @@
 # Nearby markets (Google Maps grounding)
 
-Unreleased (`mvp/markets`). "Pick it up today": electronics markets and shops near the
+"Pick it up today": electronics markets and shops near the
 maker, from one Gemini call grounded in Google Maps (roadmap S2). **On by default**
 (`BS_MARKETS_ENABLED`); India availability was checked with one live call on 2026-10-07.
 The results describe shops, not stock: **nothing here confirms that a shop has a part.**
@@ -10,18 +10,20 @@ Code: `backend/src/bharat_sourcer/markets.py`. Tests: `backend/tests/test_market
 
 ## Request
 
-`GET /v1/jobs/{job_id}/markets?pin=560002` or `GET /v1/jobs/{job_id}/markets?lat=12.97&lng=77.59`
+`GET /v1/jobs/{job_id}/markets?city=Bengaluru` or `GET /v1/jobs/{job_id}/markets?lat=12.97&lng=77.59`
 
 Send the job token (`X-Job-Token`) or the signed-in credentials, like `GET /v1/jobs/{id}`.
-The job needs a parts list (`items`). Send either `pin` or both `lat` and `lng`.
+The job needs a parts list (`items`). Send either `city` or both `lat` and `lng`. The
+location must be in the job's country (`job.input.country`, see [countries.md](countries.md)).
+The PIN lookup was removed in v0.23; a `pin` parameter is ignored (422 `INVALID_LOCATION`).
 
-- **PIN:** 6 digits, not starting with 0. The PIN prefix maps to an **approximate city
-  centre** from a static table (no geocoding): Bengaluru (56x), Chennai (600), Mumbai (400),
-  Delhi (110), Hyderabad (500), Kolkata (700), Pune (411), Kochi (682), Ahmedabad (380),
-  Coimbatore (641), Jaipur (302), Lucknow (226), Thiruvananthapuram (695), Gurugram (122),
-  Chandigarh (160), Indore (452), Nagpur (440), Surat (395), Visakhapatnam (530). Other
-  prefixes return 422 `PIN_NOT_SUPPORTED`: offer "use my location" instead.
-- **Coordinates:** must be inside India; they are rounded to 2 decimals (about 1 km)
+- **City:** one of the country's `market_cities` from `GET /v1/countries` (case-insensitive;
+  for India: Ahmedabad, Bengaluru, Chandigarh, Chennai, Coimbatore, Delhi, Gurugram,
+  Hyderabad, Indore, Jaipur, Kochi, Kolkata, Lucknow, Mumbai, Nagpur, Pune, Surat,
+  Thiruvananthapuram, Visakhapatnam). It maps to the **approximate city centre** from a
+  static table (no geocoding). Other names return 422 `CITY_NOT_SUPPORTED`: offer "use my
+  location" instead.
+- **Coordinates:** must be inside the job's country (a bounding-box check); they are rounded to 2 decimals (about 1 km)
   before they are sent to Gemini or used as a cache key.
 
 Only a short list of part categories from the BOM (e.g. "resistors, LEDs, sensors") is
@@ -32,9 +34,9 @@ sent to Gemini, never part names or project text. Lines marked "I have it" are s
 ```json
 {
   "demo": false,
-  "location": {"source": "pin", "pin": "560002", "city": "Bengaluru",
+  "location": {"source": "city", "city": "Bengaluru",
                "latitude": 12.9716, "longitude": 77.5946, "approximate": true,
-               "label": "Approximate: PIN 560002 mapped to the centre of Bengaluru."},
+               "label": "Approximate: the centre of Bengaluru."},
   "categories": ["resistors", "LEDs", "sensors"],
   "summary": "1. … (SP Road)\n2. …",
   "summary_label": "Shops likely to carry these parts — call first; stock is not confirmed",
@@ -76,7 +78,7 @@ sent to Gemini, never part names or project text. Lines marked "I have it" are s
    restyled spelling or line break inside it). Show titles as returned.
 4. Show `summary_label` with the summary: "Shops likely to carry these parts — call first;
    stock is not confirmed".
-5. Show `location.label` (PIN results are approximate city centres).
+5. Show `location.label` (city results are approximate city centres).
 
 Demo responses (`demo: true`) contain fictional shops marked "(demo)", no URIs and no
 sources; label them as a sample and do not show a Google Maps attribution for them.
@@ -102,10 +104,9 @@ other `GET` endpoints it does not spend the project action budget.
 
 | Status | Code | When |
 | --- | --- | --- |
-| 422 | `INVALID_PIN` | PIN is not 6 digits |
-| 422 | `PIN_NOT_SUPPORTED` | PIN prefix not in the city table |
-| 422 | `INVALID_LOCATION` | Neither or both of `pin` and `lat`/`lng` |
-| 422 | `LOCATION_OUTSIDE_INDIA` | Coordinates outside India |
+| 422 | `CITY_NOT_SUPPORTED` | `city` is not one of the country's market cities |
+| 422 | `INVALID_LOCATION` | Neither or both of `city` and `lat`/`lng` |
+| 422 | `LOCATION_OUTSIDE_COUNTRY` | Coordinates outside the job's country |
 | 409 | `NOTHING_TO_SOURCE` | The parts list is not ready |
 | 409 | `JOB_BUDGET_REACHED` | The job's current sourcing run reached its AI budget |
 | 429 | `FEATURE_QUOTA` | Daily limit reached (`Retry-After`: seconds to UTC midnight) |

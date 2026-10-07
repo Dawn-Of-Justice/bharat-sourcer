@@ -1,7 +1,13 @@
-# Implemented API contract — v0.22.0
+# Implemented API contract — v0.23.0
 
 This directory is the handoff between backend and frontend. The architecture docs describe
 the target system; this contract describes the runnable local milestone.
+
+v0.23.0 removes the PIN code and adds [countries](countries.md): `country` on
+`POST /v1/jobs` (defaults to the account's saved country, else `IN`), `GET /v1/countries`,
+`GET`/`POST /v1/account/settings`, and nearby markets by `city` instead of `pin`
+(`CITY_NOT_SUPPORTED`, `LOCATION_OUTSIDE_COUNTRY`). Requests that still send `pin` are accepted
+and the value is ignored. Only India is supported.
 
 Unreleased: automatic [recommendations](recommendations.md). Adds optional `report.order_plan`, `lines[].selection_source`, `user_offer_url`, `recommended_offer_url`, `recommendation` and `line_image`; `GET /plans` adds a `recommended` plan and `seller_penalty_inr`. Completed live reports now arrive with default selections.
 

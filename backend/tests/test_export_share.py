@@ -34,7 +34,7 @@ def client():
 
 def create_done_job(client, headers=None, edits=None):
     response = client.post(
-        "/v1/jobs", json={"url": "https://example.com/build", "pin": "560001"}, headers=headers
+        "/v1/jobs", json={"url": "https://example.com/build"}, headers=headers
     )
     assert response.status_code == 202
     created = response.json()
@@ -168,7 +168,7 @@ def live_job():
         job_id="00000000-0000-4000-8000-000000000000",
         status="done",
         demo=False,
-        input=CreateJob(url="https://example.com/build", pin="560001"),
+        input=CreateJob(url="https://example.com/build"),
         items=[item],
         report=Report(
             demo=False, summary="Sourced.", lines=[line], selected_parts_subtotal_inr="500.00"

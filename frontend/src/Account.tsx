@@ -1,14 +1,10 @@
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
-import { ApiError, getUsage, getSession, startGuest, logoutSession, listProjects, claimProject, type Session, type Project, type UsageWindow } from './api'
+import { ApiError, getAccountSettings, getCountries, saveAccountSettings, getUsage, getSession, startGuest, logoutSession, listProjects, claimProject, type Session, type Project, type UsageWindow } from './api'
 import { auth, firebaseLogout, googleLogin, localPreview } from './auth'
-import { countries, CountryPicker, type CountryCode } from './CountryPicker'
+import { CountryPicker, fallbackCountries, type CountryOption } from './CountryPicker'
 
 type Identity = Session | 'legacy' | null
-const countryKey = 'bharat-sourcer:country'
-function savedCountry(): CountryCode {
-  try { const value = localStorage.getItem(countryKey); return countries.find(country => country.code === value)?.code ?? 'IN' } catch { return 'IN' }
-}
-const AccountContext = createContext<{ identity: Identity; ready: boolean; revision: number; country: CountryCode; requireIdentity: () => boolean; open: () => void }>({ identity: null, ready: false, revision: 0, country: 'IN', requireIdentity: () => false, open: () => {} })
+const AccountContext = createContext<{ identity: Identity; ready: boolean; revision: number; country: string; requireIdentity: () => boolean; open: () => void }>({ identity: null, ready: false, revision: 0, country: 'IN', requireIdentity: () => false, open: () => {} })
 export const useAccount = () => useContext(AccountContext)
 
 function resetTime(window: UsageWindow) {
@@ -33,10 +29,25 @@ export function AccountProvider({ children }: { children: ReactNode }) {
   const [captureAttempt, setCaptureAttempt] = useState(0)
   const [revision, setRevision] = useState(0)
   const [usage, setUsage] = useState<Awaited<ReturnType<typeof getUsage>> | null>(null)
-  const [country, setCountry] = useState<CountryCode>(savedCountry)
-  function chooseCountry(code: CountryCode) {
-    setCountry(code)
-    try { localStorage.setItem(countryKey, code) } catch { /* the choice still applies for this visit */ }
+  // Delivery country: saved on the account by the backend, which also lists the supported countries.
+  const [country, setCountry] = useState('IN')
+  const [countryOptions, setCountryOptions] = useState<CountryOption[]>(fallbackCountries)
+  const [countryStatus, setCountryStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+  const isAccount = !!identity && identity !== 'legacy' && identity.kind === 'account'
+  useEffect(() => {
+    let active = true
+    setCountryStatus('idle')
+    if (!isAccount) { setCountry('IN'); return }
+    getAccountSettings().then(settings => { if (active) setCountry(settings.country) }).catch(() => {})
+    getCountries().then(list => { if (active && list.countries.length) setCountryOptions(list.countries) }).catch(() => {})
+    return () => { active = false }
+  }, [isAccount, revision])
+  async function chooseCountry(code: string) {
+    if (code === country) return
+    const previous = country
+    setCountry(code); setCountryStatus('saving')
+    try { setCountry((await saveAccountSettings({ country: code })).country); setCountryStatus('saved') }
+    catch { setCountry(previous); setCountryStatus('error') }
   }
   useEffect(() => {
     let active = true
@@ -107,10 +118,11 @@ export function AccountProvider({ children }: { children: ReactNode }) {
         <p>Actions today: {usage.daily_actions.remaining} of {usage.daily_actions.limit} remaining. Resets {resetTime(usage.daily_actions)}.</p>
         <p>Actions this minute: {usage.minute_actions.remaining} of {usage.minute_actions.limit} remaining. Resets {resetTime(usage.minute_actions)}. Saved projects remain readable at the limit.</p>
       </div>}
-      {identity && identity !== 'legacy' && identity.kind === 'account' && <div className="country-setting">
+      {isAccount && <div className="country-setting">
         <span className="country-label" id="account-country">Country</span>
-        <CountryPicker labelId="account-country" value={country} onChange={chooseCountry} />
-        <p>We find sellers that deliver to this country. Saved on this device.</p>
+        <CountryPicker labelId="account-country" options={countryOptions} value={country} onChange={code => void chooseCountry(code)} disabled={countryStatus === 'saving'} />
+        <p>New projects find sellers that deliver to this country.</p>
+        {countryStatus !== 'idle' && <p className={countryStatus === 'error' ? 'form-error' : 'country-status'} role={countryStatus === 'error' ? 'alert' : 'status'}>{countryStatus === 'saving' ? 'Saving…' : countryStatus === 'saved' ? '✓ Saved to your account' : 'Could not save the country. Please try again.'}</p>}
       </div>}
       <div className="account-actions">
         <button className="primary-button" disabled={busy || !ready || checkingGuestProjects || !!guestCaptureError || !!(identity && identity !== 'legacy' && identity.kind === 'guest' && !guestCaptureDone)} onClick={() => void act('google')}>{busy || checkingGuestProjects || (identity && identity !== 'legacy' && identity.kind === 'guest' && !guestCaptureDone) ? 'Please wait…' : localPreview ? 'Try demo account' : identity && identity !== 'legacy' && identity.kind === 'account' ? 'Switch Google account' : 'Sign in with Google'}</button>

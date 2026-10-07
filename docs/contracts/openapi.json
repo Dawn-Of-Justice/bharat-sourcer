@@ -3,7 +3,7 @@
   "info": {
     "title": "Bharat Sourcer API",
     "description": "Demo or live YouTube and project-page extraction with optional Firestore job persistence.",
-    "version": "0.22.0"
+    "version": "0.23.0"
   },
   "paths": {
     "/v1/session/guest": {
@@ -139,6 +139,137 @@
         "responses": {
           "204": {
             "description": "Successful Response"
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/countries": {
+      "get": {
+        "tags": [
+          "identity"
+        ],
+        "summary": "Countries",
+        "operationId": "countries_v1_countries_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CountryList"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/account/settings": {
+      "get": {
+        "tags": [
+          "identity"
+        ],
+        "summary": "Account Settings",
+        "operationId": "account_settings_v1_account_settings_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountSettingsResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "identity"
+        ],
+        "summary": "Update Account Settings",
+        "operationId": "update_account_settings_v1_account_settings_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateAccountSettings"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountSettingsResponse"
+                }
+              }
+            }
           },
           "422": {
             "description": "Unprocessable Entity",
@@ -1297,19 +1428,20 @@
             }
           },
           {
-            "name": "pin",
+            "name": "city",
             "in": "query",
             "required": false,
             "schema": {
               "anyOf": [
                 {
-                  "type": "string"
+                  "type": "string",
+                  "maxLength": 80
                 },
                 {
                   "type": "null"
                 }
               ],
-              "title": "Pin"
+              "title": "City"
             }
           },
           {
@@ -3062,6 +3194,39 @@
   },
   "components": {
     "schemas": {
+      "AccountSettingsResponse": {
+        "properties": {
+          "country": {
+            "type": "string",
+            "pattern": "^[A-Z]{2}$",
+            "title": "Country",
+            "default": "IN",
+            "examples": [
+              "IN"
+            ]
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          },
+          "saved": {
+            "type": "boolean",
+            "title": "Saved",
+            "default": false
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "AccountSettingsResponse"
+      },
       "ActionRecord": {
         "properties": {
           "kind": {
@@ -4500,6 +4665,65 @@
         "title": "CostEstimate",
         "description": "Estimated Gemini spend for this job from logged token counts and a dated price table.\n\nAn estimate for budgeting, not a bill: grounding queries are priced as if the monthly\nfree tier were used up. `run_usd` is the current sourcing run, which the budget limits."
       },
+      "CountryInfo": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "currency": {
+            "type": "string",
+            "title": "Currency"
+          },
+          "locale": {
+            "type": "string",
+            "title": "Locale"
+          },
+          "market_cities": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Market Cities"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "code",
+          "name",
+          "currency",
+          "locale",
+          "market_cities"
+        ],
+        "title": "CountryInfo"
+      },
+      "CountryList": {
+        "properties": {
+          "default": {
+            "type": "string",
+            "title": "Default"
+          },
+          "countries": {
+            "items": {
+              "$ref": "#/components/schemas/CountryInfo"
+            },
+            "type": "array",
+            "title": "Countries"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "default",
+          "countries"
+        ],
+        "title": "CountryList"
+      },
       "CreateJob": {
         "properties": {
           "url": {
@@ -4509,17 +4733,14 @@
             "format": "uri",
             "title": "Url"
           },
-          "pin": {
-            "anyOf": [
-              {
-                "type": "string",
-                "pattern": "^[1-9][0-9]{5}$"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Pin"
+          "country": {
+            "type": "string",
+            "pattern": "^[A-Z]{2}$",
+            "title": "Country",
+            "default": "IN",
+            "examples": [
+              "IN"
+            ]
           },
           "lang": {
             "type": "string",
@@ -5709,21 +5930,10 @@
           "source": {
             "type": "string",
             "enum": [
-              "pin",
+              "city",
               "coordinates"
             ],
             "title": "Source"
-          },
-          "pin": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Pin"
           },
           "city": {
             "anyOf": [
@@ -8821,7 +9031,7 @@
           "notice"
         ],
         "title": "SharedProject",
-        "description": "Read-only, redacted project view for share links and exports.\n\nExcludes the job id, job token, owner identity, PIN, chat history, events, resistor\nadvice and grounded-search attribution; nothing here grants access to the job."
+        "description": "Read-only, redacted project view for share links and exports.\n\nExcludes the job id, job token, owner identity, chat history, events, resistor\nadvice and grounded-search attribution; nothing here grants access to the job."
       },
       "ShippingPolicyRef": {
         "properties": {
@@ -9363,6 +9573,24 @@
           "message"
         ],
         "title": "UnsourcedLine"
+      },
+      "UpdateAccountSettings": {
+        "properties": {
+          "country": {
+            "type": "string",
+            "pattern": "^[A-Z]{2}$",
+            "title": "Country",
+            "examples": [
+              "IN"
+            ]
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "country"
+        ],
+        "title": "UpdateAccountSettings"
       },
       "UpdateJobSpecs": {
         "properties": {

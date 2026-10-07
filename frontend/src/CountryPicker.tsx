@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 
-// Countries we source for. Only India is supported today; add an entry (with its flag) as sellers are added.
-export const countries = [{ code: 'IN', name: 'India' }] as const
-export type CountryCode = typeof countries[number]['code']
+export interface CountryOption { code: string; name: string }
+// Used until GET /v1/countries answers (the backend owns the supported list).
+export const fallbackCountries: CountryOption[] = [{ code: 'IN', name: 'India' }]
 
-// Inline SVG flags: emoji flags render as letters on Windows.
-const flags: Record<CountryCode, ReactNode> = {
+// Inline SVG flags: emoji flags render as letters on Windows. Add one per supported country.
+const flags: Record<string, ReactNode> = {
   IN: <svg viewBox="0 0 30 20" aria-hidden="true">
     <rect width="30" height="20" fill="#fff" />
     <rect width="30" height="6.67" fill="#ff9933" />
@@ -16,11 +16,12 @@ const flags: Record<CountryCode, ReactNode> = {
   </svg>,
 }
 
-export function Flag({ code }: { code: CountryCode }) {
-  return <span className="flag">{flags[code]}</span>
+export function Flag({ code }: { code: string }) {
+  return <span className="flag">{flags[code] ?? <span className="flag-code">{code}</span>}</span>
 }
 
-export function CountryPicker({ value, onChange, labelId }: { value: CountryCode; onChange: (code: CountryCode) => void; labelId: string }) {
+export function CountryPicker({ options, value, onChange, labelId, disabled = false }: { options: CountryOption[]; value: string; onChange: (code: string) => void; labelId: string; disabled?: boolean }) {
+  const countries = options.length ? options : fallbackCountries
   const [open, setOpen] = useState(false)
   const [active, setActive] = useState(0)
   const root = useRef<HTMLDivElement>(null)
@@ -56,7 +57,7 @@ export function CountryPicker({ value, onChange, labelId }: { value: CountryCode
   }
 
   return <div className="country-picker" ref={root}>
-    <button ref={button} type="button" className="country-button" aria-haspopup="listbox" aria-expanded={open} aria-labelledby={`${labelId} country-current`} onClick={() => open ? setOpen(false) : show()} onKeyDown={event => { if (event.key === 'ArrowDown' || event.key === 'ArrowUp') { event.preventDefault(); show() } }}>
+    <button ref={button} type="button" className="country-button" disabled={disabled} aria-haspopup="listbox" aria-expanded={open} aria-labelledby={`${labelId} country-current`} onClick={() => open ? setOpen(false) : show()} onKeyDown={event => { if (event.key === 'ArrowDown' || event.key === 'ArrowUp') { event.preventDefault(); show() } }}>
       <Flag code={current.code} /><span id="country-current">{current.name}</span><span className="country-chevron" aria-hidden="true">▾</span>
     </button>
     {open && <ul ref={list} className="country-menu" role="listbox" tabIndex={-1} aria-labelledby={labelId} aria-activedescendant={`country-${countries[active].code}`} onKeyDown={onListKey}>

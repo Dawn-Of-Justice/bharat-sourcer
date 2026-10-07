@@ -8,6 +8,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from bharat_sourcer.config import Settings
+from bharat_sourcer.countries import INDIA
 from bharat_sourcer.jobs import JobError
 from bharat_sourcer.main import create_app
 from bharat_sourcer.markets import (
@@ -131,30 +132,23 @@ def test_parse_grounding_separates_places_from_review_links():
     assert sources[1].uri == CHUNKS[1]["maps"]["uri"]
 
 
-def test_pin_mapping_and_validation():
-    location = resolve_location("560002", None, None)
+def test_city_mapping_and_validation():
+    location = resolve_location(INDIA, "Bengaluru", None, None)
     assert (location.city, location.latitude, location.longitude) == ("Bengaluru", 12.9716, 77.5946)
-    assert location.approximate and "Approximate" in location.label
-    assert resolve_location("682011", None, None).city == "Kochi"
-    assert resolve_location("110006", None, None).city == "Delhi"
-    for pin, code in [
-        ("56000", "INVALID_PIN"),
-        ("abcdef", "INVALID_PIN"),
-        ("012345", "INVALID_PIN"),
-        ("999999", "PIN_NOT_SUPPORTED"),
-    ]:
-        with pytest.raises(JobError) as error:
-            resolve_location(pin, None, None)
-        assert (error.value.status, error.value.code) == (422, code)
-    coords = resolve_location(None, 12.97163, 77.59461)
+    assert location.source == "city" and location.approximate and "Approximate" in location.label
+    assert resolve_location(INDIA, " kochi ", None, None).city == "Kochi"
+    with pytest.raises(JobError) as error:
+        resolve_location(INDIA, "Atlantis", None, None)
+    assert (error.value.status, error.value.code) == (422, "CITY_NOT_SUPPORTED")
+    coords = resolve_location(INDIA, None, 12.97163, 77.59461)
     assert (coords.latitude, coords.longitude, coords.source) == (12.97, 77.59, "coordinates")
     for args, code in [
-        (("560002", 12.9, 77.5), "INVALID_LOCATION"),
+        (("Delhi", 12.9, 77.5), "INVALID_LOCATION"),
         ((None, 12.9, None), "INVALID_LOCATION"),
-        ((None, 51.5, -0.12), "LOCATION_OUTSIDE_INDIA"),
+        ((None, 51.5, -0.12), "LOCATION_OUTSIDE_COUNTRY"),
     ]:
         with pytest.raises(JobError) as error:
-            resolve_location(*args)
+            resolve_location(INDIA, *args)
         assert error.value.code == code
 
 
@@ -168,7 +162,7 @@ def test_categories_come_from_the_bom_only():
 def test_live_lookup_returns_places_attribution_and_records_usage(capsys):
     client, job_id, calls, replies, app = setup()
     replies.append(maps_reply())
-    response = client.get(f"/v1/jobs/{job_id}/markets", params={"pin": "560002"})
+    response = client.get(f"/v1/jobs/{job_id}/markets", params={"city": "Bengaluru"})
     assert response.status_code == 200, response.text
     body = response.json()
     assert body["demo"] is False and body["cached"] is False
@@ -223,28 +217,28 @@ def test_cache_hit_makes_no_call_and_stores_no_project_data():
 def test_daily_quota_per_owner():
     client, job_id, calls, replies, _ = setup(markets_daily_limit=1)
     replies.extend([maps_reply(), maps_reply()])
-    assert client.get(f"/v1/jobs/{job_id}/markets", params={"pin": "560002"}).status_code == 200
+    assert client.get(f"/v1/jobs/{job_id}/markets", params={"city": "Bengaluru"}).status_code == 200
     # A different location misses the cache and is over the quota.
-    response = client.get(f"/v1/jobs/{job_id}/markets", params={"pin": "600001"})
+    response = client.get(f"/v1/jobs/{job_id}/markets", params={"city": "Chennai"})
     assert response.status_code == 429
     assert response.json()["error"]["code"] == "FEATURE_QUOTA"
     assert int(response.headers["Retry-After"]) >= 1
     assert len(calls) == 1
     # Cache hits stay free after the quota is used.
-    assert client.get(f"/v1/jobs/{job_id}/markets", params={"pin": "560099"}).status_code == 200
+    assert client.get(f"/v1/jobs/{job_id}/markets", params={"city": "bengaluru"}).status_code == 200
 
 
 def test_global_daily_cap():
     client, job_id, calls, replies, _ = setup(markets_global_daily_limit=1, markets_daily_limit=5)
     replies.extend([maps_reply()])
-    assert client.get(f"/v1/jobs/{job_id}/markets", params={"pin": "560002"}).status_code == 200
-    response = client.get(f"/v1/jobs/{job_id}/markets", params={"pin": "400001"})
+    assert client.get(f"/v1/jobs/{job_id}/markets", params={"city": "Bengaluru"}).status_code == 200
+    response = client.get(f"/v1/jobs/{job_id}/markets", params={"city": "Mumbai"})
     assert response.status_code == 429 and len(calls) == 1
 
 
 def test_demo_job_returns_labelled_sample_without_a_call():
     client, job_id, calls, _, _ = setup(demo=True)
-    response = client.get(f"/v1/jobs/{job_id}/markets", params={"pin": "560002"})
+    response = client.get(f"/v1/jobs/{job_id}/markets", params={"city": "Bengaluru"})
     assert response.status_code == 200
     body = response.json()
     assert body["demo"] is True and "Demo sample" in body["label"]
@@ -255,11 +249,11 @@ def test_demo_job_returns_labelled_sample_without_a_call():
 
 def test_flag_off_and_missing_key_never_call_gemini():
     client, job_id, calls, _, _ = setup(markets_enabled=False)
-    response = client.get(f"/v1/jobs/{job_id}/markets", params={"pin": "560002"})
+    response = client.get(f"/v1/jobs/{job_id}/markets", params={"city": "Bengaluru"})
     assert response.status_code == 503
     assert response.json()["error"]["code"] == "FEATURE_DISABLED"
     client, job_id, calls2, _, _ = setup(gemini_api_key=None)
-    response = client.get(f"/v1/jobs/{job_id}/markets", params={"pin": "560002"})
+    response = client.get(f"/v1/jobs/{job_id}/markets", params={"city": "Bengaluru"})
     assert response.json()["error"]["code"] == "FEATURE_UNAVAILABLE"
     assert calls == calls2 == []
     assert Settings(_env_file=None).markets_enabled is True
@@ -267,12 +261,14 @@ def test_flag_off_and_missing_key_never_call_gemini():
 
 def test_validation_errors_and_empty_bom():
     client, job_id, calls, _, _ = setup()
-    response = client.get(f"/v1/jobs/{job_id}/markets", params={"pin": "999999"})
+    response = client.get(f"/v1/jobs/{job_id}/markets", params={"city": "Atlantis"})
     assert response.status_code == 422
-    assert response.json()["error"]["code"] == "PIN_NOT_SUPPORTED"
+    assert response.json()["error"]["code"] == "CITY_NOT_SUPPORTED"
+    response = client.get(f"/v1/jobs/{job_id}/markets", params={"pin": "560002"})
+    assert response.status_code == 422  # PIN lookups were removed in v0.23
     assert client.get(f"/v1/jobs/{job_id}/markets").status_code == 422
     client, job_id, calls2, _, _ = setup(with_items=False)
-    response = client.get(f"/v1/jobs/{job_id}/markets", params={"pin": "560002"})
+    response = client.get(f"/v1/jobs/{job_id}/markets", params={"city": "Bengaluru"})
     assert response.status_code == 409
     assert calls == calls2 == []
 
@@ -280,11 +276,11 @@ def test_validation_errors_and_empty_bom():
 def test_ungrounded_text_is_not_shown_and_bad_output_fails():
     client, job_id, calls, replies, _ = setup()
     replies.append(maps_reply(chunks=[]))
-    body = client.get(f"/v1/jobs/{job_id}/markets", params={"pin": "560002"}).json()
+    body = client.get(f"/v1/jobs/{job_id}/markets", params={"city": "Bengaluru"}).json()
     assert body["summary"] is None and body["places"] == []
     assert body["attribution"]["sources"] == []
     replies.append(maps_reply(finish="MAX_TOKENS"))
-    response = client.get(f"/v1/jobs/{job_id}/markets", params={"pin": "600001"})
+    response = client.get(f"/v1/jobs/{job_id}/markets", params={"city": "Chennai"})
     assert response.status_code == 502
     assert response.json()["error"]["code"] == "INVALID_OUTPUT"
 
@@ -298,7 +294,7 @@ def test_job_budget_blocks_paid_lookup():
         )
 
     app.state.job_service.store.mutate(job_id, spent)
-    response = client.get(f"/v1/jobs/{job_id}/markets", params={"pin": "560002"})
+    response = client.get(f"/v1/jobs/{job_id}/markets", params={"city": "Bengaluru"})
     assert response.status_code == 409
     assert response.json()["error"]["code"] == "JOB_BUDGET_REACHED"
     assert calls == []

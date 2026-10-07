@@ -7,7 +7,7 @@ from typing import Protocol
 
 from pydantic import Field
 
-from bharat_sourcer.schemas import Job, Model
+from bharat_sourcer.schemas import AccountSettings, Job, Model
 
 
 class StoredJob(Model):
@@ -46,6 +46,16 @@ class JobStore(Protocol):
     def owned(self, owner: str, after: str, limit: int) -> list[StoredJob]: ...
     def consume(self, limits: dict[str, int]) -> bool: ...
     def usage_counts(self, keys: list[str]) -> dict[str, int]: ...
+    def get_account(self, owner: str) -> AccountSettings | None: ...
+    def put_account(self, owner: str, settings: AccountSettings) -> None: ...
+
+
+def parse_account(data: dict | None) -> AccountSettings | None:
+    # A saved country that is no longer supported reads as "no saved settings".
+    try:
+        return AccountSettings.model_validate(data) if data else None
+    except ValueError:
+        return None
 
 
 class MemoryJobStore:
@@ -53,6 +63,15 @@ class MemoryJobStore:
         self._records: dict[str, StoredJob] = {}
         self._lock = RLock()
         self._usage: dict[str, int] = {}
+        self._accounts: dict[str, dict] = {}
+
+    def get_account(self, owner: str) -> AccountSettings | None:
+        with self._lock:
+            return parse_account(self._accounts.get(owner))
+
+    def put_account(self, owner: str, settings: AccountSettings) -> None:
+        with self._lock:
+            self._accounts[owner] = settings.model_dump(mode="json")
 
     def usage_counts(self, keys: list[str]) -> dict[str, int]:
         with self._lock:
@@ -109,6 +128,15 @@ class FirestoreJobStore:
         self.client = firestore.Client(project=project, database=database)
         self.collection = self.client.collection(collection)
         self.usage = self.client.collection(collection + "_usage")
+        # One document per owner ("user:<uid>"); preferences only, no project data.
+        self.accounts = self.client.collection(collection + "_accounts")
+
+    def get_account(self, owner: str) -> AccountSettings | None:
+        snapshot = self.accounts.document(owner).get()
+        return parse_account(snapshot.to_dict()) if snapshot.exists else None
+
+    def put_account(self, owner: str, settings: AccountSettings) -> None:
+        self.accounts.document(owner).set(settings.model_dump(mode="json"))
 
     def usage_counts(self, keys: list[str]) -> dict[str, int]:
         snapshots = self.client.get_all([self.usage.document(key) for key in keys])
