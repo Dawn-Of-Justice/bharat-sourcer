@@ -15,6 +15,8 @@ from urllib.parse import parse_qs, quote, urlsplit
 from bharat_sourcer.schemas import StorePlatform, VerifiedOffer
 from bharat_sourcer.sourcing.fetch import FetchError, Page
 from bharat_sourcer.sourcing.listings import (
+    ExtractedProduct,
+    OfferOption,
     ProductScripts,
     is_type,
     nodes,
@@ -166,6 +168,67 @@ def shopify_offer(page: Page, query: str, fetcher) -> VerifiedOffer | None:
         specs=specs,
         spec_evidence=evidence,
         spec_conflicts=conflicts,
+    )
+
+
+def shopify_variants(page: Page, fetcher) -> ExtractedProduct | None:
+    """A Shopify variant group (colours, sizes) from the public product JSON, for the judge.
+
+    Each variant keeps its own INR price and availability; the judge picks the variant that
+    matches the spec, and the price always comes from that variant. Single-variant products
+    are left to `shopify_offer`.
+    """
+    parsed = urlsplit(page.url)
+    match = SHOPIFY_PATH.match(parsed.path)
+    if not match or parsed.query:
+        return None
+    handle = match.group(1)
+    base = f"https://{parsed.hostname}/products/{quote(handle, safe='%-_')}"
+    data = load_json(fetcher, base + ".json")
+    product = data.get("product") if isinstance(data, dict) else None
+    if not isinstance(product, dict) or product.get("handle") != handle:
+        return None
+    title = product.get("title")
+    variants = [v for v in product.get("variants", []) if isinstance(v, dict)][:50]
+    if not isinstance(title, str) or len(title) > 500 or len(variants) < 2:
+        return None
+    try:
+        storefront = load_json(fetcher, base + ".js")
+    except (FetchError, ValueError):
+        storefront = None
+    available = {
+        str(v.get("id")): v.get("available")
+        for v in (storefront or {}).get("variants", [])
+        if isinstance(v, dict)
+    }
+    options = []
+    for variant in variants:
+        price = checked_price(variant.get("price"))
+        name = variant.get("title")
+        if variant.get("price_currency") != "INR" or price is None or not isinstance(name, str):
+            continue
+        flag = available.get(str(variant.get("id")))
+        stock = "unknown" if not isinstance(flag, bool) else "in_stock" if flag else "out_of_stock"
+        options.append(
+            OfferOption(
+                price=price,
+                stock=stock,
+                name=name[:200],
+                sku=str(variant.get("sku") or "")[:80] or None,
+                url=f"{base}?variant={variant.get('id')}",
+            )
+        )
+    if len(options) < 2:
+        return None
+    image = product.get("image") or (product.get("images") or [None])[0]
+    src = image.get("src") if isinstance(image, dict) else None
+    return ExtractedProduct(
+        page=page,
+        product={"name": title, **({"image": src} if src else {})},
+        title=title,
+        options=options,
+        meta_images=[],
+        verification="shopify_storefront_json",
     )
 
 

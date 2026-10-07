@@ -474,7 +474,8 @@ def user_locked(line: ReportLine) -> bool:
 
 def unsourced_recommendation(line: ReportLine, scores: list[OfferScore]) -> LineRecommendation:
     name = line.item.raw_name
-    questions = [c.question for c in line.item.clarifications]
+    # The generic "what must this part do?" prompt is not a missing value.
+    questions = [c.question for c in line.item.clarifications if c.field != "requirements"]
     missing = list(line.resolution.missing_specs) if line.resolution else []
     research = list(line.research.candidates) if line.research is not None else []
     research_steps = [f"Research candidate: {c.title} ({c.url})" for c in research[:3]]
@@ -551,6 +552,10 @@ def build_basket(report: Report, penalty: Decimal = SELLER_PENALTY_INR) -> Baske
         if not good or line.item.qty is None:
             unsourced[line_id] = unsourced_recommendation(line, scores)
             continue
+        # Prefer offers that can be selected automatically: a cheaper listing that can only be
+        # recommended must not displace a selectable one.
+        selectable = [s for s in good if eligible(line, s.offer)]
+        good = selectable or good
         band = [s for s in good if s.score >= good[0].score - SCORE_BAND]
         per_seller: dict[str, OfferScore] = {}
         for entry in band:  # already best-first: keep each seller's best listing

@@ -11,6 +11,7 @@ Verdicts are cached per (spec, candidate URL, listing content).
 import hashlib
 import json
 import logging
+import re
 import threading
 import time
 from typing import Literal, Protocol
@@ -213,6 +214,43 @@ def quoted(quote: str, text: str) -> bool:
     return len(quote) >= 3 and quote in text
 
 
+LED_COLOURS = {
+    "red",
+    "green",
+    "blue",
+    "yellow",
+    "orange",
+    "white",
+    "pink",
+    "purple",
+    "violet",
+    "rgb",
+    "uv",
+    "infrared",
+    "ir",
+}
+
+
+def colour_conflict(spec: BuyableSpec, title: str) -> list[str]:
+    """LED emission colours the title states that the part does not ask for.
+
+    "Clear" (water clear, transparent) LEDs are listed as white by Indian sellers, so a clear
+    LED with no colour named asks for white.
+    """
+    if spec.category != "led":
+        return []
+    asked = " ".join(
+        [spec.part_name or "", *spec.prefer, *(str(p.value) for p in spec.params)]
+    ).lower()
+    wanted = {c for c in LED_COLOURS if re.search(rf"\b{c}\b", asked)}
+    if not wanted and re.search(r"\b(clear|transparent)\b", asked):
+        wanted = {"white"}
+    stated = {c for c in LED_COLOURS if re.search(rf"\b{c}\b", title.lower())}
+    if not wanted or not stated or stated & wanted:
+        return []
+    return sorted(stated)
+
+
 def checked_verdict(
     draft: VerdictDraft, candidate: Candidate, spec: BuyableSpec, model: str
 ) -> OfferMatch:
@@ -228,6 +266,7 @@ def checked_verdict(
         found = title_conflicts(spec, candidate.title)
         excluded = excluded_terms(spec, candidate.title)
         stated = measure_conflicts(spec, [candidate.title, *candidate.rows])
+        colours = colour_conflict(spec, candidate.title)
         if not claims:
             status, reason = "partial", "No supporting quote was found in the listing."
         elif found:
@@ -235,6 +274,10 @@ def checked_verdict(
             conflicts += found
         elif excluded:
             status, reason = "partial", "The title contains excluded terms: " + ", ".join(excluded)
+        elif colours:
+            status = "partial"
+            reason = "The listing is a different LED colour: " + ", ".join(colours)
+            conflicts += ["colour"]
         elif stated:
             status = "partial"
             reason = "The listing states a value outside the spec: " + ", ".join(stated)

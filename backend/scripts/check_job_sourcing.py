@@ -30,9 +30,12 @@ from bharat_sourcer.usage import JobLedger, attribute
 
 parser = argparse.ArgumentParser()
 parser.add_argument("job_json")
+parser.add_argument("--lines", nargs="*", help="only these line ids")
 args = parser.parse_args()
 
 job = Job.model_validate(json.load(open(args.job_json, encoding="utf-8")))
+if args.lines:
+    job.items = [item for item in job.items if item.line_id in args.lines]
 settings = Settings(demo_mode=False, storage_backend="memory", sourcing_enabled=True)
 cache = build_cache(settings, MemoryJobStore())
 sourcing = SourcingService(
@@ -79,6 +82,8 @@ for line in report.lines:
             f" | match={match.status if match else None}"
             f" | grade={offer.compatibility.grade if offer.compatibility else None}"
         )
+        if match:
+            print(f"       why: {'; '.join(match.reasons)[:300]} | claims={len(match.claims)}")
     print(
         f"   selected={line.selected_offer_url} ({line.selection_source})"
         f" image={line.line_image.kind if line.line_image else None}"

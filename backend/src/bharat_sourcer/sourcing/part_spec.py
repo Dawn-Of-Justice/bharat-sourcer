@@ -446,14 +446,34 @@ def seed_spec(item: BomItem) -> BuyableSpec:
     )
 
 
+def with_seller_queries(spec: BuyableSpec, name: str) -> BuyableSpec:
+    """Add the wording sellers use when the part name differs from it.
+
+    Indian sellers list clear (water-clear) LEDs as white, so a clear LED with no colour
+    named also gets a "white LED" query.
+    """
+    text = name.lower()
+    if spec.category != "led" or not re.search(r"\b(clear|transparent)\b", text):
+        return spec
+    colours = r"\b(red|green|blue|yellow|orange|white|pink|purple|rgb|uv|ir|infrared)\b"
+    if re.search(colours, text) or any("white" in q.lower() for q in spec.queries):
+        return spec
+    size = re.search(r"\d+(?:\.\d+)?\s*mm", text)
+    query = f"{size.group(0).replace(' ', '')} white LED" if size else "white LED clear"
+    # Second, so it falls inside the few queries seller search uses.
+    return spec.model_copy(update={"queries": [*spec.queries[:1], query, *spec.queries[1:3]]})
+
+
 def buyable_spec(item: BomItem, project: ProjectContext | None = None) -> BuyableSpec:
     """The spec sourcing uses for a line: the item's AI/user spec, guarded, or a seed."""
+    name = item.raw_name[:200]
     if item.buyable_spec is None:
-        return seed_spec(item).model_copy(update={"part_name": item.raw_name[:200]})
+        spec = seed_spec(item).model_copy(update={"part_name": name})
+        return with_seller_queries(spec, name)
     spec = guard_spec(item.buyable_spec, item_text(item), project_text(project, item))
     if not spec.queries:
         spec = spec.model_copy(update={"queries": seed_spec(item).queries})
-    return spec.model_copy(update={"part_name": item.raw_name[:200]})
+    return with_seller_queries(spec.model_copy(update={"part_name": name}), name)
 
 
 PACK = [
@@ -492,6 +512,35 @@ def awg_m(gauge: float) -> float:
     return 0.000127 * 92 ** ((36 - gauge) / 39)
 
 
+# Spec-row labels that state each length-like param. Other params match their own name words.
+# "Dimensions" rows are usually the shipping package, so they never state a part's size.
+ROW_LABELS = {
+    "size": {"size", "diameter", "dia", "lens"},
+    "diameter": {"size", "diameter", "dia", "thickness"},
+    "wire_gauge": {"gauge", "awg", "swg", "diameter", "dia", "thickness", "size"},
+}
+# Lengths are rounded differently by sellers (5 mm vs 5.1 mm); compare within 15%.
+LENGTH_TOLERANCE = 0.15
+
+
+def row_states(param: SpecParam, label: str) -> bool:
+    """Whether a spec row's label names this param's quantity."""
+    words = set(re.findall(r"[a-z]+", label.lower()))
+    return bool(words & ROW_LABELS.get(param.name, set(param.name.lower().split("_"))))
+
+
+def length_fits(param: SpecParam, measure: Measure) -> bool:
+    if param.unit != "m" or measure.unit != "m" or param.si_value is None:
+        return False
+    low = param.si_value * (1 - LENGTH_TOLERANCE)
+    high = (param.si_value_max or param.si_value) * (1 + LENGTH_TOLERANCE)
+    if param.operator == "at_least":
+        high = float("inf")
+    elif param.operator == "at_most":
+        low = 0.0
+    return low <= measure.value <= high
+
+
 def measure_conflicts(spec: BuyableSpec, texts: list[str]) -> list[str]:
     """Spec params a listing's own numbers contradict, after unit normalisation.
 
@@ -499,17 +548,22 @@ def measure_conflicts(spec: BuyableSpec, texts: list[str]) -> list[str]:
     the text states a value of the same quantity and none of its values fits the param.
     For a diameter-like length (under 1 cm) spool lengths of 10 cm or more are ignored, so
     "0.8 mm wire, 10 m" is not a conflict. An assortment's primary values (ohm, F, H) are
-    compared as a range: the kit fits when it spans the param.
+    compared as a range: the kit fits when it spans the param. Spec rows (every text after
+    the title, as "label: value") are checked only for params their label names, so a lead
+    length is never read as a diameter.
     """
     resistorish = spec.category in {"resistor", "ldr"}
     conflicts: list[str] = []
-    for text in texts:
+    for index, text in enumerate(texts):
         if not text:
             continue
+        label = text.split(":", 1)[0] if index and ":" in text else None
         measures = find_measures(text, resistorish)
         kit = is_assortment(text)
         for param in spec.params:
             if param.si_value is None or param.name in conflicts:
+                continue
+            if label is not None and not row_states(param, label):
                 continue
             top = param.si_value_max if param.si_value_max is not None else param.si_value
             same = [m for m in measures if m.unit == param.unit]
@@ -526,7 +580,8 @@ def measure_conflicts(spec: BuyableSpec, texts: list[str]) -> list[str]:
                     conflicts.append(param.name)
                 continue
             if param.unit == "m" and top < 0.01:
-                same = [m for m in same if m.value < 0.1]
+                # A small part's size: far larger lengths (spools, boxes) are other quantities.
+                same = [m for m in same if m.value < min(0.1, top * 5)]
             if not same:
                 continue
             if kit and param.unit in PRIMARY_UNITS:
@@ -536,7 +591,7 @@ def measure_conflicts(spec: BuyableSpec, texts: list[str]) -> list[str]:
                 if not fits and not any(param_matches(param, m) for m in same):
                     conflicts.append(param.name)
                 continue
-            if not any(param_matches(param, m) for m in same):
+            if not any(param_matches(param, m) or length_fits(param, m) for m in same):
                 conflicts.append(param.name)
     return conflicts
 

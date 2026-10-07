@@ -6,6 +6,18 @@ guest authentication enabled. The frontend origin is included in CORS. The
 
 Unreleased (recommendations): when sourcing completes the backend scores every offer, picks one per line with a basket that consolidates sellers (a configurable `BS_RECOMMEND_SELLER_PENALTY_INR`, default ₹60, per extra seller), applies it as the selection where the selection rules allow (`selection_source: "recommended"`), and exposes a seller-grouped `report.order_plan` plus one resolved `line_image` per line. User choices are never overwritten. See [recommendations](../docs/contracts/recommendations.md).
 
+v0.22.0 fixes the picks a live re-check of a real job got wrong. Older jobs get AI buying
+specs from one batched call per job (`spec` call site), so every line has a category, value
+and physical size. A part with no value is never auto-selected (kits are recommended with
+"choose the value"). Server-side checks downgrade listings whose stated size or LED colour
+contradicts the spec, without reading shipping-box dimensions or lead lengths as part sizes.
+Seller search keeps the plain part name among its queries, keeps searching a store until a
+title fully matches, retries with a shorter query when a store finds nothing, and sends
+Shopify colour/size variant groups to the judge. The recommender prefers offers it can
+select over cheaper recommendation-only ones, and "research skipped" is reported honestly.
+The frontend now renders the order plan, recommendations, match chips, costing, trust,
+export/share, nearby markets, safety banners, review details and the buying-spec panel.
+
 v0.21.0 rebuilds sourcing into an engine that picks parts for you. Each line gets a
 [buyable spec](../docs/contracts/part-matching.md) (written by the extraction call), then
 [seller catalogue search](../docs/contracts/seller-search.md) across Indian sellers' own

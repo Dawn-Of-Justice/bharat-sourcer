@@ -35,10 +35,15 @@ from bharat_sourcer.sourcing.listings import (
 )
 from bharat_sourcer.sourcing.matching import Candidate, build_candidate
 from bharat_sourcer.sourcing.part_spec import buyable_spec
-from bharat_sourcer.sourcing.platforms import storefront_offer
+from bharat_sourcer.sourcing.platforms import shopify_variants, storefront_offer
 from bharat_sourcer.sourcing.politeness import BlockedError
 from bharat_sourcer.sourcing.research import Researcher, needs_followup, review_or_skip
-from bharat_sourcer.sourcing.seller_search import SearchResult, SellerSearch, query_variants
+from bharat_sourcer.sourcing.seller_search import (
+    SearchResult,
+    SellerSearch,
+    normalise,
+    query_variants,
+)
 from bharat_sourcer.sourcing.spec_writer import needs_spec
 from bharat_sourcer.sourcing.trust import TrustChecker
 from bharat_sourcer.usage import record_usage
@@ -215,6 +220,15 @@ def accepted_offer(offer: VerifiedOffer) -> bool:
     return offer.stock == "in_stock" and (
         offer.match is None or offer.match.status in ACCEPTED_MATCHES
     )
+
+
+def seller_queries(spec_queries: list[str], name: str, query: str) -> list[str]:
+    """Three store searches: the spec's best query, the part name's plain form, then the
+    spec's other wording. Store searches need every word, so a plain form is always kept."""
+    own = [normalise(q) for q in spec_queries if q and q.strip()]
+    names = query_variants([name, query])
+    ordered = [*own[:1], *names[:1], *own[1:], *names[1:]]
+    return [q for q in dict.fromkeys(ordered) if q][:3]
 
 
 def enough_offers(offers: list[VerifiedOffer]) -> bool:
@@ -517,7 +531,7 @@ class SourcingService:
             stages.append("seller_search")
             try:
                 search = self.seller_search.search(
-                    query_variants([*spec.queries, item.raw_name, resolution.query]),
+                    seller_queries(spec.queries, item.raw_name, resolution.query),
                     self.seller_limit,
                     self.seller_fetch_budget,
                 )
@@ -657,7 +671,9 @@ class SourcingService:
         query = None if self.judge else resolution.query
         for url in urls:
             # Per stage: rejected earlier offers must not stop the next stage from fetching.
-            if enough_offers([c.offer if isinstance(c, Candidate) else c for c in new]):
+            # Variant groups have no single offer until the judge picks a variant.
+            offers = [c.offer if isinstance(c, Candidate) else c for c in new]
+            if enough_offers([offer for offer in offers if offer is not None]):
                 break
             try:
                 validate_url(url)
@@ -695,6 +711,10 @@ class SourcingService:
                 if self.judge:
                     # A variant group without a single price still goes to the judge.
                     candidate = build_candidate(offer_page, offer)
+                    if candidate is None and offer is None:
+                        # A Shopify variant group (e.g. LED colours) without page JSON-LD.
+                        group = shopify_variants(page, fetcher)
+                        candidate = group and build_candidate(page, None, extracted=group)
                     if candidate and candidate.url not in {
                         c.url for c in new if isinstance(c, Candidate)
                     }:

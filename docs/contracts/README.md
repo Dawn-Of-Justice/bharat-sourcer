@@ -1,9 +1,13 @@
-# Implemented API contract — v0.21.0
+# Implemented API contract — v0.22.0
 
 This directory is the handoff between backend and frontend. The architecture docs describe
 the target system; this contract describes the runnable local milestone.
 
 Unreleased: automatic [recommendations](recommendations.md). Adds optional `report.order_plan`, `lines[].selection_source`, `user_offer_url`, `recommended_offer_url`, `recommendation` and `line_image`; `GET /plans` adds a `recommended` plan and `seller_penalty_inr`. Completed live reports now arrive with default selections.
+
+v0.22.0 adds `research_skipped` to `stages`, `part_name` to `BuyableSpec`, Shopify variant
+offers (`verification: shopify_storefront_json` with `?variant=` URLs) and AI buying specs for
+older jobs. The v0.20 and v0.21 frontend handoffs are now built in `frontend/`.
 
 v0.21.0 adds the sourcing engine: buyable specs, seller catalogue search, an LLM spec
 judge (`offers[].match`), automatic recommendations and selections, a seller-grouped
