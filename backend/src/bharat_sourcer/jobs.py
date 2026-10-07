@@ -48,6 +48,7 @@ from bharat_sourcer.sourcing.research import check_requirements
 from bharat_sourcer.sourcing.service import SourcingService
 from bharat_sourcer.storage import JobStore, MemoryJobStore, StoredJob
 from bharat_sourcer.usage import BUDGET_MESSAGE, JobLedger, attribute
+from bharat_sourcer.youtube_meta import apply_retention
 
 
 class JobError(Exception):
@@ -146,7 +147,8 @@ class JobService:
 
     def get(self, job_id: str, token: str | None) -> Job:
         self._validate_id(job_id)
-        return self._authorized(self.store.get(job_id), token).model_copy(deep=True)
+        job = self._authorized(self.store.get(job_id), token).model_copy(deep=True)
+        return apply_retention(job)  # YouTube API data older than 30 days is not served.
 
     @staticmethod
     def _validate_id(job_id: str) -> None:
@@ -180,6 +182,7 @@ class JobService:
         items = []
         project = None
         reports = []
+        video_meta = None
         # Extraction counts toward the job's total; the budget limits sourcing runs only.
         ledger = JobLedger(job_id, previous=claimed.job.cost_estimate)
         try:
@@ -201,6 +204,7 @@ class JobService:
                         self.extractor, [str(url) for url in [job_input.url, *job_input.sources]]
                     )
                 items, project, reports = result.items, result.project, result.sources
+                video_meta = result.video_meta
         except Exception as exc:
             error = (
                 exc
@@ -226,6 +230,7 @@ class JobService:
                 record.job.items = items
                 record.job.project = project
                 record.job.source_reports = reports
+                record.job.video_meta = video_meta
                 for item in record.job.items:
                     item.clarifications = resolve_part(item).clarifications
                 record.job.safety_flags = flags_for(record.job)

@@ -10,7 +10,7 @@ hints, look-alike tables and confidence are deterministic rules over extracted e
 
 | Kind | URLs | What is read |
 | --- | --- | --- |
-| `video` | public YouTube watch, `youtu.be`, Shorts, embed | Gemini watches the video (unchanged) |
+| `video` | public YouTube watch, `youtu.be`, Shorts, embed | Gemini watches the video; with `BS_YOUTUBE_API_KEY` set, it also reads the description (section 8) |
 | `instructables` | `instructables.com/<slug>/` | project JSON the page loads (unchanged) |
 | `hackster` | `hackster.io/<user>/<project>` | page HTML (Hackster blocks automated access; usually `SOURCE_UNAVAILABLE`) |
 | `github` | `github.com/<owner>/<repo>` | README **plus code files** (section 2) |
@@ -96,7 +96,9 @@ POST /v1/jobs
 - `job.project` comes from the first source that produced one.
 - `job.source_reports[]` (new, default `[]`) has one entry per distinct source:
   `url` (canonical), `kind`, `role` (`primary` | `additional`), `status` (`read` |
-  `failed`), `item_count`, `code_item_count`, `error` (`{code, message}` when failed).
+  `failed`), `item_count`, `code_item_count`, `error` (`{code, message}` when failed),
+  `found_in` (`"youtube_description"` for a source taken from the video's description,
+  else `null`). At most 5 entries: the video, its description and 3 extras.
 
 ## 4. Fusion rules (M3)
 
@@ -163,8 +165,10 @@ Look-alikes are warnings, never suggested substitutes.
 3. `check`: any look-alike, unless code evidence pins the line to exactly one member of
    each of its look-alike groups (e.g. `Adafruit_BME280.h` or `board = esp32dev`).
 4. `verified`: code evidence (a mapped include, import, dependency or board).
-5. `verified`: evidence from two or more distinct sources (video, each page URL, code).
-6. `likely`: one source (a server-checked page quote, or model-reported video timestamps).
+5. `verified`: evidence from two or more distinct sources (video, video description, each
+   page URL, code).
+6. `likely`: one source (a server-checked page or description quote, or model-reported
+   video timestamps).
 
 `null` means not assessed: lines added by the user, lines the user renamed at confirmation
 (renaming clears the value, since the evidence was for the old name) and jobs saved before
@@ -185,3 +189,89 @@ this change. Quantity edits do not change confidence.
 - **Sources**: list `source_reports` (kind, role, parts found); show failed extra sources
   with their `error.message` so the maker knows that source was skipped.
 - **Create form**: optional "Add another source" inputs (max 3) sent as `sources`.
+
+## 8. YouTube description intake
+
+Implemented, optional. Enabled when `BS_YOUTUBE_API_KEY` is set (a YouTube Data API v3 key;
+in Cloud Run it is the secret `bharat-sourcer-youtube`, see `backend/infra/README.md`).
+When it is unset, nothing below happens and video extraction is unchanged.
+
+**Fetch.** For each video source the extractor makes one
+`GET https://www.googleapis.com/youtube/v3/videos?part=snippet&id=<video id>` call (1 quota
+unit, 5 s timeout, one retry on a timeout, network error or 5xx). The key is sent in the
+`x-goog-api-key` header, never in the URL, so it is absent from request logs, errors and
+stored data. A failed or empty call is never fatal: the video is extracted as before and
+the description report is `failed` with `DESCRIPTION_UNAVAILABLE`.
+
+**Extraction (no extra Gemini call).** The title, channel and description go into the same
+video `generateContent` call as a second, untrusted JSON text part. Each evidence entry the
+model returns is either `source: "video"` (MM:SS timestamp) or `source: "youtube_description"`
+with a quote copied verbatim from the description. The server keeps a description quote only
+when its whitespace-normalised text appears in the description (`project_pages.quote_found`),
+then cuts it to 300 characters. Entries that fail the check are dropped, and so are parts left
+with no evidence.
+
+```json
+{
+  "source": "youtube_description",
+  "quote": "BME280 temperature, humidity and pressure sensor module",
+  "url": "https://www.youtube.com/watch?v=<id>",
+  "observation": "Listed in the description parts list.",
+  "timestamp": null, "file": null, "line": null
+}
+```
+
+Description evidence counts as its own source in fusion and confidence: a part shown in the
+video and listed in the description is `verified` ("2 sources agree"); a description-only
+line is `likely` ("One source: a quote checked in the video description."). In `conflicts`,
+`values[].source` can be `"youtube_description"`.
+
+**Links.** Up to 20 distinct `http(s)` links are read from the description and classified:
+
+| `kind` | Rule | Followed? |
+| --- | --- | --- |
+| `project_source` | a supported project page (Instructables, Hackster, GitHub, Adafruit Learn, listed blogs), stored as its canonical URL | yes, as an extra source |
+| `video` | another YouTube video | no (one video per job) |
+| `store` | store or affiliate hosts (Amazon, amzn.to, Flipkart, robu.in, Robocraze, AliExpress, Adafruit shop and others) | no |
+| `other` | anything else (social media, link shorteners) | no |
+
+`project_source` links are appended in description order after the submitted sources,
+with the usual dedupe by canonical URL and the limit of **3 extra sources** in total
+(submitted ones first). They are extracted and fused like submitted sources, and their
+`source_reports[]` entries have `found_in: "youtube_description"`. A failing link source is
+reported and skipped.
+
+**Reports and metadata.** `source_reports[]` gets an entry after the video with
+`kind: "youtube_description"`, `role: "additional"`, the video URL, `status` and
+`item_count` (lines with description evidence). `job.video_meta` is new, optional and
+defaults to `null`:
+
+```json
+{
+  "video_id": "abcdefghijk",
+  "title": "...",
+  "channel": "...",
+  "published_at": "2026-09-14T12:30:00Z",
+  "fetched_at": "2026-10-07T05:00:00Z",
+  "links": [
+    {"url": "https://github.com/<owner>/<repo>", "kind": "project_source", "followed": true},
+    {"url": "https://amzn.to/...", "kind": "store", "followed": false}
+  ],
+  "expired": false
+}
+```
+
+The full description is never stored; only `video_meta` and the short quotes are.
+
+**Retention (YouTube API Services policy).** API data must be refreshed or deleted within
+30 days. Every job read (`GET /v1/jobs/{id}`, the snapshot stream, share links and exports)
+checks `video_meta.fetched_at`. When it is more than 30 days old, description evidence is
+removed from `items[]` and report lines, description locators in conflicts are cleared, and
+`video_meta` keeps only `video_id`, `fetched_at` and `expired: true`. Confidence values
+computed with that evidence are not recomputed. The stored snapshot is not rewritten or
+purged yet, and nothing is refreshed; a scheduled purge (or Firestore TTL) is a follow-up.
+
+**Frontend.** Label description evidence "Description" and show its quote, linking to the
+video. Show `video_meta.links`, marking store links as shop or affiliate links (not verified
+sellers or prices) and project links as "Read as a source" when `followed`. When
+`video_meta.expired` is true, say the description data expired under YouTube's 30-day policy.

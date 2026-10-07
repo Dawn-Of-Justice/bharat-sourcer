@@ -46,12 +46,15 @@ class Evidence(Model):
     validate. Video evidence carries a timestamp. Project-page evidence carries the fetched
     document `url` and a `quote` the server found verbatim (whitespace-normalised) in it.
     Code evidence is deterministic: the repository `file` and 1-based `line`, the line's
-    text as `quote`, and a `url` to that line.
+    text as `quote`, and a `url` to that line. YouTube description evidence carries a
+    `quote` (at most 300 characters) the server found verbatim in the video's description
+    and the canonical video `url`; it is dropped from responses 30 days after
+    `Job.video_meta.fetched_at` (YouTube API Services retention policy).
     """
 
     timestamp: str | None = Field(default=None, pattern=r"^\d{2,}:[0-5]\d$")
     observation: str = Field(min_length=1, max_length=1000)
-    source: Literal["video", "project_page", "code"] = "video"
+    source: Literal["video", "project_page", "code", "youtube_description"] = "video"
     quote: str | None = Field(default=None, min_length=3, max_length=500)
     url: HttpUrl | None = None
     file: str | None = Field(default=None, min_length=1, max_length=300)
@@ -69,6 +72,8 @@ class Evidence(Model):
                 raise ValueError("Code evidence needs a quote, URL, file and line")
         elif self.timestamp is not None or self.quote is None or self.url is None:
             raise ValueError("Project-page evidence needs a quote and URL and no timestamp")
+        elif self.source == "youtube_description" and len(self.quote) > 300:
+            raise ValueError("Description quotes are at most 300 characters")
         return self
 
 
@@ -282,7 +287,7 @@ class Lookalike(Model):
 
 class ConflictValue(Model):
     value: str = Field(min_length=1, max_length=200)
-    source: Literal["video", "project_page", "code"]
+    source: Literal["video", "project_page", "code", "youtube_description"]
     url: HttpUrl | None = None
     locator: str | None = Field(default=None, max_length=300)
 
@@ -1062,12 +1067,41 @@ class SourceReport(Model):
     """How one submitted source was read during extraction."""
 
     url: str
-    kind: Literal["video", "instructables", "hackster", "github", "adafruit", "blog"]
+    kind: Literal[
+        "video", "instructables", "hackster", "github", "adafruit", "blog", "youtube_description"
+    ]
     role: Literal["primary", "additional"] = "primary"
     status: Literal["read", "failed"]
     item_count: int = Field(default=0, ge=0)
     code_item_count: int = Field(default=0, ge=0)
     error: "ErrorDetail | None" = None
+    # "youtube_description" when this extra source was a link in the video's description.
+    found_in: Literal["youtube_description"] | None = None
+
+
+class VideoLink(Model):
+    """One link from a YouTube description; only project pages are followed as sources."""
+
+    url: str = Field(min_length=1, max_length=500)
+    kind: Literal["project_source", "video", "store", "other"]
+    followed: bool = False
+
+
+class JobVideoMeta(Model):
+    """YouTube Data API snippet facts kept on a job; never the full description.
+
+    API data must be refreshed or deleted after 30 days: once `fetched_at` is older,
+    responses clear `title`, `channel`, `published_at` and `links`, drop description
+    quotes from evidence and set `expired`.
+    """
+
+    video_id: str = Field(pattern=r"^[A-Za-z0-9_-]{11}$")
+    title: str | None = Field(default=None, max_length=200)
+    channel: str | None = Field(default=None, max_length=200)
+    published_at: datetime | None = None
+    fetched_at: datetime
+    links: list[VideoLink] = Field(default_factory=list, max_length=20)
+    expired: bool = False
 
 
 class CostEstimate(Model):
@@ -1115,7 +1149,8 @@ class Job(Model):
     resistor_advice: list[ResistorAdvice] = Field(default_factory=list)
     actions: list[ActionRecord] = Field(default_factory=list)
     safety_flags: list[SafetyFlag] = Field(default_factory=list)
-    source_reports: list[SourceReport] = Field(default_factory=list, max_length=4)
+    source_reports: list[SourceReport] = Field(default_factory=list, max_length=5)
+    video_meta: JobVideoMeta | None = None
     cost_estimate: CostEstimate | None = None
 
 
