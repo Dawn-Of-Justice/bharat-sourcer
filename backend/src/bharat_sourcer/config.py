@@ -29,6 +29,7 @@ DEFAULT_SITE_THINKING: dict[str, ThinkingLevel] = {
     "chat_scope": "low",
     "discovery": "low",
     "judge": "low",
+    "markets": "low",
     "spec": "low",
 }
 
@@ -118,6 +119,12 @@ class Settings(BaseSettings):
     scan_daily_limit: int = Field(default=5, ge=1, le=100)
     scan_max_bytes: int = Field(default=4_000_000, ge=100_000, le=5_000_000)
     extras_global_daily_limit: int = Field(default=200, ge=1)
+    # Nearby markets (markets.py): Gemini grounding with Google Maps, one lookup per
+    # rounded location and category set, cached; India availability verified 2026-10-07.
+    markets_enabled: bool = True
+    markets_daily_limit: int = Field(default=5, ge=1, le=100)
+    markets_global_daily_limit: int = Field(default=200, ge=1)
+    markets_cache_ttl_s: int = Field(default=7 * 86400, ge=0, le=30 * 86400)
     cors_origins: list[str] = ["http://localhost:5173", "http://127.0.0.1:5173"]
 
     @model_validator(mode="after")
