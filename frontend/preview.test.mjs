@@ -68,6 +68,29 @@ test('preview labels AI project understanding, inferred qty and inferred build d
   assert.equal(requests, 0)
 })
 
+test('evidence text renders code, description, page and video evidence without null placeholders', () => {
+  assert.equal(api.evidenceText({ source: 'code', file: 'src/main.cpp', line: 3, quote: '#include <Adafruit_BME280.h>', url: 'https://github.com/o/r/blob/HEAD/src/main.cpp#L3', observation: 'includes the library' }), 'Code src/main.cpp:3 “#include <Adafruit_BME280.h>” — includes the library')
+  assert.equal(api.evidenceText({ source: 'youtube_description', quote: 'BME280 module', timestamp: null, observation: 'Listed in the description.' }), 'Video description “BME280 module” — Listed in the description.')
+  assert.equal(api.evidenceText({ source: 'project_page', quote: 'Arduino Uno', observation: 'Supplies list' }), 'Page quote “Arduino Uno” — Supplies list')
+  assert.equal(api.evidenceText({ timestamp: '03:07', observation: 'Shown on the bench' }), '03:07 — Shown on the bench')
+  assert.doesNotMatch(api.evidenceText({ source: 'video', timestamp: null, observation: 'x' }), /null/)
+})
+
+test('preview review fixtures are labelled dummy data and accept a buyable spec edit without network', async () => {
+  const { previewRequest } = load('./preview')
+  const job = previewRequest('/v1/jobs/ui-preview', {})
+  assert.ok(job.safety_flags.length > 0 && job.safety_flags.every(flag => /Dummy/.test(flag.title) && /Dummy/.test(flag.message)))
+  assert.ok(job.source_reports.some(report => report.status === 'failed' && /Dummy/.test(report.error.message)))
+  const needsValue = job.items.find(item => item.buyable_spec?.needs_value)
+  assert.ok(needsValue && /Dummy/.test(needsValue.buyable_spec.needs_value_reason))
+  assert.ok(job.items.some(item => item.conflicts?.length && item.conflicts.every(conflict => /Dummy/.test(conflict.message))))
+  const spec = { ...needsValue.buyable_spec, origin: 'user', needs_value: false, params: [{ name: 'resistance', value: '4.7kΩ', operator: 'equals', origin: 'user' }] }
+  await api.confirmJob('ui-preview', 'dummy-token', [{ op: 'update', line_id: needsValue.line_id, buyable_spec: spec }])
+  const saved = previewRequest('/v1/jobs/ui-preview', {})
+  assert.equal(saved.items.find(item => item.line_id === needsValue.line_id).buyable_spec.params[0].value, '4.7kΩ')
+  assert.equal(requests, 0)
+})
+
 test('preview saves project details and serves a labelled part fallback without network', async () => {
   const saved = await api.updateProject('ui-preview', 'dummy-token', { title: 'My sample build', description: 'Dummy edited description' })
   assert.equal(saved.project.title, 'My sample build')
