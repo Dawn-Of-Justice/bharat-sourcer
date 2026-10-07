@@ -7,7 +7,7 @@ from urllib.parse import parse_qs, urlsplit
 import pytest
 
 from bharat_sourcer.config import Settings
-from bharat_sourcer.schemas import BomItem, SearchAttribution
+from bharat_sourcer.schemas import BomItem, OfferMatch, SearchAttribution
 from bharat_sourcer.sourcing import seller_search
 from bharat_sourcer.sourcing.fetch import FetchError, Page
 from bharat_sourcer.sourcing.politeness import (
@@ -28,7 +28,7 @@ from bharat_sourcer.sourcing.seller_search import (
     query_variants,
     searchable,
 )
-from bharat_sourcer.sourcing.service import DiscoveryError, JudgeVerdict, SourcingService
+from bharat_sourcer.sourcing.service import DiscoveryError, SourcingService
 
 FIXTURES = Path(__file__).parent / "fixtures" / "seller_search"
 JSON = {"content-type": "application/json; charset=utf-8"}
@@ -40,6 +40,18 @@ CLOUDFLARE = (
     b'<script src="/cdn-cgi/challenge-platform/h/g/orchestrate/chl_page/v1"></script>'
     b"</body></html>"
 )
+
+
+class FakeJudge:
+    """Judge double: `verdict(url)` gives each candidate's status; records each call's URLs."""
+
+    def __init__(self, verdict):
+        self.verdict = verdict
+        self.calls = []
+
+    def judge_candidates(self, spec, project, candidates):
+        self.calls.append([c.url for c in candidates])
+        return [OfferMatch(status=self.verdict(c.url), score=0.8) for c in candidates]
 
 
 def search_key(url: str) -> tuple[str, str]:
@@ -466,7 +478,8 @@ def test_seller_offer_skips_paid_grounded_discovery():
     )
     assert line.sourcing_status == "offers_found"
     assert discovery.calls == 0
-    assert line.stages == ["seller_search", "judge"]
+    # No judge configured: title-gated offers are accepted without a judge stage.
+    assert line.stages == ["seller_search"]
     assert line.gemini_calls == 0
     assert line.attribution is None
     assert line.seller_search.candidate_urls == ["https://a.in/products/led"]
@@ -481,11 +494,7 @@ def test_grounded_discovery_runs_when_seller_search_finds_no_acceptable_offer():
             url_g: product_page(url_g, LED),
         }
     )
-    judged = []
-
-    def judge(spec, offers):
-        judged.append([str(o.url) for o in offers])
-        return [JudgeVerdict("compatible") for _ in offers]
+    judge = FakeJudge(lambda url: "compatible")
 
     discovery = Discovery([url_g, "https://a.in/p/oos"])
     line = SourcingService(
@@ -495,7 +504,7 @@ def test_grounded_discovery_runs_when_seller_search_finds_no_acceptable_offer():
     assert line.stages == ["seller_search", "judge", "grounded", "judge"]
     assert line.gemini_calls == 1
     # The second judge run sees only the new grounded offer; the old page is not refetched.
-    assert judged == [["https://a.in/p/oos"], [url_g]]
+    assert judge.calls == [["https://a.in/p/oos"], [url_g]]
     assert pages.calls.count("https://a.in/p/oos") == 1
     assert len(line.offers) == 2
 
@@ -506,7 +515,8 @@ def test_judge_rejection_triggers_grounded_and_failed_discovery_keeps_seller_off
         Discovery(fail=True),
         pages,
         seller_search=FakeSearch(["https://a.in/p/1"]),
-        judge=lambda spec, offers: [JudgeVerdict("incompatible") for _ in offers],
+        # A partial match is kept but does not end the free stage.
+        judge=FakeJudge(lambda url: "partial"),
     ).source(BomItem(line_id="L1", raw_name=LED))
     assert line.stages == ["seller_search", "judge", "grounded"]
     assert line.sourcing_status == "offers_found"
@@ -576,7 +586,7 @@ def test_without_seller_search_grounded_discovery_runs_first_as_before():
         BomItem(line_id="L1", raw_name=LED)
     )
     assert discovery.calls == 1
-    assert line.stages == ["grounded", "judge"] and line.gemini_calls == 1
+    assert line.stages == ["grounded"] and line.gemini_calls == 1
     assert line.seller_search is None
 
 
@@ -623,8 +633,7 @@ def test_rejected_seller_offers_do_not_stop_grounded_fetching():
     grounded = "https://g.in/led"
     pages = Pages({u: product_page(u, LED) for u in [*urls, grounded]})
 
-    def judge(spec, offers):
-        return [JudgeVerdict("compatible" if "g.in" in str(o.url) else "wrong") for o in offers]
+    judge = FakeJudge(lambda url: "compatible" if "g.in" in url else "partial")
 
     line = SourcingService(
         Discovery([grounded]), pages, seller_search=FakeSearch(urls), judge=judge

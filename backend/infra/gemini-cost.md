@@ -12,6 +12,7 @@ record the source URL and the date you read it.
 | `extraction_project_page` | `extraction.py` `_extract_page` | 1 | up to `BS_PROJECT_PAGE_CHARS` (60k) chars of page text | none |
 | `discovery` | `sourcing/service.py` `GeminiDiscovery` | 1 per sourced part, +1 for an alternative search | short part query | `google_search` grounding |
 | `research` | `sourcing/research.py` | 1 per sourced part (2 with follow-up) | fetched page text, up to 16 sources | none |
+| `judge` | `sourcing/judge.py` `GeminiJudge` (unreleased) | ≤ 1 per sourced part with unsettled candidates (≤ 2 with seller search) | spec + ≤ 8 compact listings | none |
 | `chat_scope` | `conversation.py` `in_scope` | 1 per chat message | last messages + project context | none |
 | `chat_reply` | `conversation.py` `reply` | 1 per allowed chat message | saved job context (items, report, 12 messages) | none |
 | `image` | `images.py` | 0 unless generation enabled (≤10/owner/day) | short prompt | image output |
@@ -132,6 +133,30 @@ are **estimates** from the 2026-10-05 prices above, to be replaced by
   ~$0.015. Check [pricing](https://ai.google.dev/gemini-api/docs/pricing) before enabling.
 - Explanations are cached per script and language, so repeats cost $0.
 - Worst case per owner per day at default quotas ≈ $0.34.
+
+### 2026-10-07: spec judge and buyable specs (branch `mvp/matching`, unreleased)
+
+Estimates only (no live call made), at the 2026-10-05 prices above:
+
+- **Buyable spec:** folded into the existing extraction call (`extraction_video` /
+  `extraction_project_page`), so **no new call**. Adds a `buyable` block per part, roughly
+  100–150 output tokens each: a 20-part BOM ≈ 2–3K extra output tokens on
+  `gemini-3.8-flash` ≈ **$0.008–0.011 per job** (doubles in 2027). `maxOutputTokens` for
+  extraction went from 8192 to 12288 so long BOMs are not truncated (only used tokens bill).
+- **New site `judge`** (`sourcing/judge.py`): one call per BOM line **only** when some
+  candidate is neither a deterministic exact hit nor cached; seller search may call it a
+  second time for new grounded candidates. Model `BS_JUDGE_MODEL` (default
+  `gemini-3.1-flash-lite`, $0.25 in / $1.50 out per 1M), `thinkingLevel: low`.
+  Input ≈ 0.6K prompt + 0.3K spec/project + ~0.4K per candidate (title, ≤12 spec rows,
+  300-char description, 800-char snippet, variants) → 2–4K tokens for 4–8 candidates;
+  output ≈ 0.1–0.15K per verdict + low thinking ≈ 0.6–1.2K. ≈ **$0.0015–0.003 per call**,
+  so ≤ $0.006 per line and ≈ $0.02–0.05 for a 10-line job before cache hits. Verdicts are
+  cached per (spec hash, URL, listing hash) for 7 days, so refreshes of unchanged pages
+  cost nothing.
+- Untested: whether `thinkingLevel` is accepted by `gemini-3.1-flash-lite`. If it is
+  rejected the judge fails safe to the title check (offers keep `match: null`); drop the
+  thinking setting for that site. Make one live smoke call (with the owner's approval)
+  before release.
 
 **Next measurement:** after a few days of traffic on v0.19.3, run
 `scripts/usage_report.py` and record per-site token and query averages here before

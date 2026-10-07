@@ -21,15 +21,19 @@ from bharat_sourcer.project_pages import (
 from bharat_sourcer.resilience import post_with_retry
 from bharat_sourcer.schemas import (
     BomItem,
+    BuyableSpec,
     Evidence,
     Lookalike,
     Model,
     Name,
+    PartCategory,
     PartRequirement,
     ProjectContext,
     Quantity,
+    SpecParam,
 )
 from bharat_sourcer.sourcing.fetch import FetchError, Page, SafeFetcher
+from bharat_sourcer.sourcing.part_spec import guard_spec
 from bharat_sourcer.usage import record_usage
 
 
@@ -98,6 +102,39 @@ class ProjectDraft(Model):
     assumptions: list[str] = Field(default_factory=list, max_length=10)
 
 
+class BuyableParamDraft(Model):
+    name: str = Field(min_length=1, max_length=60)
+    value: str = Field(min_length=1, max_length=80)
+    operator: Literal["equals", "at_least", "at_most", "between"] = "equals"
+    value_max: str | None = Field(default=None, max_length=80)
+    required: bool = True
+    origin: Literal["stated", "inferred"] = "inferred"
+    reason: str | None = Field(default=None, max_length=300)
+
+
+class BuyableDraft(Model):
+    """The model's buying spec for one part (sourcing/part_spec.py guards it)."""
+
+    category: PartCategory = "other"
+    mount: Literal["tht", "smd", "any"] = "any"
+    mount_reason: str | None = Field(default=None, max_length=300)
+    params: list[BuyableParamDraft] = Field(default_factory=list, max_length=8)
+    prefer: list[Annotated[str, Field(min_length=1, max_length=60)]] = Field(
+        default_factory=list, max_length=6
+    )
+    exclude: list[Annotated[str, Field(min_length=1, max_length=60)]] = Field(
+        default_factory=list, max_length=8
+    )
+    synonyms: list[Annotated[str, Field(min_length=1, max_length=60)]] = Field(
+        default_factory=list, max_length=6
+    )
+    queries: list[Annotated[str, Field(min_length=1, max_length=100)]] = Field(
+        default_factory=list, max_length=4
+    )
+    needs_value: bool = False
+    needs_value_reason: str | None = Field(default=None, max_length=300)
+
+
 class PartDraft(Model):
     raw_name: Name
     qty: Quantity | None
@@ -107,6 +144,7 @@ class PartDraft(Model):
     lookalikes: list[Annotated[str, Field(min_length=1, max_length=100)]] = Field(
         default_factory=list, max_length=5
     )
+    buyable: BuyableDraft | None = None
 
 
 class ExtractedPart(PartDraft):
@@ -139,7 +177,40 @@ class ExtractionResult(Model):
     code_items: list[BomItem] = Field(default_factory=list)
 
 
-def decided_part(part: PartDraft) -> dict:
+def buying_spec(part: PartDraft, project: ProjectDraft | None) -> BuyableSpec | None:
+    """The model's buying spec, with unit normalisation and the no-basis guardrails."""
+    if part.buyable is None:
+        return None
+    draft = part.buyable.model_dump()
+    params = [SpecParam(**p) for p in draft.pop("params")]
+    spec = BuyableSpec(
+        origin="ai_inferred",
+        mount_origin="inferred" if draft["mount"] != "any" else "default",
+        params=params,
+        reasons=["Buying spec inferred by AI from the project; review and edit if needed."],
+        **draft,
+    )
+    evidence = getattr(part, "evidence", [])
+    source = " \n".join(
+        [part.raw_name]
+        + [getattr(e, "quote", "") or "" for e in evidence]
+        + [e.observation for e in evidence]
+    )
+    context = " \n".join(
+        [r.value + " " + (r.unit or "") for r in part.requirements]
+        + (
+            [project.summary, project.power or "", project.description or "", *project.assumptions]
+            if project
+            else []
+        )
+    )
+    try:
+        return guard_spec(spec, source, context)
+    except ValueError:
+        return None
+
+
+def decided_part(part: PartDraft, project: ProjectDraft | None = None) -> dict:
     """Quantity and requirements for a BomItem: stated values win; otherwise decide from context.
 
     Makers should not have to supply counts or specs the project already implies. Inferred
@@ -167,6 +238,7 @@ def decided_part(part: PartDraft) -> dict:
         "qty_reason": reason,
         "requirements": requirements,
         "lookalikes": lookalikes,
+        "buyable_spec": buying_spec(part, project),
     }
 
 
@@ -226,6 +298,25 @@ class Extractor(Protocol):
     def extract(self, url: str) -> "ExtractionResult | list[BomItem]": ...
 
 
+BUYABLE_PROMPT = """
+For each part also fill buyable: what a maker should buy from an Indian electronics
+seller for THIS build. category is one of the listed values. mount is tht for
+through-hole parts when the build is hand-soldered, freeform/dead-bug, breadboard or
+perfboard, or the part is a 3 mm/5 mm LED; smd only when the source shows SMD packages;
+otherwise any. Explain an inferred mount in mount_reason. params are the key buying
+parameters (e.g. resistance, capacitance, voltage_rating, power_rating, tolerance, size,
+colour, lens, gauge, wire_type) with value and unit as a seller writes them (33k ohm,
+22uF, 16V, 1/4W, 5mm, 22 AWG). origin is stated when the source gives the value,
+inferred otherwise with a short reason tied to the project; required is false for nice-
+to-have params. Never invent a part value: when a value-bearing part (resistor,
+capacitor) has no value in the source, set needs_value true with a reason, and give a
+between range only when the project assumptions state one. prefer lists descriptive
+words that should not block a match (clear, bare); exclude lists listing terms that rule
+a listing out (e.g. SMD, 0603, chip resistor for a through-hole build); synonyms lists
+other names sellers use (LDR: photoresistor, GL5528; electrolytic: elko). queries are 2-4
+short searches as a seller catalogue would phrase them ("33k ohm 1/4 watt resistor").
+"""
+
 PROMPT = (
     """Extract the bill of materials for the maker, engineering or DIY project in this video.
 Include evidenced electronic, mechanical and material components of any category.
@@ -267,10 +358,12 @@ lookalikes; otherwise leave lookalikes empty. Look-alikes are warnings, not subs
 Return an empty items list if the video is inaccessible or no supported BOM is available.
 Return JSON matching the supplied schema. Evidence and inferences will still need review.
 """
+    + BUYABLE_PROMPT
 )
 
 
-PAGE_PROMPT = """Extract the bill of materials for the maker, engineering or DIY project described
+PAGE_PROMPT = (
+    """Extract the bill of materials for the maker, engineering or DIY project described
 in the supplied project document (an Instructables or Hackster page, a GitHub README, an
 Adafruit Learn guide or a tutorial blog article).
 Include evidenced electronic, mechanical and material components of any category.
@@ -314,6 +407,8 @@ lookalikes; otherwise leave lookalikes empty. Look-alikes are warnings, not subs
 Return an empty items list if no supported BOM is available.
 Return JSON matching the supplied schema. Evidence and inferences will still need review.
 """
+    + BUYABLE_PROMPT
+)
 
 PAGE_BYTES = 3_000_000
 # Statuses that mean the site (or its bot protection) refused our request, not "not found".
@@ -357,7 +452,7 @@ class GeminiExtractor:
             "generationConfig": {
                 "responseMimeType": "application/json",
                 "responseJsonSchema": generation_schema(model),
-                "maxOutputTokens": 8192,
+                "maxOutputTokens": 12288,
             },
         }
         try:
@@ -405,7 +500,7 @@ class GeminiExtractor:
                 line_id=f"L{index:02d}",
                 raw_name=part.raw_name,
                 evidence=[Evidence(**entry.model_dump()) for entry in part.evidence],
-                **decided_part(part),
+                **decided_part(part, bom.project),
             )
             for index, part in enumerate(bom.items, start=1)
         ]
@@ -478,7 +573,7 @@ class GeminiExtractor:
                         line_id=f"L{len(items) + 1:02d}",
                         raw_name=part.raw_name,
                         evidence=evidence,
-                        **decided_part(part),
+                        **decided_part(part, bom.project),
                     )
                 )
         if dropped:

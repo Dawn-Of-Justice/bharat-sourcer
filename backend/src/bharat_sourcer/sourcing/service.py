@@ -2,7 +2,6 @@ import json
 import logging
 import threading
 import time
-from collections.abc import Callable
 from concurrent.futures import Future
 from dataclasses import dataclass
 from typing import Protocol
@@ -15,8 +14,10 @@ from bharat_sourcer.config import Settings, site_generation
 from bharat_sourcer.resilience import post_with_retry
 from bharat_sourcer.schemas import (
     BomItem,
+    BuyableSpec,
     ErrorDetail,
     PartResearch,
+    ProjectContext,
     ReportLine,
     ResearchSource,
     SearchAttribution,
@@ -24,7 +25,16 @@ from bharat_sourcer.schemas import (
     VerifiedOffer,
 )
 from bharat_sourcer.sourcing.fetch import FetchError, SafeFetcher, validate_url
-from bharat_sourcer.sourcing.listings import page_images, variant_url, verify_page
+from bharat_sourcer.sourcing.judge import Judge, review_candidates
+from bharat_sourcer.sourcing.listings import (
+    meta_offer,
+    page_images,
+    title_matches,
+    variant_url,
+    verify_page,
+)
+from bharat_sourcer.sourcing.matching import Candidate, build_candidate
+from bharat_sourcer.sourcing.part_spec import buyable_spec
 from bharat_sourcer.sourcing.platforms import storefront_offer
 from bharat_sourcer.sourcing.politeness import BlockedError
 from bharat_sourcer.sourcing.research import Researcher, needs_followup, review_or_skip
@@ -188,27 +198,16 @@ class GeminiDiscovery:
             raise DiscoveryError("Grounded seller search failed") from exc
 
 
-@dataclass
-class JudgeVerdict:
-    """Stub judge result; the matching stream's `OfferMatch` replaces it."""
-
-    verdict: str
-    reason: str = ""
+# Judge statuses that end the free stage: grounded (paid) discovery is skipped when one of
+# these offers is in stock.
+ACCEPTED_MATCHES = {"exact", "compatible"}
 
 
-# Verdicts that end the free stage: grounded (paid) discovery is skipped when one of these
-# offers is in stock.
-ACCEPTED_VERDICTS = {"exact", "compatible"}
-
-
-def stub_judge(spec, offers: list[VerifiedOffer]) -> list[JudgeVerdict]:
-    """Default judge: any verified INR offer counts as compatible (no model call)."""
-    return [
-        JudgeVerdict("compatible", "verified INR offer (stub judge)")
-        if offer.currency == "INR" and offer.price_inr
-        else JudgeVerdict("unknown", "no verified INR price")
-        for offer in offers
-    ]
+def accepted_offer(offer: VerifiedOffer) -> bool:
+    """In stock and judged a good match; unjudged offers passed the legacy title gate."""
+    return offer.stock == "in_stock" and (
+        offer.match is None or offer.match.status in ACCEPTED_MATCHES
+    )
 
 
 def enough_offers(offers: list[VerifiedOffer]) -> bool:
@@ -241,7 +240,7 @@ class SourcingService:
         followup_enabled: bool = False,
         trust: TrustChecker | None = None,
         seller_search: SellerSearch | None = None,
-        judge: Callable[[object, list[VerifiedOffer]], list] | None = None,
+        judge: Judge | None = None,
         seller_fetch_budget: int = 8,
         seller_limit: int = 5,
     ):
@@ -251,38 +250,64 @@ class SourcingService:
         self.followup_enabled = followup_enabled
         self.trust = trust
         self.seller_search = seller_search
-        # Hook: judge(spec, offers) -> one match per offer, read through `accepts`.
-        self.judge = judge or stub_judge
+        # LLM judge: decides relevance of verified candidates. None keeps the title gate.
+        self.judge = judge
         self.seller_fetch_budget = seller_fetch_budget
         self.seller_limit = seller_limit
         self._recent: dict[str, tuple[float, Future, str]] = {}
         self._recent_lock = threading.Lock()
 
-    def accepts(self, match, offer: VerifiedOffer) -> bool:
-        verdict = getattr(match, "verdict", None) or getattr(match, "grade", None)
-        return verdict in ACCEPTED_VERDICTS and offer.stock == "in_stock"
-
-    def _judge(self, spec, offers: list[VerifiedOffer], stages: list[str]) -> list:
-        """Judge only the given (new) offers; returns matches in the same order."""
-        if not offers:
-            return []
-        stages.append("judge")
-        try:
-            matches = list(self.judge(spec, offers))
-        except Exception:
-            logging.getLogger(__name__).warning("OFFER_JUDGE_FAILED", exc_info=True)
-            return []
-        for offer, match in zip(offers, matches, strict=False):
-            if "match" in type(offer).model_fields and not isinstance(match, JudgeVerdict):
-                offer.match = match
-        return matches[: len(offers)]
+    def _review(
+        self,
+        spec: BuyableSpec,
+        project: ProjectContext | None,
+        resolution,
+        found: list,
+        state: "VerifyState",
+        stages: list[str],
+    ) -> bool:
+        """Judge new candidates (or take title-gated offers); True when one is accepted."""
+        if not found:
+            return False
+        if self.judge:
+            stages.append("judge")
+            try:
+                judged = review_candidates(spec, project, found, self.judge)
+            except Exception:
+                logging.getLogger(__name__).warning("OFFER_JUDGE_FAILED", exc_info=True)
+                judged = None
+            if judged is None:
+                # Judge unavailable: fall back to the legacy title gate, unjudged.
+                judged = [
+                    c.offer
+                    for c in found
+                    if c.offer and title_matches(resolution.query, c.offer.title)
+                ]
+            state.rejected += len(found) - len(judged)
+        else:
+            judged = found
+        new = []
+        for offer in judged:
+            if str(offer.url) in state.seen:
+                continue
+            offer.compatibility = assess_offer(resolution, offer)
+            offer.compatibility_status = offer.compatibility.status
+            state.seen.add(str(offer.url))
+            state.offers.append(offer)
+            new.append(offer)
+        return any(accepted_offer(offer) for offer in new)
 
     def source(self, item: BomItem) -> ReportLine:
         return self.source_for_project(item, [item])
 
-    def source_for_project(self, item: BomItem, project_items: list[BomItem]) -> ReportLine:
+    def source_for_project(
+        self,
+        item: BomItem,
+        project_items: list[BomItem],
+        project: ProjectContext | None = None,
+    ) -> ReportLine:
         if item.user_has_it:
-            return self._source_once(item, project_items)
+            return self._source_once(item, project_items, project)
         key = part_key(item) + "|" + "|".join(i.line_id for i in project_items)
         with self._recent_lock:
             clock = time.monotonic()
@@ -299,7 +324,7 @@ class SourcingService:
                 future = entry[1]
         if owner:
             try:
-                future.set_result(self._source_once(item, project_items))
+                future.set_result(self._source_once(item, project_items, project))
             except BaseException as exc:
                 future.set_exception(exc)
                 with self._recent_lock:
@@ -312,12 +337,15 @@ class SourcingService:
         shared.gemini_calls = 0
         return shared
 
-    def _source_once(self, item: BomItem, project_items: list[BomItem]) -> ReportLine:
+    def _source_once(
+        self, item: BomItem, project_items: list[BomItem], project: ProjectContext | None
+    ) -> ReportLine:
         attempted = set()
         fetcher = self.fetcher or SafeFetcher()
         if self.seller_search:
             fetcher = self.seller_search.politeness.wrap(fetcher)
-        first = self._source_attempt(item, project_items, fetcher, attempted)
+        spec = buyable_spec(item, project)
+        first = self._source_attempt(item, project_items, fetcher, attempted, "", spec, project)
         if not (self.followup_enabled and needs_followup(first)):
             return first
         # One additional discovery, never a recursive retry. Existing per-call budgets apply.
@@ -335,7 +363,9 @@ class SourcingService:
             "access restrictions. Keep the original part identity and requirements. "
             "Previously attempted domains: " + json.dumps(domains[:8]) + ". Part: "
         )
-        second = self._source_attempt(item, project_items, fetcher, attempted, followup)
+        second = self._source_attempt(
+            item, project_items, fetcher, attempted, followup, spec, project
+        )
         if second.offers or (
             second.research and second.research.status in {"ready", "no_evidence"}
         ):
@@ -401,7 +431,12 @@ class SourcingService:
                 return PartResearch(status="skipped", summary="Pending review.")
 
         probe = SourcingService(
-            KnownUrls(urls), self.fetcher, Capture() if self.researcher else None, False, self.trust
+            KnownUrls(urls),
+            self.fetcher,
+            Capture() if self.researcher else None,
+            False,
+            self.trust,
+            judge=self.judge,
         )
         line = probe._source_attempt(item, project_items, self.fetcher or SafeFetcher(), set())
         if not any(offer.stock != "out_of_stock" for offer in line.offers):
@@ -430,6 +465,8 @@ class SourcingService:
         fetcher,
         attempted: set[str],
         query_prefix: str = "",
+        spec: BuyableSpec | None = None,
+        project: ProjectContext | None = None,
     ) -> ReportLine:
         """Staged, cost-aware sourcing for one line.
 
@@ -442,6 +479,7 @@ class SourcingService:
         resolution = resolve_part(item)
         if item.user_has_it:
             return ReportLine(item=item, sourcing_status="already_owned", resolution=resolution)
+        spec = spec or buyable_spec(item, project)
         stages: list[str] = []
         gemini_calls = 0
         state = VerifyState()
@@ -451,7 +489,7 @@ class SourcingService:
             stages.append("seller_search")
             try:
                 search = self.seller_search.search(
-                    query_variants([item.raw_name, resolution.query]),
+                    query_variants([*spec.queries, item.raw_name, resolution.query]),
                     self.seller_limit,
                     self.seller_fetch_budget,
                 )
@@ -461,8 +499,7 @@ class SourcingService:
                 new = self._verify_urls(
                     [c.url for c in search.candidates], resolution, fetcher, attempted, state
                 )
-                matches = self._judge(resolution, new, stages)
-                accepted = any(self.accepts(m, o) for m, o in zip(matches, new, strict=False))
+                accepted = self._review(spec, project, resolution, new, state, stages)
         attribution = None
         discovery_failed = False
         budget_note = None
@@ -487,7 +524,7 @@ class SourcingService:
                 new = self._verify_urls(
                     attribution.source_urls, resolution, fetcher, attempted, state
                 )
-                self._judge(resolution, new, stages)
+                self._review(spec, project, resolution, new, state, stages)
         summary = None
         if search is not None:
             summary = SellerSearchSummary(
@@ -506,6 +543,7 @@ class SourcingService:
                 seller_search=summary,
                 stages=stages,
                 gemini_calls=gemini_calls,
+                buyable_spec=spec,
                 sourcing_error=ErrorDetail(
                     code="DISCOVERY_FAILED",
                     message="Seller search failed" + (f". {summary.message}" if summary else ""),
@@ -552,6 +590,7 @@ class SourcingService:
             seller_search=summary,
             stages=stages,
             gemini_calls=gemini_calls,
+            buyable_spec=spec,
             sourcing_status="offers_found" if offers else "no_verified_offers",
             sourcing_error=None
             if offers
@@ -577,12 +616,19 @@ class SourcingService:
 
     def _verify_urls(
         self, urls: list[str], resolution, fetcher, attempted: set[str], state: "VerifyState"
-    ) -> list[VerifiedOffer]:
-        """Fetch and verify candidate URLs in order; returns the offers new to this line."""
-        new: list[VerifiedOffer] = []
+    ) -> list:
+        """Fetch candidate URLs in order and extract their offers.
+
+        With a judge, returns judge candidates (relevance is decided afterwards); without
+        one, returns the offers that passed the title gate. Nothing is added to `state.offers`
+        here: `_review` does that after judging.
+        """
+        new: list = []
+        # With a judge, pages are read without a relevance gate.
+        query = None if self.judge else resolution.query
         for url in urls:
             # Per stage: rejected earlier offers must not stop the next stage from fetching.
-            if enough_offers(new):
+            if enough_offers([c.offer if isinstance(c, Candidate) else c for c in new]):
                 break
             try:
                 validate_url(url)
@@ -602,23 +648,34 @@ class SourcingService:
                 attempted.add(final_key)
                 state.fetched += 1
                 state.add_page(page)
-                offer = verify_page(page, resolution.query)
+                offer_page = page
+                offer = verify_page(page, query)
                 if offer is None:
                     variant = variant_url(page, resolution.query)
                     if variant:
                         variant_page = fetcher.get(variant)
-                        offer = verify_page(variant_page, resolution.query)
+                        offer = verify_page(variant_page, query)
+                        offer_page = variant_page if offer else page
                         state.add_page(variant_page)
                 if offer is None:
                     # Shopify/WooCommerce public product JSON when the page has no JSON-LD.
-                    offer = storefront_offer(page, resolution.query, fetcher)
+                    offer = storefront_offer(page, query, fetcher)
+                if offer is None:
+                    # Seller-declared OpenGraph/microdata price (one INR value only).
+                    offer = meta_offer(page, query)
+                if self.judge:
+                    # A variant group without a single price still goes to the judge.
+                    candidate = build_candidate(offer_page, offer)
+                    if candidate and candidate.url not in {
+                        c.url for c in new if isinstance(c, Candidate)
+                    }:
+                        new.append(candidate)
+                    else:
+                        state.rejected += candidate is None
+                    continue
                 if offer is None:
                     state.rejected += 1
-                if offer and str(offer.url) not in state.seen:
-                    offer.compatibility = assess_offer(resolution, offer)
-                    offer.compatibility_status = offer.compatibility.status
-                    state.seen.add(str(offer.url))
-                    state.offers.append(offer)
+                elif str(offer.url) not in state.seen:
                     new.append(offer)
             except (FetchError, ValueError, RecursionError) as exc:
                 state.blocked += 1

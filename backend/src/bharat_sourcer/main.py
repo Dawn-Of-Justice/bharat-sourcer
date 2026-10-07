@@ -44,6 +44,7 @@ from bharat_sourcer.schemas import (
 from bharat_sourcer.sharing import add_share_routes
 from bharat_sourcer.sourcing import seller_search
 from bharat_sourcer.sourcing.cache import build_cache
+from bharat_sourcer.sourcing.judge import GeminiJudge
 from bharat_sourcer.sourcing.research import GeminiResearch
 from bharat_sourcer.sourcing.service import GeminiDiscovery, SourcingService
 from bharat_sourcer.sourcing.trust import TrustChecker
@@ -88,6 +89,7 @@ def create_app(
                 seller_search=seller_search.from_settings(settings, cache=shared_cache),
                 seller_fetch_budget=settings.seller_search_fetch_budget,
                 seller_limit=settings.seller_search_per_seller,
+                judge=GeminiJudge(settings, cache=shared_cache) if settings.judge_enabled else None,
             )
             if settings.sourcing_enabled and not settings.demo_mode
             else None

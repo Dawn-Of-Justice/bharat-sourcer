@@ -655,7 +655,15 @@ class JobService:
                         # Evidence was assessed for the extracted name, not the new one.
                         items[edit.line_id].confidence = None
                         items[edit.line_id].confidence_reason = None
+                        # An AI buying spec describes the old name; a seed spec replaces it.
+                        spec = items[edit.line_id].buyable_spec
+                        if spec is not None and spec.origin != "user":
+                            items[edit.line_id].buyable_spec = None
                     items[edit.line_id].raw_name = edit.raw_name
+                if edit.buyable_spec is not None:
+                    items[edit.line_id].buyable_spec = edit.buyable_spec.model_copy(
+                        update={"origin": "user"}
+                    )
                 if edit.qty is not None and edit.qty != items[edit.line_id].qty:
                     items[edit.line_id].qty = edit.qty
                     items[edit.line_id].qty_source = "user"
@@ -810,7 +818,7 @@ class JobService:
                     )
                 project_source = getattr(self.sourcing, "source_for_project", None)
                 if project_source:
-                    return project_source(item, claimed.job.items)
+                    return project_source(item, claimed.job.items, project=claimed.job.project)
                 return self.sourcing.source(item)
             except Exception:
                 return ReportLine(
