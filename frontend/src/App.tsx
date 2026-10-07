@@ -141,7 +141,6 @@ function Landing({ onCreated }: { onCreated: (id: string) => void }) {
   const tabRefs = useRef<Partial<Record<SourceType, HTMLButtonElement>>>({})
   const [arrowPosition, setArrowPosition] = useState<{ left: number; top: number } | null>(null)
   const [sourceUrls, setSourceUrls] = useState<Record<LinkSource, string>>({ youtube: '', article: '', github: '' })
-  const [pin, setPin] = useState('')
   const [extras, setExtras] = useState<string[]>([])
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
@@ -209,14 +208,10 @@ function Landing({ onCreated }: { onCreated: (id: string) => void }) {
       setError('Only one YouTube video can be read per project. Remove the extra video link.')
       return
     }
-    if (pin && !/^[1-9][0-9]{5}$/.test(pin)) {
-      setError('Enter a valid six-digit Indian PIN code, or leave it blank.')
-      return
-    }
     if (!account.requireIdentity()) return
     setSubmitting(true)
     try {
-      const job = await createJob(parsed.toString(), pin || undefined, sources)
+      const job = await createJob(parsed.toString(), sources)
       sessionStorage.setItem(`bharat-sourcer:job:${job.job_id}`, job.job_token)
       onCreated(job.job_id)
     } catch (cause) {
@@ -241,7 +236,6 @@ function Landing({ onCreated }: { onCreated: (id: string) => void }) {
               <div className="source-options" role="group" aria-label="Choose a project source">{sourceOptions.map((option) => <button key={option.id} ref={(element) => { tabRefs.current[option.id] = element ?? undefined }} type="button" className={`source-option ${source === option.id ? 'selected' : ''}`} aria-pressed={source === option.id} onClick={() => chooseSource(option.id)}><span aria-hidden="true">{option.symbol}</span>{option.label}</button>)}</div>
               {source === 'audio' ? <div className="audio-field"><label htmlFor="audio-file">Choose a build description or maker audio file</label><input id="audio-file" type="file" accept="audio/*" /><p>Audio transcription and uploads are planned; this file stays on your device for now.</p></div> : <><label htmlFor="source-url">{sourceFields[source].label}</label><div className="url-row"><span className={`url-icon url-icon-${source}`} aria-hidden="true">{source === 'youtube' ? <svg viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="4" fill="currentColor" /><path d="m10 9 6 3-6 3V9Z" fill="#fff" /></svg> : source === 'article' ? '▤' : '</>'}</span><input id="source-url" name="url" type="url" inputMode="url" autoComplete="url" placeholder={sourceFields[source].placeholder} value={sourceUrls[source]} onChange={(event) => setSourceUrls((current) => ({ ...current, [source]: event.target.value }))} required /></div>{source === 'article' ? <p className="source-note">We read Instructables projects, Adafruit Learn guides and these maker blogs: {blogHosts.join(', ')}. Each part cites a quote from the page; review the list before sourcing. Hackster pages cannot be read yet.</p> : source === 'github' ? <p className="source-note">We read the repository README and its main code files. Each part cites a quote or a code line; review the list before sourcing.</p> : null}<div className="extra-sources">{extras.map((extra, index) => <div className="extra-source-row" key={index}><label htmlFor={`extra-source-${index}`}>Extra source {index + 1} <span>(optional)</span></label><div><input id={`extra-source-${index}`} type="url" inputMode="url" placeholder="https://github.com/creator/project" value={extra} onChange={(event) => setExtras(current => current.map((value, i) => i === index ? event.target.value : value))} /><button type="button" className="remove-button" aria-label={`Remove extra source ${index + 1}`} onClick={() => setExtras(current => current.filter((_, i) => i !== index))}>Remove</button></div></div>)}{extras.length < 3 && <button type="button" className="add-source-button" onClick={() => setExtras(current => [...current, ''])}><span aria-hidden="true">+</span> Add another source</button>}{extras.length > 0 && <p className="source-note">Up to 3 extra links (repository, guide or blog) for the same build; we compare them and flag disagreements. Only one YouTube video per project.</p>}</div></>}
               <div className={`form-bottom ${source === 'audio' ? 'audio-bottom' : ''}`}>
-                {source !== 'audio' ? <div className="pin-wrap"><label htmlFor="pin-code">Your PIN code <span>(optional)</span></label><input id="pin-code" name="pin" type="text" inputMode="numeric" maxLength={6} placeholder="e.g. 560001" value={pin} onChange={(event) => setPin(event.target.value.replace(/\D/g, ''))} /></div> : null}
                 <button className="primary-button" type="submit" disabled={submitting || source === 'audio'}>{submitting ? 'Starting…' : source === 'audio' ? 'Audio support coming soon' : 'Find Indian parts'} {source !== 'audio' ? <ArrowIcon /> : null}</button>
               </div>
               {error ? <p className="form-error" role="alert">{error}</p> : null}

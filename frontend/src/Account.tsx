@@ -3,7 +3,14 @@ import { ApiError, getUsage, getSession, startGuest, logoutSession, listProjects
 import { auth, firebaseLogout, googleLogin, localPreview } from './auth'
 
 type Identity = Session | 'legacy' | null
-const AccountContext = createContext<{ identity: Identity; ready: boolean; revision: number; requireIdentity: () => boolean; open: () => void }>({ identity: null, ready: false, revision: 0, requireIdentity: () => false, open: () => {} })
+// Countries we source for. Only India is supported today; add entries here as sellers are added.
+export const countries = [{ code: 'IN', name: 'India', dial: '+91' }] as const
+export type CountryCode = typeof countries[number]['code']
+const countryKey = 'bharat-sourcer:country'
+function savedCountry(): CountryCode {
+  try { const value = localStorage.getItem(countryKey); return countries.find(country => country.code === value)?.code ?? 'IN' } catch { return 'IN' }
+}
+const AccountContext = createContext<{ identity: Identity; ready: boolean; revision: number; country: CountryCode; requireIdentity: () => boolean; open: () => void }>({ identity: null, ready: false, revision: 0, country: 'IN', requireIdentity: () => false, open: () => {} })
 export const useAccount = () => useContext(AccountContext)
 
 function resetTime(window: UsageWindow) {
@@ -28,6 +35,11 @@ export function AccountProvider({ children }: { children: ReactNode }) {
   const [captureAttempt, setCaptureAttempt] = useState(0)
   const [revision, setRevision] = useState(0)
   const [usage, setUsage] = useState<Awaited<ReturnType<typeof getUsage>> | null>(null)
+  const [country, setCountry] = useState<CountryCode>(savedCountry)
+  function chooseCountry(code: CountryCode) {
+    setCountry(code)
+    try { localStorage.setItem(countryKey, code) } catch { /* the choice still applies for this visit */ }
+  }
   useEffect(() => {
     let active = true
     if (!visible || !identity || identity === 'legacy' || identity.kind !== 'guest') return
@@ -81,7 +93,7 @@ export function AccountProvider({ children }: { children: ReactNode }) {
     }
     finally { setBusy(false) }
   }
-  const value = { identity, ready, revision, requireIdentity: () => { if (ready && identity) return true; setVisible(true); return false }, open: () => { if (identity && identity !== 'legacy' && identity.kind === 'guest') setGuestCaptureDone(false); setVisible(true) } }
+  const value = { identity, ready, revision, country, requireIdentity: () => { if (ready && identity) return true; setVisible(true); return false }, open: () => { if (identity && identity !== 'legacy' && identity.kind === 'guest') setGuestCaptureDone(false); setVisible(true) } }
   return <AccountContext.Provider value={value}>{children}
     {guestProjects.length > 0 && identity && identity !== 'legacy' && identity.kind === 'account' && <section className="claim-panel container"><h2>Keep your guest projects</h2><p>Choose which projects to save to this account. The saved parts, research, offers, and conversation will come with them.</p>{guestProjects.map(project => <div className="claim-row" key={project.job_id}><span>{project.url}</span><button className="nav-cta" disabled={busy} onClick={async () => { setBusy(true); setError(''); try { await claimProject(project.job_id); setGuestProjects(rows => rows.filter(row => row.job_id !== project.job_id)); setRevision(n => n + 1) } catch (cause) { setError(cause instanceof Error ? cause.message : 'Could not save project') } finally { setBusy(false) } }}>Save this project to my account</button></div>)}{error && <p role="alert">{error}</p>}</section>}
     {visible && <AccountDialog close={() => !busy && setVisible(false)}>
@@ -96,6 +108,13 @@ export function AccountProvider({ children }: { children: ReactNode }) {
         <p>New projects: {usage.daily_projects.remaining} of {usage.daily_projects.limit} remaining. Resets {resetTime(usage.daily_projects)}.</p>
         <p>Actions today: {usage.daily_actions.remaining} of {usage.daily_actions.limit} remaining. Resets {resetTime(usage.daily_actions)}.</p>
         <p>Actions this minute: {usage.minute_actions.remaining} of {usage.minute_actions.limit} remaining. Resets {resetTime(usage.minute_actions)}. Saved projects remain readable at the limit.</p>
+      </div>}
+      {identity && identity !== 'legacy' && identity.kind === 'account' && <div className="country-setting">
+        <label htmlFor="account-country">Country</label>
+        <select id="account-country" value={country} onChange={event => chooseCountry(event.target.value as CountryCode)}>
+          {countries.map(option => <option key={option.code} value={option.code}>{option.name} ({option.dial})</option>)}
+        </select>
+        <p>We find sellers that deliver to this country. Only India is available for now; more countries are coming. Saved on this device.</p>
       </div>}
       <div className="account-actions">
         <button className="primary-button" disabled={busy || !ready || checkingGuestProjects || !!guestCaptureError || !!(identity && identity !== 'legacy' && identity.kind === 'guest' && !guestCaptureDone)} onClick={() => void act('google')}>{busy || checkingGuestProjects || (identity && identity !== 'legacy' && identity.kind === 'guest' && !guestCaptureDone) ? 'Please wait…' : localPreview ? 'Try demo account' : identity && identity !== 'legacy' && identity.kind === 'account' ? 'Switch Google account' : 'Sign in with Google'}</button>

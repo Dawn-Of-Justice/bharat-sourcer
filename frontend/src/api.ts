@@ -216,10 +216,10 @@ async function request<T>(path: string, options: RequestInit = {}, token?: strin
 }
 
 // sources: up to 3 extra project URLs read alongside url (at most one video across all of them).
-export function createJob(url: string, pin?: string, sources: string[] = []) {
+export function createJob(url: string, sources: string[] = []) {
   return request<{ job_id: string; job_token: string; demo: boolean }>('/v1/jobs', {
     method: 'POST',
-    body: JSON.stringify({ url, ...(pin ? { pin } : {}), ...(sources.length ? { sources: sources.slice(0, 3) } : {}), lang: 'en' }),
+    body: JSON.stringify({ url, ...(sources.length ? { sources: sources.slice(0, 3) } : {}), lang: 'en' }),
   })
 }
 
