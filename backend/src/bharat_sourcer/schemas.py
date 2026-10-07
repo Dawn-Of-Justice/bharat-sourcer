@@ -978,7 +978,17 @@ class SellerSearchSummary(Model):
     message: str = Field(default="", max_length=500)
 
 
-SourcingStage = Literal["seller_search", "judge", "grounded", "known_urls", "research", "followup"]
+# research_skipped: the research review was skipped (a sufficient offer or the budget), so no
+# model call was made for it.
+SourcingStage = Literal[
+    "seller_search",
+    "judge",
+    "grounded",
+    "known_urls",
+    "research",
+    "research_skipped",
+    "followup",
+]
 
 
 class ReportLine(Model):

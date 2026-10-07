@@ -13,6 +13,7 @@ record the source URL and the date you read it.
 | `discovery` | `sourcing/service.py` `GeminiDiscovery` | 1 per sourced part, +1 for an alternative search | short part query | `google_search` grounding |
 | `research` | `sourcing/research.py` | 1 per sourced part (2 with follow-up) | fetched page text, up to 16 sources | none |
 | `judge` | `sourcing/judge.py` `GeminiJudge` (unreleased) | ≤ 1 per sourced part with unsettled candidates (≤ 2 with seller search) | spec + ≤ 8 compact listings | none |
+| `spec` | `sourcing/spec_writer.py` `GeminiSpecWriter` | 0 for jobs extracted with buyable specs; 1 per sourcing run that has lines without a spec (older jobs, user-added or renamed lines), then saved on the items | line names/qty/requirements + project summary/power/assumptions | none |
 | `chat_scope` | `conversation.py` `in_scope` | 1 per chat message | last messages + project context | none |
 | `chat_reply` | `conversation.py` `reply` | 1 per allowed chat message | saved job context (items, report, 12 messages) | none |
 | `image` | `images.py` | 0 unless generation enabled (≤10/owner/day) | short prompt | image output |
@@ -244,3 +245,30 @@ Road shops, 8 grounding chunks (places plus review links), **1 grounding query a
   needs the pool).
 - Untested: whether `thinkingLevel: low` changes Maps answers (the live call used the
   default). Check with `usage_report.py` and a few real lookups.
+
+### 2026-10-07: batched spec writer for lines without an AI spec (branch `fix/spec-writer`)
+
+A live check of the failed "Freeform Light-Activated LED Circuit" job showed every line on a
+name-only seed spec (the job predates buyable specs), so a 4 mm copper rod was rated exact
+for "Bare copper wire" and a 220 Ω pack was auto-selected for a resistor of unknown value.
+No live call was made for this change; estimates use the 2026-10-05 prices above.
+
+- **New site `spec`** (`sourcing/spec_writer.py`): **one call per job, only for older jobs**
+  (or lines the user added or renamed). New jobs get their spec inside the extraction call
+  and make no `spec` call. Sent: the lines needing a spec (≤ 40) and the project summary,
+  power and assumptions. Model `BS_GEMINI_MODEL` (`gemini-3.8-flash`) unless
+  `BS_GEMINI_SITE_MODELS.spec` is set; `thinkingLevel: low` (the existing default for this
+  site); `maxOutputTokens` = 1,024 + 400 per line (≤ 16,384).
+- **Estimate** for a 6-line job: ≈ 1.5K input (prompt + lines + project) and ≈ 0.8–1K
+  output with low thinking ≈ $0.0011 + $0.0034 ≈ **$0.005 per job** (doubles in 2027).
+  A 20-line job ≈ 2.5K in / 3K out ≈ $0.013.
+- **Paid once:** the result is saved on `items[].buyable_spec`, so refreshes and later runs
+  make no `spec` call; specs are also cached 7 days per (item text, project hash) in the
+  shared cache (`spec` namespace). It respects the job budget (`paid_allowed()`), is
+  logged with `record_usage("spec", …)`, and a failure keeps seed specs (not retried by the
+  same process for 10 minutes, so queued one-line runs do not repeat a failing call).
+- **Judge cache:** the judge cache key gained a version (`v2`) so verdicts cached before the
+  new server checks are not reused; expect one cold round of judge calls per line after
+  deploy (≈ $0.002–0.003 each).
+- Measure after release: `usage_report.py` rows for `spec` (calls should be ≤ 1 per older
+  job) and whether low thinking still yields gauge/diameter params for wire.

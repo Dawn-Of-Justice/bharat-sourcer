@@ -316,31 +316,132 @@ QUANTITY_NAMES = {
 }
 
 
+# Seed classification from the part name, first match wins (LDR before resistor, LED before
+# diode, modules and boards before the parts they carry).
+SEED_CATEGORIES: list[tuple[re.Pattern, str]] = [
+    (
+        re.compile(
+            r"(?i)\bldrs?\b|photo-?resistor|light[\s-]*dependent[\s-]*resistor|photocell"
+            r"|\bgl55\d\d\b"
+        ),
+        "ldr",
+    ),
+    (
+        re.compile(r"(?i)arduino|esp32|esp8266|raspberry|nodemcu|dev(?:elopment)?\s*board"),
+        "board",
+    ),
+    (re.compile(r"(?i)\bmodules?\b|breakout"), "module"),
+    (re.compile(r"(?i)\bsensors?\b|thermistor"), "sensor"),
+    (re.compile(r"(?i)\bleds?\b|light[\s-]*emitting[\s-]*diode"), "led"),
+    (re.compile(r"(?i)resistor|\bresistance\b"), "resistor"),
+    (re.compile(r"(?i)electrolytic|\belko\b"), "capacitor_electrolytic"),
+    (
+        re.compile(r"(?i)ceramic\s*(?:disc\s*)?capacitor|\bmlcc\b|disc\s*capacitor"),
+        "capacitor_ceramic",
+    ),
+    (re.compile(r"(?i)\bdiodes?\b|\b1n4\d{3}\b|\b1n58\d\d\b|zener|schottky|rectifier"), "diode"),
+    (
+        re.compile(r"(?i)transistor|mosfet|\bbjt\b|\b(?:bc|2n|tip|irf|irlz?)\d{2,4}[a-z]?\b"),
+        "transistor",
+    ),
+    (
+        re.compile(
+            r"(?i)\bics?\b|integrated circuit|op-?amp|\bne555\b|\b555\b|timer ic|\blm\d{2,4}\b"
+            r"|\bcd40\d\d\b|\b74(?:hc|ls)\d+\b|\batmega\d*|\battiny\d*"
+        ),
+        "ic",
+    ),
+    (re.compile(r"(?i)switch|push[\s-]*button|tactile|\bbuttons?\b"), "switch"),
+    (
+        re.compile(r"(?i)batter(?:y|ies)|\b18650\b|coin\s*cell|li-?po\b|li-?ion|\bcells?\b"),
+        "battery",
+    ),
+    (
+        re.compile(r"(?i)connector|\bheaders?\b|\bjst\b|terminal\s*block|\bsocket\b|\bjack\b"),
+        "connector",
+    ),
+    (
+        re.compile(r"(?i)\bwires?\b|\bawg\b|\bswg\b|hook-?up|bus\s*bar|enamel(?:led)?\s*copper"),
+        "wire",
+    ),
+]
+CAPACITOR = re.compile(r"(?i)capacitor")
+INDUCTOR = re.compile(r"(?i)inductor|\bchoke\b|\bcoil\b")
+NAME_THT = re.compile(r"(?i)through[\s-]*hole|\btht\b|\bpth\b|\bdip\b|\baxial\b|\bradial\b")
+NAME_SMD = re.compile(r"(?i)\bsmd\b|\bsmt\b|surface[\s-]*mount")
+
+
+def seed_category(name: str, measures: list[Measure]) -> str:
+    for pattern, category in SEED_CATEGORIES:
+        if pattern.search(name):
+            return category
+    if CAPACITOR.search(name):
+        # Plain "capacitor": the value decides the usual kind; without one it stays open.
+        farads = [m.value for m in measures if m.unit == "F"]
+        if farads:
+            return "capacitor_electrolytic" if farads[0] >= 1e-6 else "capacitor_ceramic"
+    return "other"
+
+
 def seed_spec(item: BomItem) -> BuyableSpec:
-    """Labelled fallback when no AI spec exists: values from the name, nothing inferred."""
-    resistorish = bool(re.search(r"(?i)resist|\bldr\b|ohm", item.raw_name))
-    params, seen = [], set()
-    for measure in find_measures(item.raw_name, resistorish):
-        name = QUANTITY_NAMES[measure.kind]
-        if name in seen:
-            continue
-        seen.add(name)
-        params.append(
-            SpecParam(
-                name=name,
-                value=normalise_text(measure.text),
-                unit=measure.unit,
-                si_value=measure.value,
-                origin="stated",
-                required=name in {"resistance", "capacitance"},
+    """Labelled fallback when no AI spec exists: values from the name (and the user's own
+    requirements), a category from name keywords, nothing inferred."""
+    name = item.raw_name
+    resistorish = bool(re.search(r"(?i)resist|\bldr\b|ohm", name))
+    user = [r for r in item.requirements if r.origin == "user"]
+    sources = [(name, "stated")] + [(f"{r.value} {r.unit or ''}", "user") for r in user]
+    params, seen, all_measures = [], set(), []
+    for text, origin in sources:
+        found = find_measures(text, resistorish)
+        all_measures += found
+        for measure in found:
+            param_name = QUANTITY_NAMES[measure.kind]
+            if param_name in seen:
+                continue
+            seen.add(param_name)
+            params.append(
+                SpecParam(
+                    name=param_name,
+                    value=normalise_text(measure.text),
+                    unit=measure.unit,
+                    si_value=measure.value,
+                    origin=origin,
+                    required=param_name in {"resistance", "capacitance", "inductance"},
+                )
             )
+    category = seed_category(name, all_measures)
+    units = {m.unit for m in all_measures}
+    needs_value, needs_reason = False, None
+    if category == "resistor" and "ohm" not in units:
+        needs_value, kind = True, "resistance"
+    elif (category.startswith("capacitor") or CAPACITOR.search(name)) and "F" not in units:
+        needs_value, kind = True, "capacitance"
+    elif INDUCTOR.search(name) and category == "other" and "H" not in units:
+        needs_value, kind = True, "inductance"
+    if needs_value:
+        needs_reason = (
+            f"The part name gives no {kind} value; choose the value before buying "
+            "(a single-value listing would be a guess)."
         )
-    query = " ".join(normalise_text(item.raw_name).split())[:120]
+    mount, mount_origin = "any", "default"
+    if NAME_SMD.search(name):
+        mount, mount_origin = "smd", "stated"
+    elif NAME_THT.search(name):
+        mount, mount_origin = "tht", "stated"
+    exclude = SMD_EXCLUDES if mount == "tht" and category in {"resistor", "led", "diode"} else []
+    query = " ".join(normalise_text(name).split())[:120]
     return BuyableSpec(
         origin="seed",
+        category=category,
+        mount=mount,
+        mount_origin=mount_origin,
+        mount_reason="The part name states the mount." if mount != "any" else None,
         params=params,
         must=[p.name for p in params if p.required],
+        exclude=list(exclude),
         queries=[query] if query else [],
+        needs_value=needs_value,
+        needs_value_reason=needs_reason,
         reasons=["Seed spec from the part name; no AI buying spec was available."],
     )
 
@@ -370,6 +471,74 @@ def pack_quantity(text: str) -> int | None:
         return None
     count = counts.pop()
     return count if 1 < count <= 100000 else None
+
+
+ASSORTMENT = re.compile(
+    r"(?i)\bkits?\b|assort(?:ment|ed)?\b|\bcombo\b|\b\d{1,3}\s*(?:different\s+)?values?\b"
+    r"|\bvalues?\s+(?:kit|pack|set|box)\b|\bmixed\s+values?\b"
+)
+
+
+def is_assortment(text: str) -> bool:
+    """A kit or assortment of several values, not a pack of one value ("pack of 10")."""
+    return bool(ASSORTMENT.search(text or ""))
+
+
+PRIMARY_UNITS = {"ohm", "F", "H"}
+
+
+def awg_m(gauge: float) -> float:
+    """Diameter in metres of an AWG gauge (24 AWG ≈ 0.51 mm, 18 AWG ≈ 1.02 mm)."""
+    return 0.000127 * 92 ** ((36 - gauge) / 39)
+
+
+def measure_conflicts(spec: BuyableSpec, texts: list[str]) -> list[str]:
+    """Spec params a listing's own numbers contradict, after unit normalisation.
+
+    Each text (the title, then each spec row) is checked separately: a param conflicts when
+    the text states a value of the same quantity and none of its values fits the param.
+    For a diameter-like length (under 1 cm) spool lengths of 10 cm or more are ignored, so
+    "0.8 mm wire, 10 m" is not a conflict. An assortment's primary values (ohm, F, H) are
+    compared as a range: the kit fits when it spans the param.
+    """
+    resistorish = spec.category in {"resistor", "ldr"}
+    conflicts: list[str] = []
+    for text in texts:
+        if not text:
+            continue
+        measures = find_measures(text, resistorish)
+        kit = is_assortment(text)
+        for param in spec.params:
+            if param.si_value is None or param.name in conflicts:
+                continue
+            top = param.si_value_max if param.si_value_max is not None else param.si_value
+            same = [m for m in measures if m.unit == param.unit]
+            if param.unit == "AWG" and not same:
+                # A gauge range against a stated diameter: compare in metres (±10%).
+                thick, thin = awg_m(min(param.si_value, top)), awg_m(max(param.si_value, top))
+                if param.operator == "at_least":
+                    thick = awg_m(param.si_value)
+                    thin = 0.0
+                elif param.operator == "at_most":
+                    thin, thick = awg_m(param.si_value), float("inf")
+                diameters = [m.value for m in measures if m.unit == "m" and m.value < 0.01]
+                if diameters and not any(thin * 0.9 <= d <= thick * 1.1 for d in diameters):
+                    conflicts.append(param.name)
+                continue
+            if param.unit == "m" and top < 0.01:
+                same = [m for m in same if m.value < 0.1]
+            if not same:
+                continue
+            if kit and param.unit in PRIMARY_UNITS:
+                values = [m.value for m in same]
+                low = min(values)
+                fits = low <= param.si_value * (1 + 1e-9) and max(values) >= top * (1 - 1e-9)
+                if not fits and not any(param_matches(param, m) for m in same):
+                    conflicts.append(param.name)
+                continue
+            if not any(param_matches(param, m) for m in same):
+                conflicts.append(param.name)
+    return conflicts
 
 
 def spec_hash(spec: BuyableSpec) -> str:
