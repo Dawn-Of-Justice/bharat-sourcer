@@ -1,7 +1,5 @@
-"""Redacted project views and CSV/printable HTML exports. Pure rendering; no I/O."""
+"""Redacted project views and the HTML/PDF export. Pure rendering; no network I/O."""
 
-import csv
-import io
 from datetime import datetime
 from html import escape
 from typing import Literal
@@ -91,113 +89,13 @@ def requirement_text(requirement: PartRequirement) -> str:
     return f"{requirement.name} {operator} {requirement.value}{unit}{label}"
 
 
-def evidence_text(evidence: Evidence) -> str:
-    if evidence.source == "video":
-        return f"{evidence.timestamp} {evidence.observation}"
-    return f'"{evidence.quote}" ({evidence.url})'
-
-
-def data_label(view: SharedProject, line: ReportLine) -> str:
-    if view.demo:
-        return "demo_sample"
-    if selected(line):
-        return "seller_published_snapshot"
-    return "no_selected_offer"
-
-
-# Spreadsheet apps execute cells that start with these characters as formulas.
-FORMULA_PREFIXES = ("=", "+", "-", "@", "\t", "\r")
-
-
-def cell(value) -> str:
-    text = "" if value is None else str(value)
-    return "'" + text if text.startswith(FORMULA_PREFIXES) else text
-
-
-CSV_COLUMNS = [
-    "data_label",
-    "line_id",
-    "part_name",
-    "qty",
-    "qty_unit",
-    "qty_source",
-    "qty_reason",
-    "owned",
-    "sourcing_status",
-    "requirements",
-    "offer_count",
-    "selected_seller",
-    "selected_offer_title",
-    "selected_offer_url",
-    "price_inr",
-    "subtotal_inr",
-    "stock",
-    "checked_at",
-    "compatibility_status",
-    "compatibility_grade",
-    "selection_grade",
-    "evidence",
-]
-
-
-def to_csv(view: SharedProject) -> str:
-    buffer = io.StringIO()
-    writer = csv.writer(buffer, lineterminator="\r\n")
-
-    def row(values):
-        writer.writerow([cell(value) for value in values])
-
-    title = view.project.title if view.project else None
-    if view.demo:
-        row([f"# {DEMO_NOTICE}"])
-    row([f"# {SNAPSHOT_NOTICE}"])
-    row([f"# Project: {title or 'Untitled project'}"])
-    row([f"# Source: {view.source_url}"])
-    row([f"# Exported at: {now().isoformat()}"])
-    row(CSV_COLUMNS)
-    for line in lines(view):
-        item, offer = line.item, selected(line)
-        compat = offer.compatibility if offer else None
-        row(
-            [
-                data_label(view, line),
-                item.line_id,
-                item.raw_name,
-                item.qty,
-                item.qty_unit,
-                item.qty_source,
-                item.qty_reason,
-                "yes" if item.user_has_it else "no",
-                line.sourcing_status,
-                "; ".join(requirement_text(r) for r in item.requirements),
-                len(line.offers),
-                offer.seller if offer else None,
-                offer.title if offer else None,
-                offer.url if offer else None,
-                line.price_inr,
-                line.subtotal_inr,
-                offer.stock if offer else None,
-                offer.checked_at.isoformat() if offer else None,
-                compat.status if compat else (offer.compatibility_status if offer else None),
-                compat.grade if compat else None,
-                line.grade,
-                " | ".join(evidence_text(e) for e in item.evidence),
-            ]
-        )
-    if view.report:
-        row([])
-        row(["# Selected parts subtotal INR", view.report.selected_parts_subtotal_inr])
-        row(["# Unselected line ids", " ".join(view.report.unselected_line_ids)])
-    return buffer.getvalue()
-
-
 STYLE = """
 :root{--ink:#14303a;--muted:#5b6f69;--line:#dfe6df;--soft:#f5f8f4;--brand:#19766d;
 --warn:#8a5a1c;
 --warn-bg:#fff6e6;--bad:#a33a2c;--bad-bg:#fdf0ed}
 *{box-sizing:border-box}
 body{margin:0;background:#eef2ee;color:var(--ink);
-font:13px/1.5 system-ui,-apple-system,"Segoe UI",
+font:13px/1.5 system-ui,-apple-system,"Segoe UI","DejaVu Sans",
 Roboto,sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact}
 .page{max-width:900px;margin:24px auto;padding:36px 40px;background:#fff;
 border:1px solid var(--line);
@@ -576,3 +474,21 @@ def to_html(view: SharedProject) -> str:
     parts.append("<footer>" + "".join(f"<p>{e(text)}</p>" for text in footer) + "</footer>")
     parts.append("</main></body></html>")
     return "".join(parts)
+
+
+class PdfUnavailable(Exception):
+    """WeasyPrint or its system libraries (Pango) are not installed here."""
+
+
+def refuse_fetch(url: str, *args, **kwargs):
+    # The export references no external resources; never let rendering fetch anything.
+    raise ValueError(f"External resources are not loaded in exports: {url[:80]}")
+
+
+def to_pdf(view: SharedProject) -> bytes:
+    """The order plan as an A4 PDF, rendered from the same HTML as the printable page."""
+    try:
+        from weasyprint import HTML
+    except (ImportError, OSError) as exc:
+        raise PdfUnavailable(str(exc)) from exc
+    return HTML(string=to_html(view), url_fetcher=refuse_fetch).write_pdf()

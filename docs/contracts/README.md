@@ -1,10 +1,12 @@
-# Implemented API contract — v0.25.1
+# Implemented API contract — v0.26.0
 
 This directory is the handoff between backend and frontend. The architecture docs describe
 the target system; this contract describes the runnable local milestone.
 
-v0.25.1 redesigns the Print / PDF export (`export.html`) as a printable order plan; no API
-changes. See [export-and-share](export-and-share.md#html-report).
+v0.26.0 replaces CSV with a downloadable PDF: `GET /v1/jobs/{job_id}/export.pdf` and
+`GET /v1/shared/{share_token}/export.pdf` return the order plan as an A4 PDF; both
+`export.csv` routes were removed. `export.html` remains and uses the same order-plan layout.
+See [export-and-share](export-and-share.md#pdf-and-html-report).
 
 v0.25.0 adds "Copy to my projects": `POST /v1/shared/{share_token}/copy` (account or guest,
 counts as a new project) makes an editable copy of a shared project, adding

@@ -5,6 +5,7 @@ lookup reads one document by id and needs no query or index. Shared reads never 
 the owner's quotas and never start work; they are bounded per client IP instead.
 """
 
+import re
 import secrets
 import time
 from datetime import UTC, datetime
@@ -14,7 +15,7 @@ from fastapi import Request, Response
 from fastapi.responses import HTMLResponse
 
 from bharat_sourcer.access import ProjectAccess
-from bharat_sourcer.export import SharedProject, redact, to_csv, to_html
+from bharat_sourcer.export import PdfUnavailable, SharedProject, redact, to_html, to_pdf
 from bharat_sourcer.jobs import JobError
 from bharat_sourcer.schemas import CopiedProject, ErrorResponse, Model, now
 
@@ -40,14 +41,23 @@ def token_hash(token: str) -> str:
 
 
 def filename(view: SharedProject, extension: str) -> str:
-    return f"bharat-sourcer-bom{'-demo' if view.demo else ''}.{extension}"
+    title = view.project.title if view.project and view.project.title else "parts-list"
+    slug = re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-")[:60] or "parts-list"
+    return f"{slug}{'-demo' if view.demo else ''}.{extension}"
 
 
-def csv_response(view: SharedProject) -> Response:
+def pdf_response(view: SharedProject) -> Response:
+    try:
+        content = to_pdf(view)
+    except PdfUnavailable as exc:
+        raise JobError(503, "PDF_UNAVAILABLE", "PDF export is unavailable right now") from exc
     return Response(
-        content=to_csv(view).encode("utf-8-sig"),
-        media_type="text/csv; charset=utf-8",
-        headers={"Content-Disposition": f'attachment; filename="{filename(view, "csv")}"'},
+        content=content,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename(view, "pdf")}"',
+            "X-Content-Type-Options": "nosniff",
+        },
     )
 
 
@@ -96,15 +106,6 @@ def add_share_routes(app, service, access):
         return redact(shared_record(request, share_token).job)
 
     @app.get(
-        "/v1/jobs/{job_id}/export.csv",
-        tags=["export"],
-        response_class=Response,
-        responses={200: {"content": {"text/csv": {}}}, 404: {"model": ErrorResponse}},
-    )
-    def export_csv(job_id: str, x_job_token: ProjectAccess = None):
-        return csv_response(redact(service.get(job_id, x_job_token)))
-
-    @app.get(
         "/v1/jobs/{job_id}/export.html",
         tags=["export"],
         response_class=HTMLResponse,
@@ -112,6 +113,19 @@ def add_share_routes(app, service, access):
     )
     def export_html(job_id: str, x_job_token: ProjectAccess = None):
         return html_response(redact(service.get(job_id, x_job_token)))
+
+    @app.get(
+        "/v1/jobs/{job_id}/export.pdf",
+        tags=["export"],
+        response_class=Response,
+        responses={
+            200: {"content": {"application/pdf": {}}},
+            404: {"model": ErrorResponse},
+            503: {"model": ErrorResponse},
+        },
+    )
+    def export_pdf(job_id: str, x_job_token: ProjectAccess = None):
+        return pdf_response(redact(service.get(job_id, x_job_token)))
 
     @app.get(
         "/v1/jobs/{job_id}/share",
@@ -205,17 +219,6 @@ def add_share_routes(app, service, access):
         return CopiedProject(job_id=job.job_id, job_token=token, status=job.status)
 
     @app.get(
-        "/v1/shared/{share_token}/export.csv",
-        tags=["export"],
-        response_class=Response,
-        responses={200: {"content": {"text/csv": {}}}, 404: {"model": ErrorResponse}},
-    )
-    def shared_csv(share_token: str, request: Request):
-        result = csv_response(shared(request, share_token))
-        result.headers.update(shared_headers)
-        return result
-
-    @app.get(
         "/v1/shared/{share_token}/export.html",
         tags=["export"],
         response_class=HTMLResponse,
@@ -223,5 +226,20 @@ def add_share_routes(app, service, access):
     )
     def shared_html(share_token: str, request: Request):
         result = html_response(shared(request, share_token))
+        result.headers.update(shared_headers)
+        return result
+
+    @app.get(
+        "/v1/shared/{share_token}/export.pdf",
+        tags=["export"],
+        response_class=Response,
+        responses={
+            200: {"content": {"application/pdf": {}}},
+            404: {"model": ErrorResponse},
+            503: {"model": ErrorResponse},
+        },
+    )
+    def shared_pdf(share_token: str, request: Request):
+        result = pdf_response(shared(request, share_token))
         result.headers.update(shared_headers)
         return result
