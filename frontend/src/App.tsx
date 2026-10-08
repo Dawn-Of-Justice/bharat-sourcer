@@ -51,13 +51,13 @@ function Header({ onHome, isHome, onProjects }: { onHome: () => void; isHome: bo
 }
 
 type LinkSource = 'youtube' | 'article' | 'github'
-type SourceType = LinkSource | 'audio'
+type SourceType = LinkSource | 'document'
 
 const previewCopy: Record<SourceType, { label: string; symbol: string; caption: string; firstStep: string; firstDetail: string; footnote: string; accessibleLabel: string }> = {
   youtube: { label: 'YouTube', symbol: '▶', caption: 'A project you want to make', firstStep: 'Parts found in the video', firstDetail: 'With moments you can revisit', footnote: 'Illustration of the workflow · No sample prices or grades', accessibleLabel: 'A YouTube project becomes a reviewable parts list and Indian seller options' },
   article: { label: 'Article / blog', symbol: '▤', caption: 'A guide worth building from', firstStep: 'Parts mentioned in the guide', firstDetail: 'Review each part before sourcing', footnote: 'Instructables, Adafruit Learn & maker blogs · Each part cites a quote from the guide', accessibleLabel: 'Turning an Instructables project, Adafruit Learn guide or maker blog post into a reviewable parts list, with each part citing a quote from the guide.' },
   github: { label: 'GitHub', symbol: '</>', caption: 'An open-source build idea', firstStep: 'Parts noted in project files', firstDetail: 'Check the list against the repository', footnote: 'Reads the README and code files · Each part cites a quote or code line', accessibleLabel: 'Turning a GitHub repository README into a reviewable parts list, with each part citing a quote from the README.' },
-  audio: { label: 'Audio', symbol: '♫', caption: 'A build idea, spoken aloud', firstStep: 'Parts from your description', firstDetail: 'Review what was understood', footnote: 'Preview concept · Audio upload is not available yet', accessibleLabel: 'Preview concept for turning an audio description into a reviewable parts list. Audio upload is not yet available.' },
+  document: { label: 'Document', symbol: '▤', caption: 'A project guide or build notes', firstStep: 'Parts from your document', firstDetail: 'Review what the document says', footnote: 'Preview concept · Document upload is not available yet', accessibleLabel: 'Preview concept for turning a PDF or Word project document into a reviewable parts list. Document upload is not yet available.' },
 }
 
 function HeroIllustration({ source }: { source: SourceType }) {
@@ -87,10 +87,9 @@ function HeroIllustration({ source }: { source: SourceType }) {
               <div className="repo-top"><span className="repo-dots"><i /><i /><i /></span><span>maker / project</span><span>⌄</span></div>
               <div className="repo-file"><span>▤</span> README.md <small>main</small></div>
               <div className="repo-code"><div><span>01</span><b># Build notes</b></div><div><span>02</span><em>parts:</em> controller, display</div><div><span>03</span><em>power:</em> USB cable</div></div>
-            </div> : <div className="audio-stage">
-              <div className="audio-mic"><svg viewBox="0 0 32 32" fill="none" aria-hidden="true"><rect x="12" y="4" width="8" height="16" rx="4" stroke="currentColor" strokeWidth="2.5" /><path d="M7 15a9 9 0 0 0 18 0M16 24v5m-5 0h10" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" /></svg></div>
-              <div className="audio-wave">{[11, 22, 35, 19, 42, 29, 15, 38, 25, 46, 24, 33, 17, 27, 12].map((height, index) => <i key={index} style={{ height }} />)}</div>
-              <span className="audio-time">00:12 / 01:08</span>
+            </div> : <div className="document-stage">
+              <div className="document-sheet"><span className="document-fold" /><span className="document-type">PROJECT GUIDE <b>PDF</b></span><span className="document-title-line" /><span className="document-rule document-rule-long" /><span className="document-rule" /><span className="document-rule document-rule-short" /><span className="document-part">PARTS &amp; MATERIALS</span><span className="document-rule document-rule-long" /></div>
+              <span className="document-file-chip">PDF · DOC · DOCX</span>
             </div>}
           </div>
           <div className="video-caption"><span className={`source-pill source-pill-${source}`}>{preview.symbol} {preview.label}</span><strong>{preview.caption}</strong></div>
@@ -113,7 +112,7 @@ const sourceOptions: { id: SourceType; label: string; symbol: string }[] = [
   { id: 'youtube', label: 'YouTube', symbol: '▶' },
   { id: 'article', label: 'Article / blog', symbol: '▤' },
   { id: 'github', label: 'GitHub', symbol: '</>' },
-  { id: 'audio', label: 'Audio', symbol: '♫' },
+  { id: 'document', label: 'Document', symbol: '▤' },
 ]
 
 const sourceFields: Record<LinkSource, { label: string; placeholder: string }> = {
@@ -177,7 +176,7 @@ function Landing({ onCreated }: { onCreated: (id: string) => void }) {
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setError('')
-    if (source === 'audio') return
+    if (source === 'document') return
     let parsed: URL
     try {
       parsed = new URL(sourceUrls[source].trim())
@@ -235,9 +234,9 @@ function Landing({ onCreated }: { onCreated: (id: string) => void }) {
             <div className="input-callout" aria-hidden="true" ref={calloutRef}><span>Your build starts here</span><svg className={arrowPosition ? 'tab-arrow is-ready' : 'tab-arrow'} style={arrowPosition ?? undefined} viewBox="0 0 64 48" fill="none"><defs><marker id="landing-arrowhead" viewBox="0 0 16 16" refX="12" refY="8" markerWidth="16" markerHeight="16" markerUnits="userSpaceOnUse" orient="auto"><path d="M3 3 L12 8 L3 13" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" /></marker></defs><path className="draw-arrow" d="M8 7 C8 23 23 24 42 40" markerEnd="url(#landing-arrowhead)" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" fill="none" /></svg></div>
             <form className="source-form" onSubmit={submit}>
               <div className="source-options" role="group" aria-label="Choose a project source">{sourceOptions.map((option) => <button key={option.id} ref={(element) => { tabRefs.current[option.id] = element ?? undefined }} type="button" className={`source-option ${source === option.id ? 'selected' : ''}`} aria-pressed={source === option.id} onClick={() => chooseSource(option.id)}><span aria-hidden="true">{option.symbol}</span>{option.label}</button>)}</div>
-              {source === 'audio' ? <div className="audio-field"><label htmlFor="audio-file">Choose a build description or maker audio file</label><input id="audio-file" type="file" accept="audio/*" /><p>Audio transcription and uploads are planned; this file stays on your device for now.</p></div> : <><label htmlFor="source-url">{sourceFields[source].label}</label><div className="url-row"><span className={`url-icon url-icon-${source}`} aria-hidden="true">{source === 'youtube' ? <svg viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="4" fill="currentColor" /><path d="m10 9 6 3-6 3V9Z" fill="#fff" /></svg> : source === 'article' ? '▤' : '</>'}</span><input id="source-url" name="url" type="url" inputMode="url" autoComplete="url" placeholder={sourceFields[source].placeholder} value={sourceUrls[source]} onChange={(event) => setSourceUrls((current) => ({ ...current, [source]: event.target.value }))} required /></div>{source === 'article' ? <p className="source-note">We read Instructables projects, Adafruit Learn guides and these maker blogs: {blogHosts.join(', ')}. Each part cites a quote from the page; review the list before sourcing. Hackster pages cannot be read yet.</p> : source === 'github' ? <p className="source-note">We read the repository README and its main code files. Each part cites a quote or a code line; review the list before sourcing.</p> : null}<div className="extra-sources">{extras.map((extra, index) => <div className="extra-source-row" key={index}><label htmlFor={`extra-source-${index}`}>Extra source {index + 1} <span>(optional)</span></label><div><input id={`extra-source-${index}`} type="url" inputMode="url" placeholder="https://github.com/creator/project" value={extra} onChange={(event) => setExtras(current => current.map((value, i) => i === index ? event.target.value : value))} /><button type="button" className="remove-button" aria-label={`Remove extra source ${index + 1}`} onClick={() => setExtras(current => current.filter((_, i) => i !== index))}>Remove</button></div></div>)}{extras.length < 3 && <button type="button" className="add-source-button" onClick={() => setExtras(current => [...current, ''])}><span aria-hidden="true">+</span> Add another source</button>}{extras.length > 0 && <p className="source-note">Up to 3 extra links (repository, guide or blog) for the same build; we compare them and flag disagreements. Only one YouTube video per project.</p>}</div></>}
-              <div className={`form-bottom ${source === 'audio' ? 'audio-bottom' : ''}`}>
-                <button className="primary-button" type="submit" disabled={submitting || source === 'audio'}>{submitting ? 'Starting…' : source === 'audio' ? 'Audio support coming soon' : 'Find Indian parts'} {source !== 'audio' ? <ArrowIcon /> : null}</button>
+              {source === 'document' ? <div className="document-field"><label htmlFor="document-file">Choose a project PDF or Word document</label><input id="document-file" type="file" accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" /><p>Document reading and uploads are planned. A selected file stays on your device for now.</p></div> : <><label htmlFor="source-url">{sourceFields[source].label}</label><div className="url-row"><span className={`url-icon url-icon-${source}`} aria-hidden="true">{source === 'youtube' ? <svg viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="4" fill="currentColor" /><path d="m10 9 6 3-6 3V9Z" fill="#fff" /></svg> : source === 'article' ? '▤' : '</>'}</span><input id="source-url" name="url" type="url" inputMode="url" autoComplete="url" placeholder={sourceFields[source].placeholder} value={sourceUrls[source]} onChange={(event) => setSourceUrls((current) => ({ ...current, [source]: event.target.value }))} required /></div>{source === 'article' ? <p className="source-note">We read Instructables projects, Adafruit Learn guides and these maker blogs: {blogHosts.join(', ')}. Each part cites a quote from the page; review the list before sourcing. Hackster pages cannot be read yet.</p> : source === 'github' ? <p className="source-note">We read the repository README and its main code files. Each part cites a quote or a code line; review the list before sourcing.</p> : null}<div className="extra-sources">{extras.map((extra, index) => <div className="extra-source-row" key={index}><label htmlFor={`extra-source-${index}`}>Extra source {index + 1} <span>(optional)</span></label><div><input id={`extra-source-${index}`} type="url" inputMode="url" placeholder="https://github.com/creator/project" value={extra} onChange={(event) => setExtras(current => current.map((value, i) => i === index ? event.target.value : value))} /><button type="button" className="remove-button" aria-label={`Remove extra source ${index + 1}`} onClick={() => setExtras(current => current.filter((_, i) => i !== index))}>Remove</button></div></div>)}{extras.length < 3 && <button type="button" className="add-source-button" onClick={() => setExtras(current => [...current, ''])}><span aria-hidden="true">+</span> Add another source</button>}{extras.length > 0 && <p className="source-note">Up to 3 extra links (repository, guide or blog) for the same build; we compare them and flag disagreements. Only one YouTube video per project.</p>}</div></>}
+              <div className={`form-bottom ${source === 'document' ? 'document-bottom' : ''}`}>
+                <button className="primary-button" type="submit" disabled={submitting || source === 'document'}>{submitting ? 'Starting…' : source === 'document' ? 'Document support coming soon' : 'Find Indian parts'} {source !== 'document' ? <ArrowIcon /> : null}</button>
               </div>
               {error ? <p className="form-error" role="alert">{error}</p> : null}
             </form>
@@ -260,7 +259,7 @@ function Landing({ onCreated }: { onCreated: (id: string) => void }) {
         <div className="container">
           <div className="section-heading"><div><span className="section-kicker">THE SIMPLE IDEA</span><h2>From “I want to make that”<br />to “here’s what I need.”</h2></div></div>
           <div className="how-grid">
-            <article className="how-card"><span className="how-number">01 / INPUT</span><div className="how-icon video-icon"><LinkIcon /></div><h3>Bring in your project</h3><p>Start with a YouTube video, blog post, GitHub repository, or audio file</p></article>
+            <article className="how-card"><span className="how-number">01 / INPUT</span><div className="how-icon video-icon"><LinkIcon /></div><h3>Bring in your project</h3><p>Start with a YouTube video, blog post, or GitHub repository. Document support is coming soon.</p></article>
             <article className="how-card"><span className="how-number">02 / REVIEW</span><div className="how-icon review-icon"><ChecklistIcon /></div><h3>Shape your build plan</h3><p>Check the evidence, adjust parts and quantities, mark what you own, and ask questions before confirming the list.</p></article>
             <article className="how-card"><span className="how-number">03 / SOURCE</span><div className="how-icon source-icon"><BagIcon /></div><h3>Explore Indian options</h3><p>After you confirm, inspect seller listings, prices, and compatibility notes—with unknowns left visible for you to verify.</p></article>
           </div>
