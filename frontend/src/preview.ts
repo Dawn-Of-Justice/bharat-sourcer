@@ -35,6 +35,8 @@ if (status === 'done') {
 if (phase === 'plan') job = planPreview(job)
 
 export function previewRequest(path: string, options: RequestInit): unknown {
+  // The extra dummy project cards open the one sample project.
+  path = path.replace(/^\/v1\/jobs\/ui-preview-[a-z]+(?=\/|$)/, '/v1/jobs/ui-preview')
   if (path === '/v1/countries') return { default: 'IN', countries: [{ code: 'IN', name: 'India', currency: 'INR', locale: 'en-IN', market_cities: previewCities }] }
   if (path === '/v1/account/settings') {
     if (options.method === 'POST') { const { country } = JSON.parse(String(options.body)); sessionStorage.setItem('bs-preview-country', country); return { country, updated_at: new Date().toISOString(), saved: true } }
@@ -51,7 +53,23 @@ export function previewRequest(path: string, options: RequestInit): unknown {
     if (!kind) throw new ApiError('Sign in to continue.', 401, 'IDENTITY_REQUIRED')
     return { kind, expires_at: null, daily_action_limit: kind === 'guest' ? 5 : 40, part_limit: kind === 'guest' ? 3 : 10 }
   }
-  if (path.startsWith('/v1/projects?')) return { projects: [{ job_id: job.job_id, url: job.input.url, status: job.status, created_at: job.updated_at, updated_at: job.updated_at, part_count: job.items.length, title: job.project?.title, description: job.project?.description, summary: job.project?.summary }], next_cursor: null }
+  if (path.startsWith('/v1/projects?')) {
+    const deleted: string[] = JSON.parse(sessionStorage.getItem('bs-preview-deleted') ?? '[]')
+    const at = (hours: number) => new Date(Date.now() - hours * 3600000).toISOString()
+    const projects = [
+      { job_id: job.job_id, url: job.input.url, status: job.status, created_at: job.updated_at, updated_at: job.updated_at, part_count: job.items.length, title: job.project?.title, description: job.project?.description, summary: job.project?.summary },
+      // Extra dummy cards so each source type and status is visible; they open the same sample project.
+      { job_id: 'ui-preview-github', url: 'https://github.com/example/dummy-weather-station', status: 'done', created_at: at(30), updated_at: at(26), part_count: 8, title: 'Dummy weather station (preview)', description: 'Sample GitHub project for the preview list.', summary: null },
+      { job_id: 'ui-preview-blog', url: 'https://www.instructables.com/Dummy-Plant-Watering/', status: 'sourcing', created_at: at(3), updated_at: at(1), part_count: 5, title: 'Dummy plant watering (preview)', description: 'Sample article project for the preview list.', summary: null },
+      { job_id: 'ui-preview-failed', url: 'https://example.com/dummy-broken-link', status: 'failed', created_at: at(80), updated_at: at(79), part_count: 0, title: null, description: null, summary: null },
+    ].filter(project => !deleted.includes(project.job_id))
+    return { projects, next_cursor: null }
+  }
+  if (path.startsWith('/v1/projects/') && options.method === 'DELETE') {
+    const deleted: string[] = JSON.parse(sessionStorage.getItem('bs-preview-deleted') ?? '[]')
+    sessionStorage.setItem('bs-preview-deleted', JSON.stringify([...deleted, decodeURIComponent(path.split('/')[3])]))
+    return undefined
+  }
   if (path.endsWith('/claim')) return { job_id: job.job_id }
   if (path === '/healthz') return { mode: 'demo' }
   if (path === '/v1/jobs' && options.method === 'POST') return { job_id: job.job_id, job_token: 'dummy-token', demo: true }
