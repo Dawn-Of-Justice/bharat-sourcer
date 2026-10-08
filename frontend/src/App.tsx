@@ -244,7 +244,7 @@ function Landing({ onCreated }: { onCreated: (id: string) => void }) {
           </div>
           <HeroIllustration source={source} />
         </div>
-        <div className="container hero-bottom"><span>ONE LINK. A CLEARER WAY TO BUILD.</span><a href="#how-it-works">Explore how it works <span aria-hidden="true">↓</span></a></div>
+        <div className="container hero-bottom"><a href="#how-it-works">Explore how it works <span aria-hidden="true">↓</span></a></div>
       </section>
 
       <section className="promise-strip" aria-label="What Bharat Sourcer helps you do">
@@ -261,7 +261,7 @@ function Landing({ onCreated }: { onCreated: (id: string) => void }) {
           <div className="how-grid">
             <article className="how-card"><span className="how-number">01 / INPUT</span><div className="how-icon video-icon"><LinkIcon /></div><h3>Bring in your project</h3><p>Start with a YouTube video, blog post, or GitHub repository. Document support is coming soon.</p></article>
             <article className="how-card"><span className="how-number">02 / REVIEW</span><div className="how-icon review-icon"><ChecklistIcon /></div><h3>Shape your build plan</h3><p>Check the evidence, adjust parts and quantities, mark what you own, and ask questions before confirming the list.</p></article>
-            <article className="how-card"><span className="how-number">03 / SOURCE</span><div className="how-icon source-icon"><BagIcon /></div><h3>Explore Indian options</h3><p>After you confirm, inspect seller listings, prices, and compatibility notes—with unknowns left visible for you to verify.</p></article>
+            <article className="how-card"><span className="how-number">03 / SOURCE</span><div className="how-icon source-icon"><BagIcon /></div><h3>Explore Indian options</h3><p>After you confirm, inspect seller listings, prices, and compatibility notes with unknowns left visible for you to verify.</p></article>
           </div>
         </div>
       </section>
@@ -407,6 +407,7 @@ function Review({ job, token, onConfirmed }: { job: Job; token: string; onConfir
   return <section className="job-panel review-panel">
     <header className="review-heading"><span className="section-kicker">YOUR REVIEW</span><h2>Review your parts</h2><p>Open a part to change its name, quantity or build details.</p></header>
     <ProjectCard project={job.project} />
+    {job.copied_from && <p className="copied-note" role="note"><strong>Copied from a shared project</strong> on {day(job.copied_from.copied_at)}. {job.report ? <>Seller prices are from {day(job.copied_from.source_updated_at)} or earlier; refresh to update them. Picks marked “Copied choice” were made by the person who shared it.</> : 'Review the parts, then confirm to find sellers.'}</p>}
     <SourcesCard job={job} />
     {account.identity && account.identity !== 'legacy' && account.identity.kind === 'guest' && <p className="guest-limit">Guest limit: source up to {account.identity.part_limit} parts in this build. You can mark owned parts without using this limit.</p>}
     <ConflictBanner items={job.items} onShowLine={showLine} />
@@ -531,5 +532,7 @@ export default function App() {
   const account = useAccount()
   const jobId = path.startsWith('/job/') ? path.slice(5) : null
   const shareToken = path.startsWith('/shared/') ? path.slice(8) : null
-  return <>{import.meta.env.DEV && new URLSearchParams(window.location.search).get('preview') === '1' && <div className="preview-toolbar"><strong>LOCAL DEMO · Sample data · No API calls</strong><a href="/?preview=1">Landing</a><a href="/projects?preview=1">My projects</a><a href="/job/ui-preview?preview=1">Review</a><a href="/job/ui-preview?preview=1&stage=sourcing">Parallel progress</a><a href="/job/ui-preview?preview=1&stage=done">Results</a><a href="/job/ui-preview?preview=1&stage=plan">Order plan</a><a href="/shared/ui-preview.dummy?preview=1">Shared link</a></div>}<a className="skip-link" href="#main">Skip to content</a><Header onHome={() => navigate('/')} isHome={path === '/'} onProjects={() => navigate('/projects')} />{shareToken ? <SharedReport shareToken={shareToken} /> : path === '/projects' ? <Projects onOpen={id => navigate(`/job/${encodeURIComponent(id)}`)} onNew={() => navigate('/')} /> : jobId ? <JobPage key={jobId + account.revision + (account.identity && account.identity !== 'legacy' ? account.identity.kind : 'none')} id={jobId} /> : <Landing onCreated={(id) => navigate(`/job/${encodeURIComponent(id)}`)} />}</>
+  return <>{import.meta.env.DEV && new URLSearchParams(window.location.search).get('preview') === '1' && <div className="preview-toolbar"><strong>LOCAL DEMO · Sample data · No API calls</strong><a href="/?preview=1">Landing</a><a href="/projects?preview=1">My projects</a><a href="/job/ui-preview?preview=1">Review</a><a href="/job/ui-preview?preview=1&stage=sourcing">Parallel progress</a><a href="/job/ui-preview?preview=1&stage=done">Results</a><a href="/job/ui-preview?preview=1&stage=plan">Order plan</a><a href="/shared/ui-preview.dummy?preview=1">Shared link</a></div>}<a className="skip-link" href="#main">Skip to content</a><Header onHome={() => navigate('/')} isHome={path === '/'} onProjects={() => navigate('/projects')} />{shareToken ? <SharedReport shareToken={shareToken} onCopied={id => navigate('/job/' + id)} /> : path === '/projects' ? <Projects onOpen={id => navigate(`/job/${encodeURIComponent(id)}`)} onNew={() => navigate('/')} /> : jobId ? <JobPage key={jobId + account.revision + (account.identity && account.identity !== 'legacy' ? account.identity.kind : 'none')} id={jobId} /> : <Landing onCreated={(id) => navigate(`/job/${encodeURIComponent(id)}`)} />}</>
 }
+
+const day = (value: string) => new Date(value).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })

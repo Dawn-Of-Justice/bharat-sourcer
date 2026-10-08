@@ -152,7 +152,7 @@ class Access:
                 ) from exc
         return hmac.new(self.sessions.secret, value.encode(), hashlib.sha256).hexdigest()
 
-    def charge(self, request, principal, *, session=False):
+    def charge(self, request, principal, *, session=False, create=False):
         timestamp = time.time()
         day = datetime.fromtimestamp(timestamp, UTC).strftime("%Y%m%d")
         ip = self.ip_key(request)
@@ -171,7 +171,7 @@ class Access:
                 f"actions-global-{day}": self.settings.global_daily_actions,
                 f"burst-{int(timestamp) // 60}-{owner}": 5,
             }
-            if request.url.path == "/v1/jobs":
+            if create or request.url.path == "/v1/jobs":
                 limits[f"create-{day}-{owner}"] = 1 if principal.guest else 5
         if not self.service.store.consume(limits):
             counts = self.service.store.usage_counts(list(limits))

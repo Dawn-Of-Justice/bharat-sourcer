@@ -94,6 +94,14 @@ test('serves the frontend and a labelled dummy API response', async () => {
   assert.equal(job.items[0].raw_name, 'Sample board')
 })
 
+test('share links load the app although their token contains a dot', async () => {
+  const base = await start(async () => Response.json({}))
+  const shared = await fetch(base + '/shared/0b8f5a3e-1c2d-4e5f-8a9b-0c1d2e3f4a5b.AbC_dEf-123')
+  assert.equal(shared.status, 200)
+  assert.match(await shared.text(), /id="root"/)
+  assert.equal((await fetch(base + '/assets/missing-file.js')).status, 404)
+})
+
 test('proxy preserves separate cookies, quota delay, and no-store on identity responses', async () => {
   const base = await start(async () => {
     const headers = new Headers({ 'Retry-After': '3600' })

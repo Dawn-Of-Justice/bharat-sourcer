@@ -35,7 +35,7 @@ function PlanLine({ job, token, onJob, readOnly, renderOffers, plan, line }: Omi
         {offer?.match?.variant && <p className="plan-variant">Variant: {offer.match.variant}</p>}
         <p className="plan-qty">Need {plan.qty} · {pack}{spare > 0 ? ` (${spare} spare)` : ''}</p>
         <div className="plan-chips">
-          <span className={`report-chip ${plan.selection_source === 'user' ? 'choice-user' : 'choice-recommended'}`}>{plan.selection_source === 'user' ? 'Your choice' : 'Recommended'}</span>
+          <span className={`report-chip ${plan.selection_source === 'user' ? 'choice-user' : 'choice-recommended'}`}>{plan.selection_source === 'user' ? line?.copied_choice ? 'Copied choice' : 'Your choice' : 'Recommended'}</span>
           {offer && <MatchChip match={offer.match} />}
           {offer ? <GradeChip compatibility={offer.compatibility} match={offer.match} /> : plan.grade ? <span className="report-chip">Grade {plan.grade}</span> : null}
           {offer && <GstChip offer={offer} />}

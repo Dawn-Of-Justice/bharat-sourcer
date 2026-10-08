@@ -19,6 +19,7 @@ the frontend proxy adds it as for every other call.
 | `GET /v1/shared/{share_token}` | None (no session or job token) | Redacted `SharedProject` JSON |
 | `GET /v1/shared/{share_token}/export.csv` | None | Same CSV as the owner export |
 | `GET /v1/shared/{share_token}/export.html` | None | Same HTML as the owner export |
+| `POST /v1/shared/{share_token}/copy` | Account or guest session, `X-Requested-With: BharatSourcer` | 201 `CopiedProject` (`job_id`, `job_token`, `status`); see [Copy to my projects](#copy-to-my-projects) |
 
 Owner auth means an account/guest session when auth is enabled, otherwise `X-Job-Token`.
 Wrong owners get 404 `JOB_NOT_FOUND`, as elsewhere. Exports and share-link changes do not
@@ -41,12 +42,37 @@ consume the action quota and never start extraction or sourcing.
 - Shared responses send `Referrer-Policy: no-referrer`, and the HTML report sets a
   `no-referrer` meta tag, so seller sites do not receive the share URL.
 
+### Copy to my projects
+
+v0.25. `POST /v1/shared/{share_token}/copy` creates a new project owned by the caller from
+what the share link shows. No AI runs.
+
+- **Copied:** the input (source URL, extra sources, country), `project`, `items`, `report`
+  (offers, research, order plan), `safety_flags`, `source_reports`, `video_meta` (YouTube
+  quote retention keeps counting from the original fetch). Each line's grounded-search
+  `attribution` is dropped, as in the shared view.
+- **Not copied:** chat, events (the copy starts with one "Copied from a shared project"
+  event), actions, `resistor_advice`, `cost_estimate`, the share link.
+- **Owned parts:** every `user_has_it` is reset to false; lines that were `already_owned`
+  become `not_run` (refresh to find offers).
+- **Selections:** the sharer's own choices stay selected with `selection_source: "user"`
+  and `copied_choice: true` ("Copied choice"). Choosing or clearing an offer through
+  `/selections` sets `copied_choice` to false. Recommendations are unchanged.
+- `job.copied_from` holds `copied_at` and `source_updated_at` (prices are from then or
+  earlier). It does not identify the source project.
+- **Which projects:** only `awaiting_confirmation` (a draft parts list) and `done`; others
+  return 409 `SHARE_NOT_READY`.
+- **Limits:** counts as a new project (daily project quota and action budget; 429
+  `USAGE_LIMIT`). Guests get 422 `PART_LIMIT` when the project has more parts than the
+  guest limit, rather than a cut-down copy. Revoked or unknown links return 404
+  `SHARE_NOT_FOUND`. A copy is independent: revoking the link does not affect it.
+
 ### Redacted view (`SharedProject`)
 
 Fields: `shared` (always `true`), `demo`, `status`, `source_url`, `project`
 (AI-inferred `ProjectContext`), `created_at`, `updated_at`, `items`, `report`, `notice`.
 
-Excluded: job id, job token and its hash, owner identity, PIN code, `lang`/`user_level`,
+Excluded: job id, job token and its hash, owner identity, `lang`/`user_level`,
 chat `messages`, `chat_state`/`chat_error`, `events`, `actions`, `resistor_advice`,
 extraction model and recovery counters, and each line's grounded-search `attribution`
 (search queries and suggestion HTML). Offers, research and evidence are kept.
