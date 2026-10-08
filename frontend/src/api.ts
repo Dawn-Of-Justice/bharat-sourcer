@@ -344,12 +344,26 @@ export interface Explanation { language: string; transcript: string; translated:
 export const getExtras = (id: string, token: string) => request<ExtrasStatus>(jobPath(id, '/extras'), {}, token)
 export const explainAloud = (id: string, token: string, language: string) => request<Explanation>(jobPath(id, '/explain'), { method: 'POST', body: JSON.stringify({ language }) }, token)
 
-// CSV and printable HTML exports, fetched through the proxy so credentials are attached.
-// `path` is '/v1/jobs/{id}/export.csv' style, or '/v1/shared/{share_token}/export.html' for share links.
+// A one-page dummy PDF for preview mode, labelled as demo data.
+const DUMMY_PDF = [
+  '%PDF-1.4',
+  '1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj',
+  '2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj',
+  '3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 595 842]/Contents 4 0 R/Resources<</Font<</F1 5 0 R>>>>>>endobj',
+  '4 0 obj<</Length 66>>stream',
+  'BT /F1 14 Tf 60 780 Td (DEMO JOB: dummy preview export, not real data) Tj ET',
+  'endstream endobj',
+  '5 0 obj<</Type/Font/Subtype/Type1/BaseFont/Helvetica>>endobj',
+  'trailer<</Root 1 0 R>>',
+  '%%EOF',
+].join('\n')
+
+// The PDF export, fetched through the proxy so credentials are attached.
+// `path` is '/v1/jobs/{id}/export.pdf', or '/v1/shared/{share_token}/export.pdf' for share links.
 export async function exportBlob(path: string, token?: string): Promise<Blob> {
   if (import.meta.env.DEV && new URLSearchParams(window.location.search).get('preview') === '1') {
-    const csv = path.endsWith('.csv')
-    return new Blob([csv ? '# DEMO JOB,Dummy preview export; no API request was sent\r\ndata_label,line_id,part_name\r\ndemo_sample,L01,Sample controller board\r\n' : '<!doctype html><meta charset="utf-8"><title>Dummy export</title><p><strong>DEMO JOB</strong> · Dummy preview export; no API request was sent.</p>'], { type: csv ? 'text/csv' : 'text/html' })
+    // Preview mode: no API request is sent.
+    return new Blob([DUMMY_PDF], { type: 'application/pdf' })
   }
   const bearer = await identityToken()
   let response: Response

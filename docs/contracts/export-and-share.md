@@ -11,13 +11,13 @@ the frontend proxy adds it as for every other call.
 
 | Method and path | Auth | Result |
 | --- | --- | --- |
-| `GET /v1/jobs/{job_id}/export.csv` | Same as `GET /v1/jobs/{job_id}` | `text/csv`, `Content-Disposition: attachment` |
+| `GET /v1/jobs/{job_id}/export.pdf` | Same as `GET /v1/jobs/{job_id}` | `application/pdf`, `Content-Disposition: attachment` (A4 order plan) |
 | `GET /v1/jobs/{job_id}/export.html` | Same as `GET /v1/jobs/{job_id}` | Self-contained HTML, `Content-Disposition: inline` |
 | `GET /v1/jobs/{job_id}/share` | Owner | `{"active": bool, "created_at": datetime \| null}` |
 | `POST /v1/jobs/{job_id}/share` | Owner (+ CSRF header when auth is on) | 201 `{"share_token", "path", "created_at"}` |
 | `DELETE /v1/jobs/{job_id}/share` | Owner (+ CSRF header when auth is on) | 204 |
 | `GET /v1/shared/{share_token}` | None (no session or job token) | Redacted `SharedProject` JSON |
-| `GET /v1/shared/{share_token}/export.csv` | None | Same CSV as the owner export |
+| `GET /v1/shared/{share_token}/export.pdf` | None | Same PDF as the owner export |
 | `GET /v1/shared/{share_token}/export.html` | None | Same HTML as the owner export |
 | `POST /v1/shared/{share_token}/copy` | Account or guest session, `X-Requested-With: BharatSourcer` | 201 `CopiedProject` (`job_id`, `job_token`, `status`); see [Copy to my projects](#copy-to-my-projects) |
 
@@ -77,28 +77,14 @@ chat `messages`, `chat_state`/`chat_error`, `events`, `actions`, `resistor_advic
 extraction model and recovery counters, and each line's grounded-search `attribution`
 (search queries and suggestion HTML). Offers, research and evidence are kept.
 
-## CSV
+## PDF and HTML report
 
-- UTF-8 with BOM (opens correctly in Excel), CRLF rows, stdlib `csv`.
-- Leading comment rows start with `#`: a `DEMO JOB` row for demo jobs, the price-snapshot
-  notice, project title, source URL and export time. Then the header row and one row per
-  report line (or per draft BOM item before a report exists), then a subtotal and the
-  unselected line ids.
-- Columns: `data_label` (`demo_sample` | `seller_published_snapshot` |
-  `no_selected_offer`), `line_id`, `part_name`, `qty`, `qty_unit`, `qty_source`,
-  `qty_reason`, `owned` (`yes`/`no`), `sourcing_status`, `requirements`
-  (`name op value unit`, `; `-joined, `(inferred)` marked), `offer_count`,
-  `selected_seller`, `selected_offer_title`, `selected_offer_url`, `price_inr`,
-  `subtotal_inr`, `stock`, `checked_at`, `compatibility_status`, `compatibility_grade`,
-  `selection_grade`, `evidence` (`mm:ss observation` or `"quote" (url)`, ` | `-joined).
-- Offer columns describe the **selected** offer only; unselected lines show the count.
-- Removed lines are not in the export: confirmation deletes them from the BOM.
-- Formula injection: any cell starting with `=`, `+`, `-`, `@`, tab or CR is prefixed
-  with `'`.
+v0.26.0: the order plan as a downloadable A4 PDF (`export.pdf`), rendered by WeasyPrint from
+the same HTML as `export.html`. CSV export was removed. The PDF needs Pango and a font with
+the rupee sign on the server (installed in `backend/Dockerfile`); without them the PDF
+routes return 503 `PDF_UNAVAILABLE`. Rendering never fetches external resources.
 
-## HTML report
-
-v0.25.1: a printable order plan (A4 portrait). Sections, in order:
+Sections, in order:
 
 1. Branded header with the title, description, source ("YouTube video" or the site name),
    part count and status in plain words.
@@ -123,8 +109,8 @@ images or external assets. Every value is HTML-escaped; links use
 
 ## Frontend to do
 
-- Report page: "Download CSV" and "Print / PDF" (open `export.html` in a new tab) buttons.
-  Fetch through the proxy so credentials are attached, then save the blob.
+- Report page: a "Download PDF" button (`export.pdf`), fetched through the proxy so
+  credentials are attached, then saved as `<project>.pdf`.
 - Share control: show `GET .../share` state; "Create link" calls `POST` and shows a copy
   box for a frontend URL that embeds `share_token` (the token is shown only once; warn
   that creating again replaces the old link); "Revoke" calls `DELETE`.

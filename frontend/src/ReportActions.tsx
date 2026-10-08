@@ -3,33 +3,22 @@ import { createShare, exportBlob, shareUrl, type Job } from './api'
 
 const errorText = (cause: unknown, fallback: string) => cause instanceof Error ? cause.message : fallback
 
-// Exports go through the proxy so credentials are attached; the blob is saved or opened locally.
+// The PDF is fetched through the proxy so credentials are attached, then saved locally.
 export function ExportButtons({ base, token, name }: { base: string; token?: string; name: string }) {
-  const [busy, setBusy] = useState('')
+  const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   async function download() {
-    setBusy('csv'); setError('')
+    setBusy(true); setError('')
     try {
-      const url = URL.createObjectURL(await exportBlob(base + '/export.csv', token))
+      const url = URL.createObjectURL(await exportBlob(base + '/export.pdf', token))
       const link = document.createElement('a')
-      link.href = url; link.download = name + '.csv'
+      link.href = url; link.download = name + '.pdf'
       document.body.append(link); link.click(); link.remove()
       setTimeout(() => URL.revokeObjectURL(url), 30000)
-    } catch (cause) { setError(errorText(cause, 'Could not download the CSV.')) }
-    finally { setBusy('') }
+    } catch (cause) { setError(errorText(cause, 'Could not download the PDF.')) }
+    finally { setBusy(false) }
   }
-  async function print() {
-    const tab = window.open('', '_blank')
-    setBusy('html'); setError('')
-    try {
-      const url = URL.createObjectURL(await exportBlob(base + '/export.html', token))
-      if (tab) tab.location.href = url
-      else window.location.assign(url)
-      setTimeout(() => URL.revokeObjectURL(url), 60000)
-    } catch (cause) { tab?.close(); setError(errorText(cause, 'Could not open the printable report.')) }
-    finally { setBusy('') }
-  }
-  return <div className="report-export"><button type="button" className="report-action" disabled={!!busy} onClick={() => void download()}>{busy === 'csv' ? 'Preparing…' : 'Download CSV'}</button><button type="button" className="report-action" disabled={!!busy} onClick={() => void print()}>{busy === 'html' ? 'Opening…' : 'Print / PDF'}</button>{error && <p className="form-error" role="alert">{error}</p>}</div>
+  return <div className="report-export"><button type="button" className="report-action" disabled={busy} onClick={() => void download()}>{busy ? 'Preparing PDF…' : 'Download PDF'}</button>{error && <p className="form-error" role="alert">{error}</p>}</div>
 }
 
 export function ShareControl({ job, token }: { job: Job; token: string }) {
