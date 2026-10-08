@@ -1,7 +1,10 @@
-# Implemented API contract — v0.25.0
+# Implemented API contract — v0.25.1
 
 This directory is the handoff between backend and frontend. The architecture docs describe
 the target system; this contract describes the runnable local milestone.
+
+v0.25.1 redesigns the Print / PDF export (`export.html`) as a printable order plan; no API
+changes. See [export-and-share](export-and-share.md#html-report).
 
 v0.25.0 adds "Copy to my projects": `POST /v1/shared/{share_token}/copy` (account or guest,
 counts as a new project) makes an editable copy of a shared project, adding
