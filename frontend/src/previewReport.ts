@@ -105,6 +105,11 @@ export function previewReportRequest(path: string, options: RequestInit, job: Jo
     if (method === 'DELETE') { shareActive = false; return undefined }
     return { active: shareActive, created_at: shareActive ? now() : null }
   }
+  // Copying the dummy share opens the same sample project, marked as a copy.
+  if (path === '/v1/shared/ui-preview.dummy/copy' && method === 'POST') {
+    job.copied_from = { copied_at: now(), source_updated_at: job.updated_at }
+    return { job_id: 'ui-preview', job_token: 'dummy-token', status: job.status }
+  }
   if (path === '/v1/shared/ui-preview.dummy') {
     const source = job.report && (job.report as Report).order_plan ? job : planPreview(job)
     const shared: SharedProject = { shared: true, demo: false, status: 'done', source_url: source.input.url, project: source.project, created_at: source.updated_at, updated_at: now(), items: source.items, report: source.report as Report, notice: 'Dummy preview share link: invented sample data. Prices are seller snapshots and may have changed; this is not a verified or payable total.' }

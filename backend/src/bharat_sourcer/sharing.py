@@ -16,7 +16,7 @@ from fastapi.responses import HTMLResponse
 from bharat_sourcer.access import ProjectAccess
 from bharat_sourcer.export import SharedProject, redact, to_csv, to_html
 from bharat_sourcer.jobs import JobError
-from bharat_sourcer.schemas import ErrorResponse, Model, now
+from bharat_sourcer.schemas import CopiedProject, ErrorResponse, Model, now
 
 SHARED_DAILY_READS = 300
 SHARED_MINUTE_READS = 30
@@ -66,7 +66,7 @@ def html_response(view: SharedProject) -> HTMLResponse:
 
 
 def add_share_routes(app, service, access):
-    def shared(request: Request, share_token: str) -> SharedProject:
+    def shared_record(request: Request, share_token: str):
         timestamp = time.time()
         day = datetime.fromtimestamp(timestamp, UTC).strftime("%Y%m%d")
         ip = access.ip_key(request)
@@ -90,7 +90,10 @@ def add_share_routes(app, service, access):
             or not secrets.compare_digest(record.share_token_hash, token_hash(share_token))
         ):
             raise JobError(*NOT_FOUND)
-        return redact(record.job)
+        return record
+
+    def shared(request: Request, share_token: str) -> SharedProject:
+        return redact(shared_record(request, share_token).job)
 
     @app.get(
         "/v1/jobs/{job_id}/export.csv",
@@ -174,6 +177,32 @@ def add_share_routes(app, service, access):
     def shared_project(share_token: str, request: Request, response: Response):
         response.headers.update(shared_headers)
         return shared(request, share_token)
+
+    @app.post(
+        "/v1/shared/{share_token}/copy",
+        status_code=201,
+        response_model=CopiedProject,
+        tags=["export"],
+        responses={
+            401: {"model": ErrorResponse},
+            404: {"model": ErrorResponse},
+            409: {"model": ErrorResponse},
+            422: {"model": ErrorResponse},
+            429: {"model": ErrorResponse},
+        },
+    )
+    def copy_shared(share_token: str, request: Request, response: Response):
+        """Copy a shared project into the caller's own projects (account or guest)."""
+        response.headers.update(shared_headers)
+        principal = access.identity(request)
+        access.csrf(request)
+        record = shared_record(request, share_token)
+        part_limit = access.settings.guest_part_limit if principal.guest else None
+        service.check_copyable(record.job, part_limit)
+        # Counts as a new project; checked only once the copy is known to be possible.
+        access.charge(request, principal, create=True)
+        job, token = service.copy_shared(record.job, principal, part_limit)
+        return CopiedProject(job_id=job.job_id, job_token=token, status=job.status)
 
     @app.get(
         "/v1/shared/{share_token}/export.csv",

@@ -1050,6 +1050,9 @@ class ReportLine(Model):
     # The user's own choice, kept across refreshes and spec updates; None with
     # selection_source "user" means the user cleared the line.
     user_offer_url: HttpUrl | None = None
+    # True when this line's "user" selection was copied from a shared project and the new
+    # owner has not chosen an offer since; shown as "Copied choice".
+    copied_choice: bool = False
     recommended_offer_url: HttpUrl | None = None
     recommendation: LineRecommendation | None = None
     line_image: LineImage | None = None
@@ -1169,6 +1172,15 @@ class CostEstimate(Model):
     updated_at: datetime = Field(default_factory=now)
 
 
+class CopiedFrom(Model):
+    """Provenance of a copy. The source project is not identified: its owner shared a
+    link, not their project id."""
+
+    copied_at: datetime
+    # When the source project was last updated; seller prices are from then or earlier.
+    source_updated_at: datetime
+
+
 class Job(Model):
     job_id: str
     status: Status = "queued"
@@ -1195,6 +1207,8 @@ class Job(Model):
     source_reports: list[SourceReport] = Field(default_factory=list, max_length=5)
     video_meta: JobVideoMeta | None = None
     cost_estimate: CostEstimate | None = None
+    # Set on projects created with "Copy to my projects" from a share link.
+    copied_from: CopiedFrom | None = None
 
 
 class AccountSettings(Model):
@@ -1203,6 +1217,12 @@ class AccountSettings(Model):
     # Default delivery country for new projects.
     country: CountryCode = DEFAULT_COUNTRY
     updated_at: datetime | None = None
+
+
+class CopiedProject(Model):
+    job_id: str
+    job_token: str
+    status: Status
 
 
 class CreatedJob(Model):

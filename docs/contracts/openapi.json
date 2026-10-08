@@ -3,7 +3,7 @@
   "info": {
     "title": "Bharat Sourcer API",
     "description": "Demo or live YouTube and project-page extraction with optional Firestore job persistence.",
-    "version": "0.24.0"
+    "version": "0.25.0"
   },
   "paths": {
     "/v1/session/guest": {
@@ -900,6 +900,99 @@
               }
             },
             "description": "Not Found"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          }
+        }
+      }
+    },
+    "/v1/shared/{share_token}/copy": {
+      "post": {
+        "tags": [
+          "export"
+        ],
+        "summary": "Copy Shared",
+        "description": "Copy a shared project into the caller's own projects (account or guest).",
+        "operationId": "copy_shared_v1_shared__share_token__copy_post",
+        "parameters": [
+          {
+            "name": "share_token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Share Token"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CopiedProject"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
           },
           "429": {
             "content": {
@@ -4480,6 +4573,62 @@
         ],
         "title": "ConflictValue"
       },
+      "CopiedFrom": {
+        "properties": {
+          "copied_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Copied At"
+          },
+          "source_updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Source Updated At"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "copied_at",
+          "source_updated_at"
+        ],
+        "title": "CopiedFrom",
+        "description": "Provenance of a copy. The source project is not identified: its owner shared a\nlink, not their project id."
+      },
+      "CopiedProject": {
+        "properties": {
+          "job_id": {
+            "type": "string",
+            "title": "Job Id"
+          },
+          "job_token": {
+            "type": "string",
+            "title": "Job Token"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "extracting",
+              "awaiting_confirmation",
+              "resolving",
+              "sourcing",
+              "paused",
+              "done",
+              "failed"
+            ],
+            "title": "Status"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "job_id",
+          "job_token",
+          "status"
+        ],
+        "title": "CopiedProject"
+      },
       "CostAmount": {
         "properties": {
           "amount_inr": {
@@ -5632,6 +5781,16 @@
             "anyOf": [
               {
                 "$ref": "#/components/schemas/CostEstimate"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "copied_from": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CopiedFrom"
               },
               {
                 "type": "null"
@@ -7801,6 +7960,11 @@
               }
             ],
             "title": "User Offer Url"
+          },
+          "copied_choice": {
+            "type": "boolean",
+            "title": "Copied Choice",
+            "default": false
           },
           "recommended_offer_url": {
             "anyOf": [

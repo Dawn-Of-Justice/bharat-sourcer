@@ -333,6 +333,9 @@ export const getShare = (id: string, token: string) => request<ShareStatus>(jobP
 export const createShare = (id: string, token: string) => request<ShareLink>(jobPath(id, '/share'), { method: 'POST' }, token)
 export const revokeShare = (id: string, token: string) => request<void>(jobPath(id, '/share'), { method: 'DELETE' }, token)
 export const getShared = (shareToken: string) => request<SharedProject>('/v1/shared/' + encodeURIComponent(shareToken))
+export interface ReportLine { copied_choice?: boolean }
+export interface Job { copied_from?: { copied_at: string; source_updated_at: string } | null }
+export const copyShared = (shareToken: string) => request<{ job_id: string; job_token: string; status: string }>('/v1/shared/' + encodeURIComponent(shareToken) + '/copy', { method: 'POST' })
 export const shareUrl = (shareToken: string) => window.location.origin + '/shared/' + encodeURIComponent(shareToken)
 
 export interface FeatureStatus { enabled: boolean; daily_limit: number; remaining: number }

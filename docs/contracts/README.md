@@ -1,7 +1,12 @@
-# Implemented API contract — v0.24.0
+# Implemented API contract — v0.25.0
 
 This directory is the handoff between backend and frontend. The architecture docs describe
 the target system; this contract describes the runnable local milestone.
+
+v0.25.0 adds "Copy to my projects": `POST /v1/shared/{share_token}/copy` (account or guest,
+counts as a new project) makes an editable copy of a shared project, adding
+`job.copied_from` and `lines[].copied_choice`. See
+[export-and-share](export-and-share.md#copy-to-my-projects).
 
 v0.24.0 adds `DELETE /v1/projects/{job_id}` (owner only, 204): permanently deletes a saved
 project with its parts list, offers, conversation and share link. See
