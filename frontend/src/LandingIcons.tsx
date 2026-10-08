@@ -22,3 +22,6 @@ export const ChecklistIcon = () => <Icon><rect x="8" y="2" width="8" height="4" 
 
 // A shopping bag: buy from sellers.
 export const BagIcon = () => <Icon><path d="M6 7h12l1 14H5L6 7z" /><path d="M9 10V6a3 3 0 0 1 6 0v4" /></Icon>
+
+// A conversation bubble for questions about the build.
+export const ChatIcon = () => <Icon><path d="M5 4h14a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H9l-5 3v-3a2 2 0 0 1-1-2V6a2 2 0 0 1 2-2z" /><path d="M8 9h8" /><path d="M8 12h5" /></Icon>
