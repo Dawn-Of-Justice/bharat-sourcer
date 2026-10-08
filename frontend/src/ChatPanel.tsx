@@ -1,9 +1,9 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type FormEvent } from 'react'
 import { ApiError, decideProposal, evidenceText, getJob, sendMessage, type ActionRecord, type BomItem, type ChatEdit, type ChatMessage, type Job, type PartRequirement, type RefreshLineResult } from './api'
 import { ChatIcon } from './LandingIcons'
 
 function AttachmentIcon() {
-  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m8 12.5 6.7-6.7a3.5 3.5 0 0 1 5 5l-9 9a5 5 0 0 1-7-7l9.2-9.2" /></svg>
+  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" /></svg>
 }
 
 function SendIcon() {
@@ -169,6 +169,7 @@ function ActionHistory({ actions }: { actions: ActionRecord[] }) {
 export default function ChatPanel({ job, token, onJob }: { job: Job; token: string; onJob: (job: Job) => void }) {
   const historyRef = useRef<HTMLDivElement>(null)
   const attachmentRef = useRef<HTMLInputElement>(null)
+  const messageRef = useRef<HTMLTextAreaElement>(null)
   const openedRef = useRef(false)
   const [text, setText] = useState('')
   const [pendingSend, setPendingSend] = useState<{ id: string; text: string } | null>(null)
@@ -178,6 +179,25 @@ export default function ChatPanel({ job, token, onJob }: { job: Job; token: stri
   const busy = job.chat_state === 'queued' || job.chat_state === 'thinking'
   const turns = job.messages.filter((message) => message.role === 'user').length
   const latestMessage = job.messages.at(-1)
+
+  useLayoutEffect(() => {
+    const input = messageRef.current
+    if (!input) return
+    const resize = () => {
+      input.style.height = '38px'
+      input.style.height = `${Math.max(38, input.scrollHeight)}px`
+    }
+    resize()
+    let width = input.clientWidth
+    const observer = new ResizeObserver(() => {
+      if (input.clientWidth !== width) {
+        width = input.clientWidth
+        resize()
+      }
+    })
+    observer.observe(input)
+    return () => observer.disconnect()
+  }, [text])
 
   useEffect(() => {
     const frame = requestAnimationFrame(() => {
@@ -243,11 +263,16 @@ export default function ChatPanel({ job, token, onJob }: { job: Job; token: stri
   }
 
   return <aside className="chat-panel" aria-labelledby="chat-title"><div className="chat-heading"><div><span className="section-kicker">ASK ABOUT THIS BUILD</span><h2 id="chat-title">Build conversation</h2></div><span className="chat-icon"><ChatIcon /></span></div><p className="chat-intro">Ask about saved parts and evidence. Suggestions to change the BOM always need your approval.</p>{job.demo ? <div className="chat-demo">Demo conversation · replies use a fixed sample response.</div> : null}<div ref={historyRef} className="chat-history" role="log" aria-live="polite" aria-relevant="additions text">{!job.messages.length ? <div className="chat-empty"><span aria-hidden="true">✦</span><strong>A good place to ask “why?”</strong><p>Try “What does this board do?” or “Which parts still need checking?”</p></div> : job.messages.map((message) => <article id={`chat-msg-${message.message_id}`} className={`chat-message ${message.role}`} key={message.message_id}><div className="message-meta"><strong>{message.role === 'user' ? 'You' : 'Bharat Sourcer'}</strong><time>{new Date(message.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</time></div><p>{message.text}</p>{message.cited_line_ids.length ? <div className="chat-citations"><span>Parts mentioned</span>{message.cited_line_ids.map((id) => <Citation key={id} job={job} lineId={id} />)}</div> : null}{message.proposal ? <Proposal job={job} message={message} token={token} onJob={onJob} /> : null}{message.refresh_proposal ? <RefreshProposal job={job} message={message} token={token} onJob={onJob} /> : null}{message.spec_proposal ? <SpecProposal job={job} message={message} token={token} onJob={onJob} /> : null}{message.refresh_results?.length ? <RefreshResults job={job} message={message} /> : null}{message.resistor_question ? <div className="chat-proposal"><strong>Design detail needed for {findLine(job, message.resistor_question.line_id)?.raw_name ?? partLabel(job, message.resistor_question.line_id)}</strong><p>{message.resistor_question.question}</p><small>This question is a model suggestion, not video evidence. Confirm circuit details before using any calculation.</small></div> : null}</article>)}{busy ? <div className="chat-waiting" role="status"><span className="loading-indicator" />{job.chat_state === 'queued' ? 'Question queued…' : 'Thinking through saved project details…'}</div> : null}</div><ActionHistory actions={job.actions ?? []} />{job.chat_state === 'failed' ? <p className="chat-failure" role="alert">{job.chat_error?.message || 'The reply failed. Send a new message to try again.'}</p> : null}<form className="chat-compose" onSubmit={submit}>
-  <div className="chat-compose-heading"><label htmlFor="chat-message">Your question</label><span>{turns}/20 questions</span></div>
+  <div className="chat-compose-heading"><label htmlFor="chat-message">Your question</label></div>
   <div className="chat-compose-box">
     <input ref={attachmentRef} className="chat-attachment-input" type="file" tabIndex={-1} aria-hidden="true" onChange={(event) => { void attachFile(event.target.files?.[0]); event.target.value = '' }} />
     <button type="button" className="chat-attach-button" aria-label="Choose a file" title="Choose a file" disabled={turns >= 20 || sending} onClick={() => attachmentRef.current?.click()}><AttachmentIcon /></button>
-    <textarea id="chat-message" rows={1} maxLength={4000} placeholder="Ask a question…" value={text} onChange={(event) => { setText(event.target.value); setPendingSend(null); setSendError(''); setAttachmentNotice('') }} disabled={turns >= 20} />
+    <textarea ref={messageRef} id="chat-message" rows={1} maxLength={4000} placeholder="Ask a question…" value={text} onChange={(event) => { setText(event.target.value); setPendingSend(null); setSendError(''); setAttachmentNotice('') }} onKeyDown={(event) => {
+      if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing && event.keyCode !== 229) {
+        event.preventDefault()
+        if (!event.repeat) event.currentTarget.form?.requestSubmit()
+      }
+    }} disabled={turns >= 20} />
     <button type="submit" className="chat-send-button" aria-label={sending ? 'Sending question' : pendingSend ? 'Retry sending question' : 'Send question'} title={pendingSend ? 'Retry send' : 'Send question'} disabled={!text.trim() || busy || sending || turns >= 20}><SendIcon /></button>
   </div>
   {attachmentNotice ? <p className="chat-attachment-notice" role="status">{attachmentNotice}</p> : null}
