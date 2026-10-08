@@ -286,7 +286,7 @@ function Landing({ onCreated }: { onCreated: (id: string) => void }) {
 function ProjectCard({ project }: { project?: Job['project'] }) {
   if (!project) return null
   const facts = [['Power', project.power], ['Controller', project.controller], ['Interfaces', (project.interfaces ?? []).join(', ')]].filter(([, value]) => value)
-  return <details className="build-overview"><summary>Build overview <span className="disclosure-chevron" aria-hidden="true" /></summary><div><p>{project.summary}</p>{facts.length > 0 && <dl>{facts.map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>}{project.assumptions?.length > 0 && <><strong>Assumptions to check</strong><ul>{project.assumptions.map((entry, index) => <li key={index}>{entry}</li>)}</ul></>}</div></details>
+  return <details className="build-overview"><summary>Build overview</summary><div><p>{project.summary}</p>{facts.length > 0 && <dl>{facts.map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>}{project.assumptions?.length > 0 && <><strong>Assumptions to check</strong><ul>{project.assumptions.map((entry, index) => <li key={index}>{entry}</li>)}</ul></>}</div></details>
 }
 
 function PencilIcon() {
@@ -318,7 +318,7 @@ function ProjectHeading({ job, token, onJob }: { job: Job; token: string; onJob:
   return <section className="project-heading">
     {editing === 'title' ? <form className="inline-project-editor" onSubmit={save}><label htmlFor="project-title">Project title</label><input id="project-title" autoFocus value={draft} maxLength={120} onChange={event => setDraft(event.target.value)} /><div><button className="nav-cta" type="submit" disabled={busy}>{busy ? 'Saving…' : 'Save'}</button><button className="remove-button" type="button" disabled={busy} onClick={() => setEditing(null)}>Cancel</button></div></form> : <div className="editable-project-field"><h1>{project?.title || 'From video to parts.'}</h1><button type="button" className="pencil-button" aria-label="Edit project title" title="Edit project title" onClick={() => edit('title')}><PencilIcon /></button></div>}
     {editing === 'description' ? <form className="inline-project-editor" onSubmit={save}><label htmlFor="project-description">Description</label><textarea id="project-description" autoFocus value={draft} maxLength={600} onChange={event => setDraft(event.target.value)} /><div><button className="nav-cta" type="submit" disabled={busy}>{busy ? 'Saving…' : 'Save'}</button><button className="remove-button" type="button" disabled={busy} onClick={() => setEditing(null)}>Cancel</button></div></form> : <div className="editable-project-field"><p>{project?.description || 'Add a description'}</p><button type="button" className="pencil-button" aria-label="Edit project description" title="Edit project description" onClick={() => edit('description')}><PencilIcon /></button></div>}
-    {/^https:\/\/[^\s]+$/i.test(job.input.url) && <a className="project-source-link" href={job.input.url} target="_blank" rel="noopener noreferrer">Original project ↗</a>}
+    {/^https:\/\/[^\s]+$/i.test(job.input.url) && <a className="project-source-link" href={job.input.url} target="_blank" rel="noopener noreferrer">{/^https:\/\/(?:www\.)?(?:m\.)?(?:youtube\.com|youtu\.be)\//i.test(job.input.url) ? 'Watch source video on YouTube ↗' : 'Open original project source ↗'}</a>}
     {error && <p className="form-error" role="alert">{error}</p>}
   </section>
 }

@@ -116,6 +116,7 @@ export default function Results({ job, token, onJob, shareToken }: { job: Job; t
         <button type="button" className="nav-cta" aria-pressed={shown === 'plan'} onClick={() => setView('plan')}>Order plan</button>
         <button type="button" className="nav-cta" aria-pressed={shown === 'parts'} onClick={() => setView('parts')}>All parts</button>
       </div>}
+      {shown === 'plan' && report.order_plan && <div className="plan-header"><p><strong>{report.order_plan.seller_count ?? report.order_plan.sellers?.length ?? 0} {(report.order_plan.seller_count ?? report.order_plan.sellers?.length ?? 0) === 1 ? 'seller' : 'sellers'}</strong> · {report.order_plan.ready ? 'Every part you need is in a seller group' : 'Some parts still need your input'}</p></div>}
       <div className={job.safety_flags?.length ? 'report-layout' : 'report-layout report-layout-single'}>
         <div className="report-main">
           {shown === 'plan'

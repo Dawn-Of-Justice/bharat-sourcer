@@ -10,10 +10,7 @@ export function reviewItems(items: BomItem[]): BomItem[] {
     ], buyable_spec: { origin: 'ai_inferred', category: 'board', mount: 'any', mount_origin: 'default', params: [{ name: 'logic voltage', value: '3.3V', operator: 'equals', unit: 'V', si_value: 3.3, required: true, origin: 'inferred', reason: 'Dummy reason: the sample project runs at 3.3 V.' }], needs_value: false } },
     { ...sensor, confidence: 'check', confidence_reason: 'Dummy reason: sources name different sensors.', evidence: [
       { source: 'youtube_description', quote: 'Sample sensor module (dummy listing)', url: 'https://example.com/dummy-video', observation: 'Dummy: listed in the sample video description.', timestamp: null },
-    ], conflicts: [{ kind: 'identity_mismatch', message: 'Dummy: sources name different parts: Sample sensor A and Sample sensor B. Check which one this build uses.', values: [
-      { value: 'Sample sensor A', source: 'youtube_description', url: 'https://example.com/dummy-video', locator: 'Sample sensor module (dummy listing)' },
-      { value: 'Sample sensor B', source: 'code', url: 'https://example.com/dummy/src/main.cpp#L4', locator: 'src/main.cpp:4' },
-    ] }], lookalikes: [{ name: 'Sample sensor B', note: 'Dummy note: same footprint, different chip.', origin: 'table' }, { name: 'Sample sensor C', note: null, origin: 'ai' }] },
+    ], lookalikes: [{ name: 'Sample sensor B', note: 'Dummy note: same footprint, different chip.', origin: 'table' }, { name: 'Sample sensor C', note: null, origin: 'ai' }] },
     { ...wires, raw_name: 'Sample resistor (dummy)', qty_reason: 'Dummy reason: the sample source shows several resistors but no count.', buyable_spec: { origin: 'ai_inferred', category: 'resistor', mount: 'tht', mount_origin: 'inferred', mount_reason: 'Dummy reason: the sample build is hand-soldered on perfboard.', params: [{ name: 'resistance', value: '1kΩ', value_max: '10kΩ', operator: 'between', unit: 'ohm', si_value: 1000, si_value_max: 10000, required: true, origin: 'inferred', reason: 'Dummy reason: the sample project assumptions give this range.' }], needs_value: true, needs_value_reason: 'Dummy reason: the sample source does not state the value.' } },
   ]
 }

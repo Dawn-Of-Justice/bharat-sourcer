@@ -83,7 +83,7 @@ test('preview review fixtures are labelled dummy data and accept a buyable spec 
   assert.ok(job.source_reports.some(report => report.status === 'failed' && /Dummy/.test(report.error.message)))
   const needsValue = job.items.find(item => item.buyable_spec?.needs_value)
   assert.ok(needsValue && /Dummy/.test(needsValue.buyable_spec.needs_value_reason))
-  assert.ok(job.items.some(item => item.conflicts?.length && item.conflicts.every(conflict => /Dummy/.test(conflict.message))))
+  assert.ok(job.items.every(item => !item.conflicts?.length))
   const spec = { ...needsValue.buyable_spec, origin: 'user', needs_value: false, params: [{ name: 'resistance', value: '4.7kΩ', operator: 'equals', origin: 'user' }] }
   await api.confirmJob('ui-preview', 'dummy-token', [{ op: 'update', line_id: needsValue.line_id, buyable_spec: spec }])
   const saved = previewRequest('/v1/jobs/ui-preview', {})
