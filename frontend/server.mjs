@@ -84,7 +84,9 @@ async function staticFile(req, res, distDir) {
   let target = filePath
   let details = await stat(target).catch(() => null)
   if (!details?.isFile()) {
-    if (path.extname(pathname)) return send(res, 404, 'Not found')
+    // A missing file with an extension is a 404, except app routes whose last segment
+    // contains a dot: share links are /shared/<project id>.<secret>.
+    if (path.extname(pathname) && !pathname.startsWith('/shared/')) return send(res, 404, 'Not found')
     target = path.join(distDir, 'index.html')
     details = await stat(target).catch(() => null)
   }
