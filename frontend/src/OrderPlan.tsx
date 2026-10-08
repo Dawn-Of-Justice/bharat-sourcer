@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react'
 import { getPlans, offersOf, reportOf, selectOffer, selectOffers, type CartPlans, type Job, type OrderPlanLine, type OrderPlanSeller, type ReportLine, type UnsourcedLine } from './api'
-import { CostSummary, GradeChip, GstChip, MatchChip, ProductImage, TrustBadges, amountText, price, secureLink } from './ReportBits'
+import { CostSummary, GradeChip, GstChip, MatchChip, ProductImage, amountText, price, secureLink } from './ReportBits'
 
 type Props = { job: Job; token: string; onJob: (job: Job) => void; readOnly: boolean; renderOffers: (line: ReportLine) => ReactNode; onShowLine: (lineId: string) => void }
 const errorText = (cause: unknown, fallback: string) => cause instanceof Error ? cause.message : fallback
@@ -54,9 +54,8 @@ function PlanLine({ job, token, onJob, readOnly, renderOffers, plan, line }: Omi
 
 function SellerCard(props: Omit<Props, 'onShowLine'> & { seller: OrderPlanSeller; lines: Map<string, ReportLine> }) {
   const { seller, lines } = props
-  const firstOffer = seller.lines?.map(plan => lines.get(plan.line_id) && offersOf(lines.get(plan.line_id)!).find(offer => offer.url === plan.offer_url)).find(Boolean)
   const titles = new Map(seller.lines?.map(plan => [plan.offer_url, plan.name]))
-  return <article className="seller-card" aria-label={`Order from ${seller.seller}`}><header className="seller-card-head"><div><span className="section-kicker">SELLER</span><h3>{seller.seller}</h3></div><TrustBadges trust={firstOffer ? firstOffer.trust : undefined} /></header><ul className="plan-lines">{seller.lines?.map(plan => <PlanLine key={plan.line_id} {...props} plan={plan} line={lines.get(plan.line_id)} />)}</ul><dl className="seller-totals"><div className="cost-row"><dt>Subtotal</dt><dd><strong>{price(seller.subtotal_inr)}</strong></dd></div></dl>{seller.product_links?.length ? <div className="product-links"><strong>Product pages</strong> <small>Open each part on the seller’s site.</small><ul>{seller.product_links.map(url => secureLink(url) ? <li key={url}><a href={url} target="_blank" rel="noopener noreferrer">{titles.get(url) ?? new URL(url).hostname} ↗</a></li> : null)}</ul></div> : null}</article>
+  return <article className="seller-card" aria-label={`Order from ${seller.seller}`}><header className="seller-card-head"><div><span className="section-kicker">SELLER</span><h3>{seller.seller}</h3></div></header><ul className="plan-lines">{seller.lines?.map(plan => <PlanLine key={plan.line_id} {...props} plan={plan} line={lines.get(plan.line_id)} />)}</ul><dl className="seller-totals"><div className="cost-row"><dt>Subtotal</dt><dd><strong>{price(seller.subtotal_inr)}</strong></dd></div></dl>{seller.product_links?.length ? <div className="product-links"><strong>Product pages</strong> <small>Open each part on the seller’s site.</small><ul>{seller.product_links.map(url => secureLink(url) ? <li key={url}><a href={url} target="_blank" rel="noopener noreferrer">{titles.get(url) ?? new URL(url).hostname} ↗</a></li> : null)}</ul></div> : null}</article>
 }
 
 const unsourcedLabel: Record<UnsourcedLine['reason'], string> = { pending: 'Search pending', needs_value: 'Value needed', no_offers: 'No verified listing', no_acceptable_offer: 'No suitable listing', needs_quantity: 'Quantity needed', cleared_by_user: 'Cleared by you' }

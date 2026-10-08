@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { getPartImages, reportFailedImages, type CostAmount, type CostBreakdown, type Job, type OfferCompatibility, type OfferMatch, type PartImages, type ReportLine, type ReportOffer, type SellerTrust } from './api'
+import { getPartImages, reportFailedImages, type CostAmount, type CostBreakdown, type Job, type OfferCompatibility, type OfferMatch, type PartImages, type ReportLine, type ReportOffer } from './api'
 
 // Shared report pieces: images, chips (text plus icon, never colour alone), cost summaries and seller policies.
 const money = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' })
@@ -93,10 +93,6 @@ export function MatchChip({ match }: { match?: OfferMatch | null }) {
 export function PackPrice({ offer }: { offer: ReportOffer }) {
   const pack = offer.pack_qty ?? offer.match?.pack_qty
   return <>{price(offer.price_inr)}{pack ? ` · pack of ${pack}` : ' per piece'}</>
-}
-
-export function TrustBadges({ trust }: { trust?: SellerTrust | null }) {
-  return <details className="seller-checks"><summary>Seller checks</summary><div className="seller-checks-content">{trust ? <>{trust.label === 'unverified' && <p>Some seller details could not be confirmed. Review the seller before paying.</p>}{trust.signals?.price_anomaly && <p>This price is unusually low compared with other listings.</p>}{trust.new_seller && <p>New seller.</p>}{trust.reasons?.length ? <ul>{trust.reasons.map((reason, index) => <li key={index}>{reason}</li>)}</ul> : <p>No check details recorded.</p>}{trust.checked_at && <small>Checked {new Date(trust.checked_at).toLocaleString('en-IN')}</small>}</> : <p>No seller checks recorded.</p>}</div></details>
 }
 
 const gradeText: Record<string, string> = { A: '✓ A · Works as is', B: '⇄ B · Small setting change', C: '⚠ C · Wiring or power changes', D: '◐ D · Different part, similar result', X: '⛔ X · Don’t use' }

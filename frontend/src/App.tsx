@@ -288,6 +288,18 @@ function ProjectCard({ project }: { project?: Job['project'] }) {
   const facts = [['Power', project.power], ['Controller', project.controller], ['Interfaces', (project.interfaces ?? []).join(', ')]].filter(([, value]) => value)
   return <details className="build-overview"><summary>Build overview</summary><div><p>{project.summary}</p>{facts.length > 0 && <dl>{facts.map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>}{project.assumptions?.length > 0 && <><strong>Assumptions to check</strong><ul>{project.assumptions.map((entry, index) => <li key={index}>{entry}</li>)}</ul></>}</div></details>
 }
+function jobSourceCopy(job: Job) {
+  let kind: LinkSource | 'hackster' | null = null
+  try { kind = linkKind(new URL(job.input.url)) } catch { /* Older jobs may have an invalid saved URL. */ }
+  if (!kind) {
+    const primary = job.source_reports?.find(report => report.role === 'primary')?.kind
+    kind = primary === 'video' ? 'youtube' : primary === 'github' ? 'github' : primary ? 'article' : null
+  }
+  if (kind === 'youtube') return { title: 'From video to parts.', reading: 'Reading the video' }
+  if (kind === 'github') return { title: 'From GitHub to parts.', reading: 'Reading the GitHub repository' }
+  if (kind === 'article') return { title: 'From project page to parts.', reading: 'Reading the project page' }
+  return { title: 'From project to parts.', reading: 'Reading the project source' }
+}
 
 function PencilIcon() {
   return <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m4 20 4.3-.9L19 8.4a2 2 0 0 0-2.8-2.8L5.5 16.3 4 20Z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /><path d="m14.8 7 2.8 2.8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /></svg>
@@ -316,7 +328,7 @@ function ProjectHeading({ job, token, onJob }: { job: Job; token: string; onJob:
     finally { setBusy(false) }
   }
   return <section className="project-heading">
-    {editing === 'title' ? <form className="inline-project-editor" onSubmit={save}><label htmlFor="project-title">Project title</label><input id="project-title" autoFocus value={draft} maxLength={120} onChange={event => setDraft(event.target.value)} /><div><button className="nav-cta" type="submit" disabled={busy}>{busy ? 'Saving…' : 'Save'}</button><button className="remove-button" type="button" disabled={busy} onClick={() => setEditing(null)}>Cancel</button></div></form> : <div className="editable-project-field"><h1>{project?.title || 'From video to parts.'}</h1><button type="button" className="pencil-button" aria-label="Edit project title" title="Edit project title" onClick={() => edit('title')}><PencilIcon /></button></div>}
+    {editing === 'title' ? <form className="inline-project-editor" onSubmit={save}><label htmlFor="project-title">Project title</label><input id="project-title" autoFocus value={draft} maxLength={120} onChange={event => setDraft(event.target.value)} /><div><button className="nav-cta" type="submit" disabled={busy}>{busy ? 'Saving…' : 'Save'}</button><button className="remove-button" type="button" disabled={busy} onClick={() => setEditing(null)}>Cancel</button></div></form> : <div className="editable-project-field"><h1>{project?.title || jobSourceCopy(job).title}</h1><button type="button" className="pencil-button" aria-label="Edit project title" title="Edit project title" onClick={() => edit('title')}><PencilIcon /></button></div>}
     {editing === 'description' ? <form className="inline-project-editor" onSubmit={save}><label htmlFor="project-description">Description</label><textarea id="project-description" autoFocus value={draft} maxLength={600} onChange={event => setDraft(event.target.value)} /><div><button className="nav-cta" type="submit" disabled={busy}>{busy ? 'Saving…' : 'Save'}</button><button className="remove-button" type="button" disabled={busy} onClick={() => setEditing(null)}>Cancel</button></div></form> : <div className="editable-project-field"><p>{project?.description || 'Add a description'}</p><button type="button" className="pencil-button" aria-label="Edit project description" title="Edit project description" onClick={() => edit('description')}><PencilIcon /></button></div>}
     {/^https:\/\/[^\s]+$/i.test(job.input.url) && <a className="project-source-link" href={job.input.url} target="_blank" rel="noopener noreferrer">{/^https:\/\/(?:www\.)?(?:m\.)?(?:youtube\.com|youtu\.be)\//i.test(job.input.url) ? 'Watch source video on YouTube ↗' : 'Open original project source ↗'}</a>}
     {error && <p className="form-error" role="alert">{error}</p>}
@@ -416,7 +428,7 @@ function AnalysisProgress({ job }: { job: Job }) {
   const labels = { offers_found: 'Offers found', no_verified_offers: 'No verified offers', failed: 'Check failed', already_owned: 'Already owned', not_run: 'Pending result' }
   return <section className="job-panel progress-panel">
     <span className="section-kicker">IN PROGRESS</span>
-    <h2>{job.status === 'sourcing' ? 'Finding offers for your parts' : job.status === 'resolving' ? 'Preparing your parts' : job.status === 'extracting' ? 'Reading the video' : 'Waiting to start'}</h2>
+    <h2>{job.status === 'sourcing' ? 'Finding offers for your parts' : job.status === 'resolving' ? 'Preparing your parts' : job.status === 'extracting' ? jobSourceCopy(job).reading : 'Waiting to start'}</h2>
     <p>{job.status === 'sourcing' ? 'Results appear as each part finishes. Multiple parts can be processed together.' : 'Your parts will appear here as the analysis progresses.'}</p>
     {job.items.length > 0 && <>
       <div className="parts-progress-summary"><strong>{finished} / {job.items.length} parts completed</strong><span>{job.items.length - finished} pending</span></div>
@@ -433,7 +445,8 @@ function AnalysisProgress({ job }: { job: Job }) {
 
 function JobPage({ id }: { id: string }) {
   const account = useAccount()
-  const token = (import.meta.env.DEV && new URLSearchParams(window.location.search).get('preview') === '1' ? 'dummy-token' : null) || (sessionStorage.getItem(`bharat-sourcer:job:${id}`) || '')
+  const localPreview = import.meta.env.DEV && new URLSearchParams(window.location.search).get('preview') === '1'
+  const token = (localPreview ? 'dummy-token' : null) || (sessionStorage.getItem(`bharat-sourcer:job:${id}`) || '')
   const [job, setJob] = useState<Job | null>(null)
   const [fatalError, setFatalError] = useState('')
   const [connectionIssue, setConnectionIssue] = useState('')
@@ -492,12 +505,12 @@ function JobPage({ id }: { id: string }) {
     return () => { active = false; clearTimeout(timer) }
   }, [id, token, revision, account.ready, account.identity])
 
-  const statusLabel: Record<string, string> = { queued: 'Queued', extracting: 'Reading the video', awaiting_confirmation: 'Ready for your review', resolving: 'Preparing parts', sourcing: 'Checking seller pages', done: 'Analysis finished', failed: 'Analysis stopped', paused: 'Sourcing paused' }
+  const statusLabel: Record<string, string> = { queued: 'Queued', extracting: job ? jobSourceCopy(job).reading : 'Reading the project source', awaiting_confirmation: 'Ready for your review', resolving: 'Preparing parts', sourcing: 'Checking seller pages', done: 'Analysis finished', failed: 'Analysis stopped', paused: 'Sourcing paused' }
 
   return <main id="main" className="job-page"><div className="container job-container">
     {!job && <div className="job-hero"><div className="eyebrow"><span className="eyebrow-line" /> YOUR BUILD PLAN</div><h1>Opening your project</h1></div>}
     {!account.ready ? <p role="status">Checking your session…</p> : (!token && (!account.identity || account.identity === 'legacy')) ? <section className="job-panel"><h2>Session access ended</h2><p>Sign in to the account that owns this project to continue. Older projects also need their original browser-session token.</p><button className="primary-button job-action" onClick={account.open}>Sign in to continue <ArrowIcon /></button></section> : fatalError ? <section className="job-panel"><h2>We couldn’t load this job</h2><p role="alert">{fatalError}</p><button className="primary-button job-action" onClick={() => { setFatalError(''); setRevision((value) => value + 1) }}>Try again <ArrowIcon /></button>{token && account.identity && account.identity !== 'legacy' && account.identity.kind === 'account' && <div className="legacy-claim"><p>If this project was created before accounts were enabled in this browser, you can save it to your account using its original access token.</p><button className="nav-cta" disabled={actionBusy} onClick={async () => { setActionBusy(true); setActionError(''); try { await claimProject(id, token); setFatalError(''); setRevision(n => n + 1) } catch (cause) { setActionError(cause instanceof Error ? cause.message : 'Could not claim this project.') } finally { setActionBusy(false) } }}>Save older project to my account</button>{actionError && <p className="form-error" role="alert">{actionError}</p>}</div>}</section> : !job ? <section className="job-panel loading-panel" role="status"><span className="loading-indicator" /> Connecting to your job…{connectionIssue ? <p>{connectionIssue}</p> : null}</section> : <>
-      <div className="job-status-bar" role="status" aria-live="polite"><span className={`status-pulse ${['done', 'failed', 'awaiting_confirmation'].includes(job.status) ? 'paused' : ''}`} /><strong>{statusLabel[job.status]}</strong><span>{job.demo ? 'Demo mode · sample data' : 'Live analysis'}</span></div>
+      <div className="job-status-bar" role="status" aria-live="polite"><span className={`status-pulse ${['done', 'failed', 'awaiting_confirmation'].includes(job.status) ? 'paused' : ''}`} /><strong>{statusLabel[job.status]}</strong><span>{job.demo || localPreview ? 'Demo mode · sample data' : 'Live analysis'}</span></div>
       {connectionIssue ? <div className="connection-warning" role="status">{connectionIssue} Your saved BOM and conversation remain visible.</div> : null}
       <ProjectHeading key={job.project?.title_source + ':' + job.project?.title + ':' + job.project?.description} job={job} token={token} onJob={applySnapshot} />
       {!job.demo && ['resolving', 'sourcing', 'paused'].includes(job.status) && <div className="guest-banner"><p>{job.status === 'paused' ? 'Your progress is saved. Resume when you are ready.' : 'You can pause sourcing without using your action quota.'}</p><button className="nav-cta" disabled={actionBusy || job.pause_requested && job.status !== 'paused'} onClick={async () => { setActionBusy(true); setActionError(''); try { await (job.status === 'paused' ? resumeJob(id, token) : pauseJob(id, token)); setRevision(n => n + 1) } catch (cause) { setActionError(cause instanceof Error ? cause.message : 'Could not update sourcing') } finally { setActionBusy(false) } }}>{job.pause_requested && job.status !== 'paused' ? 'Pausing after current part…' : actionBusy ? 'Updating…' : job.status === 'paused' ? 'Resume sourcing' : 'Pause sourcing'}</button></div>}
