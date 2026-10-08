@@ -6,6 +6,10 @@ guest authentication enabled. The frontend origin is included in CORS. The
 
 Unreleased (recommendations): when sourcing completes the backend scores every offer, picks one per line with a basket that consolidates sellers (a configurable `BS_RECOMMEND_SELLER_PENALTY_INR`, default ₹60, per extra seller), applies it as the selection where the selection rules allow (`selection_source: "recommended"`), and exposes a seller-grouped `report.order_plan` plus one resolved `line_image` per line. User choices are never overwritten. See [recommendations](../docs/contracts/recommendations.md).
 
+v0.26.0 replaces CSV with a downloadable PDF of the order plan (`export.pdf`, rendered by
+WeasyPrint; the Docker image installs Pango and DejaVu fonts for it). The printable
+`export.html` uses the same layout.
+
 v0.25.0 adds `POST /v1/shared/{share_token}/copy`: anyone signed in (or with a guest
 session) can copy a shared project into their own projects. Parts, project details and
 the order plan are copied, never the chat or history; owned parts go back to "to buy" and

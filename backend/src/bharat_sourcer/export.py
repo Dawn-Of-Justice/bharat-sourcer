@@ -1,7 +1,5 @@
-"""Redacted project views and CSV/printable HTML exports. Pure rendering; no I/O."""
+"""Redacted project views and the HTML/PDF export. Pure rendering; no network I/O."""
 
-import csv
-import io
 from datetime import datetime
 from html import escape
 from typing import Literal
@@ -91,204 +89,406 @@ def requirement_text(requirement: PartRequirement) -> str:
     return f"{requirement.name} {operator} {requirement.value}{unit}{label}"
 
 
-def evidence_text(evidence: Evidence) -> str:
-    if evidence.source == "video":
-        return f"{evidence.timestamp} {evidence.observation}"
-    return f'"{evidence.quote}" ({evidence.url})'
-
-
-def data_label(view: SharedProject, line: ReportLine) -> str:
-    if view.demo:
-        return "demo_sample"
-    if selected(line):
-        return "seller_published_snapshot"
-    return "no_selected_offer"
-
-
-# Spreadsheet apps execute cells that start with these characters as formulas.
-FORMULA_PREFIXES = ("=", "+", "-", "@", "\t", "\r")
-
-
-def cell(value) -> str:
-    text = "" if value is None else str(value)
-    return "'" + text if text.startswith(FORMULA_PREFIXES) else text
-
-
-CSV_COLUMNS = [
-    "data_label",
-    "line_id",
-    "part_name",
-    "qty",
-    "qty_unit",
-    "qty_source",
-    "qty_reason",
-    "owned",
-    "sourcing_status",
-    "requirements",
-    "offer_count",
-    "selected_seller",
-    "selected_offer_title",
-    "selected_offer_url",
-    "price_inr",
-    "subtotal_inr",
-    "stock",
-    "checked_at",
-    "compatibility_status",
-    "compatibility_grade",
-    "selection_grade",
-    "evidence",
-]
-
-
-def to_csv(view: SharedProject) -> str:
-    buffer = io.StringIO()
-    writer = csv.writer(buffer, lineterminator="\r\n")
-
-    def row(values):
-        writer.writerow([cell(value) for value in values])
-
-    title = view.project.title if view.project else None
-    if view.demo:
-        row([f"# {DEMO_NOTICE}"])
-    row([f"# {SNAPSHOT_NOTICE}"])
-    row([f"# Project: {title or 'Untitled project'}"])
-    row([f"# Source: {view.source_url}"])
-    row([f"# Exported at: {now().isoformat()}"])
-    row(CSV_COLUMNS)
-    for line in lines(view):
-        item, offer = line.item, selected(line)
-        compat = offer.compatibility if offer else None
-        row(
-            [
-                data_label(view, line),
-                item.line_id,
-                item.raw_name,
-                item.qty,
-                item.qty_unit,
-                item.qty_source,
-                item.qty_reason,
-                "yes" if item.user_has_it else "no",
-                line.sourcing_status,
-                "; ".join(requirement_text(r) for r in item.requirements),
-                len(line.offers),
-                offer.seller if offer else None,
-                offer.title if offer else None,
-                offer.url if offer else None,
-                line.price_inr,
-                line.subtotal_inr,
-                offer.stock if offer else None,
-                offer.checked_at.isoformat() if offer else None,
-                compat.status if compat else (offer.compatibility_status if offer else None),
-                compat.grade if compat else None,
-                line.grade,
-                " | ".join(evidence_text(e) for e in item.evidence),
-            ]
-        )
-    if view.report:
-        row([])
-        row(["# Selected parts subtotal INR", view.report.selected_parts_subtotal_inr])
-        row(["# Unselected line ids", " ".join(view.report.unselected_line_ids)])
-    return buffer.getvalue()
-
-
 STYLE = """
-body{font:14px/1.45 system-ui,sans-serif;color:#1a1a1a;background:#fff;margin:24px}
-h1{font-size:22px;margin:0 0 4px}h2{font-size:16px;margin:20px 0 8px}
-.notice{border:1px solid #b45309;background:#fffbeb;padding:8px 12px;margin:12px 0}
-.demo{border-color:#b91c1c;background:#fef2f2;font-weight:600}
-.muted{color:#555}table{border-collapse:collapse;width:100%;font-size:12px}
-th,td{border:1px solid #ccc;padding:4px 6px;text-align:left;vertical-align:top}
-th{background:#f3f3f3}td.num{text-align:right;white-space:nowrap}
-a{color:#1d4ed8;word-break:break-all}ul{margin:4px 0;padding-left:18px}
-@media print{body{margin:0}a{color:#000}.noprint{display:none}
-tr{break-inside:avoid}thead{display:table-header-group}}
-@page{size:A4 landscape;margin:12mm}
+:root{--ink:#14303a;--muted:#5b6f69;--line:#dfe6df;--soft:#f5f8f4;--brand:#19766d;
+--warn:#8a5a1c;
+--warn-bg:#fff6e6;--bad:#a33a2c;--bad-bg:#fdf0ed}
+*{box-sizing:border-box}
+body{margin:0;background:#eef2ee;color:var(--ink);
+font:13px/1.5 system-ui,-apple-system,"Segoe UI","DejaVu Sans",
+Roboto,sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.page{max-width:900px;margin:24px auto;padding:36px 40px;background:#fff;
+border:1px solid var(--line);
+border-radius:14px}
+a{color:var(--brand);text-decoration:none}a:hover{text-decoration:underline}
+.top{display:flex;justify-content:space-between;align-items:center;gap:12px;padding-bottom:14px;
+border-bottom:2px solid var(--ink);margin-bottom:22px}
+.brand{display:flex;align-items:center;gap:9px;font-weight:800;font-size:15px;
+letter-spacing:-.2px}
+.mark{display:grid;place-items:center;width:26px;height:26px;border-radius:7px;
+background:var(--ink);
+color:#fff;font-size:15px}
+.accent{color:var(--brand)}
+.doc-kind{color:var(--muted);font-size:12px;text-align:right}
+h1{margin:0 0 6px;font-size:26px;line-height:1.2;letter-spacing:-.4px}
+.lead{margin:0 0 10px;color:#33504a;font-size:14px}
+.meta{margin:0;color:var(--muted);font-size:12px}
+h2{margin:28px 0 10px;font-size:16px;letter-spacing:-.1px}
+h3{margin:0;font-size:14px}
+.notice{margin:14px 0 0;padding:9px 12px;border-radius:8px;border:1px solid #e7d3a8;
+background:var(--warn-bg);color:#5c4520;font-size:12px}
+.notice.demo{border-color:#e7b3ab;background:var(--bad-bg);color:var(--bad);font-weight:700}
+.summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:20px}
+.stat{padding:12px 14px;border:1px solid var(--line);border-radius:10px;background:var(--soft)}
+.stat b{display:block;font-size:18px;line-height:1.25}
+.stat>span{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.06em;
+font-weight:700}
+.stat.total{background:var(--ink);border-color:var(--ink);color:#fff}
+.stat.total>span{color:#cfe3dc}
+.tag{display:inline-block;margin-left:4px;padding:0 6px;border-radius:999px;background:#e8eee8;
+color:var(--muted);font-size:10px;font-weight:700;letter-spacing:0;text-transform:none;
+vertical-align:1px}
+.stat.total .tag{background:#2c4d55;color:#d9ebe4}
+.seller{margin:0 0 14px;border:1px solid var(--line);border-radius:12px;break-inside:avoid}
+.seller-head{display:flex;justify-content:space-between;align-items:baseline;gap:10px;
+padding:11px 14px;
+background:var(--soft);border-bottom:1px solid var(--line);border-radius:12px 12px 0 0}
+.seller-head span{color:var(--muted);font-size:12px}
+table{width:100%;border-collapse:collapse}
+th{padding:7px 14px;color:var(--muted);font-size:10px;font-weight:700;letter-spacing:.06em;
+text-transform:uppercase;text-align:left;border-bottom:1px solid var(--line)}
+td{padding:9px 14px;border-bottom:1px solid #edf1ec;vertical-align:top}
+tr:last-child td{border-bottom:0}
+.num{text-align:right;white-space:nowrap}
+.part{font-weight:700}
+.sub{display:block;color:var(--muted);font-size:11px}
+.pill{display:inline-block;margin-top:3px;padding:0 6px;border-radius:4px;background:#e6f2ea;
+color:#0d6b5f;font-size:10px;font-weight:700}
+.pill.pending{background:var(--warn-bg);color:var(--warn)}
+.totals{margin:0;padding:10px 14px;border-top:1px solid var(--line);display:grid;
+grid-template-columns:1fr auto;gap:3px 16px;font-size:12px}
+.totals dt{color:var(--muted)}.totals dd{margin:0;text-align:right}
+.totals .grand{font-weight:800;color:var(--ink)}
+.note{padding:0 14px 11px;color:var(--muted);font-size:11px}
+.todo{margin:0;padding:0;list-style:none;border:1px solid #efd3a3;border-radius:12px;
+break-inside:avoid}
+.todo>li{padding:10px 14px;border-bottom:1px solid #f4e6c8}.todo>li:last-child{border-bottom:0}
+.todo ul{margin:4px 0 0;padding-left:18px;color:var(--muted);font-size:12px}
+.plain{border:1px solid var(--line);border-radius:12px}
+.plain ul{margin:0;padding-left:16px}
+.evidence{margin:0;padding:0;list-style:none}
+.evidence>li{padding:8px 0;border-bottom:1px solid #edf1ec;break-inside:avoid}
+.evidence ul{margin:3px 0 0;padding-left:18px;color:#33504a;font-size:12px}
+.time{font-variant-numeric:tabular-nums;color:var(--brand);font-weight:700}
+.facts{margin:6px 0 0;padding-left:18px;color:#33504a}
+footer{margin-top:30px;padding-top:12px;border-top:1px solid var(--line);color:var(--muted);
+font-size:11px}
+footer p{margin:0 0 6px}
+.noprint{margin:16px auto 0;max-width:900px;padding:0 4px;color:var(--muted);font-size:12px;
+text-align:right}
+@media (max-width:700px){.page{margin:0;padding:22px 16px;border:0;border-radius:0}
+.summary{grid-template-columns:repeat(2,minmax(0,1fr))}th,td{padding:7px 8px}}
+@media print{body{background:#fff}.page{max-width:none;margin:0;padding:0;
+border:0}.noprint{display:none}
+h2{break-after:avoid}thead{display:table-header-group}tr{break-inside:avoid}a{color:var(--ink)}}
+@page{size:A4;margin:14mm 12mm}
 """
 
+JOB_STATUS = {
+    "queued": "Reading the source",
+    "extracting": "Reading the source",
+    "awaiting_confirmation": "Parts list awaiting review",
+    "resolving": "Finding sellers",
+    "sourcing": "Finding sellers",
+    "paused": "Paused",
+    "done": "Order plan ready",
+    "failed": "Needs attention",
+}
+LINE_STATUS = {
+    "offers_found": "Offers found",
+    "no_verified_offers": "No verified offer yet",
+    "already_owned": "You have it",
+    "not_run": "Not searched yet",
+    "failed": "Search failed",
+}
+COST_STATUS = {"known": "", "estimated": "est.", "unknown": "unknown"}
 
-def link(url) -> str:
+
+def link(url, text=None) -> str:
     # Values are validated http(s) URLs; still escape for the attribute context.
     value = escape(str(url), quote=True)
-    return f'<a href="{value}" rel="noopener noreferrer nofollow">{value}</a>'
+    return f'<a href="{value}" rel="noopener noreferrer nofollow">{escape(text or str(url))}</a>'
+
+
+def host(url) -> str:
+    return str(url).split("//", 1)[-1].split("/", 1)[0].removeprefix("www.")
+
+
+def inr(value) -> str:
+    """Indian digit grouping: 123456.5 -> ₹1,23,456.50."""
+    if value is None:
+        return ""
+    whole, _, paise = f"{float(value):.2f}".partition(".")
+    sign = "-" if whole.startswith("-") else ""
+    whole = whole.lstrip("-")
+    head, tail = whole[:-3], whole[-3:]
+    groups = []
+    while len(head) > 2:
+        groups.insert(0, head[-2:])
+        head = head[:-2]
+    if head:
+        groups.insert(0, head)
+    return f"{sign}₹{','.join([*groups, tail])}.{paise}"
+
+
+def amount(cost) -> str:
+    """A CostAmount with its status; an unknown total shows the known part as 'at least'."""
+    if cost is None:
+        return ""
+    tag = COST_STATUS.get(cost.status, cost.status)
+    if cost.amount_inr is not None:
+        value = inr(cost.amount_inr)
+    elif cost.partial_inr is not None and float(cost.partial_inr) > 0:
+        value = f"at least {inr(cost.partial_inr)}"
+    else:
+        value, tag = "Unknown", ""
+    return escape(value) + (f" <span class='tag'>{escape(tag)}</span>" if tag else "")
+
+
+def day(value) -> str:
+    return f"{value.day} {value.strftime('%b %Y')}"
+
+
+def source_label(url: str) -> str:
+    name = host(url)
+    if name in {"youtube.com", "m.youtube.com", "youtu.be"}:
+        return "YouTube video"
+    if name == "github.com":
+        return "GitHub repository"
+    return name
+
+
+def evidence_html(ev: Evidence) -> str:
+    e = escape
+    if ev.source == "video":
+        return f"<span class='time'>{e(ev.timestamp or '')}</span> {e(ev.observation)}"
+    if ev.source == "code":
+        where = f"{ev.file}:{ev.line}" if ev.file else "code"
+        place = link(ev.url, where) if ev.url else e(where)
+        return f"{place} &ldquo;{e(ev.quote or '')}&rdquo; &mdash; {e(ev.observation)}"
+    origin = link(ev.url, host(ev.url)) if ev.url else ""
+    return f"&ldquo;{e(ev.quote or '')}&rdquo; {origin} &mdash; {e(ev.observation)}"
+
+
+def qty_text(item: BomItem) -> str:
+    unit = f" {item.qty_unit}" if item.qty_unit and item.qty_unit != "pcs" else ""
+    return f"{item.qty or ''}{unit}"
+
+
+def seller_section(group, report: Report) -> str:
+    e = escape
+    by_id = {line.item.line_id: line for line in report.lines}
+    rows = []
+    for entry in group.lines:
+        line = by_id.get(entry.line_id)
+        buy = (
+            f"{entry.packs} &times; pack of {entry.pack_qty}"
+            if entry.pack_qty
+            else str(entry.units)
+        )
+        spare = entry.units - entry.qty
+        if spare > 0:
+            buy += f"<span class='sub'>{spare} spare</span>"
+        if not entry.selected:
+            reason = entry.blocked_reason or "Not selected yet"
+            if not reason.lower().startswith("not selected"):
+                reason = f"Not selected: {reason}"
+            pill = f"<span class='pill pending'>{e(reason)}</span>"
+        elif entry.selection_source == "user":
+            copied = line is not None and line.copied_choice
+            pill = f"<span class='pill'>{'Copied choice' if copied else 'Your choice'}</span>"
+        else:
+            pill = "<span class='pill'>Recommended</span>"
+        rows.append(
+            f"<tr><td><span class='part'>{e(entry.name)}</span>"
+            f"<span class='sub'>{e(entry.title or 'Listing')} &middot; "
+            f"{link(entry.offer_url, 'open listing')}</span>{pill}</td>"
+            f"<td class='num'>{entry.qty}</td><td class='num'>{buy}</td>"
+            f"<td class='num'>{inr(entry.unit_price_inr)}</td>"
+            f"<td class='num'><strong>{inr(entry.line_price_inr)}</strong></td></tr>"
+        )
+    notes = []
+    if group.free_shipping_gap_inr:
+        notes.append(f"Add {inr(group.free_shipping_gap_inr)} more for free shipping.")
+    if group.policy:
+        policy = group.policy
+        checked = f" (checked {day(policy.checked_on)})" if policy.checked_on else ""
+        source = (
+            link(policy.source_url, "Shipping policy") if policy.source_url else "Shipping policy"
+        )
+        flag = " Not verified." if policy.unverified else ""
+        notes.append(f"{source}{checked}.{flag}")
+    count = len(group.lines)
+    return (
+        f"<section class='seller'><div class='seller-head'><h3>{e(group.seller)}</h3>"
+        f"<span>{count} part{'s' * (count != 1)}</span></div>"
+        "<table><thead><tr><th>Part</th><th class='num'>Need</th><th class='num'>Buy</th>"
+        "<th class='num'>Unit</th><th class='num'>Price</th></tr></thead><tbody>"
+        + "".join(rows)
+        + "</tbody></table><dl class='totals'>"
+        f"<dt>Parts</dt><dd>{inr(group.subtotal_inr)}</dd>"
+        f"<dt>GST</dt><dd>{amount(group.gst)}</dd>"
+        f"<dt>Shipping</dt><dd>{amount(group.shipping)}</dd>"
+        f"<dt class='grand'>Seller total</dt><dd class='grand'>{amount(group.total)}</dd></dl>"
+        + (f"<div class='note'>{' '.join(notes)}</div>" if notes else "")
+        + "</section>"
+    )
+
+
+def selected_table(report: Report) -> str:
+    """Older or demo reports without an order plan: the selected offer per line."""
+    e = escape
+    rows = []
+    for line in report.lines:
+        offer = selected(line)
+        listing = (
+            f"{e(offer.seller)}<span class='sub'>{e(offer.title)} &middot; "
+            f"{link(offer.url, 'open listing')}</span>"
+            if offer
+            else "<span class='sub'>No offer selected</span>"
+        )
+        rows.append(
+            f"<tr><td><span class='part'>{e(line.item.raw_name)}</span></td>"
+            f"<td class='num'>{e(qty_text(line.item))}</td><td>{listing}</td>"
+            f"<td class='num'>{inr(line.price_inr)}</td>"
+            f"<td class='num'><strong>{inr(line.subtotal_inr)}</strong></td></tr>"
+        )
+    return (
+        "<section class='seller'><table><thead><tr><th>Part</th><th class='num'>Qty</th>"
+        "<th>Selected offer</th><th class='num'>Unit</th><th class='num'>Price</th></tr>"
+        "</thead><tbody>" + "".join(rows) + "</tbody></table></section>"
+    )
 
 
 def to_html(view: SharedProject) -> str:
     e = escape
     title = (view.project.title if view.project else None) or "Untitled project"
+    report = view.report
+    plan = report.order_plan if report else None
+    part_lines = lines(view)
+    owned = [line for line in part_lines if line.item.user_has_it]
+    exported = now()
+    count = len(part_lines)
     parts = [
         "<!doctype html><html lang='en'><head><meta charset='utf-8'>",
         "<meta name='viewport' content='width=device-width,initial-scale=1'>",
         "<meta name='referrer' content='no-referrer'>",
-        f"<title>{e(title)} - Bharat Sourcer BOM</title><style>{STYLE}</style></head><body>",
+        f"<title>{e(title)} - Bharat Sourcer</title><style>{STYLE}</style></head><body>",
+        "<p class='noprint'>To save a PDF, use your browser's Print command (Ctrl+P) and "
+        "choose &ldquo;Save as PDF&rdquo;.</p><main class='page'>",
+        "<div class='top'><div class='brand'><span class='mark'>B</span>"
+        "<span>Bharat<span class='accent'>Sourcer</span></span></div>"
+        f"<div class='doc-kind'>{'Order plan' if plan else 'Parts list'}<br>"
+        f"Exported {e(day(exported))}</div></div>",
         f"<h1>{e(title)}</h1>",
-        f"<p class='muted'>Source: {link(view.source_url)}<br>Status: {e(view.status)}"
-        f" &middot; Exported {e(now().strftime('%Y-%m-%d %H:%M UTC'))}</p>",
     ]
+    if view.project and view.project.description:
+        parts.append(f"<p class='lead'>{e(view.project.description)}</p>")
+    parts.append(
+        f"<p class='meta'>Source: {link(view.source_url, source_label(view.source_url))}"
+        f" &middot; {count} part{'s' * (count != 1)}"
+        f" &middot; {e(JOB_STATUS.get(view.status, view.status))}</p>"
+    )
     if view.demo:
         parts.append(f"<div class='notice demo'>{e(DEMO_NOTICE)}</div>")
-    parts.append(f"<div class='notice'>{e(SNAPSHOT_NOTICE)}</div>")
-    parts.append("<p class='noprint muted'>Use your browser's Print command to save a PDF.</p>")
+
+    if plan:
+        costing = plan.costing
+        parts.append(
+            "<div class='summary'>"
+            "<div class='stat total'><span>Estimated total</span>"
+            f"<b>{amount(costing.total)}</b></div>"
+            f"<div class='stat'><span>Parts</span><b>{amount(costing.parts)}</b></div>"
+            f"<div class='stat'><span>Sellers</span><b>{plan.seller_count}</b></div>"
+            f"<div class='stat'><span>Still to source</span><b>{len(plan.unsourced)}</b></div>"
+            "</div><h2>Order by seller</h2>"
+        )
+        parts.extend(seller_section(group, report) for group in plan.sellers)
+        if not plan.sellers:
+            parts.append("<p class='meta'>No offers could be selected yet.</p>")
+        if plan.unsourced:
+            parts.append("<h2>Still to source</h2><ul class='todo'>")
+            for entry in plan.unsourced:
+                steps = "".join(f"<li>{e(step)}</li>" for step in entry.next_steps)
+                parts.append(
+                    f"<li><span class='part'>{e(entry.name)}</span>"
+                    f"<span class='sub'>{e(entry.message)}</span>"
+                    + (f"<ul>{steps}</ul>" if steps else "")
+                    + "</li>"
+                )
+            parts.append("</ul>")
+    elif report:
+        parts.append(
+            "<h2>Selected offers</h2>"
+            + selected_table(report)
+            + "<p class='meta'>Selected parts subtotal: <strong>"
+            f"{inr(report.selected_parts_subtotal_inr)}</strong> (excludes tax and shipping)</p>"
+        )
+    else:
+        parts.append(
+            "<div class='notice'>Sellers have not been searched yet; this is the parts list "
+            "only.</div>"
+        )
+
+    if owned:
+        names = ", ".join(e(line.item.raw_name) for line in owned)
+        parts.append(f"<h2>Already have</h2><p class='meta'>{names}</p>")
+
+    parts.append(
+        "<h2>Full parts list</h2><section class='plain'><table><thead><tr><th>#</th>"
+        "<th>Part</th><th class='num'>Qty</th><th>Requirements</th><th>Status</th></tr>"
+        "</thead><tbody>"
+    )
+    for line in part_lines:
+        item = line.item
+        requirements = "".join(f"<li>{e(requirement_text(r))}</li>" for r in item.requirements)
+        listed = f"<ul>{requirements}</ul>" if requirements else "<span class='sub'>None</span>"
+        status = LINE_STATUS.get(line.sourcing_status, line.sourcing_status)
+        parts.append(
+            f"<tr><td>{e(item.line_id)}</td><td><span class='part'>{e(item.raw_name)}</span></td>"
+            f"<td class='num'>{e(qty_text(item))}</td><td>{listed}</td><td>{e(status)}</td></tr>"
+        )
+    parts.append("</tbody></table></section>")
+
+    if any(line.item.evidence for line in part_lines):
+        parts.append("<h2>Where each part came from</h2><ul class='evidence'>")
+        for line in part_lines:
+            if line.item.evidence:
+                found = "".join(f"<li>{evidence_html(ev)}</li>" for ev in line.item.evidence)
+                parts.append(
+                    f"<li><span class='part'>{e(line.item.raw_name)}</span><ul>{found}</ul></li>"
+                )
+        parts.append("</ul>")
+
     if view.project:
         p = view.project
-        parts.append("<h2>Project (AI-inferred, not verified)</h2>")
-        if p.description:
-            parts.append(f"<p>{e(p.description)}</p>")
-        if p.summary:
-            parts.append(f"<p class='muted'>{e(p.summary)}</p>")
         facts = [("Power", p.power), ("Controller", p.controller)]
         facts += [("Interfaces", ", ".join(p.interfaces) or None)]
         listed = [f"<li>{e(k)}: {e(v)}</li>" for k, v in facts if v]
         listed += [f"<li>Assumption: {e(a)}</li>" for a in p.assumptions]
-        if listed:
-            parts.append("<ul>" + "".join(listed) + "</ul>")
-    parts.append(
-        "<h2>Bill of materials</h2><table><thead><tr><th>#</th><th>Part</th><th>Qty</th>"
-        "<th>Requirements</th><th>Selected offer</th><th>Price INR</th><th>Subtotal INR</th>"
-        "<th>Stock / checked</th><th>Compatibility</th><th>Evidence</th></tr></thead><tbody>"
-    )
-    for line in lines(view):
-        item, offer = line.item, selected(line)
-        compat = offer.compatibility if offer else None
-        qty = f"{e(str(item.qty or ''))} {e(item.qty_unit)}<br><span class='muted'>"
-        qty += f"{e(item.qty_source)}</span>"
-        if item.qty_reason:
-            qty += f"<br><span class='muted'>{e(item.qty_reason)}</span>"
-        name = e(item.raw_name) + (" <strong>(owned)</strong>" if item.user_has_it else "")
-        name += f"<br><span class='muted'>{e(line.sourcing_status)}</span>"
-        requirements = "".join(f"<li>{e(requirement_text(r))}</li>" for r in item.requirements)
-        offer_cell = (
-            f"{e(offer.seller)}<br>{e(offer.title)}<br>{link(offer.url)}"
-            if offer
-            else f"<span class='muted'>None selected ({len(line.offers)} offers)</span>"
-        )
-        stock = f"{e(offer.stock)}<br>{e(offer.checked_at.isoformat())}" if offer else ""
-        status = compat.status if compat else (offer.compatibility_status if offer else "")
-        grade = f" (grade {e(compat.grade)})" if compat and compat.grade else ""
-        evidence = []
-        for ev in item.evidence:
-            if ev.source == "video":
-                evidence.append(f"<li>{e(ev.timestamp or '')} {e(ev.observation)}</li>")
-            else:
-                evidence.append(f"<li>&ldquo;{e(ev.quote or '')}&rdquo; {link(ev.url)}</li>")
-        parts.append(
-            f"<tr><td>{e(item.line_id)}</td><td>{name}</td><td>{qty}</td>"
-            f"<td><ul>{requirements}</ul></td><td>{offer_cell}</td>"
-            f"<td class='num'>{e(line.price_inr or '')}</td>"
-            f"<td class='num'>{e(line.subtotal_inr or '')}</td><td>{stock}</td>"
-            f"<td>{e(status)}{grade}</td><td><ul>{''.join(evidence)}</ul></td></tr>"
-        )
-    parts.append("</tbody></table>")
-    if view.report:
-        parts.append(
-            f"<p><strong>Selected parts subtotal: INR "
-            f"{e(view.report.selected_parts_subtotal_inr)}</strong> (excludes tax and "
-            "shipping)"
-        )
-        if view.report.unselected_line_ids:
-            parts.append(
-                f"<br><span class='muted'>No offer selected for: "
-                f"{e(', '.join(view.report.unselected_line_ids))}</span>"
-            )
-        parts.append("</p>")
-    parts.append("</body></html>")
+        if p.summary or listed:
+            parts.append("<h2>Project notes <span class='tag'>AI-inferred</span></h2>")
+            if p.summary:
+                parts.append(f"<p class='meta'>{e(p.summary)}</p>")
+            if listed:
+                parts.append("<ul class='facts'>" + "".join(listed) + "</ul>")
+
+    footer = [
+        "Prices, stock and compatibility are snapshots copied from seller pages when each "
+        "offer was checked; they are not live quotes or verified seller facts. Compatibility "
+        "covers declared specifications only."
+    ]
+    if plan:
+        footer += [plan.disclaimer, plan.costing.disclaimer]
+    footer.append(f"Generated by Bharat Sourcer on {day(exported)}. This is not an invoice.")
+    parts.append("<footer>" + "".join(f"<p>{e(text)}</p>" for text in footer) + "</footer>")
+    parts.append("</main></body></html>")
     return "".join(parts)
+
+
+class PdfUnavailable(Exception):
+    """WeasyPrint or its system libraries (Pango) are not installed here."""
+
+
+def refuse_fetch(url: str, *args, **kwargs):
+    # The export references no external resources; never let rendering fetch anything.
+    raise ValueError(f"External resources are not loaded in exports: {url[:80]}")
+
+
+def to_pdf(view: SharedProject) -> bytes:
+    """The order plan as an A4 PDF, rendered from the same HTML as the printable page."""
+    try:
+        from weasyprint import HTML
+    except (ImportError, OSError) as exc:
+        raise PdfUnavailable(str(exc)) from exc
+    return HTML(string=to_html(view), url_fetcher=refuse_fetch).write_pdf()

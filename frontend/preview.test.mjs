@@ -126,6 +126,6 @@ test('preview report endpoints (share, shared page, markets, plans, extras, expo
   const plans = await api.getPlans('ui-preview', 'dummy-token')
   assert.deepEqual(plans.plans.map(plan => plan.kind), ['cheapest', 'fewest_sellers', 'recommended'])
   assert.equal((await api.getExtras('ui-preview', 'dummy-token')).explain.enabled, true)
-  assert.match(await (await api.exportBlob('/v1/jobs/ui-preview/export.csv', 'dummy-token')).text(), /DEMO JOB/)
+  assert.match(await (await api.exportBlob('/v1/jobs/ui-preview/export.pdf', 'dummy-token')).text(), /^%PDF[\s\S]*DEMO JOB/)
   assert.equal(requests, 0)
 })
