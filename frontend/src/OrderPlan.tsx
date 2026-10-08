@@ -98,5 +98,5 @@ export default function OrderPlanView(props: Props) {
   const lines = new Map(report.lines.map(line => [line.item.line_id, line]))
   const names = Object.fromEntries(report.lines.map(line => [line.item.line_id, line.item.raw_name]))
   const live = !props.readOnly && !props.job.demo
-  return <div className="order-plan"><div className="plan-header"><p><strong>{plan.seller_count ?? plan.sellers?.length ?? 0} {(plan.seller_count ?? 0) === 1 ? 'seller' : 'sellers'}</strong> · {plan.ready ? 'Every part you need is in a seller group' : 'Some parts still need your input'}</p></div>{plan.sellers?.map(seller => <SellerCard key={seller.seller} {...props} seller={seller} lines={lines} />)}<Unsourced entries={plan.unsourced ?? []} onShowLine={props.onShowLine} /><CostSummary costing={plan.costing} title="Plan subtotal" lineNames={names} />{live && <PlanCompare job={props.job} token={props.token} onJob={props.onJob} names={names} />}</div>
+  return <div className="order-plan">{plan.sellers?.map(seller => <SellerCard key={seller.seller} {...props} seller={seller} lines={lines} />)}<Unsourced entries={plan.unsourced ?? []} onShowLine={props.onShowLine} /><CostSummary costing={plan.costing} title="Plan subtotal" lineNames={names} />{live && <PlanCompare job={props.job} token={props.token} onJob={props.onJob} names={names} />}</div>
 }
