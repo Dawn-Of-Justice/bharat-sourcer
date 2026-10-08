@@ -1,7 +1,11 @@
-# Implemented API contract — v0.23.0
+# Implemented API contract — v0.24.0
 
 This directory is the handoff between backend and frontend. The architecture docs describe
 the target system; this contract describes the runnable local milestone.
+
+v0.24.0 adds `DELETE /v1/projects/{job_id}` (owner only, 204): permanently deletes a saved
+project with its parts list, offers, conversation and share link. See
+[authentication](authentication.md).
 
 v0.23.0 removes the PIN code and adds [countries](countries.md): `country` on
 `POST /v1/jobs` (defaults to the account's saved country, else `IN`), `GET /v1/countries`,

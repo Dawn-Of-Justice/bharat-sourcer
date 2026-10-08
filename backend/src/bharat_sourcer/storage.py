@@ -42,6 +42,7 @@ class JobStore(Protocol):
     def create(self, record: StoredJob) -> None: ...
     def get(self, job_id: str) -> StoredJob | None: ...
     def mutate(self, job_id: str, change: Callable[[StoredJob], None]) -> StoredJob | None: ...
+    def delete(self, job_id: str) -> bool: ...
     def pending(self, limit: int | None = None) -> list[str]: ...
     def owned(self, owner: str, after: str, limit: int) -> list[StoredJob]: ...
     def consume(self, limits: dict[str, int]) -> bool: ...
@@ -101,6 +102,10 @@ class MemoryJobStore:
         with self._lock:
             record = self._records.get(job_id)
             return record.model_copy(deep=True) if record else None
+
+    def delete(self, job_id: str) -> bool:
+        with self._lock:
+            return self._records.pop(job_id, None) is not None
 
     def mutate(self, job_id: str, change: Callable[[StoredJob], None]) -> StoredJob | None:
         with self._lock:
@@ -183,6 +188,13 @@ class FirestoreJobStore:
     def get(self, job_id: str) -> StoredJob | None:
         snapshot = self.collection.document(job_id).get()
         return StoredJob.model_validate(snapshot.to_dict()) if snapshot.exists else None
+
+    def delete(self, job_id: str) -> bool:
+        ref = self.collection.document(job_id)
+        if not ref.get().exists:
+            return False
+        ref.delete()
+        return True
 
     def mutate(self, job_id: str, change: Callable[[StoredJob], None]) -> StoredJob | None:
         from google.cloud import firestore

@@ -316,15 +316,41 @@ svg { display: block; }
 .projects-empty h2 { font-size: 30px; letter-spacing: -.035em; }
 .projects-empty p { max-width: 450px; margin: 16px auto 26px; color: #657673; line-height: 1.6; }
 .project-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 22px; margin-top: 26px; }
-.project-card { text-align: left; border: 1px solid #dce3d8; background: #fff; border-radius: 20px; padding: 25px; color: #143039; min-width: 0; transition: border-color .2s, box-shadow .2s; }
-.project-card:hover { border-color: #26776e; box-shadow: 0 8px 25px #14303910; }
+.project-card { position: relative; display: flex; flex-direction: column; text-align: left; border: 1px solid #dce3d8; background: #fff; border-radius: 20px; padding: 25px; color: #143039; min-width: 0; transition: border-color .2s, box-shadow .2s; }
+.project-card:hover, .project-card:focus-within { border-color: #26776e; box-shadow: 0 8px 25px #14303910; }
 .project-card-top, .project-meta, .project-open { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-.project-icon { background: #eaf0e5; border-radius: 12px; padding: 12px 16px; font-size: 24px; color: #26776e; }
-.project-status { text-transform: capitalize; font-size: 12px; color: #26776e; text-align: right; }
-.project-card h2 { font-size: 23px; margin-top: 26px; }
+.project-icon { display: grid; place-items: center; width: 48px; height: 48px; border-radius: 12px; background: #eaf0e5; color: #26776e; }
+.project-icon svg { width: 24px; height: 24px; }
+.source-youtube .project-icon { background: #faeae4; color: #d23b2f; }
+.source-github .project-icon { background: #e9eef3; color: #24364a; }
+.source-article .project-icon { background: #fff0d9; color: #a56e2f; }
+.project-status { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px 5px 8px; border-radius: 999px; font-size: 12px; font-weight: 750; white-space: nowrap; }
+.project-status svg { width: 15px; height: 15px; flex: none; }
+.status-working { background: #e7f0fb; color: #285a8c; }
+.status-action { background: #fff0d9; color: #8a5a1c; }
+.status-ready { background: #e2f2e8; color: #0d6b5f; }
+.status-muted { background: #eef1ec; color: #556a63; }
+.status-error { background: #fbe9e5; color: #a33a2c; }
+.project-card h2 { margin: 24px 0 8px; font-size: 22px; line-height: 1.25; overflow-wrap: anywhere; }
+.project-open-link { padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.project-open-link::after { content: ""; position: absolute; inset: 0; border-radius: inherit; }
+.project-open-link:focus-visible { outline: none; }
+.project-card:has(.project-open-link:focus-visible) { outline: 3px solid #237e7355; outline-offset: 2px; }
+.project-origin { margin: 6px 0 0; color: #758781; font-size: 12px; font-weight: 700; overflow-wrap: anywhere; }
+.project-actions { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: auto; border-top: 1px solid #e6ebe2; padding-top: 14px; }
+.project-actions .project-open { flex: 1; justify-content: flex-start; gap: 8px; border: 0; padding: 0; }
+.project-delete { position: relative; z-index: 1; display: grid; place-items: center; width: 40px; height: 40px; padding: 0; border: 1px solid transparent; border-radius: 10px; background: transparent; color: #7b8a85; cursor: pointer; }
+.project-delete svg { width: 19px; height: 19px; }
+.project-delete:hover, .project-delete:focus-visible { border-color: #e9c6bf; background: #fbe9e5; color: #a33a2c; }
+.project-confirm { position: relative; z-index: 1; margin-top: auto; padding: 14px; border: 1px solid #e9c6bf; border-radius: 12px; background: #fff8f6; }
+.project-confirm p { margin: 0 0 12px; color: #5b3a33; font-size: 13px; line-height: 1.5; }
+.project-confirm > div { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+.danger-button { min-height: 40px; padding: 0 16px; border: 1px solid #a33a2c; border-radius: 9px; background: #b8402f; color: #fff; font: inherit; font-size: 13px; font-weight: 800; cursor: pointer; }
+.danger-button:hover { background: #9c3326; }
+.danger-button:disabled { opacity: .6; cursor: progress; }
 .project-source { overflow-wrap: anywhere; color: #657673; font-size: 13px; line-height: 1.5; }
-.project-meta { font-size: 12px; color: #657673; margin: 26px 0; flex-wrap: wrap; }
-.project-open { border-top: 1px solid #e6ebe2; padding-top: 20px; font-weight: 750; color: #26776e; }
+.project-meta { font-size: 12px; color: #657673; margin: 18px 0; flex-wrap: wrap; }
+.project-open { font-weight: 750; color: #26776e; }
 .guest-banner, .claim-row { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 16px 0; }
 .claim-panel { padding: 24px; border: 1px solid #bdcdc5; border-radius: 18px; margin-bottom: 30px; }
 .claim-row span { overflow-wrap: anywhere; min-width: 0; }
