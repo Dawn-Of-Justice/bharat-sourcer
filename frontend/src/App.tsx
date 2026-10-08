@@ -262,7 +262,7 @@ function Landing({ onCreated }: { onCreated: (id: string) => void }) {
           <div className="how-grid">
             <article className="how-card"><span className="how-number">01 / INPUT</span><div className="how-icon video-icon"><LinkIcon /></div><h3>Bring in your project</h3><p>Start with a YouTube video, blog post, GitHub repository, or audio file</p></article>
             <article className="how-card"><span className="how-number">02 / REVIEW</span><div className="how-icon review-icon"><ChecklistIcon /></div><h3>Shape your build plan</h3><p>Check the evidence, adjust parts and quantities, mark what you own, and ask questions before confirming the list.</p></article>
-            <article className="how-card"><span className="how-number">03 / SOURCE</span><div className="how-icon source-icon"><BagIcon /></div><h3>Explore Indian options</h3><p>After you confirm, inspect seller listings, prices, and compatibility notes—with unknowns left visible for you to verify.</p></article>
+            <article className="how-card"><span className="how-number">03 / SOURCE</span><div className="how-icon source-icon"><BagIcon /></div><h3>Explore Indian options</h3><p>After you confirm, inspect seller listings, prices, and compatibility notes with unknowns left visible for you to verify.</p></article>
           </div>
         </div>
       </section>
