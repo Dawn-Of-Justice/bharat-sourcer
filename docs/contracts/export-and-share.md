@@ -98,12 +98,28 @@ extraction model and recovery counters, and each line's grounded-search `attribu
 
 ## HTML report
 
-Inline CSS with a print stylesheet (A4 landscape, repeated table header, rows not split),
-no scripts, images or external assets. Every value is HTML-escaped; links are the stored
-http(s) URLs with `rel="noopener noreferrer nofollow"`. Response headers:
+v0.25.1: a printable order plan (A4 portrait). Sections, in order:
+
+1. Branded header with the title, description, source ("YouTube video" or the site name),
+   part count and status in plain words.
+2. When the report has an `order_plan`: a summary (estimated total, parts, sellers, parts
+   still to source), then one section per seller with need, buy (pack rounding and spares),
+   unit and line price, the pick label (Recommended, Your choice, Copied choice, or the
+   reason it is not selected), the seller's parts, GST, shipping and total with their
+   estimated or unknown status, the free-shipping gap and the dated shipping policy.
+   Then "Still to source" with each line's message and next steps.
+   Reports without an order plan (demo or older) show the selected offer per line and the
+   selected subtotal, which excludes tax and shipping. Drafts show the parts list only.
+3. Parts the user already has, the full parts list (requirements and status in plain
+   words), "Where each part came from" (evidence), and AI-inferred project notes.
+4. A footer with the snapshot, plan and costing disclaimers and "This is not an invoice".
+
+Amounts use Indian digit grouping (₹1,23,456.50). Links show short text ("open listing",
+the source name) with the stored http(s) URL as `href`. Inline CSS only: no scripts,
+images or external assets. Every value is HTML-escaped; links use
+`rel="noopener noreferrer nofollow"`. Response headers:
 `Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; ...` and
-`X-Content-Type-Options: nosniff`. Demo jobs show a red `DEMO JOB` banner; every report
-shows the snapshot notice and states the subtotal excludes tax and shipping.
+`X-Content-Type-Options: nosniff`. Demo jobs show a red `DEMO JOB` banner.
 
 ## Frontend to do
 

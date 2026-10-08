@@ -227,3 +227,28 @@ def test_auth_mode_share_is_public_and_free(monkeypatch):
     assert after == before
     assert client.delete(f"{path}/share", headers=alice).status_code == 204
     assert public.get(f"/v1/shared/{token}").status_code == 404
+
+
+def test_printable_report_uses_plain_words_and_indian_rupees():
+    from bharat_sourcer.export import inr
+
+    assert inr("12.00") == "₹12.00"
+    assert inr("123456.5") == "₹1,23,456.50"
+    assert inr("1234567") == "₹12,34,567.00"
+    item = BomItem(line_id="L01", raw_name="LDR", qty=2, user_has_it=True)
+    job = Job(
+        job_id="00000000-0000-0000-0000-000000000001",
+        status="done",
+        demo=False,
+        input=CreateJob(url="https://www.youtube.com/watch?v=abc"),
+        items=[item],
+        report=Report(
+            demo=False,
+            summary="Synthetic.",
+            lines=[ReportLine(item=item, sourcing_status="already_owned")],
+        ),
+    )
+    html = to_html(redact(job))
+    assert "Source: <a" in html and ">YouTube video</a>" in html
+    assert "You have it" in html and "already_owned" not in html
+    assert "Already have" in html and "Order plan ready" in html
