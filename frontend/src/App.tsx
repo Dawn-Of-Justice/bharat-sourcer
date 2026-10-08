@@ -245,7 +245,7 @@ function Landing({ onCreated }: { onCreated: (id: string) => void }) {
           </div>
           <HeroIllustration source={source} />
         </div>
-        <div className="container hero-bottom"><span>ONE LINK. A CLEARER WAY TO BUILD.</span><a href="#how-it-works">Explore how it works <span aria-hidden="true">↓</span></a></div>
+        <div className="container hero-bottom"><a href="#how-it-works">Explore how it works <span aria-hidden="true">↓</span></a></div>
       </section>
 
       <section className="promise-strip" aria-label="What Bharat Sourcer helps you do">
