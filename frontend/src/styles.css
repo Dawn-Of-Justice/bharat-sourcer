@@ -1042,3 +1042,11 @@ img, video, audio { max-width: 100%; }
 @media (pointer: coarse) {
   .pencil-button { opacity: 1; min-width: 44px; min-height: 44px; }
 }
+/* Shared page: copy a shared project into your own projects. */
+.copy-shared { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 14px 20px; margin: 0 0 18px; padding: 16px 18px; border: 1px solid #cfe2d6; border-radius: 14px; background: #f1f8f2; }
+.copy-shared > div { flex: 1 1 300px; min-width: 0; }
+.copy-shared h2 { margin: 0 0 4px; color: #163e39; font-size: 17px; }
+.copy-shared p { margin: 0; color: #4c6a61; font-size: 13px; line-height: 1.5; }
+.copy-shared .form-error { flex-basis: 100%; }
+.copied-note { margin: 0 0 18px; padding: 10px 12px; border: 1px solid #d8e4db; border-radius: 10px; background: #f7faf6; color: #415f57; font-size: 13px; line-height: 1.5; }
+@media (max-width: 600px) { .copy-shared .primary-button { width: 100%; } }

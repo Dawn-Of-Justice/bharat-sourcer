@@ -29,6 +29,7 @@ from bharat_sourcer.schemas import (
     AddLine,
     BomItem,
     ConfirmJob,
+    CopiedFrom,
     CreateJob,
     ErrorDetail,
     Event,
@@ -129,6 +130,73 @@ class JobService:
                 job=job,
                 token_hash=self._hash(token),
                 owner_id=principal.owner if principal else None,
+                part_limit=part_limit,
+            )
+        )
+        return job.model_copy(deep=True), token
+
+    # Shared projects that can be copied: a draft parts list or a finished report.
+    COPYABLE = frozenset({"awaiting_confirmation", "done"})
+
+    def check_copyable(self, source: Job, part_limit: int | None) -> None:
+        if source.status not in self.COPYABLE:
+            raise JobError(
+                409, "SHARE_NOT_READY", "This project is still being prepared; try again later"
+            )
+        if part_limit and len(source.items) > part_limit:
+            raise JobError(
+                422, "PART_LIMIT", f"Sign in to copy a project with more than {part_limit} parts"
+            )
+
+    def copy_shared(
+        self, source: Job, principal: Principal, part_limit: int | None = None
+    ) -> tuple[Job, str]:
+        """A new project for `principal` from a shared one. Copies what the share link
+        shows (parts, project details, order plan); never the chat, history, cost record or
+        share link. Owned parts go back to "to buy" and no AI runs."""
+        self.check_copyable(source, part_limit)
+        source = apply_retention(source.model_copy(deep=True))
+        items = [item.model_copy(update={"user_has_it": False}) for item in source.items]
+        report = None
+        if source.report:
+            report = source.report.model_copy(deep=True)
+            for line in report.lines:
+                # Grounded-search attribution stays with the original, as on the share page.
+                line.attribution = None
+                if line.item.user_has_it:
+                    line.item = line.item.model_copy(update={"user_has_it": False})
+                    if line.sourcing_status == "already_owned":
+                        line.sourcing_status = "not_run"
+                line.copied_choice = (
+                    line.selection_source == "user" and line.selected_offer_url is not None
+                )
+            update_costs(report)
+        job = Job(
+            job_id=str(uuid4()),
+            input=source.input,
+            demo=source.demo,
+            project=source.project,
+            items=items,
+            report=report,
+            extraction_model=source.extraction_model,
+            sourcing_enabled=not source.demo and self.sourcing is not None,
+            safety_flags=source.safety_flags,
+            source_reports=source.source_reports,
+            video_meta=source.video_meta,
+            copied_from=CopiedFrom(copied_at=now(), source_updated_at=source.updated_at),
+        )
+        self._transition(
+            job,
+            source.status,
+            "Copied from a shared project. Seller prices are from the shared snapshot; "
+            "refresh to update them.",
+        )
+        token = secrets.token_urlsafe(32)
+        self.store.create(
+            StoredJob(
+                job=job,
+                token_hash=self._hash(token),
+                owner_id=principal.owner,
                 part_limit=part_limit,
             )
         )
@@ -567,6 +635,7 @@ class JobService:
                     line.changes_accepted = False
                     line.research_accepted = False
                     line.selection_source, line.user_offer_url = "user", None
+                    line.copied_choice = False
                     continue
                 offer = next((o for o in line.offers if o.url == selection.offer_url), None)
                 if offer is None:
@@ -622,6 +691,7 @@ class JobService:
                 line.changes_accepted = bool(compat and compat.grade == "B")
                 line.research_accepted = reviewed
                 line.selection_source, line.user_offer_url = "user", offer.url
+                line.copied_choice = False
             update_costs(job.report)
             job.updated_at = now()
 
