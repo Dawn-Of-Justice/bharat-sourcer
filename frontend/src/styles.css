@@ -1228,3 +1228,49 @@ img, video, audio { max-width: 100%; }
   .pp-view { animation: none; }
   .pp-live { animation: none; }
 }
+
+/* --- Project page redesign: results summary and "Needs you" (part 2) ---------------------- */
+.project-page .report-panel { padding: 0; border: 0; background: none; box-shadow: none; }
+.pp-band { position: relative; display: flex; align-items: flex-end; justify-content: space-between; gap: 28px; margin: 0 0 34px; padding: 32px 36px; overflow: hidden; border-radius: 22px; color: #dbe7e0; background: #0d2630; isolation: isolate; }
+.pp-band::before { content: ""; position: absolute; inset: 0; z-index: -1; background-image: radial-gradient(#9cc5b8 .7px, transparent .7px); background-size: 18px 18px; opacity: .16; mask-image: linear-gradient(90deg, transparent 35%, black 100%); }
+.pp-band-main { min-width: 0; }
+.pp-band-amount { margin: 0; color: #fff; font-size: clamp(46px, 5.6vw, 74px); font-weight: 800; line-height: 1; letter-spacing: -.055em; font-variant-numeric: tabular-nums; }
+.pp-band-amount-empty { font-size: clamp(30px, 3.4vw, 44px); letter-spacing: -.04em; }
+.pp-band-scope { margin: 12px 0 0; color: #e3ede7; font-size: 18px; font-weight: 650; line-height: 1.4; }
+.pp-band-note { max-width: 62ch; margin: 14px 0 0; color: #9fb8ae; font-size: 14px; line-height: 1.55; }
+.pp-band-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; flex-shrink: 0; }
+.pp-band .report-action { min-height: 42px; border-color: #3d5d62; border-radius: 999px; color: #fff; background: transparent; }
+.pp-band .report-action:hover { border-color: #6f979a; background: #17383f; }
+.pp-band .form-error { color: #ffb4a8; }
+
+.pp-needs { margin: 0 0 40px; }
+.pp-needs h2 { display: flex; align-items: center; gap: 10px; margin: 0 0 12px; color: var(--pp-ink); font-size: 22px; letter-spacing: -.03em; }
+.pp-needs h2 span { display: grid; place-items: center; min-width: 26px; height: 26px; padding: 0 8px; border-radius: 999px; color: #74501c; background: #fdf0dc; font-size: 13px; letter-spacing: 0; }
+.pp-needs > ul { margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--pp-line); }
+.pp-need { display: grid; grid-template-columns: 12px minmax(0, 1fr) auto; align-items: center; column-gap: 16px; padding: 15px 4px; border-bottom: 1px solid var(--pp-line); }
+.pp-need-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--pp-saffron); }
+.pp-need-danger .pp-need-dot { background: var(--pp-brick); box-shadow: 0 0 0 4px #a82c241f; }
+.pp-need-warning .pp-need-dot { background: #c2562a; }
+.pp-need-input .pp-need-dot { border: 2px solid var(--pp-teal); background: transparent; }
+.pp-need-text { display: grid; gap: 3px; min-width: 0; }
+.pp-need-text strong { color: var(--pp-ink); font-size: 16px; line-height: 1.35; }
+.pp-need-text span { display: -webkit-box; overflow: hidden; color: var(--pp-muted); font-size: 14px; line-height: 1.45; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.pp-need-action { min-height: 38px; padding: 0 15px; border: 1px solid #bdcdc5; border-radius: 999px; color: #175e55; background: transparent; font-size: 14px; font-weight: 800; white-space: nowrap; transition: background .2s, border-color .2s; }
+.pp-need-action:hover { border-color: #90b6aa; background: var(--pp-mint); }
+.pp-need-expand { grid-column: 2 / -1; padding: 10px 0 2px; }
+.pp-need-body { max-width: 70ch; color: #3f5a55; font-size: 15px; line-height: 1.6; }
+.pp-need-body p { margin: 0 0 10px; }
+.pp-need-body ul { margin: 0 0 10px; padding-left: 20px; }
+.pp-need-body li { margin: 4px 0; }
+.pp-need-body small { display: block; color: #7a8b85; font-size: 13px; }
+.pp-need-parts { color: var(--pp-muted); font-size: 14px; }
+.pp-text-button { padding: 0; border: 0; color: var(--pp-teal); background: none; font: inherit; font-weight: 750; text-decoration: underline; text-underline-offset: 3px; }
+
+@media (max-width: 760px) {
+  .pp-band { flex-direction: column; align-items: stretch; gap: 22px; padding: 26px 22px; border-radius: 18px; }
+  .pp-band-actions { justify-content: flex-start; }
+  .pp-band-scope { font-size: 16px; }
+  .pp-need { grid-template-columns: 12px minmax(0, 1fr); row-gap: 10px; }
+  .pp-need-dot { align-self: start; margin-top: 6px; }
+  .pp-need-action { grid-column: 2; justify-self: start; }
+}

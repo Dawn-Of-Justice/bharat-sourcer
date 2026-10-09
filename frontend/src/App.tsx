@@ -553,7 +553,7 @@ function JobPage({ id }: { id: string }) {
       <div className={`pp-main pp-view pp-view-${direction}`} key={`${viewing}:${currentStep}`}>{viewing !== currentStep ? viewing === 0 ? <ConfirmedParts job={job} back={back} /> : <AnalysisProgress job={job} back={back} /> : <>
         {job.status === 'failed' ? <section className="job-panel"><h2>Analysis stopped</h2><p>{job.error?.message || 'Please start a new job and try again.'}</p></section> : null}
         {job.status === 'awaiting_confirmation' ? <Review key={JSON.stringify(job.items)} job={job} token={token} onConfirmed={() => setRevision((value) => value + 1)} /> : null}
-        {job.status === 'done' ? <Results job={job} token={token} onJob={applySnapshot} /> : null}
+        {job.status === 'done' ? <Results job={job} token={token} onJob={applySnapshot} onOpenChat={() => setChatOpen(true)} /> : null}
         {!['awaiting_confirmation', 'done', 'failed'].includes(job.status) ? <AnalysisProgress job={job} /> : null}
       </>}</div>
       <ChatDrawer job={job} open={chatOpen} onOpenChange={setChatOpen}><ChatPanel job={job} token={token} onJob={applySnapshot} bare /></ChatDrawer>

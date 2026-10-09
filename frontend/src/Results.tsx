@@ -4,7 +4,7 @@ import Requirements, { requirementPayload, validRequirements } from './Requireme
 import { CostSummary, GradeChip, GstChip, MatchChip, PackPrice, ProductImage, price, secureLink } from './ReportBits'
 import OrderPlanView from './OrderPlan'
 import { ExportButtons, ShareControl } from './ReportActions'
-import SafetyBanners from './SafetyBanners'
+import { NeedsYou, SummaryBand } from './ReportSummary'
 import CodePatchView from './CodePatch'
 import { SellerIdentity, sellerName } from './SellerIdentity'
 
@@ -88,10 +88,9 @@ function OfferList({ job, line, token, onJob, readOnly }: { job: Job; line: Repo
 }
 
 // The report after sourcing. `shareToken` renders the read-only public share view: no chat, edit, select, refresh or image generation.
-export default function Results({ job, token, onJob, shareToken }: { job: Job; token: string; onJob: (job: Job) => void; shareToken?: string }) {
+export default function Results({ job, token, onJob, shareToken, onOpenChat }: { job: Job; token: string; onJob: (job: Job) => void; shareToken?: string; onOpenChat?: () => void }) {
   const report = reportOf(job)
   const readOnly = !!shareToken
-  const localPreview = import.meta.env.DEV && new URLSearchParams(window.location.search).get('preview') === '1'
   const [view, setView] = useState<'plan' | 'parts'>(report?.order_plan ? 'plan' : 'parts')
   const [refreshIds, setRefreshIds] = useState<string[]>([])
   const [refreshing, setRefreshing] = useState(false)
@@ -117,23 +116,16 @@ export default function Results({ job, token, onJob, shareToken }: { job: Job; t
   const offerPicker = (line: ReportLine) => <OfferList job={job} line={line} token={token} onJob={onJob} readOnly={readOnly} />
   return (
     <section className="job-panel report-panel">
-      <header className="report-heading">
-        <div>
-          <span className="section-kicker">YOUR DESI BOM</span>
-          <h2>{hasPlan && shown === 'plan' ? 'Your order plan' : 'Explore the parts'}</h2>
-          {(job.demo || localPreview) && <div className="demo-alert"><strong>Demo data</strong> · Fixed sample. Sellers, prices and compatibility were not verified.</div>}
-        </div>
-        <div className="report-toolbar" aria-label="Report actions">
-          <ExportButtons base={readOnly ? '/v1/shared/' + encodeURIComponent(shareToken!) : '/v1/jobs/' + encodeURIComponent(job.job_id)} token={readOnly ? undefined : token} name={(job.project?.title || 'bharat-sourcer-bom').replace(/[^\w-]+/g, '-').slice(0, 60)} />
-          {!readOnly && <ShareControl key={job.job_id} job={job} token={token} />}
-        </div>
-      </header>
+      <SummaryBand job={job} actions={<>
+        <ExportButtons base={readOnly ? '/v1/shared/' + encodeURIComponent(shareToken!) : '/v1/jobs/' + encodeURIComponent(job.job_id)} token={readOnly ? undefined : token} name={(job.project?.title || 'bharat-sourcer-bom').replace(/[^\w-]+/g, '-').slice(0, 60)} />
+        {!readOnly && <ShareControl key={job.job_id} job={job} token={token} />}
+      </>} />
+      <NeedsYou job={job} readOnly={readOnly} onShowLine={showLine} onOpenChat={onOpenChat} />
       {hasPlan && <div className="report-views" role="group" aria-label="Report view">
         <button type="button" className="nav-cta" aria-pressed={shown === 'plan'} onClick={() => setView('plan')}>Order plan</button>
         <button type="button" className="nav-cta" aria-pressed={shown === 'parts'} onClick={() => setView('parts')}>All parts</button>
       </div>}
-      {shown === 'plan' && report.order_plan && <div className="plan-header"><p><strong>{report.order_plan.seller_count ?? report.order_plan.sellers?.length ?? 0} {(report.order_plan.seller_count ?? report.order_plan.sellers?.length ?? 0) === 1 ? 'seller' : 'sellers'}</strong> · {report.order_plan.ready ? 'Every part you need is in a seller group' : 'Some parts still need your input'}</p></div>}
-      <div className={job.safety_flags?.length ? 'report-layout' : 'report-layout report-layout-single'}>
+      <div className="report-layout report-layout-single">
         <div className="report-main">
           {shown === 'plan'
             ? <OrderPlanView job={job} token={token} onJob={onJob} readOnly={readOnly} renderOffers={offerPicker} onShowLine={showLine} />
@@ -177,7 +169,6 @@ export default function Results({ job, token, onJob, shareToken }: { job: Job; t
               {refreshable && <div className="refresh-controls"><p>New seller search may use paid analysis. Selected parts lose their old quotes; other parts stay saved. {2 - (job.refresh_count ?? 0)} of 2 refresh batches remain.</p><button className="nav-cta" disabled={!refreshIds.length || refreshIds.length > 10 || refreshing} onClick={() => void refresh()}>{refreshing ? 'Starting search…' : `Refresh ${refreshIds.length} selected ${refreshIds.length === 1 ? 'part' : 'parts'}`}</button>{refreshIds.length > 10 && <p>Select at most 10 parts per batch.</p>}{error && <p className="form-error" role="alert">{error}</p>}</div>}
             </>}
         </div>
-        {!!job.safety_flags?.length && <aside className="report-safety"><SafetyBanners flags={job.safety_flags} lineNames={names} onShowLine={showLine} /></aside>}
       </div>
     </section>
   )
