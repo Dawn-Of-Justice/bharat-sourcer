@@ -147,6 +147,11 @@ See [the runbook](../../backend/infra/README.md#compile-runner-code-adapt-tier-3
 
 ## Frontend status
 
-Not built. Suggested: on a line whose selected offer is a substitute, a "Code changes"
-button → diff viewer with labels and notes → Accept (AI drafts) → "Check it compiles"
-(board picker on `FQBN_REQUIRED`) → result badge and log → Download ZIP.
+The results view shows a "Code changes" panel for a selected catalogue substitute.
+It displays file diffs, origin and "Not compiled" labels, plus wiring, power and
+verification notes. AI drafts require Accept before Download ZIP. Shared reports do
+not show code patches.
+
+Compile check (v0.29.0) UI is not built. Suggested: a "Check it compiles" button when
+`/v1/compile/boards` reports `enabled`, a board picker on `FQBN_REQUIRED`, then the result
+badge (`check`), `size` or `log`, and the re-Accept prompt after an AI repair round.

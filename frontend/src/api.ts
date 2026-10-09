@@ -305,10 +305,29 @@ export interface LineRecommendation { status: 'recommended' | 'unsourced'; offer
 export interface OfferMatch { status: 'exact' | 'compatible' | 'partial' | 'mismatch'; score: number; matched?: string[]; missing?: string[]; conflicts?: string[]; reasons?: string[]; claims?: { claim: string; quote: string }[]; dropped_claims?: number; variant?: string | null; pack_qty?: number | null; method?: 'llm_judge' | 'deterministic_shortcut'; model?: string | null }
 export interface SellerTrust { label: 'established' | 'verified_basics' | 'unverified'; new_seller?: boolean; reasons?: string[]; signals?: { domain?: string | null; gstin?: string | null; price_anomaly?: boolean; policies?: ('returns' | 'shipping' | 'contact')[]; domain_age_days?: number | null }; checked_at?: string }
 export interface CompatFinding { rule: string; grade: PlanGrade; area: 'wiring' | 'code' | 'power' | 'safety' | 'verify'; message: string; change?: string | null; basis?: string[] }
-export interface OfferCompatibility { status: string; grade?: PlanGrade | null; reasons?: string[]; changes?: string[]; missing_fields?: string[]; method?: 'declared_specs' | 'catalog_rules'; grade_label?: string | null; findings?: CompatFinding[]; what_changes?: { wiring?: string[]; code?: string[]; power?: string[]; safety?: string[]; verify?: string[] } | null }
-export type ReportOffer = Omit<ReportLine['offers'][number], 'compatibility'> & { compatibility?: OfferCompatibility | null; match?: OfferMatch | null; pack_qty?: number | null; trust?: SellerTrust | null; tax_included?: boolean | null; tax_evidence?: string | null }
+export interface OfferCompatibility { status: string; grade?: PlanGrade | null; reasons?: string[]; changes?: string[]; missing_fields?: string[]; method?: 'declared_specs' | 'catalog_rules'; grade_label?: string | null; required_catalog_id?: string | null; offered_catalog_id?: string | null; findings?: CompatFinding[]; what_changes?: { wiring?: string[]; code?: string[]; power?: string[]; safety?: string[]; verify?: string[] } | null }
+export type ReportOffer = Omit<ReportLine['offers'][number], 'compatibility'> & { compatibility?: OfferCompatibility | null; match?: OfferMatch | null; pack_qty?: number | null; trust?: SellerTrust | null; tax_included?: boolean | null; tax_evidence?: string | null; seller_name?: string | null; seller_domain?: string | null; seller_kind?: 'direct' | 'marketplace' | 'platform_hosted' | null }
+export interface CodePatchFile { path: string; diff: string; source_url: string; sha256: string }
+export interface CodePatch {
+  status: 'ready' | 'unavailable'
+  origin: 'curated' | 'ai_draft' | null
+  check: 'not_checked' | 'compiles' | 'compile_failed'
+  reason?: 'no_code' | 'file_not_read' | 'no_substitute' | 'recipe_not_applicable' | 'no_code_change_needed' | 'ai_failed_validation' | 'out_of_scope_mcu' | 'budget' | 'source_changed' | null
+  detail?: string | null
+  from_catalog_id?: string | null
+  to_catalog_id?: string | null
+  offer_url?: string | null
+  files: CodePatchFile[]
+  applied: string[]
+  skipped: string[]
+  notes: string[]
+  assumptions: string[]
+  accepted: boolean
+  ai_calls: number
+  created_at: string
+}
 export interface CostEstimate { total_usd?: number; budget_reached?: boolean; calls?: number; prices_checked?: string | null }
-export interface ReportLine { buyable_spec?: BuyableSpec | null; stages?: ('seller_search' | 'judge' | 'grounded' | 'known_urls' | 'research' | 'research_skipped' | 'followup')[]; gemini_calls?: number; line_image?: LineImage | null; selection_source?: 'recommended' | 'user' | null; user_offer_url?: string | null; recommended_offer_url?: string | null; recommendation?: LineRecommendation | null; changes_accepted?: boolean; import_reference?: { price_usd: string; source?: 'user' | 'research_fact'; source_url?: string | null; quote?: string | null } | null; seller_search?: { queries?: string[]; candidate_urls?: string[]; sellers_checked?: number; blocked_sellers?: string[]; message?: string } | null }
+export interface ReportLine { buyable_spec?: BuyableSpec | null; stages?: ('seller_search' | 'judge' | 'grounded' | 'known_urls' | 'research' | 'research_skipped' | 'followup')[]; gemini_calls?: number; line_image?: LineImage | null; selection_source?: 'recommended' | 'user' | null; user_offer_url?: string | null; recommended_offer_url?: string | null; recommendation?: LineRecommendation | null; changes_accepted?: boolean; import_reference?: { price_usd: string; source?: 'user' | 'research_fact'; source_url?: string | null; quote?: string | null } | null; seller_search?: { queries?: string[]; candidate_urls?: string[]; sellers_checked?: number; blocked_sellers?: string[]; message?: string } | null; code_patch?: CodePatch | null }
 export interface Job { cost_estimate?: CostEstimate | null }
 export type Report = NonNullable<Job['report']> & { costing?: CostBreakdown | null; order_plan?: OrderPlan | null }
 export const reportOf = (job: Job) => job.report as Report | null
@@ -319,6 +338,10 @@ export interface CartPlan { kind: 'cheapest' | 'fewest_sellers' | 'recommended';
 export interface CartPlans { plans?: CartPlan[]; method?: 'exhaustive' | 'greedy' | 'none'; uncovered_line_ids?: string[]; rules?: string[]; seller_penalty_inr?: string | null }
 export interface SelectionInput { line_id: string; offer_url: string | null; accept_changes?: boolean; accept_research_assessment?: boolean }
 const jobPath = (id: string, rest: string) => '/v1/jobs/' + encodeURIComponent(id) + rest
+const codePatchPath = (id: string, lineId: string) => jobPath(id, '/lines/' + encodeURIComponent(lineId) + '/code-patch')
+export const createCodePatch = (id: string, token: string, lineId: string, offerUrl: string) => request<CodePatch>(codePatchPath(id, lineId), { method: 'POST', body: JSON.stringify({ offer_url: offerUrl }) }, token)
+export const acceptCodePatch = (id: string, token: string, lineId: string) => request<CodePatch>(codePatchPath(id, lineId) + '/accept', { method: 'POST' }, token)
+export const downloadCodePatch = (id: string, token: string, lineId: string) => exportBlob(codePatchPath(id, lineId) + '.zip', token)
 export const getPlans = (id: string, token: string) => request<CartPlans>(jobPath(id, '/plans'), {}, token)
 export const selectOffers = (id: string, token: string, selections: SelectionInput[]) => request<Job>(jobPath(id, '/selections'), { method: 'POST', body: JSON.stringify({ selections }) }, token)
 export const setImportReferences = (id: string, token: string, references: { line_id: string; price_usd: string | null; source_url?: string | null }[]) => request<Job>(jobPath(id, '/import-references'), { method: 'POST', body: JSON.stringify({ references }) }, token)

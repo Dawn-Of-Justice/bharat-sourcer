@@ -10,7 +10,7 @@ Answers 503 `COMPILE_UNAVAILABLE` until the runner is provisioned on a server.
 v0.28.0 adds [code patches for substituted parts](code-adapt.md): optional
 `report.lines[].code_patch` (`CodePatch`), `POST …/lines/{line_id}/code-patch`,
 `POST …/code-patch/accept` and `GET …/code-patch.zip`. Owner-only.
-**Frontend to do:** diff viewer, labels, notes, Accept and Download.
+Frontend: built (code changes panel with diffs, labels, notes, Accept and Download).
 
 v0.27.0 improves [seller query routing](seller-search.md) and structured offer parsing.
 Offers add optional `seller_domain`, `seller_name` and `seller_kind`
@@ -158,11 +158,11 @@ and `/openapi.json` are public. `/health` is the cloud-safe liveness path.
 The API base URL has no `/api` suffix.
 
 [Backend roadmap](backend-roadmap.md) tracks agreed features still to implement.
-[Export and share](export-and-share.md): CSV, printable HTML report and revocable read-only share links.
+[Export and share](export-and-share.md): PDF, printable HTML report and revocable read-only share links.
 [Frontend quickstart](frontend-quickstart.md) includes local configuration, request code,
 credentials guidance and the integration acceptance checklist.
 [Gemini extras](gemini-extras.md): opt-in explain-aloud audio, clip zoom and parts-bin scan.
-[Nearby markets](nearby-markets.md): `GET /v1/jobs/{job_id}/markets?pin=` lists Maps-grounded electronics shops near the maker, with required Google Maps attribution.
+[Nearby markets](nearby-markets.md): `GET /v1/jobs/{job_id}/markets?city=` lists Maps-grounded electronics shops near the maker, with required Google Maps attribution.
 [Seller trust labels and storefront JSON fast path](seller-trust.md): `offers[].trust` and new `verification` values.
 [Safety flags](safety-flags.md): deterministic MAINS / LIPO / HIGH_CURRENT / LEVEL_SHIFT banners on `job.safety_flags`.
 

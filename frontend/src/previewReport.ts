@@ -14,7 +14,12 @@ const sellerB = 'sample-seller-b.example (dummy)'
 const policyA = { seller: sellerA, free_above_inr: '999.00', free_when: 'above' as const, flat_fee_inr: '50.00', source_url: url('shipping-policy'), checked_on: '2026-10-06', unverified: false }
 
 function offer(path: string, seller: string, title: string, price: string, extra: Partial<ReportOffer>): ReportOffer {
-  return { url: url(path), seller, title, price_inr: price, stock: 'in_stock', checked_at: now(), image_url: null, compatibility: null, ...extra }
+  const identity: Partial<ReportOffer> = seller === sellerA
+    ? { seller_name: 'Sample Seller A (dummy)', seller_domain: 'sample-seller-a.example', seller_kind: 'direct' }
+    : seller === sellerB
+      ? { seller_name: 'Sample Hosted Shop (dummy)', seller_domain: 'sample-seller-b.example', seller_kind: 'platform_hosted' }
+      : { seller_name: 'Sample third-party merchant (dummy)', seller_domain: 'cheap-parts.example', seller_kind: 'marketplace' }
+  return { url: url(path), seller, title, price_inr: price, stock: 'in_stock', checked_at: now(), image_url: null, compatibility: null, ...identity, ...extra }
 }
 const established = { label: 'established' as const, reasons: ['Dummy reason: on the curated seller list (sample).'], checked_at: now() }
 
@@ -34,10 +39,11 @@ function planLines(): Record<string, Omit<Partial<ReportLine>, 'offers'> & { off
     L02: {
       line_image: { url: svg('Dummy photo'), kind: 'selected_offer', label: 'Dummy seller photo of your choice · visual reference only' },
       offers: [
-        offer('sensor-b', sellerB, 'Sample sensor module (dummy listing)', '199.00', { tax_included: null, tax_evidence: null, trust: { label: 'verified_basics', reasons: ['Dummy reason: returns, shipping and contact pages found.'], checked_at: now() }, match: { status: 'exact', score: 1, method: 'deterministic_shortcut', reasons: ['Dummy: every spec value is in structured data.'] }, compatibility: { status: 'unknown', grade: null, missing_fields: ['supply_voltage'] } }),
+        offer('sensor-b', sellerB, 'Sample sensor module (dummy listing)', '199.00', { tax_included: null, tax_evidence: null, trust: { label: 'verified_basics', reasons: ['Dummy reason: returns, shipping and contact pages found.'], checked_at: now() }, match: { status: 'exact', score: 1, method: 'deterministic_shortcut', reasons: ['Dummy: every spec value is in structured data.'] }, compatibility: { status: 'unknown', grade: null, missing_fields: ['supply_voltage'], required_catalog_id: 'dummy_sensor_a', offered_catalog_id: 'dummy_sensor_b' } }),
         offer('sensor-c', 'cheap-parts.example (dummy)', 'Sample sensor module clone (dummy listing)', '59.00', { tax_included: null, trust: { label: 'unverified', reasons: ['Dummy reason: no policy pages found.', 'Check the seller before paying; prefer cash on delivery'], signals: { price_anomaly: true }, checked_at: now() }, match: { status: 'partial', score: 0.5, method: 'llm_judge', missing: ['interface'], reasons: ['Dummy: the listing does not state the interface.'] }, compatibility: { status: 'changes_required', grade: 'C', method: 'catalog_rules', what_changes: { power: ['Dummy: needs a 5 V supply.'] }, findings: [{ rule: 'supply', grade: 'C', area: 'power', message: 'Dummy: 5 V supply only.' }] } }),
       ],
       selected_offer_url: url('sensor-b'), selection_source: 'user', user_offer_url: url('sensor-b'), grade: null,
+      code_patch: { status: 'ready', origin: 'curated', check: 'not_checked', from_catalog_id: 'dummy_sensor_a', to_catalog_id: 'dummy_sensor_b', offer_url: url('sensor-b'), files: [{ path: 'src/sensor.cpp', source_url: url('sensor-source'), sha256: 'dummy-preview-hash', diff: '--- a/src/sensor.cpp\n+++ b/src/sensor.cpp\n@@ -1,2 +1,2 @@\n-#include <SampleSensorA.h>\n+#include <SampleSensorB.h>\n // Dummy preview only' }], applied: ['Dummy: change the sample library include.'], skipped: [], notes: ['Wiring: Dummy: check the new sensor pinout.', 'Power: Dummy: verify the supply voltage.', 'Verify: Dummy: test readings before using the circuit.'], assumptions: [], accepted: true, ai_calls: 0, created_at: now() },
       recommendation: { status: 'recommended', offer_url: url('sensor-b'), seller: sellerB, score: 0.82, reasons: ['Dummy: exact spec match.'], qty: 1, packs: 1 },
     },
     L03: {
