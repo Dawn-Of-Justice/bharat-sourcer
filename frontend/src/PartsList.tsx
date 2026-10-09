@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { offersOf, reportOf, type Job, type OrderPlanLine, type OrderPlanSeller, type ReportLine, type UnsourcedLine } from './api'
-import { amountText, price } from './ReportBits'
+import { PartThumb, amountText, price } from './ReportBits'
 import { sellerName } from './SellerIdentity'
 
 type Status = { label: string; tone: 'ok' | 'input' | 'muted' }
@@ -20,17 +20,15 @@ export function statusOf(line: ReportLine, plan?: OrderPlanLine, unsourced?: Uns
   return { label: 'Recommended', tone: 'ok' }
 }
 
-function Row({ line, plan, unsourced, showSeller, active, onOpen }: { line: ReportLine; plan?: OrderPlanLine; unsourced?: UnsourcedLine; showSeller: boolean; active: boolean; onOpen: (lineId: string) => void }) {
-  const [imageFailed, setImageFailed] = useState(false)
+function Row({ job, token, readOnly, line, plan, unsourced, showSeller, active, onOpen }: { job: Job; token: string; readOnly: boolean; line: ReportLine; plan?: OrderPlanLine; unsourced?: UnsourcedLine; showSeller: boolean; active: boolean; onOpen: (lineId: string) => void }) {
   const offer = offersOf(line).find(entry => entry.url === (plan?.offer_url ?? line.selected_offer_url))
   const amount = plan ? rupees(plan.line_price_inr) : offer && !line.item.user_has_it ? rupees(offer.price_inr) : null
   const pack = plan?.pack_qty ? `${plan.packs} × pack of ${plan.pack_qty}` : null
   const secondary = [showSeller && offer && !line.item.user_has_it ? sellerName(offer) : null, pack].filter(Boolean).join(', ')
   const status = statusOf(line, plan, unsourced)
-  const image = line.line_image?.url
   return <div id={`line-${line.item.line_id}`} className={`pp-row${active ? ' is-active' : ''}`}>
     <button type="button" className="pp-row-summary" aria-controls="pp-part" aria-expanded={active} onClick={() => onOpen(line.item.line_id)}>
-      <span className="pp-row-thumb" aria-hidden="true">{image && !imageFailed ? <img src={image} alt="" loading="lazy" onError={() => setImageFailed(true)} /> : null}</span>
+      <PartThumb job={job} line={line} token={token} readOnly={readOnly} />
       <span className="pp-row-name"><strong>{line.item.raw_name}</strong>{secondary && <small>{secondary}</small>}</span>
       <span className="pp-row-qty" aria-label={`Quantity ${line.item.qty ?? 'unknown'}`}>×{line.item.qty ?? '?'}</span>
       <span className="pp-row-price">{amount ?? ''}</span>
@@ -53,7 +51,7 @@ function shippingNote(seller: OrderPlanSeller) {
 type Group = { key: string; title: string; note?: string; amount?: string; lines: ReportLine[] }
 
 // The parts list: grouped by seller (how the user will order) or in parts-list order.
-export default function PartsList({ job, openLine, onOpen }: { job: Job; openLine: string | null; onOpen: (lineId: string) => void }) {
+export default function PartsList({ job, token, readOnly, openLine, onOpen }: { job: Job; token: string; readOnly: boolean; openLine: string | null; onOpen: (lineId: string) => void }) {
   const report = reportOf(job)
   const [grouping, setGrouping] = useState<'seller' | 'part'>('seller')
   if (!report) return null
@@ -61,7 +59,7 @@ export default function PartsList({ job, openLine, onOpen }: { job: Job; openLin
   const lines = new Map(report.lines.map(line => [line.item.line_id, line]))
   const planLines = new Map((plan?.sellers ?? []).flatMap(seller => (seller.lines ?? []).map(entry => [entry.line_id, entry] as const)))
   const unsourced = new Map((plan?.unsourced ?? []).map(entry => [entry.line_id, entry]))
-  const row = (line: ReportLine, showSeller: boolean) => <li key={line.item.line_id}><Row line={line} plan={planLines.get(line.item.line_id)} unsourced={unsourced.get(line.item.line_id)} showSeller={showSeller} active={openLine === line.item.line_id} onOpen={onOpen} /></li>
+  const row = (line: ReportLine, showSeller: boolean) => <li key={line.item.line_id}><Row job={job} token={token} readOnly={readOnly} line={line} plan={planLines.get(line.item.line_id)} unsourced={unsourced.get(line.item.line_id)} showSeller={showSeller} active={openLine === line.item.line_id} onOpen={onOpen} /></li>
 
   const groups: Group[] = []
   if (grouping === 'seller') {

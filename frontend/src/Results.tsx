@@ -177,7 +177,7 @@ export default function Results({ job, token, onJob, shareToken, onOpenChat, ope
         {!readOnly && <ShareControl key={job.job_id} job={job} token={token} />}
       </>} />
       <NeedsYou job={job} readOnly={readOnly} onShowLine={showLine} onOpenChat={onOpenChat} />
-      <PartsList job={job} openLine={openLine} onOpen={id => setOpenLine(openLine === id ? null : id)} />
+      <PartsList job={job} token={token} readOnly={readOnly} openLine={openLine} onOpen={id => setOpenLine(openLine === id ? null : id)} />
       <div className="pp-after-list">
         {refreshable && <div className="refresh-controls"><p>New seller search may use paid analysis. Selected parts lose their old quotes; other parts stay saved. {2 - (job.refresh_count ?? 0)} of 2 refresh batches remain.</p><button className="nav-cta" disabled={!refreshIds.length || refreshIds.length > 10 || refreshing} onClick={() => void refresh()}>{refreshing ? 'Starting search…' : `Refresh ${refreshIds.length} selected ${refreshIds.length === 1 ? 'part' : 'parts'}`}</button>{refreshIds.length > 10 && <p>Select at most 10 parts per batch.</p>}{error && <p className="form-error" role="alert">{error}</p>}</div>}
         {report.order_plan && !readOnly && !job.demo && <PlanCompare job={job} token={token} onJob={onJob} names={names} />}

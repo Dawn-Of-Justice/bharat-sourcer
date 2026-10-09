@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
-import { getPartImages, reportFailedImages, type CostAmount, type CostBreakdown, type Job, type OfferCompatibility, type OfferMatch, type PartImages, type ReportLine, type ReportOffer } from './api'
+import { getPartImages, reportFailedImages, type CostAmount, type Job, type OfferCompatibility, type OfferMatch, type PartImages, type ReportLine, type ReportOffer } from './api'
 
-// Shared report pieces: images, chips (text plus icon, never colour alone), cost summaries and seller policies.
+// Shared report pieces: part thumbnails, chips (text plus icon, never colour alone) and amounts.
 const money = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' })
 export const price = (value: string | number) => money.format(Number(value))
 export const secureLink = (url?: string | null) => url && /^https:\/\/[^\s]+$/i.test(url) ? url : undefined
@@ -24,8 +24,10 @@ function lineImages(line: ReportLine, demo: boolean): DisplayImage[] {
   })
 }
 
+// A part's thumbnail for the parts list: line_image, then seller photos and page references,
+// then the image endpoint (which can supply a labelled illustration when photos fail).
 // readOnly (share page): no image endpoint calls, so no generation is ever requested.
-export function ProductImage({ job, line, token, readOnly = false }: { job: Job; line: ReportLine; token: string; readOnly?: boolean }) {
+export function PartThumb({ job, line, token, readOnly = false }: { job: Job; line: ReportLine; token: string; readOnly?: boolean }) {
   const [remote, setRemote] = useState<PartImages | null>(null)
   const [failed, setFailed] = useState<string[]>([])
   const requested = useRef(false)
@@ -58,24 +60,14 @@ export function ProductImage({ job, line, token, readOnly = false }: { job: Job;
     if (image) setFailed(current => [...current, image.url])
   }
   const label = image && (image.kind === 'category' || image.kind === 'placeholder') && !/not a product photo/i.test(image.label) ? `${image.label} · not a product photo` : image?.label
-  return <div className="part-image"><div className="product-image">{image ? <img key={image.url} src={image.url} alt={`${label} for ${line.item.raw_name}`} title={label ?? undefined} loading="lazy" referrerPolicy="no-referrer" onError={imageFailed} /> : <span>Image<br />unavailable</span>}</div>{label && <small>{label}</small>}</div>
-}
-
-const statusText = { known: '✓ Known', estimated: '≈ Estimated', unknown: '? Unknown' }
-export function StatusChip({ amount }: { amount: CostAmount }) {
-  const status = amount.status ?? 'unknown'
-  return <span className={`cost-chip cost-${status}`}>{statusText[status]}</span>
+  // The name sits beside the thumbnail, so the image itself is decorative; its label is a tooltip.
+  return <span className="pp-row-thumb" title={label ?? undefined}>{image ? <img key={image.url} src={image.url} alt="" loading="lazy" referrerPolicy="no-referrer" onError={imageFailed} /> : null}</span>
 }
 
 // Unknown amounts are never shown as zero; a partial sum reads "at least".
 export function amountText(amount: CostAmount) {
   if (amount.status !== 'unknown' && amount.amount_inr != null) return price(amount.amount_inr)
   return amount.partial_inr ? `at least ${price(amount.partial_inr)} + unknown` : 'Unknown'
-}
-
-// The listed parts subtotal is the useful number here; unknown charges stay out of it.
-export function CostSummary({ costing, title }: { costing: CostBreakdown; title: string; lineNames?: Record<string, string> }) {
-  return <section className="cost-summary cost-summary-simple" aria-label={title}><span>Subtotal{costing.excluded_line_ids?.length ? ' · selected parts' : ''}</span><strong>{amountText(costing.parts)}</strong></section>
 }
 
 export function GstChip({ offer }: { offer: ReportOffer }) {
