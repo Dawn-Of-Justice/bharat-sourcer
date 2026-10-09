@@ -68,6 +68,10 @@ def challenge_reason(page: Page) -> str | None:
     return None
 
 
+# Hosts that only redirect to the real page; a challenge after the redirect is the target's.
+REDIRECTORS = frozenset({"vertexaisearch.cloud.google.com"})
+
+
 class BlockedError(FetchError):
     """The host served a challenge or is cooling down after one; never retried."""
 
@@ -272,7 +276,9 @@ class Politeness:
                 reason = challenge_reason(page)
                 if reason:
                     self.mark_blocked(final_host, reason)
-                    if final_host != host:
+                    # A redirector (Google's grounding redirect) is not the seller that
+                    # blocked us: blocking it would drop every other web-search result.
+                    if final_host != host and host not in REDIRECTORS:
                         self.mark_blocked(host, reason)
                     raise BlockedError(final_host, reason)
                 if page.status in {429, 503} and attempt < self.max_retries:
