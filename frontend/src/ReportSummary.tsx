@@ -48,26 +48,47 @@ const unsourcedText: Partial<Record<UnsourcedLine['reason'], string>> = {
 }
 const flagOrder: SafetyFlag['code'][] = ['MAINS', 'LIPO', 'HIGH_CURRENT', 'LEVEL_SHIFT']
 
-type Need = { key: string; tone: 'danger' | 'warning' | 'caution' | 'input'; title: string; detail?: string; action?: { label: string; onClick: () => void }; body?: ReactNode }
+export type Need = { key: string; tone: 'danger' | 'warning' | 'caution' | 'input'; title: string; detail?: string; action?: { label: string; onClick: () => void }; body?: ReactNode }
+
+export function safetyNeeds(job: Job, onShowLine: (lineId: string) => void): Need[] {
+  const names = Object.fromEntries(job.items.map(item => [item.line_id, item.raw_name]))
+  return [...(job.safety_flags ?? [])].sort((a, b) => flagOrder.indexOf(a.code) - flagOrder.indexOf(b.code)).map(flag => ({
+    key: `flag-${flag.code}`, tone: flag.severity, title: flag.title,
+    body: <div className="pp-need-body" role={flag.severity === 'danger' ? 'alert' : undefined}>
+      <p>{flag.message}</p>
+      {flag.guidance.length > 0 && <ul>{flag.guidance.map((entry, index) => <li key={index}>{entry}</li>)}</ul>}
+      {flag.line_ids.length > 0 && <p className="pp-need-parts">Parts involved: {flag.line_ids.map((id, index) => <span key={id}>{index > 0 && ', '}<button type="button" className="pp-text-button" onClick={() => onShowLine(id)}>{names[id] ?? id}</button></span>)}</p>}
+      <small>Automatic check from the parts list, not a guarantee. Review before ordering.</small>
+    </div>,
+  }))
+}
+
+// The list itself: one row per need, with one action or an expandable explanation.
+export function NeedsList({ needs, initiallyOpen = null }: { needs: Need[]; initiallyOpen?: string | null }) {
+  const [open, setOpen] = useState<string | null>(initiallyOpen)
+  if (!needs.length) return null
+  return <section className="pp-needs" aria-labelledby="pp-needs-title">
+    <h2 id="pp-needs-title">Needs you <span>{needs.length}</span></h2>
+    <ul>{needs.map(need => {
+      const expanded = open === need.key
+      return <li key={need.key} className={`pp-need pp-need-${need.tone}`}>
+        <span className="pp-need-dot" aria-hidden="true" />
+        <div className="pp-need-text"><strong>{need.title}</strong>{need.detail && <span>{need.detail}</span>}</div>
+        {need.body
+          ? <button type="button" className="pp-need-action" aria-expanded={expanded} aria-controls={`${need.key}-body`} onClick={() => setOpen(expanded ? null : need.key)}>{expanded ? 'Hide' : 'Review'}</button>
+          : need.action && <button type="button" className="pp-need-action" onClick={need.action.onClick}>{need.action.label}</button>}
+        {need.body && <div id={`${need.key}-body`} className="pp-need-expand" hidden={!expanded}>{need.body}</div>}
+      </li>
+    })}</ul>
+  </section>
+}
 
 // Everything that needs a decision, in one list: safety checks, parts without a seller,
 // selections waiting for confirmation and chat suggestions waiting for approval.
 export function NeedsYou({ job, readOnly, onShowLine, onOpenChat }: { job: Job; readOnly: boolean; onShowLine: (lineId: string) => void; onOpenChat?: () => void }) {
-  const [open, setOpen] = useState<string | null>(job.safety_flags?.some(flag => flag.code === 'MAINS') ? 'flag-MAINS' : null)
   const report = reportOf(job)
   const names = Object.fromEntries(job.items.map(item => [item.line_id, item.raw_name]))
-  const needs: Need[] = []
-  for (const flag of [...(job.safety_flags ?? [])].sort((a, b) => flagOrder.indexOf(a.code) - flagOrder.indexOf(b.code))) {
-    needs.push({
-      key: `flag-${flag.code}`, tone: flag.severity, title: flag.title,
-      body: <div className="pp-need-body" role={flag.severity === 'danger' ? 'alert' : undefined}>
-        <p>{flag.message}</p>
-        {flag.guidance.length > 0 && <ul>{flag.guidance.map((entry, index) => <li key={index}>{entry}</li>)}</ul>}
-        {flag.line_ids.length > 0 && <p className="pp-need-parts">Parts involved: {flag.line_ids.map((id, index) => <span key={id}>{index > 0 && ', '}<button type="button" className="pp-text-button" onClick={() => onShowLine(id)}>{names[id] ?? id}</button></span>)}</p>}
-        <small>Automatic check from the parts list, not a guarantee. Review before ordering.</small>
-      </div>,
-    })
-  }
+  const needs: Need[] = safetyNeeds(job, onShowLine)
   if (!readOnly && report) {
     const plan = report.order_plan
     const unsourced: { line_id: string; reason: UnsourcedLine['reason']; message?: string }[] = plan?.unsourced
@@ -86,19 +107,5 @@ export function NeedsYou({ job, readOnly, onShowLine, onOpenChat }: { job: Job; 
     const suggestions = job.messages.filter(message => message.proposal?.status === 'pending' || message.refresh_proposal?.status === 'pending' || message.spec_proposal?.status === 'pending').length
     if (suggestions && onOpenChat) needs.push({ key: 'chat', tone: 'input', title: suggestions === 1 ? 'A suggested change is waiting for your approval' : `${suggestions} suggested changes are waiting for your approval`, action: { label: 'Review in chat', onClick: onOpenChat } })
   }
-  if (!needs.length) return null
-  return <section className="pp-needs" aria-labelledby="pp-needs-title">
-    <h2 id="pp-needs-title">Needs you <span>{needs.length}</span></h2>
-    <ul>{needs.map(need => {
-      const expanded = open === need.key
-      return <li key={need.key} className={`pp-need pp-need-${need.tone}`}>
-        <span className="pp-need-dot" aria-hidden="true" />
-        <div className="pp-need-text"><strong>{need.title}</strong>{need.detail && <span>{need.detail}</span>}</div>
-        {need.body
-          ? <button type="button" className="pp-need-action" aria-expanded={expanded} aria-controls={`${need.key}-body`} onClick={() => setOpen(expanded ? null : need.key)}>{expanded ? 'Hide' : 'Review'}</button>
-          : need.action && <button type="button" className="pp-need-action" onClick={need.action.onClick}>{need.action.label}</button>}
-        {need.body && <div id={`${need.key}-body`} className="pp-need-expand" hidden={!expanded}>{need.body}</div>}
-      </li>
-    })}</ul>
-  </section>
+  return <NeedsList needs={needs} initiallyOpen={job.safety_flags?.some(flag => flag.code === 'MAINS') ? 'flag-MAINS' : null} />
 }

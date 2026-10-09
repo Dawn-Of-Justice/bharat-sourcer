@@ -6,11 +6,11 @@ import { useEffect, useLayoutEffect, useRef, useState, type FormEvent } from 're
 import { BagIcon, ChecklistIcon, CompatibilityIcon, EvidenceIcon, LinkIcon, StoreIcon } from './LandingIcons'
 import { ApiError, claimProject, pauseJob, resumeJob, confirmJob, createJob, getJob, updateProject, type BomItem, type BuyableSpec, type Job } from './api'
 import ChatPanel from './ChatPanel'
-import { ChatDrawer, StageSteps, stepOf } from './ProjectFrame'
+import { ChatDrawer, SidePanel, StageSteps, stepOf } from './ProjectFrame'
+import { NeedsList, safetyNeeds, type Need } from './ReportSummary'
 import Requirements, { requirementPayload, validRequirements } from './Requirements'
-import SafetyBanners, { SafetyLineBadges } from './SafetyBanners'
 import SpecPanel, { specPayload, validSpec } from './SpecPanel'
-import { ConfidenceChip, ConflictBanner, ConflictNotes, EvidenceList, LookalikeNotes, SourcesCard } from './ReviewDetails'
+import { ConfidenceChip, ConflictNotes, EvidenceList, LookalikeNotes, SourcesCard } from './ReviewDetails'
 
 function BrandMark() {
   return (
@@ -337,42 +337,48 @@ function ProjectHeading({ job, token, onJob }: { job: Job; token: string; onJob:
 
 type ReviewRow = { item: BomItem; name: string; qty: string; owned: boolean; removed: boolean; requirements: NonNullable<BomItem['requirements']>; spec: BuyableSpec | null }
 
-function ReviewPartCard({ row, index, job, update }: { row: ReviewRow; index: number; job: Job; update: (id: string, patch: Partial<ReviewRow>) => void }) {
-  const flagged = job.safety_flags?.some(flag => flag.line_ids.includes(row.item.line_id))
-  return <details id={`line-${row.item.line_id}`} className={`review-card result-card ${row.removed ? 'removed' : ''}`}>
-    <summary className="result-card-summary">
-      <div className="review-part-icon" aria-hidden="true">{String(index + 1).padStart(2, '0')}</div>
-      <div className="result-card-identity"><small>PART {index + 1} · QTY {row.qty || 'unknown'}</small><h3>{row.name || 'Unnamed part'}</h3><span>{row.removed ? 'Removed from this build' : row.owned ? 'Already owned' : 'Ready to review'}</span></div>
-      <div className="result-card-end"><b className="result-card-toggle">Edit details</b></div>
-    </summary>
-    <div className="result-card-content review-card-content">
-      {(row.item.confidence || flagged) && <div className="review-row-meta"><span>{row.item.line_id}</span><ConfidenceChip item={row.item} /><SafetyLineBadges flags={job.safety_flags} lineId={row.item.line_id} /></div>}
-      <div className="review-fields"><label>Part name<input value={row.name} disabled={row.removed} onChange={event => update(row.item.line_id, { name: event.target.value })} /></label><label className="qty-field">Qty<input type="number" min="1" max="10000" value={row.qty} disabled={row.removed} onChange={event => update(row.item.line_id, { qty: event.target.value })} /></label></div>
-      {row.item.qty_source === 'inferred' && row.qty === (row.item.qty?.toString() ?? '') && <p className="qty-inferred" title={row.item.qty_reason ?? undefined}><span className="inferred-tag">Suggested quantity</span> {row.item.qty_reason || 'The source did not state a count.'}</p>}
-      <ConflictNotes item={row.item} /><LookalikeNotes item={row.item} />
-      <div className="review-row-bottom"><label className="check-label"><input type="checkbox" checked={row.owned} disabled={row.removed} onChange={event => update(row.item.line_id, { owned: event.target.checked })} /> I already have this</label><button type="button" className="remove-button" onClick={() => update(row.item.line_id, { removed: !row.removed })}>{row.removed ? 'Undo remove' : 'Remove'}</button></div>
-      <Requirements value={row.requirements} disabled={row.removed} onChange={requirements => update(row.item.line_id, { requirements })} />
-      <SpecPanel value={row.spec} disabled={row.removed} onChange={spec => update(row.item.line_id, { spec })} />
-      {row.spec && row.spec.origin !== 'user' && row.name.trim() !== row.item.raw_name && <p className="qty-inferred"><span className="inferred-tag">Renamed</span> Renaming drops this suggested buying spec; sourcing builds one from the new name unless you edit the spec.</p>}
-      <EvidenceList evidence={row.item.evidence} />
-      {row.item.clarifications.length > 0 && <div className="evidence-note">Still unclear: {row.item.clarifications.map(entry => entry.question).join(' ')}</div>}
-    </div>
-  </details>
+// A short note under a review row's name: the one thing worth checking first.
+function reviewNote(row: ReviewRow) {
+  if (row.removed) return 'Removed from this build'
+  if (row.item.conflicts?.length) return 'Sources disagree'
+  if (row.item.clarifications.length) return 'Something is unclear'
+  if (row.spec?.needs_value) return 'Needs a value'
+  if (row.item.qty_source === 'inferred' && row.qty === (row.item.qty?.toString() ?? '')) return 'Suggested quantity'
+  if (row.item.confidence === 'check') return 'Check this part'
+  return ''
 }
 
-function Review({ job, token, onConfirmed }: { job: Job; token: string; onConfirmed: () => void }) {
+// One part's editable details in the side panel. Edits stay local until the list is confirmed.
+function ReviewPartPanel({ row, update }: { row: ReviewRow; update: (id: string, patch: Partial<ReviewRow>) => void }) {
+  const id = row.item.line_id
+  return <div className="pp-part">
+    {row.removed && <div className="pp-part-callout pp-part-callout-input"><strong>Removed from this build</strong><p>It will not be searched for or ordered.</p><button type="button" className="pp-text-button" onClick={() => update(id, { removed: false })}>Undo remove</button></div>}
+    <label className="pp-field">Part name<input value={row.name} disabled={row.removed} onChange={event => update(id, { name: event.target.value })} /></label>
+    {row.spec && row.spec.origin !== 'user' && row.name.trim() !== row.item.raw_name && <p className="pp-field-note">Renaming drops the suggested buying spec; seller search builds one from the new name unless you edit the spec.</p>}
+    <div className="pp-field-row">
+      <label className="pp-field pp-field-qty">Quantity<input type="number" min="1" max="10000" value={row.qty} disabled={row.removed} onChange={event => update(id, { qty: event.target.value })} /></label>
+      <label className="check-label"><input type="checkbox" checked={row.owned} disabled={row.removed} onChange={event => update(id, { owned: event.target.checked })} /> I already have this</label>
+    </div>
+    {row.item.qty_source === 'inferred' && row.qty === (row.item.qty?.toString() ?? '') && <p className="pp-field-note">Suggested quantity: {row.item.qty_reason || 'the source did not state a count.'}</p>}
+    {row.item.clarifications.length > 0 && <div className="pp-part-callout pp-part-callout-input"><strong>Still unclear</strong><p>{row.item.clarifications.map(entry => entry.question).join(' ')}</p></div>}
+    <ConflictNotes item={row.item} />
+    <LookalikeNotes item={row.item} />
+    <details className="pp-section"><summary>Build details</summary><div className="pp-section-body"><Requirements value={row.requirements} disabled={row.removed} onChange={requirements => update(id, { requirements })} /></div></details>
+    <details className="pp-section" open={!!row.spec?.needs_value}><summary>Buying spec</summary><div className="pp-section-body"><SpecPanel value={row.spec} disabled={row.removed} onChange={spec => update(id, { spec })} /></div></details>
+    {row.item.evidence.length > 0 && <details className="pp-section"><summary>Why this part is in the list</summary><div className="pp-section-body"><ConfidenceChip item={row.item} /><EvidenceList evidence={row.item.evidence} /></div></details>}
+    {!row.removed && <button type="button" className="remove-button pp-remove" onClick={() => update(id, { removed: true })}>Remove from this build</button>}
+  </div>
+}
+
+function Review({ job, token, onConfirmed, openPart, onOpenPart }: { job: Job; token: string; onConfirmed: () => void; openPart: string | null; onOpenPart: (lineId: string | null) => void }) {
   const account = useAccount()
   const [rows, setRows] = useState<ReviewRow[]>(() => job.items.map((item) => ({ item, name: item.raw_name, qty: item.qty?.toString() ?? '', owned: item.user_has_it, removed: false, requirements: item.requirements ?? [], spec: item.buyable_spec ?? null })))
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+  const lastRow = useRef<ReviewRow | null>(null)
 
   function update(id: string, patch: Partial<ReviewRow>) {
     setRows((current) => current.map((row) => row.item.line_id === id ? { ...row, ...patch } : row))
-  }
-
-  function showLine(lineId: string) {
-    const card = document.getElementById(`line-${lineId}`) as HTMLDetailsElement | null
-    if (card) { card.open = true; card.scrollIntoView({ behavior: 'smooth', block: 'start' }) }
   }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -381,12 +387,12 @@ function Review({ job, token, onConfirmed }: { job: Job; token: string; onConfir
     const retained = rows.filter((row) => !row.removed)
     if (!retained.length) { setError('Keep at least one part in the list.'); return }
     if (retained.some((row) => !Number.isInteger(Number(row.qty)) || Number(row.qty) < 1 || Number(row.qty) > 10000 || !row.name.trim())) {
-      setError('Every retained part needs a name and a quantity from 1 to 10,000.'); return
+      setError('Every part you keep needs a name and a quantity from 1 to 10,000.'); return
     }
-    if (retained.some(row => !validRequirements(row.requirements))) { setError('Every requirement needs a property and value, or remove the empty row.'); return }
-    if (retained.some(row => !validSpec(row.spec))) { setError('Every buying spec value needs a property and value (and an upper value for “Between”), or remove the empty row.'); return }
+    if (retained.some(row => !validRequirements(row.requirements))) { setError('Every build detail needs a property and a value, or remove the empty row.'); return }
+    if (retained.some(row => !validSpec(row.spec))) { setError('Every buying spec value needs a property and a value (and an upper value for “Between”), or remove the empty row.'); return }
     if (account.identity && account.identity !== 'legacy' && account.identity.kind === 'guest' && retained.filter(row => !row.owned).length > account.identity.part_limit) {
-      setError(`Guests can source up to ${account.identity.part_limit} parts. Mark parts you already own, remove others, or sign in with Google for the account limit.`); return
+      setError(`Guests can search sellers for up to ${account.identity.part_limit} parts. Mark parts you already have, remove some, or sign in with Google for a higher limit.`); return
     }
     const edits: Parameters<typeof confirmJob>[2] = []
     for (const row of rows) {
@@ -400,64 +406,96 @@ function Review({ job, token, onConfirmed }: { job: Job; token: string; onConfir
       if (row.owned !== row.item.user_has_it) edits.push({ op: 'have_it', line_id: row.item.line_id, user_has_it: row.owned })
     }
     setBusy(true)
-    try { await confirmJob(job.job_id, token, edits); onConfirmed() }
+    try { await confirmJob(job.job_id, token, edits); onOpenPart(null); onConfirmed() }
     catch (cause) { setError(cause instanceof Error ? cause.message : 'Could not confirm the list.') }
     finally { setBusy(false) }
   }
 
-  return <section className="job-panel review-panel">
-    <header className="review-heading"><span className="section-kicker">YOUR REVIEW</span><h2>Review your parts</h2><p>Open a part to change its name, quantity or build details.</p></header>
-    <ProjectCard project={job.project} />
-    {job.copied_from && <p className="copied-note" role="note"><strong>Copied from a shared project</strong> on {day(job.copied_from.copied_at)}. {job.report ? <>Seller prices are from {day(job.copied_from.source_updated_at)} or earlier; refresh to update them. Picks marked “Copied choice” were made by the person who shared it.</> : 'Review the parts, then confirm to find sellers.'}</p>}
-    <SourcesCard job={job} />
-    {account.identity && account.identity !== 'legacy' && account.identity.kind === 'guest' && <p className="guest-limit">Guest limit: source up to {account.identity.part_limit} parts in this build. You can mark owned parts without using this limit.</p>}
-    <ConflictBanner items={job.items} onShowLine={showLine} />
+  const kept = rows.filter(row => !row.removed)
+  const toSource = kept.filter(row => !row.owned).length
+  const guest = account.identity && account.identity !== 'legacy' && account.identity.kind === 'guest' ? account.identity : null
+  const needs: Need[] = safetyNeeds(job, id => onOpenPart(id))
+  for (const row of rows) {
+    if (row.removed) continue
+    if (row.item.conflicts?.length) needs.push({ key: `conflict-${row.item.line_id}`, tone: 'input', title: `${row.name}: sources disagree`, detail: row.item.conflicts[0].message, action: { label: 'Check part', onClick: () => onOpenPart(row.item.line_id) } })
+    else if (row.item.clarifications.length) needs.push({ key: `unclear-${row.item.line_id}`, tone: 'input', title: `${row.name}: something is unclear`, detail: row.item.clarifications[0].question, action: { label: 'Check part', onClick: () => onOpenPart(row.item.line_id) } })
+  }
+  if (guest && toSource > guest.part_limit) needs.push({ key: 'guest-limit', tone: 'input', title: `Guests can search sellers for up to ${guest.part_limit} parts`, detail: `This list has ${toSource}. Mark parts you already have, remove some, or sign in with Google.`, action: { label: 'Sign in', onClick: account.open } })
+  const current = rows.find(row => row.item.line_id === openPart) ?? null
+  if (current) lastRow.current = current
+  const shown = current ?? lastRow.current
+  const reports = job.source_reports ?? []
+  const skipped = reports.filter(report => report.status === 'failed').length
+
+  return <section className="job-panel pp-stage">
+    <header className="pp-stage-head"><h2>We found {job.items.length} {job.items.length === 1 ? 'part' : 'parts'}.</h2><p>Check the names and quantities and mark what you already have. Sellers are searched only after you confirm.</p></header>
+    {job.copied_from && <p className="pp-field-note" role="note">Copied from a shared project on {day(job.copied_from.copied_at)}. {job.report ? <>Seller prices are from {day(job.copied_from.source_updated_at)} or earlier; refresh to update them. Picks marked “Copied choice” were made by the person who shared it.</> : 'Review the parts, then confirm to find sellers.'}</p>}
+    <NeedsList needs={needs} initiallyOpen={job.safety_flags?.some(flag => flag.code === 'MAINS') ? 'flag-MAINS' : null} />
     <form onSubmit={submit}>
-      <div className={job.safety_flags?.length ? 'review-layout' : ''}>
-        <div className="review-list">{rows.map((row, index) => <ReviewPartCard key={row.item.line_id} row={row} index={index} job={job} update={update} />)}</div>
-        {!!job.safety_flags?.length && <aside className="review-safety"><SafetyBanners flags={job.safety_flags} lineNames={Object.fromEntries(job.items.map(item => [item.line_id, item.raw_name]))} onShowLine={showLine} /></aside>}
+      <div className="pp-parts-head"><h2>Your parts <span>{kept.length}</span></h2></div>
+      <ul className="pp-rows pp-review-rows">{rows.map(row => {
+        const note = reviewNote(row)
+        const active = openPart === row.item.line_id
+        return <li key={row.item.line_id} id={`line-${row.item.line_id}`} className={`pp-review-row${row.removed ? ' is-removed' : ''}${active ? ' is-active' : ''}`}>
+          <button type="button" className="pp-review-open" aria-controls="pp-part" aria-expanded={active} onClick={() => onOpenPart(active ? null : row.item.line_id)}>
+            <strong>{row.name || 'Unnamed part'}</strong>{note && <small className={row.removed ? '' : 'pp-review-attention'}>{note}</small>}
+          </button>
+          <label className="pp-review-qty"><span className="visually-hidden">Quantity of {row.name}</span><span aria-hidden="true">×</span><input type="number" min="1" max="10000" value={row.qty} disabled={row.removed} onChange={event => update(row.item.line_id, { qty: event.target.value })} /></label>
+          <label className="pp-review-have"><input type="checkbox" checked={row.owned} disabled={row.removed} onChange={event => update(row.item.line_id, { owned: event.target.checked })} /> I have it</label>
+          {row.removed
+            ? <button type="button" className="pp-text-button pp-review-undo" onClick={() => update(row.item.line_id, { removed: false })}>Undo</button>
+            : <button type="button" className="pp-review-edit" aria-label={`Edit ${row.name || 'part'}`} onClick={() => onOpenPart(active ? null : row.item.line_id)}><span className="pp-row-chevron" aria-hidden="true" /></button>}
+        </li>
+      })}</ul>
+      {(job.project || reports.length > 0 || job.video_meta) && <details className="pp-section pp-origin"><summary>Where these came from{reports.length > 0 && <span>{reports.length - skipped} {reports.length - skipped === 1 ? 'source' : 'sources'} read{skipped ? `, ${skipped} skipped` : ''}</span>}</summary><div className="pp-section-body"><ProjectCard project={job.project} /><SourcesCard job={job} /></div></details>}
+      <div className="pp-confirm">
+        <button className="primary-button" disabled={busy} type="submit">{busy ? 'Confirming…' : toSource ? `Confirm and find sellers for ${toSource} ${toSource === 1 ? 'part' : 'parts'}` : 'Confirm the list'} <ArrowIcon /></button>
+        {guest && <p>As a guest you can search sellers for up to {guest.part_limit} parts. Parts you already have don't count.</p>}
+        {error && <p className="form-error" role="alert">{error}</p>}
       </div>
-      {error && <p className="form-error" role="alert">{error}</p>}
-      <button className="primary-button job-action" disabled={busy} type="submit">{busy ? 'Confirming…' : 'Confirm BOM and find offers'} <ArrowIcon /></button>
     </form>
+    <SidePanel id="pp-part" open={!!current} title={shown?.name || 'Unnamed part'} subtitle={shown ? <><span>×{shown.qty || '?'}</span>{reviewNote(shown) && <span className="pp-row-status pp-status-input">{reviewNote(shown)}</span>}</> : undefined} onClose={() => onOpenPart(null)}>
+      {shown && <ReviewPartPanel key={shown.item.line_id} row={rows.find(row => row.item.line_id === shown.item.line_id) ?? shown} update={update} />}
+    </SidePanel>
   </section>
 }
 
 // The confirmed list, shown when the user steps back to "Review the parts" after confirming.
 function ConfirmedParts({ job, back }: { job: Job; back: { label: string; onClick: () => void } }) {
-  return <section className="job-panel pp-lookback">
+  return <section className="job-panel pp-stage pp-lookback">
     <header className="pp-lookback-head"><div><h2>The parts you confirmed</h2><p>To change a part now, ask in the chat. Every suggested change needs your approval before it is applied.</p></div><button type="button" className="nav-cta" onClick={back.onClick}>{back.label}</button></header>
     <ul className="pp-confirmed">{job.items.map(item => <li key={item.line_id}><span>{item.raw_name}</span><span className="pp-confirmed-qty">×{item.qty ?? '?'}</span><span className="pp-confirmed-note">{item.user_has_it ? 'You have this' : ''}</span></li>)}</ul>
-    <ProjectCard project={job.project} />
-    <SourcesCard job={job} />
+    <details className="pp-section pp-origin"><summary>Where these came from</summary><div className="pp-section-body"><ProjectCard project={job.project} /><SourcesCard job={job} /></div></details>
   </section>
 }
 
+const progressStatus: Record<string, { label: string; tone: 'ok' | 'input' | 'muted' }> = {
+  offers_found: { label: 'Offers found', tone: 'ok' },
+  no_verified_offers: { label: 'No verified offers', tone: 'input' },
+  failed: { label: 'Check failed', tone: 'input' },
+  already_owned: { label: 'You have it', tone: 'muted' },
+  not_run: { label: 'Waiting', tone: 'muted' },
+}
+
+// Live progress while the project is read and sellers are searched; with `back`, the finished
+// summary the user reaches from the step strip.
 function AnalysisProgress({ job, back }: { job: Job; back?: { label: string; onClick: () => void } }) {
   const results = new Map(job.report?.lines.map(line => [line.item.line_id, line]) ?? [])
-  const finished = job.items.filter(item => item.user_has_it || (results.has(item.line_id) && results.get(item.line_id)?.sourcing_status !== 'not_run')).length
-  const labels = { offers_found: 'Offers found', no_verified_offers: 'No verified offers', failed: 'Check failed', already_owned: 'Already owned', not_run: 'Pending result' }
-  if (back) return <section className="job-panel progress-panel pp-lookback">
-    <header className="pp-lookback-head"><div><h2>How the seller search went</h2><p>{job.items.filter(item => results.get(item.line_id)?.sourcing_status === 'offers_found').length} of {job.items.length} parts have seller offers.</p></div><button type="button" className="nav-cta" onClick={back.onClick}>{back.label}</button></header>
-    <ul className="parallel-parts">{job.items.map((item, index) => {
-      const status = item.user_has_it ? 'already_owned' : results.get(item.line_id)?.sourcing_status ?? 'not_run'
-      return <li key={item.line_id} className={'part-progress ' + status}><div><small>Part {index + 1}</small><strong>{item.raw_name}</strong><span>Qty {item.qty ?? 'unknown'}</span></div><span className="part-status">{labels[status]}</span></li>
-    })}</ul>
-  </section>
-  return <section className="job-panel progress-panel">
-    <span className="section-kicker">IN PROGRESS</span>
-    <h2>{job.status === 'sourcing' ? 'Finding offers for your parts' : job.status === 'resolving' ? 'Preparing your parts' : job.status === 'extracting' ? jobSourceCopy(job).reading : 'Waiting to start'}</h2>
-    <p>{job.status === 'sourcing' ? 'Results appear as each part finishes. Multiple parts can be processed together.' : 'Your parts will appear here as the analysis progresses.'}</p>
-    {job.items.length > 0 && <>
-      <div className="parts-progress-summary"><strong>{finished} / {job.items.length} parts completed</strong><span>{job.items.length - finished} pending</span></div>
-      <progress className="parts-progress-meter" value={finished} max={job.items.length} aria-label="Parts completed" />
-      <ul className="parallel-parts">{job.items.map((item, index) => {
-        const line = results.get(item.line_id)
-        const status = item.user_has_it ? 'already_owned' : line?.sourcing_status ?? 'not_run'
-        return <li id={'line-' + item.line_id} key={item.line_id} className={'part-progress ' + status}><div><small>Part {index + 1}</small><strong>{item.raw_name}</strong><span>Qty {item.qty ?? 'unknown'}</span></div><span className="part-status">{labels[status]}</span></li>
+  const statusOf = (item: BomItem) => item.user_has_it ? 'already_owned' : results.get(item.line_id)?.sourcing_status ?? 'not_run'
+  const finished = job.items.filter(item => statusOf(item) !== 'not_run').length
+  const found = job.items.filter(item => statusOf(item) === 'offers_found').length
+  const searching = job.status === 'sourcing'
+  const title = back ? 'How the seller search went' : searching ? 'Finding sellers for your parts' : job.status === 'resolving' ? 'Preparing your parts' : job.status === 'paused' ? 'Seller search is paused' : job.status === 'extracting' ? jobSourceCopy(job).reading : 'Waiting to start'
+  const intro = back ? `${found} of ${job.items.length} parts have seller offers.` : searching ? 'Each part appears here as it finishes. You can leave this page; progress is saved.' : job.status === 'paused' ? 'Your progress is saved. Resume when you are ready.' : 'Your parts will appear here as soon as they are found.'
+  return <section className="job-panel pp-stage progress-panel">
+    <header className={back ? 'pp-lookback-head' : 'pp-stage-head'}><div><h2>{title}</h2><p>{intro}</p></div>{back && <button type="button" className="nav-cta" onClick={back.onClick}>{back.label}</button>}</header>
+    {job.items.length > 0 ? <>
+      {!back && <div className="pp-progress"><div className="pp-progress-bar" role="progressbar" aria-label="Parts finished" aria-valuemin={0} aria-valuemax={job.items.length} aria-valuenow={finished}><span style={{ width: `${(finished / job.items.length) * 100}%` }} /></div><span>{finished} of {job.items.length} done</span></div>}
+      <ul className="pp-rows">{job.items.map(item => {
+        const status = progressStatus[statusOf(item)]
+        return <li key={item.line_id} id={'line-' + item.line_id} className="pp-progress-row"><strong>{item.raw_name}</strong><span className="pp-row-qty">×{item.qty ?? '?'}</span><span className={`pp-row-status pp-status-${status.tone}`}>{statusOf(item) === 'not_run' && searching && <i className="pp-live" aria-hidden="true" />}{status.label}</span></li>
       })}</ul>
-    </>}
-    {!job.items.length && <div className="progress-track" aria-label="Analysis in progress"><span /></div>}
+    </> : <div className="progress-track" aria-label="Reading the project"><span /></div>}
   </section>
 }
 
@@ -555,8 +593,8 @@ function JobPage({ id }: { id: string }) {
       <StageSteps job={job} reading={jobSourceCopy(job).reading} viewing={viewing} onView={view} action={pauseControl} />
       {actionError && <p className="form-error" role="alert">{actionError}</p>}
       <div className={`pp-main pp-view pp-view-${direction}`} key={`${viewing}:${currentStep}`}>{viewing !== currentStep ? viewing === 0 ? <ConfirmedParts job={job} back={back} /> : <AnalysisProgress job={job} back={back} /> : <>
-        {job.status === 'failed' ? <section className="job-panel"><h2>Analysis stopped</h2><p>{job.error?.message || 'Please start a new job and try again.'}</p></section> : null}
-        {job.status === 'awaiting_confirmation' ? <Review key={JSON.stringify(job.items)} job={job} token={token} onConfirmed={() => setRevision((value) => value + 1)} /> : null}
+        {job.status === 'failed' ? <section className="job-panel pp-stage"><div className="pp-part-callout pp-part-callout-input" role="alert"><strong>The analysis stopped</strong><p>{job.error?.message || 'Start a new project from the home page to try again.'}</p></div></section> : null}
+        {job.status === 'awaiting_confirmation' ? <Review key={JSON.stringify(job.items)} job={job} token={token} onConfirmed={() => setRevision((value) => value + 1)} openPart={openPart} onOpenPart={setOpenPart} /> : null}
         {job.status === 'done' ? <Results job={job} token={token} onJob={applySnapshot} onOpenChat={() => setChatOpen(true)} openPart={openPart} onOpenPart={setOpenPart} /> : null}
         {!['awaiting_confirmation', 'done', 'failed'].includes(job.status) ? <AnalysisProgress job={job} /> : null}
       </>}</div>
