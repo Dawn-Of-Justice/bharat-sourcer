@@ -196,8 +196,10 @@ in `compile/pins.json`.
 
 **Cost.** Jobs bill only while running: one ESP32 compile (about 1–2 minutes at 2 vCPU /
 4 GiB) is roughly $0.005 at Tier 1 prices and fits the monthly free tier at demo scale. The
-images take about 6–8 GB in Artifact Registry (about $0.60–0.80/month above the free
-0.5 GB). The VPC and subnet have no charge without NAT. `BS_COMPILE_DAILY_LIMIT` (default
+images are 0.9 GB (AVR), 4.7 GB (ESP32), 1.0 GB (ESP8266) and 1.7 GB (RP2040) unpacked
+(9 October 2026 build; ESP32 and RP2040 drop debuggers and other chips' toolchains, see
+`prune` in `compile/pins.json`); compressed in Artifact Registry they stay well under
+$1/month above the free 0.5 GB. The VPC and subnet have no charge without NAT. `BS_COMPILE_DAILY_LIMIT` (default
 100) caps compile requests per day.
 
 **Disable.** `gcloud run services update bharat-sourcer-integration --region asia-south1

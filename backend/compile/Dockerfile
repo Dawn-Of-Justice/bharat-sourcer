@@ -20,7 +20,7 @@ RUN test -n "$FAMILY" \
 
 COPY pins.json arduino-cli.yaml install.py /opt/compile/
 RUN python /opt/compile/install.py "$FAMILY" \
-    && rm -rf /tmp/arduino-staging /root/.cache \
+    && rm -rf /tmp/arduino-staging /tmp/arduino-cache /root/.cache \
     && useradd --create-home --uid 10001 runner \
     && chmod -R a-w /opt/arduino /opt/compile
 

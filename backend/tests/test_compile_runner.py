@@ -99,3 +99,15 @@ def test_rejected_bundle_is_reported_not_compiled(tmp_path, monkeypatch):
     cli = fake_cli(tmp_path, "raise SystemExit('must not run')\n")
     result = runner.compile_sketch(bundle(files={"../blink.ino": ""}), cli=cli)
     assert result["status"] == "error" and "Bundle rejected" in result["detail"]
+
+
+def test_runner_images_cover_exactly_the_supported_boards():
+    import json
+
+    from bharat_sourcer.compile_check import boards
+
+    pins = json.loads((RUNNER_PATH.parent / "pins.json").read_text("utf-8"))
+    built = {fqbn: family for family, spec in pins["families"].items() for fqbn in spec["boards"]}
+    assert built == {b["fqbn"]: b["family"] for b in boards()}
+    for family, spec in pins["families"].items():
+        assert all(fqbn.startswith(spec["core"] + ":") for fqbn in spec["boards"]), family

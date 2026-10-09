@@ -1,25 +1,84 @@
 {
-  "_note": "Pinned toolchain for the compile runner images (code-adapt tier 3), resolved from the official indexes on 2026-10-09. One image per family; libraries are installed in every image without dependency resolution, so every dependency is listed. Change a version here to rebuild the images.",
+  "_note": "Pinned toolchain for the compile runner images (code-adapt tier 3), resolved from the official indexes on 2026-10-09. One image per family; libraries are installed in every image without dependency resolution, so every dependency is listed. Change a version here to rebuild the images. prune removes toolchain parts for chips no listed board uses (debuggers, other chips' SDK libraries, unused RISC-V multilibs); boards are smoke-compiled at build time, so a bad prune fails the image build. boards must match src/bharat_sourcer/data/compile_boards.json.",
   "arduino_cli": {
     "version": "1.5.1",
     "sha256": "28a8e119c498a25607821c36cb2dc49e8463941b261a0d99091baa7bc692dd2b"
   },
   "families": {
-    "avr": {"core": "arduino:avr", "version": "1.8.8", "index": null},
+    "avr": {
+      "core": "arduino:avr",
+      "version": "1.8.8",
+      "index": null,
+      "boards": [
+        "arduino:avr:uno",
+        "arduino:avr:nano",
+        "arduino:avr:mega",
+        "arduino:avr:leonardo",
+        "arduino:avr:micro"
+      ],
+      "prune": []
+    },
     "esp32": {
       "core": "esp32:esp32",
       "version": "3.3.12",
-      "index": "https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json"
+      "index": "https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json",
+      "boards": [
+        "esp32:esp32:esp32",
+        "esp32:esp32:esp32s3",
+        "esp32:esp32:esp32c3",
+        "esp32:esp32:esp32s2",
+        "esp32:esp32:featheresp32"
+      ],
+      "prune": [
+        "esp32/tools/xtensa-esp-elf-gdb",
+        "esp32/tools/riscv32-esp-elf-gdb",
+        "esp32/tools/openocd-esp32",
+        "esp32/tools/esp32h2-libs",
+        "esp32/tools/esp32c6-libs",
+        "esp32/tools/esp32c5-libs",
+        "esp32/tools/esp32c61-libs",
+        "esp32/tools/esp32p4-libs",
+        "esp32/tools/esp32p4_es-libs",
+        "esp32/tools/esp-rv32/*/riscv32-esp-elf/lib/rv32i_zicsr_zifencei",
+        "esp32/tools/esp-rv32/*/lib/gcc/riscv32-esp-elf/*/rv32i_zicsr_zifencei",
+        "esp32/tools/esp-rv32/*/picolibc/riscv32-esp-elf/lib/rv32i_zicsr_zifencei",
+        "esp32/tools/esp-rv32/*/picolibc/lib/gcc/riscv32-esp-elf/*/rv32i_zicsr_zifencei",
+        "esp32/tools/esp-rv32/*/riscv32-esp-elf/lib/rv32imac_zicsr_zifencei",
+        "esp32/tools/esp-rv32/*/lib/gcc/riscv32-esp-elf/*/rv32imac_zicsr_zifencei",
+        "esp32/tools/esp-rv32/*/picolibc/riscv32-esp-elf/lib/rv32imac_zicsr_zifencei",
+        "esp32/tools/esp-rv32/*/picolibc/lib/gcc/riscv32-esp-elf/*/rv32imac_zicsr_zifencei",
+        "esp32/tools/esp-rv32/*/riscv32-esp-elf/lib/rv32imafc_zicsr_zifencei",
+        "esp32/tools/esp-rv32/*/lib/gcc/riscv32-esp-elf/*/rv32imafc_zicsr_zifencei",
+        "esp32/tools/esp-rv32/*/picolibc/riscv32-esp-elf/lib/rv32imafc_zicsr_zifencei",
+        "esp32/tools/esp-rv32/*/picolibc/lib/gcc/riscv32-esp-elf/*/rv32imafc_zicsr_zifencei",
+        "esp32/tools/esp-rv32/*/riscv32-esp-elf/lib/rv32imafc_zicsr_zifencei_zba_zbb_zbc_zbs",
+        "esp32/tools/esp-rv32/*/lib/gcc/riscv32-esp-elf/*/rv32imafc_zicsr_zifencei_zba_zbb_zbc_zbs",
+        "esp32/tools/esp-rv32/*/picolibc/riscv32-esp-elf/lib/rv32imafc_zicsr_zifencei_zba_zbb_zbc_zbs",
+        "esp32/tools/esp-rv32/*/picolibc/lib/gcc/riscv32-esp-elf/*/rv32imafc_zicsr_zifencei_zba_zbb_zbc_zbs"
+      ]
     },
     "esp8266": {
       "core": "esp8266:esp8266",
       "version": "3.1.2",
-      "index": "https://arduino.esp8266.com/stable/package_esp8266com_index.json"
+      "index": "https://arduino.esp8266.com/stable/package_esp8266com_index.json",
+      "boards": [
+        "esp8266:esp8266:nodemcuv2",
+        "esp8266:esp8266:d1_mini"
+      ],
+      "prune": []
     },
     "rp2040": {
       "core": "rp2040:rp2040",
       "version": "6.3.0",
-      "index": "https://github.com/earlephilhower/arduino-pico/releases/download/global/package_rp2040_index.json"
+      "index": "https://github.com/earlephilhower/arduino-pico/releases/download/global/package_rp2040_index.json",
+      "boards": [
+        "rp2040:rp2040:rpipico",
+        "rp2040:rp2040:rpipicow"
+      ],
+      "prune": [
+        "rp2040/tools/pqt-gcc-riscv",
+        "rp2040/tools/pqt-openocd"
+      ]
     }
   },
   "libraries": [
