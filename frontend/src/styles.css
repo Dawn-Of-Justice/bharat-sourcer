@@ -1146,13 +1146,13 @@ img, video, audio { max-width: 100%; }
 .pp-steps { display: flex; align-items: center; gap: 24px; margin: 0 0 40px; padding: 20px 0; border-block: 1px solid var(--pp-line); }
 .pp-steps ol { display: flex; flex: 1; min-width: 0; margin: 0; padding: 0; list-style: none; }
 .pp-step { display: grid; flex: 1 1 0; grid-template-columns: 34px minmax(0, 1fr); grid-template-rows: 34px auto; row-gap: 10px; min-width: 0; }
-.pp-step-node { grid-column: 1; grid-row: 1; display: grid; place-items: center; width: 34px; height: 34px; border: 2px solid var(--pp-line); border-radius: 50%; color: #8a9a94; background: var(--pp-paper); font-size: 14px; font-weight: 850; }
-.pp-step:not(:last-child)::after { content: ""; grid-column: 2; grid-row: 1; align-self: center; height: 2px; margin: 0 10px; border-radius: 2px; background: var(--pp-line); }
+.pp-step-node { grid-column: 1; grid-row: 1; transition: background-color .3s, border-color .3s, color .3s, box-shadow .3s; display: grid; place-items: center; width: 34px; height: 34px; border: 2px solid var(--pp-line); border-radius: 50%; color: #8a9a94; background: var(--pp-paper); font-size: 14px; font-weight: 850; }
+.pp-step:not(:last-child)::after { content: ""; grid-column: 2; grid-row: 1; align-self: center; height: 2px; margin: 0 10px; border-radius: 2px; background: linear-gradient(var(--pp-teal), var(--pp-teal)) left / 0% 100% no-repeat, var(--pp-line); transition: background-size .6s cubic-bezier(.4, 0, .2, 1); }
 .pp-step-text { display: grid; gap: 3px; grid-column: 1 / -1; grid-row: 2; padding-right: 18px; }
-.pp-step-text strong { color: #7d8d88; font-size: 15px; font-weight: 750; letter-spacing: -.01em; }
+.pp-step-text strong { position: relative; justify-self: start; transition: color .2s; color: #7d8d88; font-size: 15px; font-weight: 750; letter-spacing: -.01em; }
 .pp-step-text span { display: inline-flex; align-items: center; gap: 7px; color: var(--pp-muted); font-size: 13px; line-height: 1.4; }
 .pp-step-done .pp-step-node { border-color: var(--pp-teal); color: #fff; background: var(--pp-teal); }
-.pp-step-done:not(:last-child)::after { background: var(--pp-teal); }
+.pp-step-done:not(:last-child)::after { background-size: 100% 100%, auto; }
 .pp-step-done .pp-step-text strong { color: #3f5f59; }
 .pp-step-current .pp-step-node { border-color: var(--pp-teal); color: var(--pp-teal); box-shadow: 0 0 0 5px #19766d1c; }
 .pp-step-current .pp-step-text strong, .pp-step-failed .pp-step-text strong { color: var(--pp-ink); }
@@ -1162,11 +1162,16 @@ img, video, audio { max-width: 100%; }
 .pp-step-button .pp-step-node { position: relative; z-index: 1; }
 .pp-step-button:hover .pp-step-text strong { color: var(--pp-teal); }
 .pp-step-button:focus-visible { outline: 3px solid #d9802e; outline-offset: 4px; }
-.pp-step-viewing .pp-step-text strong { text-decoration: underline 2px var(--pp-saffron); text-underline-offset: 6px; }
+.pp-step-text strong::after { content: ""; position: absolute; left: 0; right: 0; bottom: -5px; height: 2px; border-radius: 2px; background: var(--pp-saffron); transform: scaleX(0); transform-origin: left; transition: transform .32s cubic-bezier(.2, .8, .2, 1); }
+.pp-step-viewing .pp-step-text strong::after { transform: scaleX(1); }
 .pp-steps-action { flex-shrink: 0; }
 .pp-live { width: 8px; height: 8px; flex-shrink: 0; border-radius: 50%; background: var(--pp-saffron); animation: pulse 1.5s ease-in-out infinite; }
 
 .project-page .pp-main > .job-panel:first-child { margin-top: 0; }
+.pp-view { animation: pp-view-in .38s cubic-bezier(.2, .8, .2, 1) backwards; }
+.pp-view-back { --pp-from: -28px; }
+.pp-view-forward { --pp-from: 28px; }
+@keyframes pp-view-in { from { opacity: 0; transform: translateX(var(--pp-from)); } to { opacity: 1; transform: none; } }
 .pp-lookback-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; margin-bottom: 22px; }
 .pp-lookback-head h2 { margin: 0 0 8px; }
 .pp-lookback-head p { max-width: 60ch; margin: 0; color: var(--pp-muted); line-height: 1.55; }
@@ -1219,6 +1224,7 @@ img, video, audio { max-width: 100%; }
   .pp-drawer { width: 100%; border-left: 0; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .pp-drawer, .pp-drawer.is-open, .pp-chat-launcher, .project-page { transition: none; }
+  .pp-drawer, .pp-drawer.is-open, .pp-chat-launcher, .project-page, .pp-step-node, .pp-step::after, .pp-step-text strong::after { transition: none; }
+  .pp-view { animation: none; }
   .pp-live { animation: none; }
 }

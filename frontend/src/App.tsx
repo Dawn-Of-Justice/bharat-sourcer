@@ -474,7 +474,9 @@ function JobPage({ id }: { id: string }) {
   const [chatOpen, setChatOpen] = useState(false)
   // null follows the live stage; a number is an earlier step the user chose to look at.
   const [viewStep, setViewStep] = useState<number | null>(null)
-  useEffect(() => setViewStep(null), [job?.status])
+  // Which way the content slides in: back to an earlier step, or forward.
+  const [direction, setDirection] = useState<'back' | 'forward'>('forward')
+  useEffect(() => { setViewStep(null); setDirection('forward') }, [job?.status])
 
   function applySnapshot(next: Job) {
     setJob((previous) => previous && Date.parse(next.updated_at) < Date.parse(previous.updated_at) ? previous : next)
@@ -530,7 +532,12 @@ function JobPage({ id }: { id: string }) {
 
   const currentStep = job ? stepOf(job) : 0
   const viewing = viewStep ?? currentStep
-  const back = { label: currentStep === 2 ? 'Back to order plan' : 'Back to seller search', onClick: () => setViewStep(null) }
+  function view(step: number) {
+    if (step === viewing) return
+    setDirection(step < viewing ? 'back' : 'forward')
+    setViewStep(step === currentStep ? null : step)
+  }
+  const back = { label: currentStep === 2 ? 'Back to order plan' : 'Back to seller search', onClick: () => view(currentStep) }
   const pauseControl = job && !job.demo && ['resolving', 'sourcing', 'paused'].includes(job.status)
     ? <button className="nav-cta" title={job.status === 'paused' ? 'Your progress is saved.' : 'Pausing does not use your action quota.'} disabled={actionBusy || job.pause_requested && job.status !== 'paused'} onClick={async () => { setActionBusy(true); setActionError(''); try { await (job.status === 'paused' ? resumeJob(id, token) : pauseJob(id, token)); setRevision(n => n + 1) } catch (cause) { setActionError(cause instanceof Error ? cause.message : 'Could not update sourcing') } finally { setActionBusy(false) } }}>{job.pause_requested && job.status !== 'paused' ? 'Pausing after this part…' : actionBusy ? 'Updating…' : job.status === 'paused' ? 'Resume' : 'Pause'}</button>
     : undefined
@@ -541,9 +548,9 @@ function JobPage({ id }: { id: string }) {
       {connectionIssue ? <div className="connection-warning" role="status">{connectionIssue} Your saved parts and conversation remain visible.</div> : null}
       {(job.demo || localPreview) && <p className="pp-demo-tag">Demo project with sample data</p>}
       <ProjectHeading key={job.project?.title_source + ':' + job.project?.title + ':' + job.project?.description} job={job} token={token} onJob={applySnapshot} />
-      <StageSteps job={job} reading={jobSourceCopy(job).reading} viewing={viewing} onView={step => setViewStep(step === currentStep ? null : step)} action={pauseControl} />
+      <StageSteps job={job} reading={jobSourceCopy(job).reading} viewing={viewing} onView={view} action={pauseControl} />
       {actionError && <p className="form-error" role="alert">{actionError}</p>}
-      <div className="pp-main">{viewing !== currentStep ? viewing === 0 ? <ConfirmedParts job={job} back={back} /> : <AnalysisProgress job={job} back={back} /> : <>
+      <div className={`pp-main pp-view pp-view-${direction}`} key={`${viewing}:${currentStep}`}>{viewing !== currentStep ? viewing === 0 ? <ConfirmedParts job={job} back={back} /> : <AnalysisProgress job={job} back={back} /> : <>
         {job.status === 'failed' ? <section className="job-panel"><h2>Analysis stopped</h2><p>{job.error?.message || 'Please start a new job and try again.'}</p></section> : null}
         {job.status === 'awaiting_confirmation' ? <Review key={JSON.stringify(job.items)} job={job} token={token} onConfirmed={() => setRevision((value) => value + 1)} /> : null}
         {job.status === 'done' ? <Results job={job} token={token} onJob={applySnapshot} /> : null}
