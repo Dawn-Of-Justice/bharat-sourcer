@@ -1134,7 +1134,7 @@ img, video, audio { max-width: 100%; }
 
 /* --- Project page redesign: frame (part 1) ---------------------------------------------
    Single column, a three-step journey, chat in a side panel. Tokens follow the landing page. */
-.project-page { --pp-ink: #0d2630; --pp-teal: #19766d; --pp-mint: #e9f2ea; --pp-saffron: #df8c34; --pp-brick: #a82c24; --pp-line: #dfe4da; --pp-muted: #5d706c; --pp-paper: #fffefa; }
+:root { --pp-ink: #0d2630; --pp-teal: #19766d; --pp-mint: #e9f2ea; --pp-saffron: #df8c34; --pp-brick: #a82c24; --pp-line: #dfe4da; --pp-muted: #5d706c; --pp-paper: #fffefa; }
 .project-page .pp-container { width: min(1120px, calc(100% - 48px)); max-width: none; padding-top: 48px; padding-bottom: 150px; }
 .pp-demo-tag { display: inline-block; margin: 0 0 18px; padding: 5px 12px; border-radius: 999px; background: #fdf0dc; color: #74501c; font-size: 13px; font-weight: 750; }
 
@@ -1186,7 +1186,7 @@ img, video, audio { max-width: 100%; }
   .pp-confirmed-note { grid-column: 1 / -1; text-align: left; }
 }
 
-.pp-chat-launcher { position: fixed; right: 28px; bottom: 28px; z-index: 30; display: inline-flex; align-items: center; gap: 10px; min-height: 52px; padding: 0 22px 0 18px; border: 0; border-radius: 999px; color: #fff; background: #0d2630; box-shadow: 0 14px 34px rgba(13, 38, 48, .28); font-size: 15px; font-weight: 800; transition: transform .2s, opacity .2s; }
+.pp-chat-launcher { position: fixed; right: 28px; bottom: 28px; z-index: 30; display: inline-flex; align-items: center; gap: 10px; min-height: 52px; padding: 0 22px 0 18px; border: 0; border-radius: 999px; color: #fff; background: #0d2630; box-shadow: 0 14px 34px rgba(13, 38, 48, .28); font-size: 15px; font-weight: 800; transition: transform .2s, opacity .2s, right .28s cubic-bezier(.2, .8, .2, 1); }
 .pp-chat-launcher:hover { transform: translateY(-2px); }
 .pp-chat-launcher svg { width: 20px; height: 20px; }
 .pp-chat-launcher[aria-expanded="true"] { opacity: 0; pointer-events: none; }
@@ -1205,7 +1205,8 @@ img, video, audio { max-width: 100%; }
 .pp-drawer .chat-history { flex: 1; min-height: 0; max-height: none; }
 
 @media (min-width: 1100px) {
-  .project-page.chat-open { padding-right: 460px; }
+  .project-page.sheet-open { padding-right: 460px; }
+  .project-page.sheet-open .pp-chat-launcher { right: 488px; }
   .pp-drawer { box-shadow: -10px 0 30px rgba(13, 38, 48, .06); }
 }
 @media (max-width: 1099px) {
@@ -1329,3 +1330,43 @@ img, video, audio { max-width: 100%; }
 @media (prefers-reduced-motion: reduce) {
   .pp-row-chevron, .pp-row-summary, .pp-switch button { transition: none; }
 }
+
+/* --- Project page redesign: part details panel (part 4) --------------------------------- */
+button.pp-row-summary { width: 100%; border: 0; color: inherit; background: transparent; font: inherit; text-align: left; }
+.pp-row.is-active .pp-row-summary { background: #e4eee6; box-shadow: inset 3px 0 0 var(--pp-teal); }
+.pp-drawer-title { display: grid; gap: 6px; min-width: 0; }
+.pp-drawer-title h2 { overflow-wrap: anywhere; }
+.pp-drawer-title p { display: flex; align-items: center; gap: 10px; margin: 0; color: var(--pp-muted); font-size: 14px; font-variant-numeric: tabular-nums; }
+.pp-part { flex: 1; min-height: 0; display: grid; align-content: start; gap: 18px; padding: 22px 24px 48px; overflow-y: auto; overscroll-behavior: contain; }
+.pp-part-pick { display: grid; gap: 8px; padding-bottom: 6px; }
+.pp-part-price { display: flex; align-items: baseline; gap: 8px; margin: 0; color: var(--pp-ink); font-size: 38px; font-weight: 800; letter-spacing: -.04em; font-variant-numeric: tabular-nums; }
+.pp-part-price small { color: var(--pp-muted); font-size: 14px; font-weight: 650; letter-spacing: 0; }
+.pp-part-title { margin: 0; color: #3f5a55; font-size: 14px; line-height: 1.5; }
+.pp-part-meta { margin: 0; color: var(--pp-muted); font-size: 13px; }
+.pp-part-meta::first-letter { text-transform: uppercase; }
+.pp-part-open { justify-self: start; margin-top: 6px; }
+.pp-part-callout { padding: 14px 16px; border-left: 3px solid var(--pp-teal); border-radius: 0 10px 10px 0; background: #f1f6f1; color: #2f4b46; font-size: 14px; line-height: 1.55; }
+.pp-part-callout strong { display: block; color: var(--pp-ink); font-size: 15px; }
+.pp-part-callout p { margin: 4px 0 0; }
+.pp-part-callout ul { margin: 6px 0 0; padding-left: 20px; }
+.pp-part-callout-input { border-left-color: var(--pp-saffron); background: #fdf6ea; color: #5a4520; }
+.pp-section { border-top: 1px solid var(--pp-line); }
+.pp-section > summary { display: flex; align-items: center; gap: 10px; padding: 15px 2px; color: var(--pp-ink); font-size: 16px; font-weight: 800; list-style: none; cursor: pointer; }
+.pp-section > summary::-webkit-details-marker { display: none; }
+.pp-section > summary::after { margin-left: auto; }
+.pp-section > summary span { color: #8a9a94; font-weight: 700; }
+.pp-section-body { display: grid; gap: 12px; padding: 0 0 18px; }
+.pp-evidence { display: grid; gap: 8px; margin: 0; padding-left: 18px; color: #3f5a55; font-size: 14px; line-height: 1.55; }
+.pp-section-body > small, .offers-note { color: #7a8b85; font-size: 12px; line-height: 1.5; }
+.pp-part .offers-list { display: grid; gap: 0; margin: 0; }
+.pp-part .offer { display: grid; gap: 10px; padding: 14px 0; border: 0; border-top: 1px solid var(--pp-line); border-radius: 0; background: none; box-shadow: none; }
+.pp-part .offer:first-child { border-top: 0; padding-top: 2px; }
+.pp-part .offer > div { display: grid; gap: 6px; }
+.pp-part .offer .nav-cta { justify-self: start; width: auto; }
+.pp-part .offer > a { justify-self: start; color: var(--pp-teal); font-size: 14px; font-weight: 800; }
+.pp-part .code-patch { margin: 0; padding: 0; border: 0; border-top: 1px solid var(--pp-line); border-radius: 0; background: none; }
+.pp-part .code-patch > .nav-cta { justify-content: space-between; width: 100%; min-height: 0; padding: 15px 2px; border: 0; border-radius: 0; background: none; color: var(--pp-ink); font-size: 16px; transform: none; }
+.pp-part .code-patch > .nav-cta:hover { background: none; color: var(--pp-teal); }
+.pp-part .code-patch-body { margin-top: 0; padding-bottom: 18px; }
+.pp-part .refresh-check { display: flex; align-items: center; gap: 10px; padding-top: 16px; border-top: 1px solid var(--pp-line); color: #35564d; font-size: 14px; font-weight: 700; }
+.pp-part .code-patch-heading h4 { display: none; }

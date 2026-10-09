@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from 'react'
+import { useEffect, useRef, type MouseEvent, type ReactNode } from 'react'
 import type { Job } from './api'
 import { ChatIcon } from './LandingIcons'
 
@@ -46,55 +46,58 @@ export function StageSteps({ job, reading, viewing, onView, action }: { job: Job
   </nav>
 }
 
-const pending = (job: Job) => job.messages.filter(message => message.proposal?.status === 'pending' || message.refresh_proposal?.status === 'pending' || message.spec_proposal?.status === 'pending').length
 
-// Chat lives in a side panel so the page can use its full width. It stays mounted while
-// closed, keeping the draft and scroll position.
-// On wide screens the page makes room for the open panel (see .chat-open); the panel starts
-// below the site header so the header stays usable.
-export function ChatDrawer({ job, open, onOpenChange, children }: { job: Job; open: boolean; onOpenChange: (open: boolean) => void; children: ReactNode }) {
-  const setOpen = onOpenChange
+// A panel on the right: docked beside the page on wide screens (the page makes room through
+// .sheet-open), full screen on small ones. It starts below the site header so the header stays
+// usable, closes on Esc and returns focus to whatever opened it. Children stay mounted while
+// closed, so drafts and scroll positions survive.
+export function SidePanel({ id, open, title, subtitle, onClose, onBodyClick, children }: { id: string; open: boolean; title: string; subtitle?: ReactNode; onClose: () => void; onBodyClick?: (event: MouseEvent<HTMLElement>) => void; children: ReactNode }) {
   const panelRef = useRef<HTMLElement>(null)
   const closeRef = useRef<HTMLButtonElement>(null)
-  const launcherRef = useRef<HTMLButtonElement>(null)
-  const waiting = pending(job)
-  const thinking = job.chat_state === 'queued' || job.chat_state === 'thinking'
+  const opener = useRef<HTMLElement | null>(null)
 
   useEffect(() => {
     if (!open) return
-    closeRef.current?.focus()
-    function onKey(event: KeyboardEvent) { if (event.key === 'Escape') close() }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [open])
-
-  useEffect(() => {
-    if (!open) return
+    opener.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    closeRef.current?.focus({ preventScroll: true })
+    function onKey(event: KeyboardEvent) { if (event.key === 'Escape') onClose() }
     function place() {
       const bottom = document.querySelector('.site-header')?.getBoundingClientRect().bottom ?? 0
       panelRef.current?.style.setProperty('--pp-drawer-top', `${Math.max(0, Math.round(bottom))}px`)
     }
     place()
+    window.addEventListener('keydown', onKey)
     window.addEventListener('scroll', place, { passive: true })
     window.addEventListener('resize', place)
-    return () => { window.removeEventListener('scroll', place); window.removeEventListener('resize', place) }
+    return () => {
+      window.removeEventListener('keydown', onKey)
+      window.removeEventListener('scroll', place)
+      window.removeEventListener('resize', place)
+      if (opener.current?.isConnected) opener.current.focus({ preventScroll: true })
+    }
   }, [open])
 
-  function close() {
-    setOpen(false)
-    launcherRef.current?.focus()
-  }
+  return <section ref={panelRef} id={id} className={`pp-drawer ${open ? 'is-open' : ''}`} aria-label={title} inert={!open} onClick={onBodyClick}>
+    <header className="pp-drawer-head"><div className="pp-drawer-title"><h2>{title}</h2>{subtitle && <p>{subtitle}</p>}</div><button ref={closeRef} type="button" className="pp-icon-button" aria-label="Close" onClick={onClose}>✕</button></header>
+    <div className="pp-drawer-body">{children}</div>
+  </section>
+}
 
+const pending = (job: Job) => job.messages.filter(message => message.proposal?.status === 'pending' || message.refresh_proposal?.status === 'pending' || message.spec_proposal?.status === 'pending').length
+
+// Chat lives in a side panel so the page can use its full width.
+export function ChatDrawer({ job, open, onOpenChange, children }: { job: Job; open: boolean; onOpenChange: (open: boolean) => void; children: ReactNode }) {
+  const waiting = pending(job)
+  const thinking = job.chat_state === 'queued' || job.chat_state === 'thinking'
   return <>
-    <button ref={launcherRef} type="button" className="pp-chat-launcher" aria-expanded={open} aria-controls="pp-chat" onClick={() => open ? close() : setOpen(true)}>
+    <button type="button" className="pp-chat-launcher" aria-expanded={open} aria-controls="pp-chat" onClick={() => onOpenChange(!open)}>
       <ChatIcon /> <span>Ask about this build</span>
       {waiting > 0 && <b className="pp-chat-badge" aria-label={`${waiting} ${waiting === 1 ? 'suggestion' : 'suggestions'} waiting for you`}>{waiting}</b>}
       {!waiting && thinking && <i className="pp-live" aria-hidden="true" />}
     </button>
-    <section ref={panelRef} id="pp-chat" className={`pp-drawer ${open ? 'is-open' : ''}`} aria-label="Ask about this build" inert={!open}
-      onClick={event => { if ((event.target as HTMLElement).closest('.citation-detail button') && window.matchMedia('(max-width: 760px)').matches) setOpen(false) }}>
-      <header className="pp-drawer-head"><h2>Ask about this build</h2><button ref={closeRef} type="button" className="pp-icon-button" aria-label="Close" onClick={close}>✕</button></header>
-      <div className="pp-drawer-body">{children}</div>
-    </section>
+    <SidePanel id="pp-chat" open={open} title="Ask about this build" onClose={() => onOpenChange(false)}
+      onBodyClick={event => { if ((event.target as HTMLElement).closest('.citation-detail button') && window.matchMedia('(max-width: 1099px)').matches) onOpenChange(false) }}>
+      {children}
+    </SidePanel>
   </>
 }

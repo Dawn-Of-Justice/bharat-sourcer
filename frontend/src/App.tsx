@@ -471,7 +471,11 @@ function JobPage({ id }: { id: string }) {
   const [revision, setRevision] = useState(0)
   const [actionBusy, setActionBusy] = useState(false)
   const [actionError, setActionError] = useState('')
-  const [chatOpen, setChatOpen] = useState(false)
+  // One side panel at a time: the chat, or one part's details.
+  const [chatOpen, setChatOpenState] = useState(false)
+  const [openPart, setOpenPartState] = useState<string | null>(null)
+  function setChatOpen(open: boolean) { setChatOpenState(open); if (open) setOpenPartState(null) }
+  function setOpenPart(lineId: string | null) { setOpenPartState(lineId); if (lineId) setChatOpenState(false) }
   // null follows the live stage; a number is an earlier step the user chose to look at.
   const [viewStep, setViewStep] = useState<number | null>(null)
   // Which way the content slides in: back to an earlier step, or forward.
@@ -542,7 +546,7 @@ function JobPage({ id }: { id: string }) {
     ? <button className="nav-cta" title={job.status === 'paused' ? 'Your progress is saved.' : 'Pausing does not use your action quota.'} disabled={actionBusy || job.pause_requested && job.status !== 'paused'} onClick={async () => { setActionBusy(true); setActionError(''); try { await (job.status === 'paused' ? resumeJob(id, token) : pauseJob(id, token)); setRevision(n => n + 1) } catch (cause) { setActionError(cause instanceof Error ? cause.message : 'Could not update sourcing') } finally { setActionBusy(false) } }}>{job.pause_requested && job.status !== 'paused' ? 'Pausing after this part…' : actionBusy ? 'Updating…' : job.status === 'paused' ? 'Resume' : 'Pause'}</button>
     : undefined
 
-  return <main id="main" className={`job-page project-page${chatOpen ? ' chat-open' : ''}`}><div className="container job-container pp-container">
+  return <main id="main" className={`job-page project-page${chatOpen || openPart ? ' sheet-open' : ''}`}><div className="container job-container pp-container">
     {!job && <div className="job-hero"><h1>Opening your project</h1></div>}
     {!account.ready ? <p role="status">Checking your session…</p> : (!token && (!account.identity || account.identity === 'legacy')) ? <section className="job-panel"><h2>Session access ended</h2><p>Sign in to the account that owns this project to continue. Older projects also need their original browser-session token.</p><button className="primary-button job-action" onClick={account.open}>Sign in to continue <ArrowIcon /></button></section> : fatalError ? <section className="job-panel"><h2>We couldn’t load this job</h2><p role="alert">{fatalError}</p><button className="primary-button job-action" onClick={() => { setFatalError(''); setRevision((value) => value + 1) }}>Try again <ArrowIcon /></button>{token && account.identity && account.identity !== 'legacy' && account.identity.kind === 'account' && <div className="legacy-claim"><p>If this project was created before accounts were enabled in this browser, you can save it to your account using its original access token.</p><button className="nav-cta" disabled={actionBusy} onClick={async () => { setActionBusy(true); setActionError(''); try { await claimProject(id, token); setFatalError(''); setRevision(n => n + 1) } catch (cause) { setActionError(cause instanceof Error ? cause.message : 'Could not claim this project.') } finally { setActionBusy(false) } }}>Save older project to my account</button>{actionError && <p className="form-error" role="alert">{actionError}</p>}</div>}</section> : !job ? <section className="job-panel loading-panel" role="status"><span className="loading-indicator" /> Connecting to your job…{connectionIssue ? <p>{connectionIssue}</p> : null}</section> : <>
       {connectionIssue ? <div className="connection-warning" role="status">{connectionIssue} Your saved parts and conversation remain visible.</div> : null}
@@ -553,7 +557,7 @@ function JobPage({ id }: { id: string }) {
       <div className={`pp-main pp-view pp-view-${direction}`} key={`${viewing}:${currentStep}`}>{viewing !== currentStep ? viewing === 0 ? <ConfirmedParts job={job} back={back} /> : <AnalysisProgress job={job} back={back} /> : <>
         {job.status === 'failed' ? <section className="job-panel"><h2>Analysis stopped</h2><p>{job.error?.message || 'Please start a new job and try again.'}</p></section> : null}
         {job.status === 'awaiting_confirmation' ? <Review key={JSON.stringify(job.items)} job={job} token={token} onConfirmed={() => setRevision((value) => value + 1)} /> : null}
-        {job.status === 'done' ? <Results job={job} token={token} onJob={applySnapshot} onOpenChat={() => setChatOpen(true)} /> : null}
+        {job.status === 'done' ? <Results job={job} token={token} onJob={applySnapshot} onOpenChat={() => setChatOpen(true)} openPart={openPart} onOpenPart={setOpenPart} /> : null}
         {!['awaiting_confirmation', 'done', 'failed'].includes(job.status) ? <AnalysisProgress job={job} /> : null}
       </>}</div>
       <ChatDrawer job={job} open={chatOpen} onOpenChange={setChatOpen}><ChatPanel job={job} token={token} onJob={applySnapshot} bare /></ChatDrawer>

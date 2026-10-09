@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react'
+import { useState } from 'react'
 import { offersOf, reportOf, type Job, type OrderPlanLine, type OrderPlanSeller, type ReportLine, type UnsourcedLine } from './api'
 import { amountText, price } from './ReportBits'
 import { sellerName } from './SellerIdentity'
@@ -6,12 +6,11 @@ import { sellerName } from './SellerIdentity'
 type Status = { label: string; tone: 'ok' | 'input' | 'muted' }
 // Whole rupees in the list, matching the summary band; the part details keep paise.
 const rupees = (value: string | number) => price(value).replace(/\.00(?!\d)/, '')
-export type RenderDetail = (line: ReportLine, unsourced?: UnsourcedLine) => ReactNode
 
 const unsourcedStatus: Record<UnsourcedLine['reason'], string> = { pending: 'Search pending', needs_value: 'Needs a value', no_offers: 'No seller yet', no_acceptable_offer: 'No offer fits', needs_quantity: 'Needs a quantity', cleared_by_user: 'Cleared by you' }
 
 // One status per row, the most important first: what the user has to do, then whose pick it is.
-function statusOf(line: ReportLine, plan?: OrderPlanLine, unsourced?: UnsourcedLine): Status {
+export function statusOf(line: ReportLine, plan?: OrderPlanLine, unsourced?: UnsourcedLine): Status {
   if (line.item.user_has_it) return { label: 'You have it', tone: 'muted' }
   if (unsourced) return { label: unsourcedStatus[unsourced.reason], tone: unsourced.reason === 'cleared_by_user' ? 'muted' : 'input' }
   if (plan?.selected === false || (!plan && line.recommendation?.blocked_reason && !line.selected_offer_url)) return { label: 'Confirm seller', tone: 'input' }
@@ -21,7 +20,7 @@ function statusOf(line: ReportLine, plan?: OrderPlanLine, unsourced?: UnsourcedL
   return { label: 'Recommended', tone: 'ok' }
 }
 
-function Row({ line, plan, unsourced, showSeller, renderDetail }: { line: ReportLine; plan?: OrderPlanLine; unsourced?: UnsourcedLine; showSeller: boolean; renderDetail: RenderDetail }) {
+function Row({ line, plan, unsourced, showSeller, active, onOpen }: { line: ReportLine; plan?: OrderPlanLine; unsourced?: UnsourcedLine; showSeller: boolean; active: boolean; onOpen: (lineId: string) => void }) {
   const [imageFailed, setImageFailed] = useState(false)
   const offer = offersOf(line).find(entry => entry.url === (plan?.offer_url ?? line.selected_offer_url))
   const amount = plan ? rupees(plan.line_price_inr) : offer && !line.item.user_has_it ? rupees(offer.price_inr) : null
@@ -29,17 +28,16 @@ function Row({ line, plan, unsourced, showSeller, renderDetail }: { line: Report
   const secondary = [showSeller && offer && !line.item.user_has_it ? sellerName(offer) : null, pack].filter(Boolean).join(', ')
   const status = statusOf(line, plan, unsourced)
   const image = line.line_image?.url
-  return <details id={`line-${line.item.line_id}`} className="pp-row">
-    <summary className="pp-row-summary">
+  return <div id={`line-${line.item.line_id}`} className={`pp-row${active ? ' is-active' : ''}`}>
+    <button type="button" className="pp-row-summary" aria-controls="pp-part" aria-expanded={active} onClick={() => onOpen(line.item.line_id)}>
       <span className="pp-row-thumb" aria-hidden="true">{image && !imageFailed ? <img src={image} alt="" loading="lazy" onError={() => setImageFailed(true)} /> : null}</span>
       <span className="pp-row-name"><strong>{line.item.raw_name}</strong>{secondary && <small>{secondary}</small>}</span>
       <span className="pp-row-qty" aria-label={`Quantity ${line.item.qty ?? 'unknown'}`}>×{line.item.qty ?? '?'}</span>
       <span className="pp-row-price">{amount ?? ''}</span>
       <span className={`pp-row-status pp-status-${status.tone}`}>{status.label}</span>
       <span className="pp-row-chevron" aria-hidden="true" />
-    </summary>
-    <div className="pp-row-detail">{renderDetail(line, unsourced)}</div>
-  </details>
+    </button>
+  </div>
 }
 
 function sellerTitle(seller: OrderPlanSeller, lines: Map<string, ReportLine>) {
@@ -55,7 +53,7 @@ function shippingNote(seller: OrderPlanSeller) {
 type Group = { key: string; title: string; note?: string; amount?: string; lines: ReportLine[] }
 
 // The parts list: grouped by seller (how the user will order) or in parts-list order.
-export default function PartsList({ job, renderDetail }: { job: Job; renderDetail: RenderDetail }) {
+export default function PartsList({ job, openLine, onOpen }: { job: Job; openLine: string | null; onOpen: (lineId: string) => void }) {
   const report = reportOf(job)
   const [grouping, setGrouping] = useState<'seller' | 'part'>('seller')
   if (!report) return null
@@ -63,7 +61,7 @@ export default function PartsList({ job, renderDetail }: { job: Job; renderDetai
   const lines = new Map(report.lines.map(line => [line.item.line_id, line]))
   const planLines = new Map((plan?.sellers ?? []).flatMap(seller => (seller.lines ?? []).map(entry => [entry.line_id, entry] as const)))
   const unsourced = new Map((plan?.unsourced ?? []).map(entry => [entry.line_id, entry]))
-  const row = (line: ReportLine, showSeller: boolean) => <li key={line.item.line_id}><Row line={line} plan={planLines.get(line.item.line_id)} unsourced={unsourced.get(line.item.line_id)} showSeller={showSeller} renderDetail={renderDetail} /></li>
+  const row = (line: ReportLine, showSeller: boolean) => <li key={line.item.line_id}><Row line={line} plan={planLines.get(line.item.line_id)} unsourced={unsourced.get(line.item.line_id)} showSeller={showSeller} active={openLine === line.item.line_id} onOpen={onOpen} /></li>
 
   const groups: Group[] = []
   if (grouping === 'seller') {
