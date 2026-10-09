@@ -667,7 +667,19 @@ class PartResolution(Model):
     catalog: CatalogMatch | None = None
 
 
-StorePlatform = Literal["shopify", "woocommerce", "magento", "jsonld", "unknown"]
+StorePlatform = Literal[
+    "shopify",
+    "woocommerce",
+    "magento",
+    "opencart",
+    "bigcommerce",
+    "prestashop",
+    "wix",
+    "dukaan",
+    "instamojo",
+    "jsonld",
+    "unknown",
+]
 
 
 class TrustSignals(Model):

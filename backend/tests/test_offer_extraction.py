@@ -103,7 +103,7 @@ def test_microdata_price_fallback():
 
 
 def test_meta_fallback_skips_shopify_and_pages_with_jsonld_offers():
-    shopify = '<script src="https://cdn.shopify.com/x.js"></script>'
+    shopify = '<script>Shopify.shop = "example.myshopify.com";</script>'
     assert meta_offer(page(shopify + META.format(price="7.00", currency="INR"))) is None
     priced = jsonld(offer("7.00", URL)) + META.format(price="7.00", currency="INR")
     assert meta_offer(page(priced)) is None

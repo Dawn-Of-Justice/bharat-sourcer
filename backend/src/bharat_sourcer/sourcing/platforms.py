@@ -1,6 +1,6 @@
 """Detect storefront platforms and read their public product JSON as a verified source.
 
-Used only when a fetched product page has no Product JSON-LD. Requests go through the
+Used when a fetched product page has no usable Product JSON-LD offer. Requests go through the
 same fetcher (robots.txt, HTTPS, public-address pinning, size limits). Robocraze and
 Quartz robots.txt (checked 2026-10-06) allow `/products/<handle>.json` and `.js`; Zbotic
 allows `/wp-json/wc/store/`. A store that disallows these paths is skipped by the fetcher.
@@ -17,14 +17,16 @@ from bharat_sourcer.sourcing.fetch import FetchError, Page
 from bharat_sourcer.sourcing.listings import (
     ExtractedProduct,
     OfferOption,
-    ProductScripts,
-    is_type,
-    nodes,
+    extract_product,
+    page_products,
+    page_rejection,
+    parse_inr,
     safe_image_url,
     same_url,
     seller_specs,
     title_matches,
 )
+from bharat_sourcer.sourcing.sellers import canonical_url
 
 JSON_LIMIT = 1_000_000
 # Theme-independent markers that each platform's storefront emits.
@@ -42,20 +44,14 @@ def html_page(page: Page) -> bool:
 
 
 def product_jsonld(page: Page) -> list[dict]:
-    parser = ProductScripts()
-    parser.feed(page.body.decode("utf-8", errors="replace"))
-    products = []
-    for script in parser.scripts[:30]:
-        try:
-            products.extend(n for n in nodes(json.loads(script)) if is_type(n, "Product"))
-        except (ValueError, RecursionError):
-            continue
-    return products
+    return page_products(page)[0]
 
 
 def detect_platform(page: Page) -> StorePlatform:
     """Deterministic platform guess from response headers and page markup."""
-    headers = page.headers
+    headers = {k.lower(): v for k, v in page.headers.items()}
+    if "x-wix-request-id" in headers:
+        return "wix"
     if "x-shopid" in headers or headers.get("powered-by", "").lower() == "shopify":
         return "shopify"
     if any(name.startswith("x-magento") for name in headers):
@@ -63,25 +59,27 @@ def detect_platform(page: Page) -> StorePlatform:
     if not html_page(page):
         return "unknown"
     text = page.body[:2_000_000].decode("utf-8", errors="replace").lower()
-    if any(marker in text for marker in SHOPIFY_MARKERS):
+    if any(marker in text for marker in SHOPIFY_MARKERS[1:]) or "shopify-section" in text:
         return "shopify"
     if any(marker in text for marker in WOO_MARKERS):
         return "woocommerce"
     if any(marker in text for marker in MAGENTO_MARKERS):
         return "magento"
+    for platform, markers in {
+        "opencart": ("route=product/product", "catalog/view/theme"),
+        "bigcommerce": ("cdn11.bigcommerce.com", "stencil"),
+        "prestashop": ("prestashop", "/modules/ps_"),
+        "wix": ("static.wixstatic.com",),
+        "dukaan": ("mydukaan", "dukaan.app"),
+        "instamojo": ("instamojo",),
+    }.items():
+        if any(marker in text or marker in page.url for marker in markers):
+            return platform
     return "jsonld" if product_jsonld(page) else "unknown"
 
 
 def checked_price(raw: object) -> Decimal | None:
-    try:
-        price = Decimal(str(raw))
-    except (InvalidOperation, ValueError):
-        return None
-    if not price.is_finite() or price <= 0 or price > 10_000_000:
-        return None
-    if price != price.quantize(Decimal("0.01")):
-        return None
-    return price
+    return parse_inr(raw, "INR")
 
 
 def load_json(fetcher, url: str):
@@ -93,9 +91,9 @@ def load_json(fetcher, url: str):
     return json.loads(response.body.decode("utf-8"))
 
 
-def shopify_offer(page: Page, query: str, fetcher) -> VerifiedOffer | None:
+def shopify_offer(page: Page, query: str | None, fetcher) -> VerifiedOffer | None:
     """Read `/products/<handle>.json` (price, currency) and `.js` (availability)."""
-    parsed = urlsplit(page.url)
+    parsed = urlsplit(canonical_url(page.url))
     match = SHOPIFY_PATH.match(parsed.path)
     if not match:
         return None
@@ -127,7 +125,7 @@ def shopify_offer(page: Page, query: str, fetcher) -> VerifiedOffer | None:
     if not title_matches(query, title):
         return None
     # Currency must be declared; it is never assumed from the store's country.
-    if variant.get("price_currency") != "INR":
+    if str(variant.get("price_currency", "")).upper() != "INR":
         return None
     price = checked_price(variant.get("price"))
     if price is None:
@@ -178,7 +176,7 @@ def shopify_variants(page: Page, fetcher) -> ExtractedProduct | None:
     matches the spec, and the price always comes from that variant. Single-variant products
     are left to `shopify_offer`.
     """
-    parsed = urlsplit(page.url)
+    parsed = urlsplit(canonical_url(page.url))
     match = SHOPIFY_PATH.match(parsed.path)
     if not match or parsed.query:
         return None
@@ -190,7 +188,7 @@ def shopify_variants(page: Page, fetcher) -> ExtractedProduct | None:
         return None
     title = product.get("title")
     variants = [v for v in product.get("variants", []) if isinstance(v, dict)][:50]
-    if not isinstance(title, str) or len(title) > 500 or len(variants) < 2:
+    if not isinstance(title, str) or len(title) > 500 or not variants:
         return None
     try:
         storefront = load_json(fetcher, base + ".js")
@@ -205,7 +203,11 @@ def shopify_variants(page: Page, fetcher) -> ExtractedProduct | None:
     for variant in variants:
         price = checked_price(variant.get("price"))
         name = variant.get("title")
-        if variant.get("price_currency") != "INR" or price is None or not isinstance(name, str):
+        if (
+            str(variant.get("price_currency", "")).upper() != "INR"
+            or price is None
+            or not isinstance(name, str)
+        ):
             continue
         flag = available.get(str(variant.get("id")))
         stock = "unknown" if not isinstance(flag, bool) else "in_stock" if flag else "out_of_stock"
@@ -218,7 +220,7 @@ def shopify_variants(page: Page, fetcher) -> ExtractedProduct | None:
                 url=f"{base}?variant={variant.get('id')}",
             )
         )
-    if len(options) < 2:
+    if not options:
         return None
     image = product.get("image") or (product.get("images") or [None])[0]
     src = image.get("src") if isinstance(image, dict) else None
@@ -232,9 +234,9 @@ def shopify_variants(page: Page, fetcher) -> ExtractedProduct | None:
     )
 
 
-def woocommerce_offer(page: Page, query: str, fetcher) -> VerifiedOffer | None:
+def woocommerce_offer(page: Page, query: str | None, fetcher) -> VerifiedOffer | None:
     """Read the public WooCommerce Store API entry for this simple product."""
-    parsed = urlsplit(page.url)
+    parsed = urlsplit(canonical_url(page.url))
     match = WOO_PATH.match(parsed.path)
     if not match or parsed.query:
         return None
@@ -293,9 +295,9 @@ def woocommerce_offer(page: Page, query: str, fetcher) -> VerifiedOffer | None:
     )
 
 
-def storefront_offer(page: Page, query: str, fetcher) -> VerifiedOffer | None:
-    """Structured fallback for product pages without Product JSON-LD; never raises."""
-    if not html_page(page) or product_jsonld(page):
+def storefront_offer(page: Page, query: str | None, fetcher) -> VerifiedOffer | None:
+    """Structured fallback when JSON-LD has no usable offers; never raises."""
+    if not html_page(page) or page_rejection(page) or extract_product(page):
         return None
     try:
         platform = detect_platform(page)
