@@ -70,6 +70,37 @@ def packs_for(qty: int, offer) -> int:
     return -(-qty // size) if size else qty
 
 
+# A bulk pack a maker would not buy for one build: at least BULK_UNITS times the need,
+# at least BULK_MIN_INR, and BULK_RATIO times a cheaper usable listing for the same line.
+BULK_UNITS = 20
+BULK_RATIO = 5
+BULK_MIN_INR = Decimal(100)
+
+
+def cover_cost(qty: int, offer) -> Decimal:
+    return Decimal(offer.price_inr) * packs_for(qty, offer)
+
+
+def cheapest_cover(qty: int, offers) -> Decimal | None:
+    """The lowest cost to cover `qty` among listings not out of stock and not mismatched."""
+    costs = [
+        cover_cost(qty, offer)
+        for offer in offers
+        if offer.stock != "out_of_stock"
+        and getattr(getattr(offer, "match", None), "status", None) != "mismatch"
+    ]
+    return min(costs, default=None)
+
+
+def bulk_waste(qty: int, offer, cheapest: Decimal | None) -> bool:
+    """A pack far beyond the need while a much cheaper listing covers it."""
+    size = pack_size(offer)
+    if not size or size < BULK_UNITS * qty or cheapest is None:
+        return False
+    cost = cover_cost(qty, offer)
+    return cost >= BULK_MIN_INR and cost >= BULK_RATIO * cheapest
+
+
 @dataclass(frozen=True)
 class Pick:
     """One line bought from one seller at a seller-published listing price.

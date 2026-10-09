@@ -1,4 +1,4 @@
-# AI buyer (v0.30.0, v0.30.1)
+# AI buyer (v0.30.0–v0.30.3)
 
 Hard parts are decided the way a maker buying parts in India would: from the whole project
 (what it builds, its power supply, every other part and this part's role), not from keyword
@@ -16,7 +16,7 @@ change the value through the spec (`POST …/specs`) and refresh.
 
 ## Choosing what to buy
 
-When the spec judge accepted no listing, the buyer sees every fetched listing (including
+When the spec judge accepted no listing (or only bulk packs far beyond the need, v0.30.3), the buyer sees every fetched listing (including
 rejected ones) and either picks one or asks for new store searches worded the way Indian
 shops list the part (SWG gauges, "tinned", "single strand", "kit"). At most
 `BS_BUYER_SEARCH_ROUNDS` extra searches; new listings go through the judge first.

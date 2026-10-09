@@ -19,7 +19,9 @@ from urllib.parse import urlsplit
 from bharat_sourcer.costing import (
     ZERO,
     Pick,
+    bulk_waste,
     cost_picks,
+    cover_cost,
     group,
     gst_charge,
     gst_percent,
@@ -174,6 +176,13 @@ def selection_block(line: ReportLine, offer: VerifiedOffer) -> str | None:
         return "Not selected automatically: the seller does not report it in stock."
     if offer.checked_at < now() - timedelta(hours=24):
         return "Not selected automatically: checked over 24 hours ago; refresh this part."
+    qty = line.item.qty or 1
+    if bulk_waste(qty, offer, context_for(line).cheapest_cost):
+        return (
+            f"Not selected automatically: a pack of {pack_size(offer)} for "
+            f"{rupees(cover_cost(qty, offer))} when {qty} needed; a much cheaper listing "
+            "covers it."
+        )
     confirmed = judge_confirmed(offer)
     status = requirement_status(line, offer)
     if status == "does_not_meet" or (status == "unknown" and not confirmed):

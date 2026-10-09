@@ -490,3 +490,74 @@ def test_refresh_rechecks_known_listings_only_when_one_was_usable():
     assert not worth_rechecking(buyer_pick)
     assert not worth_rechecking(partial)
     assert not worth_rechecking(unknown_value)
+
+
+LED_BULK = page(
+    "https://seller-a.example/products/5mm-clear-white-led-pack-of-1000",
+    "5mm Clear White LED (Pack of 1000)",
+    "520.00",
+)
+LED_ONE = page(
+    "https://seller-b.example/products/5mm-white-led-clear", "5mm White LED - Clear", "1.18"
+)
+PAGES.update({p.url: p for p in [LED_BULK, LED_ONE]})
+
+
+class BulkOnly:
+    """Accepts only the bulk pack; the single LED is judged partial (over-literal)."""
+
+    def judge_candidates(self, spec, project, candidates):
+        return [
+            OfferMatch(status="exact", score=1.0, method="deterministic_shortcut", pack_qty=1000)
+            if "1000" in c.title
+            else OfferMatch(status="partial", score=0.6, reasons=["Lens Color: White"])
+            for c in candidates
+        ]
+
+
+def led_line():
+    return BomItem(line_id="L03", raw_name="5mm clear LED", qty=1)
+
+
+def test_bulk_pack_alone_lets_the_buyer_pick_the_single_item():
+    buyer = Buyer(
+        choices=[
+            ChoiceDraft(
+                pick=PickDraft(
+                    candidate_id=1,
+                    fit="exact",
+                    reason="One LED is needed; the single clear LED fits.",
+                    claims=[{"claim": "5mm clear LED", "quote": "5mm White LED - Clear"}],
+                )
+            )
+        ]
+    )
+    service = SourcingService(
+        Discovery(),
+        Fetcher(),
+        judge=BulkOnly(),
+        seller_search=Sellers([LED_BULK.url, LED_ONE.url]),
+        buyer=buyer,
+    )
+    line = service.source_for_project(led_line(), [led_line()], project=PROJECT)
+    assert line.buyer and str(line.buyer.offer_url) == LED_ONE.url
+    assert str(line.offers[0].url) == LED_ONE.url and line.offers[0].match.status == "exact"
+
+
+def test_bulk_pack_is_not_selected_when_a_much_cheaper_listing_exists():
+    from bharat_sourcer.costing import bulk_waste, cheapest_cover
+    from bharat_sourcer.recommend import selection_block
+
+    service = SourcingService(
+        Discovery(),
+        Fetcher(),
+        judge=BulkOnly(),
+        seller_search=Sellers([LED_BULK.url, LED_ONE.url]),
+    )
+    line = service.source_for_project(led_line(), [led_line()], project=PROJECT)
+    bulk = next(o for o in line.offers if str(o.url) == LED_BULK.url)
+    assert bulk.pack_qty == 1000
+    assert bulk_waste(1, bulk, cheapest_cover(1, line.offers))
+    assert "pack of 1000" in selection_block(line, bulk)
+    # Needing 100 LEDs makes the 1000-pack a sensible buy.
+    assert not bulk_waste(100, bulk, cheapest_cover(100, line.offers))
