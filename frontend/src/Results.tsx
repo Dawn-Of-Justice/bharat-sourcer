@@ -1,12 +1,13 @@
 import { useState, type FormEvent } from 'react'
-import { evidenceText, offersOf, refreshOffers, reportOf, selectOffer, updateRequirements, type BuyableSpec, type Job, type ReportLine, type ResearchAssessment, type PartRequirement } from './api'
+import { evidenceText, offersOf, refreshOffers, reportOf, selectOffer, updateRequirements, type BuyableSpec, type Job, type ReportLine, type ResearchAssessment, type PartRequirement, type UnsourcedLine } from './api'
 import Requirements, { requirementPayload, validRequirements } from './Requirements'
-import { CostSummary, GradeChip, GstChip, MatchChip, PackPrice, ProductImage, price, secureLink } from './ReportBits'
-import OrderPlanView from './OrderPlan'
+import { GradeChip, GstChip, MatchChip, PackPrice, secureLink } from './ReportBits'
+import { PlanCompare } from './OrderPlan'
+import PartsList from './PartsList'
 import { ExportButtons, ShareControl } from './ReportActions'
 import { NeedsYou, SummaryBand } from './ReportSummary'
 import CodePatchView from './CodePatch'
-import { SellerIdentity, sellerName } from './SellerIdentity'
+import { SellerIdentity } from './SellerIdentity'
 
 function Assessment({ value }: { value: ResearchAssessment }) {
   return <div className="research-assessment">
@@ -91,13 +92,10 @@ function OfferList({ job, line, token, onJob, readOnly }: { job: Job; line: Repo
 export default function Results({ job, token, onJob, shareToken, onOpenChat }: { job: Job; token: string; onJob: (job: Job) => void; shareToken?: string; onOpenChat?: () => void }) {
   const report = reportOf(job)
   const readOnly = !!shareToken
-  const [view, setView] = useState<'plan' | 'parts'>(report?.order_plan ? 'plan' : 'parts')
   const [refreshIds, setRefreshIds] = useState<string[]>([])
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState('')
   if (!report) return null
-  const hasPlan = !!report.order_plan
-  const shown = hasPlan ? view : 'parts'
   const refreshable = !readOnly && !job.demo && job.status === 'done' && (job.refresh_count ?? 0) < 2
   const names = Object.fromEntries(report.lines.map(line => [line.item.line_id, line.item.raw_name]))
   async function refresh() {
@@ -107,13 +105,25 @@ export default function Results({ job, token, onJob, shareToken, onOpenChat }: {
     finally { setRefreshing(false) }
   }
   function showLine(lineId: string) {
-    setView('parts')
     requestAnimationFrame(() => {
       const card = document.getElementById(`line-${lineId}`) as HTMLDetailsElement | null
       if (card) { card.open = true; card.scrollIntoView({ behavior: 'smooth', block: 'start' }) }
     })
   }
-  const offerPicker = (line: ReportLine) => <OfferList job={job} line={line} token={token} onJob={onJob} readOnly={readOnly} />
+  const detail = (line: ReportLine, unsourced?: UnsourcedLine) => <>
+    {unsourced && <div className="pp-detail-note"><p>{unsourced.message}</p>{!!unsourced.next_steps?.length && <ul>{unsourced.next_steps.map((step, index) => <li key={index}>{step}</li>)}</ul>}</div>}
+    {line.recommendation?.blocked_reason && !line.selected_offer_url && <p className="plan-blocked">Selection pending: {line.recommendation.blocked_reason}</p>}
+    {!!line.recommendation?.reasons?.length && line.selected_offer_url === line.recommendation.offer_url && <details className="plan-reasons"><summary>Why this pick</summary><ul>{line.recommendation.reasons.map((reason, index) => <li key={index}>{reason}</li>)}</ul></details>}
+    <OfferList job={job} line={line} token={token} onJob={onJob} readOnly={readOnly} />
+    {!job.demo && !readOnly && <CodePatchView job={job} line={line} token={token} onJob={onJob} />}
+    <div className="result-more">
+      {line.item.evidence.length > 0 && <details className="result-evidence"><summary>Source evidence</summary><ul>{line.item.evidence.map((entry, i) => <li key={i}>{evidenceText(entry)}</li>)}</ul><small>Reported by extraction; check the source.</small></details>}
+      <Research line={line} />
+      <BuyingSpec spec={line.buyable_spec ?? line.item.buyable_spec} />
+      {!job.demo && !readOnly && <RequirementReview key={JSON.stringify(line.item.requirements ?? [])} job={job} line={line} token={token} onJob={onJob} />}
+    </div>
+    {refreshable && !line.item.user_has_it && <label className="refresh-check"><input type="checkbox" checked={refreshIds.includes(line.item.line_id)} onChange={event => setRefreshIds(current => event.target.checked ? [...current, line.item.line_id] : current.filter(id => id !== line.item.line_id))} /> Include in new seller search</label>}
+  </>
   return (
     <section className="job-panel report-panel">
       <SummaryBand job={job} actions={<>
@@ -121,54 +131,10 @@ export default function Results({ job, token, onJob, shareToken, onOpenChat }: {
         {!readOnly && <ShareControl key={job.job_id} job={job} token={token} />}
       </>} />
       <NeedsYou job={job} readOnly={readOnly} onShowLine={showLine} onOpenChat={onOpenChat} />
-      {hasPlan && <div className="report-views" role="group" aria-label="Report view">
-        <button type="button" className="nav-cta" aria-pressed={shown === 'plan'} onClick={() => setView('plan')}>Order plan</button>
-        <button type="button" className="nav-cta" aria-pressed={shown === 'parts'} onClick={() => setView('parts')}>All parts</button>
-      </div>}
-      <div className="report-layout report-layout-single">
-        <div className="report-main">
-          {shown === 'plan'
-            ? <OrderPlanView job={job} token={token} onJob={onJob} readOnly={readOnly} renderOffers={offerPicker} onShowLine={showLine} />
-            : <>
-              <div className="result-list">{report.lines.map((line, index) => {
-                const offers = offersOf(line)
-                const featured = offers.find(offer => offer.url === line.selected_offer_url)
-                  ?? offers.find(offer => offer.url === line.recommendation?.offer_url)
-                  ?? offers[0]
-                return <details id={`line-${line.item.line_id}`} className="result-card" key={line.item.line_id}>
-                  <summary className="result-card-summary">
-                    <ProductImage job={job} line={line} token={token} readOnly={readOnly} />
-                    <div className="result-card-identity">
-                      <small>PART {index + 1} · QTY {line.item.qty ?? 'unknown'}</small>
-                      <h3>{line.item.raw_name}</h3>
-                      <span>{line.item.user_has_it ? 'Already owned' : featured ? `Seller: ${sellerName(featured)}` : 'No verified seller yet'}</span>
-                      {(line.buyable_spec ?? line.item.buyable_spec)?.needs_value && <small className="result-card-note">Value to confirm</small>}
-                    </div>
-                    <div className="result-card-end">
-                      {featured && <strong>{price(featured.price_inr)}</strong>}
-                      <span>{featured ? line.selected_offer_url === featured.url ? 'Selected quote' : 'Seller quote' : 'Part details'}</span>
-                      <b className="result-card-toggle">View details</b>
-                    </div>
-                  </summary>
-                  <div className="result-card-content">
-                    {featured?.title && <p className="result-card-description">{featured.title}</p>}
-                    {line.recommendation?.blocked_reason && !line.selected_offer_url && <p className="plan-blocked">Selection pending: {line.recommendation.blocked_reason}</p>}
-                    {offerPicker(line)}
-                    {!job.demo && !readOnly && <CodePatchView job={job} line={line} token={token} onJob={onJob} />}
-                    <div className="result-more">
-                      {line.item.evidence.length > 0 && <details className="result-evidence"><summary>Source evidence</summary><ul>{line.item.evidence.map((entry, i) => <li key={i}>{evidenceText(entry)}</li>)}</ul><small>Reported by extraction; check the source.</small></details>}
-                      <Research line={line} />
-                      <BuyingSpec spec={line.buyable_spec ?? line.item.buyable_spec} />
-                      {!job.demo && !readOnly && <RequirementReview key={JSON.stringify(line.item.requirements ?? [])} job={job} line={line} token={token} onJob={onJob} />}
-                    </div>
-                    {refreshable && !line.item.user_has_it && <label className="refresh-check"><input type="checkbox" checked={refreshIds.includes(line.item.line_id)} onChange={event => setRefreshIds(current => event.target.checked ? [...current, line.item.line_id] : current.filter(id => id !== line.item.line_id))} /> Include in new seller search</label>}
-                  </div>
-                </details>
-              })}</div>
-              {report.costing ? <CostSummary costing={report.costing} title={report.costing.complete ? 'Selected parts estimate' : 'Partial estimate (selected parts only)'} lineNames={names} /> : !job.demo && <div className="subtotal"><span>Selected parts subtotal</span><strong>{price(report.parts_subtotal_inr ?? report.selected_parts_subtotal_inr)}</strong></div>}
-              {refreshable && <div className="refresh-controls"><p>New seller search may use paid analysis. Selected parts lose their old quotes; other parts stay saved. {2 - (job.refresh_count ?? 0)} of 2 refresh batches remain.</p><button className="nav-cta" disabled={!refreshIds.length || refreshIds.length > 10 || refreshing} onClick={() => void refresh()}>{refreshing ? 'Starting search…' : `Refresh ${refreshIds.length} selected ${refreshIds.length === 1 ? 'part' : 'parts'}`}</button>{refreshIds.length > 10 && <p>Select at most 10 parts per batch.</p>}{error && <p className="form-error" role="alert">{error}</p>}</div>}
-            </>}
-        </div>
+      <PartsList job={job} renderDetail={detail} />
+      <div className="pp-after-list">
+        {refreshable && <div className="refresh-controls"><p>New seller search may use paid analysis. Selected parts lose their old quotes; other parts stay saved. {2 - (job.refresh_count ?? 0)} of 2 refresh batches remain.</p><button className="nav-cta" disabled={!refreshIds.length || refreshIds.length > 10 || refreshing} onClick={() => void refresh()}>{refreshing ? 'Starting search…' : `Refresh ${refreshIds.length} selected ${refreshIds.length === 1 ? 'part' : 'parts'}`}</button>{refreshIds.length > 10 && <p>Select at most 10 parts per batch.</p>}{error && <p className="form-error" role="alert">{error}</p>}</div>}
+        {report.order_plan && !readOnly && !job.demo && <PlanCompare job={job} token={token} onJob={onJob} names={names} />}
       </div>
     </section>
   )
