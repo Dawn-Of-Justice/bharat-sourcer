@@ -3,7 +3,7 @@
   "info": {
     "title": "Bharat Sourcer API",
     "description": "Demo or live YouTube and project-page extraction with optional Firestore job persistence.",
-    "version": "0.27.0"
+    "version": "0.28.0"
   },
   "paths": {
     "/v1/session/guest": {
@@ -2103,6 +2103,293 @@
               }
             },
             "description": "Service Unavailable"
+          }
+        }
+      }
+    },
+    "/v1/jobs/{job_id}/lines/{line_id}/code-patch": {
+      "post": {
+        "tags": [
+          "code"
+        ],
+        "summary": "Create Code Patch",
+        "operationId": "create_code_patch_v1_jobs__job_id__lines__line_id__code_patch_post",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Job Id"
+            }
+          },
+          {
+            "name": "line_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Line Id"
+            }
+          },
+          {
+            "name": "x-job-token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Job-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CodePatchRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CodePatch"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          }
+        }
+      }
+    },
+    "/v1/jobs/{job_id}/lines/{line_id}/code-patch/accept": {
+      "post": {
+        "tags": [
+          "code"
+        ],
+        "summary": "Accept Code Patch",
+        "operationId": "accept_code_patch_v1_jobs__job_id__lines__line_id__code_patch_accept_post",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Job Id"
+            }
+          },
+          {
+            "name": "line_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Line Id"
+            }
+          },
+          {
+            "name": "x-job-token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Job-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CodePatch"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          }
+        }
+      }
+    },
+    "/v1/jobs/{job_id}/lines/{line_id}/code-patch.zip": {
+      "get": {
+        "tags": [
+          "code"
+        ],
+        "summary": "Download Code Patch",
+        "operationId": "download_code_patch_v1_jobs__job_id__lines__line_id__code_patch_zip_get",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Job Id"
+            }
+          },
+          {
+            "name": "line_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Line Id"
+            }
+          },
+          {
+            "name": "x-job-token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Job-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/zip": {}
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
           }
         }
       }
@@ -4276,6 +4563,232 @@
           "end"
         ],
         "title": "ClipRange"
+      },
+      "CodePatch": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ready",
+              "unavailable"
+            ],
+            "title": "Status"
+          },
+          "origin": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "curated",
+                  "ai_draft"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Origin"
+          },
+          "check": {
+            "type": "string",
+            "enum": [
+              "not_checked",
+              "compiles",
+              "compile_failed"
+            ],
+            "title": "Check",
+            "default": "not_checked"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "no_code",
+                  "file_not_read",
+                  "no_substitute",
+                  "recipe_not_applicable",
+                  "no_code_change_needed",
+                  "ai_failed_validation",
+                  "out_of_scope_mcu",
+                  "budget",
+                  "source_changed"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "detail": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detail"
+          },
+          "from_catalog_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "From Catalog Id"
+          },
+          "to_catalog_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "To Catalog Id"
+          },
+          "offer_url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2083,
+                "minLength": 1,
+                "format": "uri"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Offer Url"
+          },
+          "files": {
+            "items": {
+              "$ref": "#/components/schemas/CodePatchFile"
+            },
+            "type": "array",
+            "maxItems": 8,
+            "title": "Files"
+          },
+          "applied": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 20,
+            "title": "Applied"
+          },
+          "skipped": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 20,
+            "title": "Skipped"
+          },
+          "notes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 20,
+            "title": "Notes"
+          },
+          "assumptions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 10,
+            "title": "Assumptions"
+          },
+          "accepted": {
+            "type": "boolean",
+            "title": "Accepted",
+            "default": false
+          },
+          "ai_calls": {
+            "type": "integer",
+            "maximum": 10.0,
+            "minimum": 0.0,
+            "title": "Ai Calls",
+            "default": 0
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "title": "CodePatch",
+        "description": "Code changes for a substituted part; never compiled or tested on hardware.\n\norigin: curated (a maintained recipe) or ai_draft (model-written, validated, must be\naccepted by the owner). check: not_checked until a compile runner exists. status\nunavailable always carries a reason; notes always list the non-code changes."
+      },
+      "CodePatchFile": {
+        "properties": {
+          "path": {
+            "type": "string",
+            "maxLength": 300,
+            "minLength": 1,
+            "title": "Path"
+          },
+          "diff": {
+            "type": "string",
+            "maxLength": 60000,
+            "title": "Diff"
+          },
+          "source_url": {
+            "type": "string",
+            "maxLength": 600,
+            "title": "Source Url"
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Sha256"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "path",
+          "diff",
+          "source_url",
+          "sha256"
+        ],
+        "title": "CodePatchFile"
+      },
+      "CodePatchRequest": {
+        "properties": {
+          "offer_url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2083,
+                "minLength": 1,
+                "format": "uri"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Offer Url"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "CodePatchRequest"
       },
       "CompatFinding": {
         "properties": {
@@ -8032,6 +8545,16 @@
             "minimum": 0.0,
             "title": "Gemini Calls",
             "default": 0
+          },
+          "code_patch": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CodePatch"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "additionalProperties": false,

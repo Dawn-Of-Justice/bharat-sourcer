@@ -69,3 +69,12 @@ and reviewed refresh actions, then add reviewed specification changes. Develop s
 parsing and circuit-context work against real labelled examples. Add public-launch controls
 before opening paid job creation to general users. Rule repairs must preserve failure
 evidence and earn promotion through regression checks.
+
+## Proposed, awaiting owner approval: code-adapt tier 3 compile runner
+
+Compile curated/AI code patches with `arduino-cli` in an isolated Cloud Run **Job** (pinned
+cores, no secrets, egress limited to GitHub and the Arduino index, compile only, never
+upload), writing results to an inbox the API processes idempotently; at most two
+compiler-error repair rounds. New infrastructure (job, images, service account, egress
+policy), so it is not built. Details: `docs/plans/code-adapt/PLAN.md` §6. Tiers 1–2 shipped
+in v0.28.0 with `check: not_checked`.

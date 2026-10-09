@@ -53,6 +53,7 @@ def redact(job: Job) -> SharedProject:
         report = job.report.model_copy(deep=True)
         for line in report.lines:
             line.attribution = None
+            line.code_patch = None  # Code patches are owner-only.
     return SharedProject(
         demo=job.demo,
         status=job.status,

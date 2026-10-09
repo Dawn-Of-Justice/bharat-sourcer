@@ -1,4 +1,9 @@
-# Implemented API contract — v0.27.0
+# Implemented API contract — v0.28.0
+
+v0.28.0 adds [code patches for substituted parts](code-adapt.md): optional
+`report.lines[].code_patch` (`CodePatch`), `POST …/lines/{line_id}/code-patch`,
+`POST …/code-patch/accept` and `GET …/code-patch.zip`. Owner-only; never compiled.
+**Frontend to do:** diff viewer, labels, notes, Accept and Download.
 
 v0.27.0 improves [seller query routing](seller-search.md) and structured offer parsing.
 Offers add optional `seller_domain`, `seller_name` and `seller_kind`

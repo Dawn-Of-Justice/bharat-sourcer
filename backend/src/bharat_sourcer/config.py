@@ -43,6 +43,9 @@ class Settings(BaseSettings):
     image_generation_enabled: bool = False
     image_model: str = Field(default="gemini-3.1-flash-lite-image", pattern=r"^[a-zA-Z0-9.-]+$")
     image_daily_limit: int = Field(default=30, ge=1, le=500)
+    # Tier 2 of docs/plans/code-adapt: AI-drafted code patches (off until approved).
+    code_adapt_ai: bool = False
+    code_adapt_daily_limit: int = Field(default=50, ge=1, le=1000)
     guest_session_secret: SecretStr | None = None
     guest_session_days: int = Field(default=14, ge=1, le=30)
     guest_part_limit: int = Field(default=3, ge=1, le=10)
