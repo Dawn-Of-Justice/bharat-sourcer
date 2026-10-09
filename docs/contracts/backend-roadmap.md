@@ -25,7 +25,7 @@ records automated probe results and the remaining human relevance-review limitat
 
 - **Code adaptation:** tiers 1–2 shipped in v0.28.0 and tier 3 (compile checks in
   isolated Cloud Run jobs) in v0.29.0 ([contract](code-adapt.md), [plan](../plans/code-adapt/PLAN.md)).
-  The frontend shows patches; the compile-check UI is not built. Hardware testing and
+  The frontend shows patches and runs compile checks. Hardware testing and
   PlatformIO builds are out of scope.
 - **Evaluation:** curate real labelled extraction examples and manually review seller
   relevance before claiming accuracy. The [gold set](evaluation-gold-set.md) is a draft.
