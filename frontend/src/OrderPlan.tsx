@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from 'react'
 import { getPlans, offersOf, reportOf, selectOffer, selectOffers, type CartPlans, type Job, type OrderPlanLine, type OrderPlanSeller, type ReportLine, type UnsourcedLine } from './api'
 import { CostSummary, GradeChip, GstChip, MatchChip, ProductImage, amountText, price, secureLink } from './ReportBits'
+import { SellerIdentity, sellerName } from './SellerIdentity'
 
 type Props = { job: Job; token: string; onJob: (job: Job) => void; readOnly: boolean; renderOffers: (line: ReportLine) => ReactNode; onShowLine: (lineId: string) => void }
 const errorText = (cause: unknown, fallback: string) => cause instanceof Error ? cause.message : fallback
@@ -24,13 +25,14 @@ function PlanLine({ job, token, onJob, readOnly, renderOffers, plan, line }: Omi
         {line && <ProductImage job={job} line={line} token={token} readOnly={readOnly} />}
         <div className="plan-line-identity">
           <strong>{plan.name}</strong>
-          <span>Need {plan.qty} · {offer?.seller ?? 'Seller listing'}</span>
+          <span>Need {plan.qty} · {offer ? sellerName(offer) : 'Seller listing'}</span>
           {plan.selected === false && <small>Selection pending</small>}
           {plan.changes_required && <small>Changes to review</small>}
         </div>
         <div className="plan-line-price"><strong>{price(plan.line_price_inr)}</strong><small>{price(plan.unit_price_inr)} {plan.pack_qty ? `per pack of ${plan.pack_qty}` : 'each'}</small><b className="result-card-toggle">View details</b></div>
       </summary>
       <div className="plan-line-content">
+        {offer && <SellerIdentity offer={offer} />}
         {plan.title && <p className="result-card-description">{plan.title}</p>}
         {offer?.match?.variant && <p className="plan-variant">Variant: {offer.match.variant}</p>}
         <p className="plan-qty">Need {plan.qty} · {pack}{spare > 0 ? ` (${spare} spare)` : ''}</p>
@@ -55,7 +57,12 @@ function PlanLine({ job, token, onJob, readOnly, renderOffers, plan, line }: Omi
 function SellerCard(props: Omit<Props, 'onShowLine'> & { seller: OrderPlanSeller; lines: Map<string, ReportLine> }) {
   const { seller, lines } = props
   const titles = new Map(seller.lines?.map(plan => [plan.offer_url, plan.name]))
-  return <article className="seller-card" aria-label={`Order from ${seller.seller}`}><header className="seller-card-head"><div><span className="section-kicker">SELLER</span><h3>{seller.seller}</h3></div></header><ul className="plan-lines">{seller.lines?.map(plan => <PlanLine key={plan.line_id} {...props} plan={plan} line={lines.get(plan.line_id)} />)}</ul><dl className="seller-totals"><div className="cost-row"><dt>Subtotal</dt><dd><strong>{price(seller.subtotal_inr)}</strong></dd></div></dl>{seller.product_links?.length ? <div className="product-links"><strong>Product pages</strong> <small>Open each part on the seller’s site.</small><ul>{seller.product_links.map(url => secureLink(url) ? <li key={url}><a href={url} target="_blank" rel="noopener noreferrer">{titles.get(url) ?? new URL(url).hostname} ↗</a></li> : null)}</ul></div> : null}</article>
+  const representative = seller.lines?.map(plan => {
+    const line = lines.get(plan.line_id)
+    return line && offersOf(line).find(offer => offer.url === plan.offer_url)
+  }).find(Boolean)
+  const name = representative && representative.seller_kind !== 'marketplace' ? sellerName(representative) : seller.seller
+  return <article className="seller-card" aria-label={`Order from ${name}`}><header className="seller-card-head"><div><span className="section-kicker">SELLER</span><h3>{name}</h3>{name !== seller.seller && <small>{seller.seller}</small>}</div></header><ul className="plan-lines">{seller.lines?.map(plan => <PlanLine key={plan.line_id} {...props} plan={plan} line={lines.get(plan.line_id)} />)}</ul><dl className="seller-totals"><div className="cost-row"><dt>Subtotal</dt><dd><strong>{price(seller.subtotal_inr)}</strong></dd></div></dl>{seller.product_links?.length ? <div className="product-links"><strong>Product pages</strong> <small>Open each part on the seller’s site.</small><ul>{seller.product_links.map(url => secureLink(url) ? <li key={url}><a href={url} target="_blank" rel="noopener noreferrer">{titles.get(url) ?? new URL(url).hostname} ↗</a></li> : null)}</ul></div> : null}</article>
 }
 
 const unsourcedLabel: Record<UnsourcedLine['reason'], string> = { pending: 'Search pending', needs_value: 'Value needed', no_offers: 'No verified listing', no_acceptable_offer: 'No suitable listing', needs_quantity: 'Quantity needed', cleared_by_user: 'Cleared by you' }

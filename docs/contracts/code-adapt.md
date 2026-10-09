@@ -88,5 +88,7 @@ stay near lines that use the original library; one repair attempt, then
 
 ## Frontend status
 
-Not built. Suggested: on a line whose selected offer is a substitute, a "Code changes"
-button → diff viewer with labels and notes → Accept (AI drafts) → Download ZIP.
+The results view shows a "Code changes" panel for a selected catalogue substitute.
+It displays file diffs, origin and "Not compiled" labels, plus wiring, power and
+verification notes. AI drafts require Accept before Download ZIP. Shared reports do
+not show code patches.

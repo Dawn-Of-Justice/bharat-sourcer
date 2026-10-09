@@ -92,7 +92,12 @@ Part images use the backend's labelled category or placeholder fallback when pho
 - **Export and share** (`ReportActions.tsx`): "Download PDF" fetches `export.pdf` through the proxy and saves it as `<project>.pdf` (CSV export was removed). The share control creates, copies and revokes links; the token is shown once, and creating a new link replaces the old one. The server proxy now forwards `DELETE`. **Public share page** `/shared/<token>` (`SharedReport.tsx`) renders the report read-only (no chat, edit, select, refresh or image generation), with `notice` and the demo label, and handles 404 (revoked) and 429.
 - **Explain aloud** appears only when `GET /extras` reports it as enabled. Zoom and parts-bin scan are not built on the report.
 - The estimated AI cost (`job.cost_estimate.total_usd`) is labelled as an estimate, not a charge.
-- Preview: `?preview=1&stage=plan` shows a dummy non-demo order plan (invented sellers, prices, grades and shops, all labelled "dummy"). The toolbar's "Shared link" opens the read-only share page. In nearby markets, Bengaluru shows a dummy grounded layout with sources; other cities show the demo sample.
+- A selected catalogue substitute shows **Code changes**. The panel displays code diffs,
+  origin and Not compiled labels, and wiring/power/verification notes. AI drafts need
+  explicit acceptance before ZIP download; shared and demo reports hide this control.
+- Seller quotes show the backend's optional seller name, domain and store type, plus
+  trust labels and reasons. Marketplace trust does not verify the individual merchant.
+- Preview: `/job/ui-preview?preview=1&stage=plan` shows a dummy non-demo order plan (invented sellers, prices, grades and shops, all labelled "dummy"). Choose All parts, open the sample sensor, then Code changes to inspect a sample diff; patch actions are disabled in preview. The toolbar's "Shared link" opens the read-only share page. In nearby markets, Bengaluru shows a dummy grounded layout with sources; other cities show the demo sample.
 
 The YouTube player and PWA share target remain future frontend work. The implemented API is documented in [docs/contracts](../docs/contracts/README.md); the broader [frontend architecture](../docs/02-architecture/09-frontend-and-ux.md) is a target design.
 
