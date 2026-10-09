@@ -14,23 +14,24 @@ import html
 import json
 import logging
 import re
-import unicodedata
+import threading
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, wait
 from dataclasses import dataclass, field
 from decimal import Decimal, InvalidOperation
 from html.parser import HTMLParser
 from pathlib import Path
-from urllib.parse import quote, quote_plus, urljoin, urlsplit, urlunsplit
+from urllib.parse import quote, quote_plus, urljoin, urlsplit
 
 from bharat_sourcer.sourcing.fetch import FetchError, Page, SafeFetcher
 from bharat_sourcer.sourcing.politeness import (
     BLOCKED,
     BlockedError,
     Politeness,
-    cache_key,
-    normalise_part,
 )
+from bharat_sourcer.sourcing.routing import Rung, normalise
+from bharat_sourcer.sourcing.sellers import host_of, listing_key
+from bharat_sourcer.sourcing.textmatch import relevance
 
 REGISTRY = json.loads((Path(__file__).parent / "known_sellers.json").read_text("utf-8"))["sellers"]
 SEARCH_BYTES = 1_000_000
@@ -80,7 +81,9 @@ class SearchResult:
         """One sentence for no-offer diagnostics, e.g. 'robu.in blocked automated access; …'."""
         blocked = self.blocked()
         checked = [d for d in self.diagnostics if d.status in {"ok", "no_results"}]
-        failed = [d for d in self.diagnostics if d.status in {"error", "timeout"}]
+        failed = [
+            d for d in self.diagnostics if d.status in {"error", "timeout", "timeout_partial"}
+        ]
         text = (
             f"Seller search checked {len(checked)} "
             f"{'other ' if blocked else ''}seller{'s' if len(checked) != 1 else ''} "
@@ -95,15 +98,6 @@ class SearchResult:
 
 
 # --- text helpers --------------------------------------------------------------------------
-
-
-def normalise(text: str) -> str:
-    text = unicodedata.normalize("NFKC", text).replace("µ", "u").replace("μ", "u")
-    # "10Ω" -> "10 ohm"; "33kΩ" -> "33k" (sellers write "33k ohm", "33K", "33 kOhm").
-    text = re.sub(r"(\d)\s*[Ωω]", r"\1 ohm", text)
-    text = text.replace("Ω", " ").replace("ω", " ")
-    text = re.sub(r"[^\w.\-/ ]+", " ", text.lower())
-    return re.sub(r"\s+", " ", text).strip(" .-/")
 
 
 def tokens(text: str) -> set[str]:
@@ -163,15 +157,12 @@ def overlap(query: str, title: str | None) -> float:
 
 
 def url_key(url: str) -> str:
-    parts = urlsplit(url)
-    host = (parts.hostname or "").lower().removeprefix("www.")
-    return urlunsplit(("https", host, parts.path.rstrip("/").lower(), "", ""))
+    return listing_key(url)
 
 
 def own_host(url: str, domain: str) -> bool:
-    parts = urlsplit(url)
-    host = (parts.hostname or "").lower()
-    return parts.scheme == "https" and (host == domain or host.endswith("." + domain))
+    host, domain = host_of(url), host_of(domain)
+    return urlsplit(url).scheme == "https" and (host == domain or host.endswith("." + domain))
 
 
 def money_hint(raw: object, minor: int = 0) -> str | None:
@@ -204,7 +195,11 @@ def shopify_suggest(fetch: Fetch, seller: dict, query: str, limit: int) -> list[
             f"&resources%5Btype%5D=product&resources%5Blimit%5D={min(limit, 10)}"
         )
     )
-    products = data.get("resources", {}).get("results", {}).get("products", [])
+    if not isinstance(data, dict):
+        raise ValueError("Invalid Shopify search response")
+    products = data.get("resources", {}).get("results", {}).get("products")
+    if not isinstance(products, list):
+        raise ValueError("Invalid Shopify products response")
     found = []
     for product in products if isinstance(products, list) else []:
         handle = product.get("handle") if isinstance(product, dict) else None
@@ -236,7 +231,9 @@ def woo_store_api(fetch: Fetch, seller: dict, query: str, limit: int) -> list[Ca
         )
     )
     found = []
-    for product in data if isinstance(data, list) else []:
+    if not isinstance(data, list):
+        raise ValueError("Invalid WooCommerce search response")
+    for product in data:
         if not isinstance(product, dict):
             continue
         link = product.get("permalink")
@@ -363,7 +360,7 @@ class SellerSearch:
         *,
         max_workers: int = 6,
         deadline_s: float = 20,
-        queries_per_seller: int = 3,
+        queries_per_seller: int = 4,
     ):
         self.politeness = politeness or Politeness()
         self.fetcher = fetcher or SafeFetcher()
@@ -373,67 +370,91 @@ class SellerSearch:
         self.deadline_s = deadline_s
         self.queries_per_seller = max(1, queries_per_seller)
 
-    def _fetcher_for(self, seller: dict, query: str) -> Fetch:
-        shared = cache_key("seller_search", seller["domain"], normalise_part(query))
-
+    def _fetcher_for(self, seller: dict, query: str, pages: list[tuple[str, Page]]) -> Fetch:
         def fetch(url: str) -> Page:
-            return self.politeness.get(
-                self.fetcher, url, kind="search", shared_key=shared, max_bytes=SEARCH_BYTES
+            page = self.politeness.get(
+                self.fetcher, url, kind="search", cacheable=False, max_bytes=SEARCH_BYTES
             )
+            pages.append((url, page))
+            return page
 
         return fetch
 
-    def _search_one(self, seller: dict, queries: list[str], limit: int):
+    def _search_one(self, seller: dict, queries: list[str], limit: int, progress=None):
         adapter = ADAPTERS[seller["search"]["adapter"]]
-        diagnostic = SellerDiagnostic(seller=seller["domain"], status="no_results")
-        tried = queries[: self.queries_per_seller]
-        # One shorter retry when the store finds nothing for the full wording.
-        # The most specific short form first ("5mm white led" before "5mm led").
-        shorts = [s for s in dict.fromkeys(map(short_query, tried)) if s and s not in tried]
-        shorts = [s for s in shorts if len(s.split()) > 1]
-        fallback = max(shorts, key=lambda s: len(s.split()), default=None)
-        collected: list[Candidate] = []
-        seen: set[str] = set()
-        for query in [*tried, *([fallback] if fallback else [])]:
-            if query == fallback and collected:
-                break  # the fallback is only for stores that found nothing
-            diagnostic.queries.append(query)
-            try:
-                found = adapter(self._fetcher_for(seller, query), seller, query, limit)
-            except BlockedError as exc:
-                return [], SellerDiagnostic(seller["domain"], BLOCKED, detail=exc.reason)
-            except FetchError as exc:
-                status = "robots_disallowed" if "Robots" in str(exc) else "error"
-                return [], SellerDiagnostic(seller["domain"], status, detail=str(exc)[:200])
-            except (ValueError, KeyError, TypeError, AttributeError, RecursionError) as exc:
-                return [], SellerDiagnostic(seller["domain"], "error", detail=str(exc)[:200])
-            for position, candidate in enumerate(found):
-                if url_key(candidate.url) in seen:
-                    continue
-                seen.add(url_key(candidate.url))
-                candidate.query, candidate.rank = query, len(collected) + position
-                candidate.score = overlap(query, candidate.title)
-                collected.append(candidate)
-            # Stop once a title names everything a query asked for; otherwise the next query
-            # may find the right listing (a store's "5mm clear led" can return LED holders).
-            if any(c.score >= 1.0 for c in collected) or len(collected) >= limit * 2:
+        collected, diagnostic, lock, stopped = progress or (
+            [],
+            SellerDiagnostic(seller["domain"], "no_results"),
+            threading.Lock(),
+            threading.Event(),
+        )
+        rungs = list(queries)
+        if seller["search"]["adapter"] == "woo_store_api":
+            rungs.sort(key=lambda q: getattr(q, "kind", "") != "model")
+        part = getattr(rungs[0], "part_terms", str(rungs[0])) if rungs else ""
+        seen = set()
+        for rung in rungs[: self.queries_per_seller]:
+            if stopped.is_set():
                 break
-        if collected:
-            # Seller order, with title overlap as a light tie-break; nothing is dropped.
-            collected.sort(key=lambda c: (-round(c.score, 1), c.rank))
-            diagnostic.status, diagnostic.candidates = "ok", len(collected)
+            query = str(rung)
+            with lock:
+                diagnostic.queries.append(query)
+            pages = []
+            try:
+                found = adapter(self._fetcher_for(seller, query, pages), seller, query, limit)
+                for url, page in pages:
+                    self.politeness.cache_response(
+                        url,
+                        page,
+                        kind="search",
+                        max_bytes=SEARCH_BYTES,
+                        ttl_s=None if found else 600,
+                    )
+            except (BlockedError, FetchError) as exc:
+                with lock:
+                    diagnostic.status = (
+                        BLOCKED
+                        if isinstance(exc, BlockedError)
+                        else ("robots_disallowed" if "robots" in str(exc).lower() else "error")
+                    )
+                    diagnostic.detail = str(exc)[:200]
+                break
+            except (ValueError, KeyError, TypeError, AttributeError, RecursionError) as exc:
+                with lock:
+                    diagnostic.status = "error"
+                    diagnostic.detail = str(exc)[:200]
+                continue
+            with lock:
+                for candidate in found:
+                    if url_key(candidate.url) in seen:
+                        continue
+                    seen.add(url_key(candidate.url))
+                    candidate.query, candidate.rank = query, len(seen) - 1
+                    candidate.score = relevance(part, candidate.title or "")
+                    collected.append(candidate)
+                diagnostic.candidates = len(collected)
+            if (getattr(rung, "kind", "") == "model" or len(query.split()) >= 2) and any(
+                c.score >= 0.8 for c in found
+            ):
+                break
+        with lock:
+            collected.sort(key=lambda c: (-c.score, c.rank))
+            if collected and diagnostic.status not in {BLOCKED, "robots_disallowed"}:
+                diagnostic.status = "ok"
         return collected, diagnostic
 
     def search(
         self, queries: list[str], limit_per_seller: int = 5, total_budget: int = 12
     ) -> SearchResult:
-        queries = [q for q in dict.fromkeys(q.strip() for q in queries) if q][:4]
+        queries = list(
+            dict.fromkeys(q if isinstance(q, Rung) else q.strip() for q in queries if q.strip())
+        )
         known_blocked = [
             e["domain"]
             for e in self.registry
             if e.get("access") == BLOCKED and not e.get("enabled")
         ]
-        result = SearchResult(queries, [], [], known_blocked)
+        result = SearchResult([str(q) for q in queries[:4]], [], [], known_blocked)
         if not queries or not self.sellers:
             return result
         sellers = []
@@ -446,22 +467,44 @@ class SellerSearch:
             else:
                 sellers.append(seller)
         pool = ThreadPoolExecutor(max_workers=min(self.max_workers, max(1, len(sellers))))
+        progress = {
+            seller["domain"]: (
+                [],
+                SellerDiagnostic(seller["domain"], "no_results"),
+                threading.Lock(),
+                threading.Event(),
+            )
+            for seller in sellers
+        }
         try:
             futures = {
-                pool.submit(self._search_one, seller, queries, limit_per_seller): seller
+                pool.submit(
+                    self._search_one, seller, queries, limit_per_seller, progress[seller["domain"]]
+                ): seller
                 for seller in sellers
             }
             done, _ = wait(futures, timeout=self.deadline_s)
             per_seller = []
             for future, seller in futures.items():
+                collected, diagnostic, lock, stopped = progress[seller["domain"]]
                 if future not in done:
-                    result.diagnostics.append(SellerDiagnostic(seller["domain"], "timeout"))
-                    continue
-                try:
-                    found, diagnostic = future.result()
-                except Exception:
-                    logging.getLogger(__name__).warning("SELLER_SEARCH_FAILED", exc_info=True)
-                    found, diagnostic = [], SellerDiagnostic(seller["domain"], "error")
+                    stopped.set()
+                    with lock:
+                        found = sorted(collected, key=lambda c: (-c.score, c.rank))
+                        diagnostic = SellerDiagnostic(
+                            seller["domain"],
+                            "timeout_partial" if found else "timeout",
+                            len(found),
+                            queries=list(diagnostic.queries),
+                        )
+                else:
+                    try:
+                        found, diagnostic = future.result()
+                    except Exception:
+                        logging.getLogger(__name__).warning("SELLER_SEARCH_FAILED", exc_info=True)
+                        with lock:
+                            found = list(collected)
+                        diagnostic = SellerDiagnostic(seller["domain"], "error", len(found))
                 result.diagnostics.append(diagnostic)
                 per_seller.append(found)
         finally:

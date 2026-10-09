@@ -21,7 +21,7 @@ from urllib.parse import urlsplit
 from bharat_sourcer.sourcing.fetch import FetchError, Page, SafeFetcher
 
 try:  # Shared cache from the cost stream (merged on the integration branch).
-    from bharat_sourcer.sourcing.cache import TTL, cache_key, normalise_part
+    from bharat_sourcer.sourcing.cache import TTL, cache_key
 except ImportError:  # pragma: no cover - local shim until the branches are merged
     TTL: dict[str, float] = {}
 
@@ -40,6 +40,7 @@ BLOCKED = "blocked_by_bot_protection"
 CHALLENGE_ALWAYS = re.compile(
     rb"<title>\s*(?:just a moment|attention required|please wait)\b[^<]*</title>"
     rb"|_cf_chl_opt|cf-browser-verification|/cdn-cgi/challenge-platform/"
+    rb"|sucuri_cloudproxy|Sucuri WebSite Firewall|_Incapsula_Resource|Incapsula incident"
     rb"|captcha-delivery\.com|px-captcha|_pxcaptcha|perimeterx",
     re.IGNORECASE,
 )
@@ -155,7 +156,7 @@ class Politeness:
     def _shared_key(self, kind: str, url: str, shared_key: str | None) -> str | None:
         if self.cache is None:
             return None
-        if shared_key:
+        if shared_key and kind != "search":
             return shared_key
         if kind == "search":
             return cache_key("seller_search", urlsplit(url).hostname or "", url)
@@ -179,11 +180,14 @@ class Politeness:
             logging.getLogger(__name__).warning("POLITE_CACHE_READ_FAILED", exc_info=True)
             return None
 
-    def _shared_set(self, key: str | None, page: Page, kind: str) -> None:
+    def _shared_set(
+        self, key: str | None, page: Page, kind: str, ttl_s: float | None = None
+    ) -> None:
         if key is None:
             return
         name = "seller_search" if kind == "search" else "page"
-        ttl = TTL.get(name, self.search_ttl_s if kind == "search" else self.page_ttl_s)
+        configured = self.search_ttl_s if kind == "search" else self.page_ttl_s
+        ttl = min(TTL.get(name, configured), configured, ttl_s if ttl_s is not None else configured)
         if ttl <= 0:
             return
         value = {
@@ -234,7 +238,16 @@ class Politeness:
 
     # --- fetching ------------------------------------------------------------------
     def get(
-        self, fetcher, url: str, *, kind: str = "page", shared_key: str | None = None, **kwargs
+        self,
+        fetcher,
+        url: str,
+        *,
+        kind: str = "page",
+        shared_key: str | None = None,
+        cacheable: bool | Callable[[Page], bool] | None = None,
+        cache_ttl_s: float | None = None,
+        bypass_cache: bool = False,
+        **kwargs,
     ) -> Page:
         """Fetch `url` politely; `kind` is "search" or "page" (cache lifetime)."""
         host = (urlsplit(url).hostname or "").lower()
@@ -242,11 +255,11 @@ class Politeness:
         if reason:
             raise BlockedError(host, reason)
         key = f"{kind}:{url}:{kwargs.get('max_bytes', '')}"
-        cached = self._cached(key)
+        cached = None if bypass_cache else self._cached(key)
         if cached is not None:
             return cached
         shared = self._shared_key(kind, url, shared_key)
-        cached = self._shared_get(shared)
+        cached = None if bypass_cache else self._shared_get(shared)
         if cached is not None:
             self._store(key, cached, self.search_ttl_s if kind == "search" else self.page_ttl_s)
             return cached
@@ -273,10 +286,22 @@ class Politeness:
                     self.sleep(wait)
                     continue
                 break
-        if page.status == 200:
-            self._store(key, page, self.search_ttl_s if kind == "search" else self.page_ttl_s)
-            self._shared_set(shared, page, kind)
+        allowed = cacheable(page) if callable(cacheable) else cacheable
+        if page.status == 200 and (allowed is True or (allowed is None and kind != "search")):
+            self.cache_response(url, page, kind=kind, ttl_s=cache_ttl_s, **kwargs)
         return page
+
+    def cache_response(
+        self, url: str, page: Page, *, kind: str = "search", ttl_s: float | None = None, **kwargs
+    ) -> None:
+        """Store only responses whose caller successfully parsed the adapter payload."""
+        if page.status != 200 or challenge_reason(page):
+            return
+        configured = self.search_ttl_s if kind == "search" else self.page_ttl_s
+        ttl = min(configured, ttl_s if ttl_s is not None else configured)
+        key = f"{kind}:{url}:{kwargs.get('max_bytes', '')}"
+        self._store(key, page, ttl)
+        self._shared_set(self._shared_key(kind, url, None), page, kind, ttl)
 
     def wrap(self, fetcher) -> "PoliteFetcher":
         return fetcher if isinstance(fetcher, PoliteFetcher) else PoliteFetcher(fetcher, self)

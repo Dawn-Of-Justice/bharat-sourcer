@@ -328,7 +328,9 @@ def test_cache_serves_repeat_requests_until_ttl_expires():
     clock = Clock()
     politeness = polite(clock, search_ttl_s=60, page_ttl_s=10)
     fetcher = Scripted((200, JSON, b"[]"))
-    politeness.get(fetcher, "https://a.in/s?q=1", kind="search")
+    page = politeness.get(fetcher, "https://a.in/s?q=1", kind="search")
+    assert json.loads(page.body) == []
+    politeness.cache_response("https://a.in/s?q=1", page, kind="search")
     politeness.get(fetcher, "https://a.in/s?q=1", kind="search")
     assert fetcher.calls == 1
     clock.now += 61
