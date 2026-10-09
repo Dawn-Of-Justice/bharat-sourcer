@@ -1,7 +1,8 @@
 # Code adaptation for substituted parts — plan (draft, 2026-10-09)
 
 Status: **design only, not approved.** Do not implement until the owner answers §8.
-Depends on: the routing engine work (`docs/plans/routing-engine/PLAN.md`) landing first.
+Prerequisite complete: the [routing engine](../routing-engine/PLAN.md) merged in v0.27.0.
+Code adaptation remains design only; the owner decisions in §8 are still open.
 
 ## 1. Goal
 

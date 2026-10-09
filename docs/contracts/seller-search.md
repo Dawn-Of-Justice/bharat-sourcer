@@ -149,7 +149,10 @@ proposal (`roadmap.md` §15) and would never run on challenge pages.
 
 `BS_SOURCING_CANDIDATES_PER_PART` (5) still caps grounded URLs per discovery.
 
-## Live check (2026-10-07, no Gemini)
+## Historical live check (2026-10-07, before v0.27.0, no Gemini)
+
+These results describe the old matcher. See the [v0.27.0 routing evaluation](../../backend/infra/routing-evaluation.md)
+for the later probe and its validation limits.
 
 `cd backend && python scripts/check_seller_search.py` runs seller search and the existing
 verifier for 33kΩ resistor, 22µF 16V electrolytic capacitor, 5mm LED, LDR and bare copper
@@ -166,7 +169,7 @@ wire. Grounded discovery is not run (0 grounded candidates).
 
 "Extractable" counts any INR price the verifier can read; it says nothing about whether the
 product is the right part (the 33k row includes 330 Ω and 22k listings). The capacitor's
-exact match ("22uF 16V SMD Electrolytic Capacitor", Quartz) fails the current title gate on
+exact match ("22uF 16V SMD Electrolytic Capacitor", Quartz) failed the then-current title gate on
 `µ`/`u` and the extra "SMD" word; the matching stream's judge decides relevance.
 
 ## Tests

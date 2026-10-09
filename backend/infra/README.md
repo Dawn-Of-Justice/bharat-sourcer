@@ -1,10 +1,10 @@
 # Firestore setup
 
 Target project: `hackathon-510415`. Database: `(default)`, Standard edition, Native mode,
-region `asia-south1` (Mumbai). Created and verified on 2 Oct 2026. Google Cloud CLI 587.0.0
-and local Application Default Credentials are configured on the current developer machine.
-The separate-client create/read/confirm/report smoke check passed, and the local ignored
-`backend/.env` selects Firestore. The commands below document setup for other machines.
+region `asia-south1` (Mumbai). Created and verified on 2 Oct 2026 with Google Cloud CLI 587.0.0.
+The separate-client create/read/confirm/report smoke check passed at that time.
+Local credentials and ignored environment files are machine-specific; configure them
+on each development machine. The commands below document that setup.
 Database location is a lasting infrastructure choice.
 
 ## 1. Create the database

@@ -1,6 +1,6 @@
 # Compatibility rules: part catalogue, resolver and A–X grades
 
-Status: implemented on branch `mvp/compat` (not yet released). Everything here is
+Status: released in v0.20.0; included in v0.27.0. Everything here is
 deterministic Python. No model is called, and nothing here is a verified seller fact.
 
 ## 1. Curated part catalogue (M5 knowledge graph, static)
