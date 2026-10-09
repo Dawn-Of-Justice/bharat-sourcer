@@ -10,7 +10,7 @@ from hashlib import sha256
 from uuid import UUID, uuid4
 
 from bharat_sourcer.actions import complete_refresh
-from bharat_sourcer.compat import assess_offer, reassess_report, resolve_part
+from bharat_sourcer.compat import assess_offer, keep_buyer_substitute, reassess_report, resolve_part
 from bharat_sourcer.costing import update_costs
 from bharat_sourcer.countries import DEFAULT_COUNTRY
 from bharat_sourcer.extraction import ExtractionError, Extractor
@@ -54,6 +54,18 @@ from bharat_sourcer.usage import JobLedger, attribute
 from bharat_sourcer.youtube_meta import apply_retention
 
 log = logging.getLogger(__name__)
+
+
+def worth_rechecking(line: ReportLine) -> bool:
+    """A refresh re-checks known listings only when one was usable: in stock, judged an
+    exact or compatible match (or unjudged), on a part whose value is known."""
+    if line.buyable_spec is not None and line.buyable_spec.needs_value:
+        return False
+    return any(
+        offer.stock == "in_stock"
+        and (offer.match is None or offer.match.status in {"exact", "compatible"})
+        for offer in line.offers
+    )
 
 
 class JobError(Exception):
@@ -491,9 +503,11 @@ class JobService:
         job.refresh_count += 1
         # Known offer pages are re-fetched first; paid rediscovery runs only if all are gone.
         known = record.refresh_urls or {}  # an interrupted refresh keeps its known URLs
+        # Re-checking known listings only makes sense for a part that had a usable listing;
+        # a part that failed or needs a value gets the full search (and the AI buyer).
         known = {
             key: [str(offer.url) for offer in previous[key].offers]
-            if key in previous and previous[key].offers
+            if key in previous and worth_rechecking(previous[key])
             else known.get(key, [])
             for key in request.line_ids
         }
@@ -547,7 +561,9 @@ class JobService:
             line.item = item.model_copy(deep=True)
             line.resolution = resolution
             for offer in line.offers:
-                offer.compatibility = assess_offer(resolution, offer, job.project, job.items, item)
+                offer.compatibility = keep_buyer_substitute(
+                    offer, assess_offer(resolution, offer, job.project, job.items, item)
+                )
                 offer.compatibility_status = offer.compatibility.status
             clear_selection(line)
             changed.append(key)

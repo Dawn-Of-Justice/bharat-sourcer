@@ -1,4 +1,9 @@
-# Implemented API contract — v0.30.0
+# Implemented API contract — v0.30.1
+
+v0.30.1: a refresh re-checks a part's known listings only when one was usable (in stock,
+judged exact or compatible, value known); otherwise it runs the full search with the AI
+buyer. AI buyer substitutes keep grade B when offers are re-graded, and any buyer pick
+that needs changes is grade B.
 
 v0.30.0 adds the [AI buyer](ai-buyer.md): unstated part values are decided from the
 circuit (with the reasoning) before searching, and when no listing is accepted the buyer

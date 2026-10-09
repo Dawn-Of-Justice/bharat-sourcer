@@ -497,6 +497,15 @@ def assess_offer(
     return to_compatibility(outcome, entry, offered_entry, references)
 
 
+def keep_buyer_substitute(offer, assessed: Compatibility) -> Compatibility:
+    """An AI buyer substitute keeps its grade B and changes: the rules cannot see them."""
+    current = offer.compatibility
+    match = getattr(offer, "match", None)
+    if current and current.grade == "B" and match and match.method == "llm_buyer":
+        return current
+    return assessed
+
+
 def reassess_report(report: Report | None, project: ProjectContext | None) -> None:
     """Re-grade unselected offers with project context (controller, power, other parts)."""
     if report is None or project is None:
@@ -510,5 +519,7 @@ def reassess_report(report: Report | None, project: ProjectContext | None) -> No
         except ValueError:
             continue
         for offer in line.offers:
-            offer.compatibility = assess_offer(resolution, offer, project, items, line.item)
+            offer.compatibility = keep_buyer_substitute(
+                offer, assess_offer(resolution, offer, project, items, line.item)
+            )
             offer.compatibility_status = offer.compatibility.status
