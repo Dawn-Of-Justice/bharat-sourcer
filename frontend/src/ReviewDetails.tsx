@@ -19,12 +19,6 @@ export function ConfidenceChip({ item }: { item: BomItem }) {
   return <span className={`confidence-chip confidence-${item.confidence}`} title={item.confidence_reason ?? undefined}><span aria-hidden="true">{chip.icon}</span> {chip.label}<span className="visually-hidden">{item.confidence_reason ? `: ${item.confidence_reason}` : ''}</span></span>
 }
 
-export function ConflictBanner({ items, onShowLine }: { items: BomItem[]; onShowLine?: (lineId: string) => void }) {
-  const lines = items.filter(item => item.conflicts?.length)
-  if (!lines.length) return null
-  return <div className="conflict-banner" role="status"><strong><span aria-hidden="true">⚠</span> {lines.length} {lines.length === 1 ? 'line has' : 'lines have'} conflicting sources</strong><p>Check each one and edit the name or quantity before confirming:</p><ul>{lines.map(item => <li key={item.line_id}><a href={`#line-${item.line_id}`} onClick={() => onShowLine?.(item.line_id)}>{item.line_id} · {item.raw_name}</a></li>)}</ul></div>
-}
-
 export function ConflictNotes({ item }: { item: BomItem }) {
   if (!item.conflicts?.length) return null
   return <div className="line-conflicts">{item.conflicts.map((conflict, index) => <div key={index} className="line-conflict"><strong><span aria-hidden="true">⚠</span> {conflict.kind === 'qty_mismatch' ? 'Sources give different quantities' : 'Sources name different parts'}</strong><p>{conflict.message}</p><ul>{conflict.values.map((value, i) => <li key={i}><span className={`evidence-kind evidence-${value.source}`}>{sourceLabel[value.source]}</span> <b>{value.value}</b>{value.locator ? <> · {value.url ? <a href={value.url} target="_blank" rel="noopener noreferrer">{value.locator} <span aria-hidden="true">↗</span></a> : value.locator}</> : value.url ? <> · <a href={value.url} target="_blank" rel="noopener noreferrer">source <span aria-hidden="true">↗</span></a></> : null}</li>)}</ul></div>)}</div>

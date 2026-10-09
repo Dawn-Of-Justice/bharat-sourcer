@@ -42,13 +42,13 @@ export default function SharedReport({ shareToken, onCopied }: { shareToken: str
     return () => { active = false }
   }, [shareToken])
   const job = shared && asJob(shared)
-  return <main id="main" className="job-page"><div className="container job-container">
-    <div className="job-hero"><div className="eyebrow"><span className="eyebrow-line" /> SHARED BUILD PLAN</div><h1>{shared?.project?.title || 'Shared parts list'}</h1>{shared?.project?.description && <p>{shared.project.description}</p>}</div>
+  return <main id="main" className="job-page project-page"><div className="container job-container pp-container">
+    <p className="pp-demo-tag pp-shared-tag">Shared build plan, read only</p><section className="project-heading"><div className="editable-project-field"><h1>{shared?.project?.title || 'Shared parts list'}</h1></div>{shared?.project?.description && <div className="editable-project-field"><p>{shared.project.description}</p></div>}{shared && secureSource(shared.source_url) && <a className="project-source-link" href={shared.source_url} target="_blank" rel="noopener noreferrer">Open original project source ↗</a>}</section>
     {error ? <section className="job-panel"><h2>We couldn’t open this link</h2><p role="alert">{error}</p></section> : !shared || !job ? <section className="job-panel loading-panel" role="status"><span className="loading-indicator" /> Loading the shared report…</section> : <>
       <div className="share-notice" role="note"><strong>Read-only shared report</strong> · {shared.notice}</div>
       <section className="copy-shared" aria-labelledby="copy-shared-title"><div><h2 id="copy-shared-title">Want to build this too?</h2><p>Copy it to your projects to edit the parts, refresh prices and plan your own order. The owner’s project is not changed.</p></div><button type="button" className="primary-button" disabled={copying} onClick={() => void copy()}>{copying ? 'Copying…' : 'Copy to my projects'}</button>{copyFailure && <p className="form-error" role="alert">{copyFailure}</p>}</section>
       {shared.demo && <div className="demo-alert"><strong>Demo data</strong> · Fixed sample. Extraction, seller checks, prices and compatibility were not verified.</div>}
-      {secureSource(shared.source_url) && <p className="job-panel-intro">Source: <a href={shared.source_url} target="_blank" rel="noopener noreferrer">{shared.source_url} ↗</a></p>}
+      
       {job.report ? <Results job={job} token="" onJob={() => undefined} shareToken={shareToken} /> : <section className="job-panel"><h2>No report yet</h2><p>The owner has not finished sourcing this project. Status: {shared.status.replaceAll('_', ' ')}.</p></section>}
     </>}
   </div></main>
