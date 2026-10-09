@@ -1,4 +1,8 @@
-# Implemented API contract — v0.30.1
+# Implemented API contract — v0.30.2
+
+v0.30.2: a part whose only usable listing was an AI buyer pick is searched again on
+refresh (the buyer decides again) instead of re-checking that listing with the strict
+spec judge alone.
 
 v0.30.1: a refresh re-checks a part's known listings only when one was usable (in stock,
 judged exact or compatible, value known); otherwise it runs the full search with the AI
