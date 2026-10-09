@@ -1,4 +1,12 @@
-# Implemented API contract — v0.29.0
+# Implemented API contract — v0.30.0
+
+v0.30.0 adds the [AI buyer](ai-buyer.md): unstated part values are decided from the
+circuit (with the reasoning) before searching, and when no listing is accepted the buyer
+picks from every fetched listing (exact, kit, or a grade B substitute with the changes to
+make) or searches again in Indian shop wording. New optional `report.lines[].buyer`
+(`BuyerDecision`), `match.method: "llm_buyer"` and stages `buyer_value`, `buyer`,
+`buyer_search`. Google grounding redirects are no longer marked blocked when one target
+site blocks us. Frontend: the part panel shows the decided value and the buyer's reason.
 
 v0.29.0 adds [compile checks for code patches](code-adapt.md#compile-check-v0290):
 `GET /v1/compile/boards`, `POST …/code-patch/compile` (202, optional `fqbn`) and

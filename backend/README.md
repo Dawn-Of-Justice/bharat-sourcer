@@ -1,5 +1,13 @@
 # Backend
 
+v0.30.0 adds the AI buyer (`sourcing/buyer.py`): a part whose value the source does not
+state gets a value worked out from the whole project (power, other parts, the part's role)
+before searching, and a line with no accepted listing is decided from every fetched listing
+(exact, kit, or a grade B substitute with the changes to make), with up to two extra store
+searches worded the way Indian shops list parts. Prices and stock still come only from
+seller pages; quotes must appear in the listing. A challenge page behind Google's grounding
+redirect now blocks only that seller. See [AI buyer](../docs/contracts/ai-buyer.md).
+
 v0.29.0 adds compile checks for code patches (code-adapt tier 3):
 `POST /v1/jobs/{id}/lines/{line_id}/code-patch/compile` picks the board from the request
 or the parts list and starts an isolated Cloud Run job for that core family (AVR, ESP32,

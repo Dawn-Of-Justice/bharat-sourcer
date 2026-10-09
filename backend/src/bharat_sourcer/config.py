@@ -122,6 +122,11 @@ class Settings(BaseSettings):
     judge_max_candidates: int = Field(default=8, ge=1, le=8)
     judge_snippet_chars: int = Field(default=800, ge=200, le=1500)
     judge_cache_ttl_s: int = Field(default=7 * 86400, ge=0, le=30 * 86400)
+    # AI buyer (sourcing/buyer.py): decides unstated part values from the circuit, and picks
+    # what to buy (exact, substitute or kit) when no listing was accepted, with up to
+    # `buyer_search_rounds` extra store searches. Site `buyer`, the main model.
+    buyer_enabled: bool = True
+    buyer_search_rounds: int = Field(default=2, ge=0, le=3)
     # Batched spec writer (sourcing/spec_writer.py): one call per job for lines without an
     # AI buying spec (jobs extracted before specs existed). Site `spec`, low thinking.
     spec_writer_enabled: bool = True

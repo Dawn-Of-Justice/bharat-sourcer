@@ -17,6 +17,7 @@ from bharat_sourcer.resilience import post_with_retry
 from bharat_sourcer.schemas import (
     BomItem,
     BuyableSpec,
+    BuyerDecision,
     ErrorDetail,
     PartResearch,
     ProjectContext,
@@ -25,6 +26,14 @@ from bharat_sourcer.schemas import (
     SearchAttribution,
     SellerSearchSummary,
     VerifiedOffer,
+)
+from bharat_sourcer.sourcing.buyer import (
+    MAX_CANDIDATES,
+    GeminiBuyer,
+    apply_value,
+    decision_note,
+    picked_offer,
+    substitute_compatibility,
 )
 from bharat_sourcer.sourcing.fetch import FetchError, SafeFetcher, validate_url
 from bharat_sourcer.sourcing.judge import Judge, review_candidates
@@ -250,6 +259,8 @@ class SourcingService:
         seller_fetch_budget: int = 8,
         seller_limit: int = 5,
         spec_writer: "SpecWriter | None" = None,
+        buyer: "GeminiBuyer | None" = None,
+        buyer_rounds: int = 2,
     ):
         self.discovery = discovery
         self.fetcher = fetcher
@@ -264,6 +275,9 @@ class SourcingService:
         self.seller_limit = seller_limit
         # Writes AI buying specs for lines without one (older jobs); None keeps seed specs.
         self.spec_writer = spec_writer
+        # AI buyer: decides unstated values and what to buy when nothing was accepted.
+        self.buyer = buyer
+        self.buyer_rounds = buyer_rounds
         self._recent: dict[str, tuple[float, Future, str]] = {}
         self._recent_lock = threading.Lock()
 
@@ -375,9 +389,43 @@ class SourcingService:
     def _source_once(
         self, item: BomItem, project_items: list[BomItem], project: ProjectContext | None
     ) -> ReportLine:
+        spec = buyable_spec(item, project)
+        value = None
+        if (
+            self.buyer
+            and spec.needs_value
+            and spec.origin != "user"
+            and not item.user_has_it
+            and paid_allowed()
+        ):
+            # The source does not state the value: the buyer works it out from the circuit.
+            value = self.buyer.decide_value(item, spec, project, project_items)
+            if value is not None:
+                spec = apply_value(spec, value)
+        line = self._source_spec(item, project_items, project, spec)
+        if value is not None:
+            line.stages = ["buyer_value", *line.stages][:12]
+            line.gemini_calls += 1
+            note = line.buyer or decision_note(None, None, None, [], self.buyer.model)
+            line.buyer = note.model_copy(
+                update={
+                    "value": f"{value.param}: {value.value}",
+                    "value_reason": value.reason,
+                    "value_confidence": value.confidence,
+                    "model": self.buyer.model,
+                }
+            )
+        return line
+
+    def _source_spec(
+        self,
+        item: BomItem,
+        project_items: list[BomItem],
+        project: ProjectContext | None,
+        spec: BuyableSpec,
+    ) -> ReportLine:
         attempted = set()
         fetcher = self.politeness.wrap(self.fetcher or SafeFetcher())
-        spec = buyable_spec(item, project)
         first = self._source_attempt(item, project_items, fetcher, attempted, "", spec, project)
         if not (self.followup_enabled and needs_followup(first)):
             return first
@@ -579,6 +627,27 @@ class SourcingService:
                     attribution.source_urls, resolution, fetcher, attempted, state
                 )
                 self._review(spec, project, resolution, new, state, stages)
+        buyer_note = None
+        if (
+            self.buyer
+            and self.judge
+            and not free_discovery
+            and not query_prefix
+            and not any(accepted_offer(offer) for offer in state.offers)
+        ):
+            buyer_note, calls = self._buy(
+                item,
+                project_items,
+                project,
+                spec,
+                resolution,
+                fetcher,
+                attempted,
+                state,
+                stages,
+                search,
+            )
+            gemini_calls += calls
         summary = None
         if search is not None:
             summary = SellerSearchSummary(
@@ -645,9 +714,10 @@ class SourcingService:
             attribution=attribution,
             research=research,
             seller_search=summary,
-            stages=stages,
+            stages=stages[:12],
             gemini_calls=gemini_calls,
             buyable_spec=spec,
+            buyer=buyer_note,
             sourcing_status="offers_found"
             if offers
             else ("failed" if discovery_failed and not pages else "no_verified_offers"),
@@ -680,6 +750,85 @@ class SourcingService:
                 )[:1000],
             ),
         )
+
+    def _buy(
+        self,
+        item: BomItem,
+        project_items: list[BomItem],
+        project: ProjectContext | None,
+        spec: BuyableSpec,
+        resolution,
+        fetcher,
+        attempted: set[str],
+        state: "VerifyState",
+        stages: list[str],
+        search: SearchResult | None,
+    ) -> tuple[BuyerDecision | None, int]:
+        """Let the AI buyer pick from every fetched listing, or search again in its words.
+
+        At most `buyer_rounds` extra store searches; each round's new listings go through
+        the spec judge first, and the buyer only decides when the judge accepted nothing.
+        """
+        tried = [str(q) for q in (search.queries if search else [])]
+        searched: list[str] = []
+        calls = 0
+        for round_index in range(self.buyer_rounds + 1):
+            if not paid_allowed():
+                break
+            stages.append("buyer")
+            calls += 1
+            draft = self.buyer.choose(
+                item, spec, project, project_items, state.candidates, [*tried, *searched]
+            )
+            if draft is None:
+                break
+            pick = draft.pick
+            if pick is not None and pick.candidate_id < min(len(state.candidates), MAX_CANDIDATES):
+                chosen = picked_offer(state.candidates[pick.candidate_id], pick, self.buyer.model)
+                if chosen is not None:
+                    offer = chosen[0]
+                    identity = identify(str(offer.url))
+                    offer.seller_domain, offer.seller_name, offer.seller_kind = (
+                        identity.domain,
+                        identity.name,
+                        identity.kind,
+                    )
+                    try:
+                        offer.compatibility = assess_offer(resolution, offer)
+                    except Exception:
+                        logging.getLogger(__name__).warning("ASSESS_OFFER_FAILED", exc_info=True)
+                    if pick.fit == "substitute":
+                        offer.compatibility = substitute_compatibility(pick)
+                    if offer.compatibility is not None:
+                        offer.compatibility_status = offer.compatibility.status
+                    url = str(offer.url)
+                    state.offers = [o for o in state.offers if str(o.url) != url]
+                    state.offers.insert(0, offer)
+                    state.seen.add(url)
+                    return decision_note(None, pick, url, searched, self.buyer.model), calls
+            known = {q.casefold() for q in [*tried, *searched]}
+            queries = [
+                q.strip() for q in draft.search if q.strip() and q.strip().casefold() not in known
+            ]
+            if not queries or round_index == self.buyer_rounds or self.seller_search is None:
+                break
+            stages.append("buyer_search")
+            searched += queries[:3]
+            try:
+                more = self.seller_search.search(
+                    queries[:3], self.seller_limit, self.seller_fetch_budget
+                )
+            except Exception:
+                logging.getLogger(__name__).warning("BUYER_SEARCH_FAILED", exc_info=True)
+                break
+            new = self._verify_urls(
+                [c.url for c in more.candidates], resolution, fetcher, attempted, state
+            )
+            if self._review(spec, project, resolution, new, state, stages):
+                break
+        return (
+            decision_note(None, None, None, searched, self.buyer.model) if searched else None
+        ), calls
 
     def _verify_urls(
         self, urls: list[str], resolution, fetcher, attempted: set[str], state: "VerifyState"
@@ -744,6 +893,8 @@ class SourcingService:
                         c.url for c in new if isinstance(c, Candidate)
                     }:
                         new.append(candidate)
+                        if candidate.url not in {c.url for c in state.candidates}:
+                            state.candidates.append(candidate)
                     else:
                         state.rejected += candidate is None
                         if candidate is None:
@@ -794,6 +945,8 @@ class VerifyState:
     pages: list = None
     sources: list = None
     blocked_hosts: set = None
+    # Every judge candidate fetched in this attempt, for the AI buyer.
+    candidates: list = None
     fetched: int = 0
     rejected: int = 0
     blocked: int = 0
@@ -802,6 +955,7 @@ class VerifyState:
     def __post_init__(self):
         self.offers, self.seen, self.pages, self.sources = [], set(), [], []
         self.blocked_hosts = set()
+        self.candidates = []
         self.reasons = Counter()
 
     def add_page(self, page) -> None:

@@ -3,7 +3,7 @@
   "info": {
     "title": "Bharat Sourcer API",
     "description": "Demo or live YouTube and project-page extraction with optional Firestore job persistence.",
-    "version": "0.29.0"
+    "version": "0.30.0"
   },
   "paths": {
     "/v1/session/guest": {
@@ -4248,6 +4248,123 @@
         "title": "BuyableSpec",
         "description": "What to buy for a BOM line, stated the way Indian sellers list parts.\n\n`ai_inferred` specs come from the extraction call (one call per job, not per line);\n`seed` specs are the deterministic fallback built from the part name only. Every\ninferred value carries a reason and the whole spec is editable (`origin: user`)."
       },
+      "BuyerDecision": {
+        "properties": {
+          "value": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 150
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          },
+          "value_reason": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 400
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value Reason"
+          },
+          "value_confidence": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "high",
+                  "medium",
+                  "low"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value Confidence"
+          },
+          "fit": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "exact",
+                  "substitute",
+                  "kit"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fit"
+          },
+          "offer_url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2083,
+                "minLength": 1,
+                "format": "uri"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Offer Url"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 400
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "changes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 4,
+            "title": "Changes"
+          },
+          "searched": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 6,
+            "title": "Searched"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "BuyerDecision",
+        "description": "What the AI buyer decided for a hard line, in plain words (docs/contracts/ai-buyer.md).\n\nvalue: a part value the source did not state, worked out from the circuit (the spec's\nparam carries the same reason). fit/offer_url: the listing it chose when nothing was\naccepted (substitute offers are grade B with the changes listed). searched: extra store\nsearches it asked for. Decisions are suggestions for review, never verified facts."
+      },
       "CartPlan": {
         "properties": {
           "kind": {
@@ -7349,7 +7466,8 @@
             "type": "string",
             "enum": [
               "llm_judge",
-              "deterministic_shortcut"
+              "deterministic_shortcut",
+              "llm_buyer"
             ],
             "title": "Method",
             "default": "llm_judge"
@@ -8924,7 +9042,10 @@
                 "known_urls",
                 "research",
                 "research_skipped",
-                "followup"
+                "followup",
+                "buyer_value",
+                "buyer",
+                "buyer_search"
               ]
             },
             "type": "array",
@@ -8936,6 +9057,16 @@
             "minimum": 0.0,
             "title": "Gemini Calls",
             "default": 0
+          },
+          "buyer": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BuyerDecision"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "code_patch": {
             "anyOf": [

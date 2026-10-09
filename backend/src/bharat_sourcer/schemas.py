@@ -732,7 +732,8 @@ class OfferMatch(Model):
     dropped_claims: int = Field(default=0, ge=0)
     variant: str | None = Field(default=None, max_length=300)
     pack_qty: int | None = Field(default=None, ge=1, le=100000)
-    method: Literal["llm_judge", "deterministic_shortcut"] = "llm_judge"
+    # llm_buyer: chosen by the AI buyer from the whole project when nothing was accepted.
+    method: Literal["llm_judge", "deterministic_shortcut", "llm_buyer"] = "llm_judge"
     model: str | None = None
 
 
@@ -1036,6 +1037,10 @@ SourcingStage = Literal[
     "research",
     "research_skipped",
     "followup",
+    # AI buyer: decided an unstated value; chose what to buy; searched again in its words.
+    "buyer_value",
+    "buyer",
+    "buyer_search",
 ]
 
 
@@ -1148,6 +1153,26 @@ class CodePatchRequest(Model):
     offer_url: HttpUrl | None = None
 
 
+class BuyerDecision(Model):
+    """What the AI buyer decided for a hard line, in plain words (docs/contracts/ai-buyer.md).
+
+    value: a part value the source did not state, worked out from the circuit (the spec's
+    param carries the same reason). fit/offer_url: the listing it chose when nothing was
+    accepted (substitute offers are grade B with the changes listed). searched: extra store
+    searches it asked for. Decisions are suggestions for review, never verified facts.
+    """
+
+    value: str | None = Field(default=None, max_length=150)
+    value_reason: str | None = Field(default=None, max_length=400)
+    value_confidence: Literal["high", "medium", "low"] | None = None
+    fit: Literal["exact", "substitute", "kit"] | None = None
+    offer_url: HttpUrl | None = None
+    reason: str | None = Field(default=None, max_length=400)
+    changes: list[str] = Field(default_factory=list, max_length=4)
+    searched: list[str] = Field(default_factory=list, max_length=6)
+    model: str | None = None
+
+
 class ReportLine(Model):
     item: BomItem
     sourcing_status: Literal[
@@ -1184,6 +1209,7 @@ class ReportLine(Model):
     # Sourcing stages in the order they ran, and the paid model calls the line used.
     stages: list[SourcingStage] = Field(default_factory=list, max_length=12)
     gemini_calls: int = Field(default=0, ge=0)
+    buyer: BuyerDecision | None = None
     # Owner-only; removed from share links and shared exports.
     code_patch: CodePatch | None = None
 
