@@ -46,6 +46,17 @@ class Settings(BaseSettings):
     # Tier 2 of docs/plans/code-adapt: AI-drafted code patches (off until approved).
     code_adapt_ai: bool = False
     code_adapt_daily_limit: int = Field(default=50, ge=1, le=1000)
+    # Tier 3: compile checks in isolated Cloud Run jobs (backend/compile, compile_check.py).
+    # none: the compile route answers 503 COMPILE_UNAVAILABLE.
+    compile_backend: Literal["none", "cloud_run_job"] = "none"
+    compile_region: str = Field(default="asia-south1", pattern=r"^[a-z0-9-]+$")
+    # Jobs are named <prefix>-<family>, one per runner image (avr, esp32, esp8266, rp2040).
+    compile_job_prefix: str = Field(default="bharat-sourcer-compile", pattern=r"^[a-z][a-z0-9-]+$")
+    # The runner's identity; only ID tokens for this account reach /internal/compile.
+    compile_service_account: str | None = None
+    # ID-token audience: this API's public URL (defaults to BS_TASKS_URL).
+    compile_audience: str | None = None
+    compile_daily_limit: int = Field(default=100, ge=1, le=2000)
     guest_session_secret: SecretStr | None = None
     guest_session_days: int = Field(default=14, ge=1, le=30)
     guest_part_limit: int = Field(default=3, ge=1, le=10)
@@ -153,6 +164,14 @@ class Settings(BaseSettings):
         ):
             raise ValueError(
                 "Cloud Tasks requires Firestore, project, target URL and service account"
+            )
+        if self.compile_backend == "cloud_run_job" and (
+            not self.gcp_project
+            or not self.compile_service_account
+            or not (self.compile_audience or self.tasks_url)
+        ):
+            raise ValueError(
+                "Compile jobs require a project, a runner service account and an audience URL"
             )
         if self.storage_backend == "firestore" and not self.gcp_project:
             raise ValueError("BS_GCP_PROJECT is required for Firestore storage")

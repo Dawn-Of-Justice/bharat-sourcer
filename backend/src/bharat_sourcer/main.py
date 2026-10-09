@@ -11,8 +11,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response, StreamingResponse
 from google.api_core.exceptions import GoogleAPICallError
 
+from bharat_sourcer import compile_check
 from bharat_sourcer.access import Access, ProjectAccess, add_access_routes
 from bharat_sourcer.code_patches import CodePatchService
+from bharat_sourcer.compile_check import CompileService, RunnerResult
 from bharat_sourcer.config import Settings
 from bharat_sourcer.conversation import Assistant, ConversationService, GeminiAssistant
 from bharat_sourcer.dispatch import CloudDispatcher, Work, work_once
@@ -27,6 +29,8 @@ from bharat_sourcer.schemas import (
     CartPlans,
     CodePatch,
     CodePatchRequest,
+    CompileBoards,
+    CompileRequest,
     ConfirmationAccepted,
     ConfirmJob,
     CreatedJob,
@@ -183,7 +187,7 @@ def create_app(
 
     app = FastAPI(
         title="Bharat Sourcer API",
-        version="0.28.0",
+        version="0.29.0",
         description=(
             "Demo or live YouTube and project-page extraction with optional Firestore job "
             "persistence."
@@ -196,6 +200,8 @@ def create_app(
     images = PartImageService(settings, service)
     code_patches = CodePatchService(settings, service, SafeFetcher())
     app.state.code_patch_service = code_patches
+    compiles = CompileService(settings, service, code_patches)
+    app.state.compile_service = compiles
     app.state.image_service = images
     app.state.conversation_service = conversation
     access = Access(settings, service, identity_verifier)
@@ -390,6 +396,36 @@ def create_app(
             media_type="application/zip",
             headers={"Content-Disposition": f'attachment; filename="code-patch-{line_id}.zip"'},
         )
+
+    @app.get("/v1/compile/boards", response_model=CompileBoards, tags=["code"])
+    def compile_boards():
+        return compiles.boards()
+
+    @app.post(
+        "/v1/jobs/{job_id}/lines/{line_id}/code-patch/compile",
+        status_code=202,
+        response_model=CodePatch,
+        tags=["code"],
+        responses={
+            404: {"model": ErrorResponse},
+            409: {"model": ErrorResponse},
+            429: {"model": ErrorResponse},
+        },
+    )
+    def compile_code_patch(
+        job_id: str, line_id: str, body: CompileRequest, x_job_token: JobToken = None
+    ):
+        return compiles.request(job_id, line_id, x_job_token, body)
+
+    @app.get("/internal/compile/{run_id}", include_in_schema=False)
+    def compile_bundle(run_id: str, request: Request):
+        compile_check.authorize_runner(compiles, request.headers.get("Authorization"))
+        return compiles.bundle(run_id)
+
+    @app.post("/internal/compile/{run_id}/result", include_in_schema=False)
+    def compile_result(run_id: str, body: RunnerResult, request: Request):
+        compile_check.authorize_runner(compiles, request.headers.get("Authorization"))
+        return compiles.result(run_id, body)
 
     @app.post(
         "/v1/jobs/{job_id}/confirm",

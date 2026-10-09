@@ -1,8 +1,8 @@
 # Code adaptation for substituted parts — plan (draft, 2026-10-09)
 
-Status: **tiers 1–2 implemented in v0.28.0** (2026-10-09), on the owner's instruction to
-start without waiting. Prerequisite complete: the [routing engine](../routing-engine/PLAN.md) merged in v0.27.0. Tier 3 is not built; it needs owner
-approval (see §8 and `docs/contracts/backend-roadmap.md`). Contract:
+Status: **tiers 1–2 implemented in v0.28.0** and **tier 3 (compile check) in v0.29.0**
+(2026-10-09; tier 3 approved by the owner the same day). Prerequisite complete: the
+[routing engine](../routing-engine/PLAN.md) merged in v0.27.0. Contract:
 [docs/contracts/code-adapt.md](../../contracts/code-adapt.md).
 
 ## 1. Goal
@@ -86,7 +86,18 @@ running user code.
 - Cost: one Gemini call per line (+1 repair), counted in the usage ledger; skipped when
   the job budget is spent.
 
-## 6. Tier 3 — compile check (separate approval)
+## 6. Tier 3 — compile check (implemented v0.29.0)
+
+As built (differences from the draft below): the job has **no internet route at all**
+(Direct VPC egress to a subnet without NAT; Private Google Access reaches only the API),
+so libraries are pinned and baked into each image (`backend/compile/pins.json`) instead of
+resolved from the index at run time. The API downloads the repository snapshot, checks the
+recorded sha256 of each patched file, and serves the sketch to the runner; the runner posts
+its result to the API (ID-token authenticated) instead of an inbox document. Results are
+idempotent by run id. A queued check expires after 15 minutes and can be requested again.
+
+Draft:
+
 
 - A Cloud Run **Job** (not the API service) with `arduino-cli` and pinned cores
   (`arduino:avr`, `esp32:esp32`, `esp8266:esp8266`, `rp2040`). One image per core family,

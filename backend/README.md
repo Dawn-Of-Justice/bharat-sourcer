@@ -1,12 +1,24 @@
 # Backend
 
+v0.29.0 adds compile checks for code patches (code-adapt tier 3):
+`POST /v1/jobs/{id}/lines/{line_id}/code-patch/compile` picks the board from the request
+or the parts list and starts an isolated Cloud Run job for that core family (AVR, ESP32,
+ESP8266, RP2040). The job has no permissions, no secrets and no internet route; it fetches
+the sketch the API assembled from the repository snapshot (patched files checked against
+their recorded sha256), compiles it with cores and libraries pinned in
+`compile/pins.json`, and posts the result back. PlatformIO projects are not compiled. AI
+drafts that fail get at most two validated repair rounds. Off unless
+`BS_COMPILE_BACKEND=cloud_run_job`; provision with `python scripts/setup_compile_runner.py`.
+See [code patches](../docs/contracts/code-adapt.md#compile-check-v0290) and the
+[runbook](infra/README.md#compile-runner-code-adapt-tier-3).
+
 v0.28.0 adds code patches for substituted parts: for a line whose chosen offer is a
 catalogue substitute, `POST /v1/jobs/{id}/lines/{line_id}/code-patch` re-reads the GitHub
 code files that code evidence cited and applies a curated recipe (DHT22→DHT11,
 SSD1306→SH1106, A4988→DRV8825; A4988→TMC2209 needs no code change) outside comments and
 strings, refusing instead of guessing. Wiring, power and verification changes stay notes.
 AI-drafted patches (validated, must be accepted) exist behind `BS_CODE_ADAPT_AI` (off).
-Patches are never compiled (`check: not_checked`), are owner-only, and download as a ZIP
+Patches start as `check: not_checked` (see v0.29.0), are owner-only, and download as a ZIP
 with the repository LICENSE. See [code patches](../docs/contracts/code-adapt.md).
 
 v0.27.0 improves parts routing and seller offer reading. Searches use a bounded query

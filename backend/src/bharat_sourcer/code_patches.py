@@ -202,9 +202,8 @@ class CodePatchService:
             skipped=result.skipped,
         )
 
-    def ai_draft(self, job, read, from_id, to_id, notes, base, line_id=None) -> CodePatch:
-        from bharat_sourcer import code_adapt_ai
-
+    def ai_inputs(self, read, from_id, to_id) -> dict:
+        """Model inputs for an edge: at most 3 files (60 KB) that use the original part."""
         catalog = load_catalog()
         original, substitute = catalog.get(from_id), catalog.get(to_id)
         marks = markers(original)
@@ -214,6 +213,21 @@ class CodePatchService:
             if len(chosen) == AI_MAX_FILES or size + len(text.encode()) > AI_MAX_BYTES:
                 break
             chosen[path], size = text, size + len(text.encode())
+        changes = [t for area, t in code_adapt.edge_changes(from_id, to_id) if area == "code"]
+        return {
+            "files": chosen,
+            "original": json.loads(original.model_dump_json()),
+            "substitute": json.loads(substitute.model_dump_json()),
+            "changes": changes or ["Adapt the code to the substitute part."],
+            "allowed_new_includes": includes(substitute),
+            "original_markers": marks,
+        }
+
+    def ai_draft(self, job, read, from_id, to_id, notes, base, line_id=None) -> CodePatch:
+        from bharat_sourcer import code_adapt_ai
+
+        inputs = self.ai_inputs(read, from_id, to_id)
+        chosen = inputs["files"]
         if not chosen:
             return CodePatch(
                 status="unavailable",
@@ -236,7 +250,6 @@ class CodePatchService:
         )
         self.ledger = ledger
         generate = self.generate or code_adapt_ai.make_gemini_generate(self.settings)
-        changes = [t for area, t in code_adapt.edge_changes(from_id, to_id) if area == "code"]
         with attribute(ledger, line_id):
             if not paid_allowed():
                 return CodePatch(
@@ -246,15 +259,7 @@ class CodePatchService:
                     notes=notes,
                     detail="This project's AI budget for the current run is used up.",
                 )
-            result = code_adapt_ai.draft_patch(
-                chosen,
-                original=json.loads(original.model_dump_json()),
-                substitute=json.loads(substitute.model_dump_json()),
-                changes=changes or ["Adapt the code to the substitute part."],
-                allowed_new_includes=includes(substitute),
-                original_markers=marks,
-                generate=generate,
-            )
+            result = code_adapt_ai.draft_patch(**inputs, generate=generate)
         if not result.ok:
             return CodePatch(
                 status="unavailable",
@@ -331,6 +336,26 @@ class CodePatchService:
         return next((found[name][0] for name in LICENSE_NAMES if name in found), None)
 
 
+def check_lines(patch: CodePatch) -> list[str]:
+    run = patch.compile
+    if run and patch.check == "compiles":
+        when = run.finished_at.date().isoformat() if run.finished_at else "unknown date"
+        return [
+            f"Check: compiled for {run.board} ({run.fqbn}) with {run.core or 'pinned core'}",
+            f"on {when}. Compile only: NOT tested on hardware. Review every change before",
+            "uploading to a board.",
+        ]
+    if run and patch.check == "compile_failed":
+        return [
+            f"Check: did NOT compile for {run.board} ({run.fqbn}); see the compiler output in",
+            "the app. Not tested on hardware.",
+        ]
+    return [
+        "Check: NOT COMPILED and not tested on hardware. Review every change before",
+        "uploading to a board.",
+    ]
+
+
 def readme(patch: CodePatch, has_license: bool) -> str:
     origin = {
         "curated": "Curated change from a maintained recipe",
@@ -341,8 +366,7 @@ def readme(patch: CodePatch, has_license: bool) -> str:
         "",
         f"Substitute: {patch.from_catalog_id} -> {patch.to_catalog_id}",
         f"Origin: {origin}",
-        "Check: NOT COMPILED and not tested on hardware. Review every change before",
-        "uploading to a board.",
+        *check_lines(patch),
         f"Created: {patch.created_at.isoformat()}",
         "",
         "Files (patched copies of the original project's files):",

@@ -1,9 +1,16 @@
-# Implemented API contract — v0.28.0
+# Implemented API contract — v0.29.0
+
+v0.29.0 adds [compile checks for code patches](code-adapt.md#compile-check-v0290):
+`GET /v1/compile/boards`, `POST …/code-patch/compile` (202, optional `fqbn`) and
+`code_patch.compile` (`CompileCheck`); `code_patch.check` becomes `compiles` or
+`compile_failed`. Compile only, in isolated runners; never uploaded or tested on hardware.
+Answers 503 `COMPILE_UNAVAILABLE` until the runner is provisioned on a server.
+**Frontend to do:** compile button, board picker on `FQBN_REQUIRED`, result badge and log.
 
 v0.28.0 adds [code patches for substituted parts](code-adapt.md): optional
 `report.lines[].code_patch` (`CodePatch`), `POST …/lines/{line_id}/code-patch`,
-`POST …/code-patch/accept` and `GET …/code-patch.zip`. Owner-only; never compiled.
-**Frontend to do:** diff viewer, labels, notes, Accept and Download.
+`POST …/code-patch/accept` and `GET …/code-patch.zip`. Owner-only.
+Frontend: built (code changes panel with diffs, labels, notes, Accept and Download).
 
 v0.27.0 improves [seller query routing](seller-search.md) and structured offer parsing.
 Offers add optional `seller_domain`, `seller_name` and `seller_kind`

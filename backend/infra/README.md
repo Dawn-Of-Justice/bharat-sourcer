@@ -159,3 +159,49 @@ responses 30 days after `video_meta.fetched_at`. The snapshot itself is not purg
   gcloud run services update bharat-sourcer-integration --region asia-south1 --min-instances=0
   gcloud run services update bharat-sourcer-web --region asia-south1 --min-instances=0
   ```
+
+## Compile runner (code-adapt tier 3)
+
+Compile checks for code patches (`docs/contracts/code-adapt.md`) run in Cloud Run **jobs**,
+one per core family, never in the API service. Provision or update everything with an owner
+gcloud identity and Docker running, from `backend/`:
+
+```bash
+python scripts/setup_compile_runner.py            # all families
+python scripts/setup_compile_runner.py --families avr --skip-build   # reuse pushed images
+```
+
+| Resource | Setting |
+| --- | --- |
+| VPC `bharat-sourcer-compile`, subnet `bharat-sourcer-compile-asia-south1` (`10.80.0.0/26`) | Private Google Access on; **no Cloud Router or NAT** (the script refuses if one exists) |
+| Service account `bharat-sourcer-compile@` | No roles, no secrets |
+| Artifact Registry `bharat-sourcer-compile` | Images `runner-<family>`; cleanup keeps the 2 newest per image |
+| Jobs `bharat-sourcer-compile-{avr,esp32,esp8266,rp2040}` | 2 vCPU / 4 GiB, task timeout 600 s, no retries, Direct VPC egress `all-traffic`, env `BS_COMPILE_API_URL` |
+| IAM | `bharat-sourcer-api@`: `run.jobsExecutorWithOverrides` on the jobs and `iam.serviceAccountUser` on the runner; `bharat-sourcer-deploy@`: `run.developer` on the jobs, `iam.serviceAccountUser` on the runner, `artifactregistry.writer` on the repository |
+| API env | `BS_COMPILE_BACKEND=cloud_run_job`, `BS_COMPILE_SERVICE_ACCOUNT`, `BS_COMPILE_AUDIENCE` (kept by `deploy_integration.py` and the deploy workflow) |
+
+**Isolation.** All job egress goes into the VPC. Without an external IP or NAT, the only
+reachable destinations are Google endpoints through Private Google Access, which is how the
+runner reaches this API's `run.app` URL. Cores and libraries are installed when the image
+is built (`compile/pins.json`), so compiling needs no downloads. The runner checks every file
+path, writes only source files (no `sketch.yaml` or build scripts), runs `arduino-cli
+compile` (never `upload`) as a non-root user with a 300 s limit, and proves its identity to
+the API with a metadata-server ID token; `/internal/compile/*` accepts only that account.
+The API, not the runner, downloads the repository snapshot (`codeload.github.com`, 8 MB
+cap) through the guarded fetcher.
+
+**Updates.** Merges to `main` that change `backend/compile/` rebuild the four images and
+update the jobs (`compile-images` in `.github/workflows/backend.yml`). Change versions only
+in `compile/pins.json`.
+
+**Cost.** Jobs bill only while running: one ESP32 compile (about 1–2 minutes at 2 vCPU /
+4 GiB) is roughly $0.005 at Tier 1 prices and fits the monthly free tier at demo scale. The
+images are 0.9 GB (AVR), 4.7 GB (ESP32), 1.0 GB (ESP8266) and 1.7 GB (RP2040) unpacked
+(9 October 2026 build; ESP32 and RP2040 drop debuggers and other chips' toolchains, see
+`prune` in `compile/pins.json`); compressed in Artifact Registry they stay well under
+$1/month above the free 0.5 GB. The VPC and subnet have no charge without NAT. `BS_COMPILE_DAILY_LIMIT` (default
+100) caps compile requests per day.
+
+**Disable.** `gcloud run services update bharat-sourcer-integration --region asia-south1
+--update-env-vars BS_COMPILE_BACKEND=none` (the route then answers 503). Jobs cost nothing
+while idle.

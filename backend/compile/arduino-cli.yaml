@@ -1,0 +1,11 @@
+# Read-only toolchain under /opt/arduino; build output and caches go to /tmp.
+directories:
+  data: /opt/arduino/data
+  downloads: /tmp/arduino-staging
+  user: /opt/arduino/user
+build_cache:
+  path: /tmp/arduino-cache
+updater:
+  enable_notification: false
+metrics:
+  enabled: false

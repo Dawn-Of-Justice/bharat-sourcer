@@ -3,7 +3,7 @@
   "info": {
     "title": "Bharat Sourcer API",
     "description": "Demo or live YouTube and project-page extraction with optional Firestore job persistence.",
-    "version": "0.28.0"
+    "version": "0.29.0"
   },
   "paths": {
     "/v1/session/guest": {
@@ -2394,6 +2394,164 @@
         }
       }
     },
+    "/v1/compile/boards": {
+      "get": {
+        "tags": [
+          "code"
+        ],
+        "summary": "Compile Boards",
+        "operationId": "compile_boards_v1_compile_boards_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompileBoards"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/jobs/{job_id}/lines/{line_id}/code-patch/compile": {
+      "post": {
+        "tags": [
+          "code"
+        ],
+        "summary": "Compile Code Patch",
+        "operationId": "compile_code_patch_v1_jobs__job_id__lines__line_id__code_patch_compile_post",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Job Id"
+            }
+          },
+          {
+            "name": "line_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Line Id"
+            }
+          },
+          {
+            "name": "x-job-token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Job-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CompileRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CodePatch"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Too Many Requests"
+          }
+        }
+      }
+    },
     "/v1/jobs/{job_id}/confirm": {
       "post": {
         "tags": [
@@ -4725,6 +4883,16 @@
             "type": "string",
             "format": "date-time",
             "title": "Created At"
+          },
+          "compile": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CompileCheck"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "additionalProperties": false,
@@ -4733,7 +4901,7 @@
           "status"
         ],
         "title": "CodePatch",
-        "description": "Code changes for a substituted part; never compiled or tested on hardware.\n\norigin: curated (a maintained recipe) or ai_draft (model-written, validated, must be\naccepted by the owner). check: not_checked until a compile runner exists. status\nunavailable always carries a reason; notes always list the non-code changes."
+        "description": "Code changes for a substituted part; never tested on hardware.\n\norigin: curated (a maintained recipe) or ai_draft (model-written, validated, must be\naccepted by the owner). check: not_checked until a compile check finishes (`compile`),\nthen compiles or compile_failed. status unavailable always carries a reason; notes\nalways list the non-code changes."
       },
       "CodePatchFile": {
         "properties": {
@@ -4982,6 +5150,229 @@
           "status"
         ],
         "title": "Compatibility"
+      },
+      "CompileBoard": {
+        "properties": {
+          "fqbn": {
+            "type": "string",
+            "title": "Fqbn"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "family": {
+            "type": "string",
+            "title": "Family"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "fqbn",
+          "label",
+          "family"
+        ],
+        "title": "CompileBoard"
+      },
+      "CompileBoards": {
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled"
+          },
+          "boards": {
+            "items": {
+              "$ref": "#/components/schemas/CompileBoard"
+            },
+            "type": "array",
+            "title": "Boards"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "enabled",
+          "boards"
+        ],
+        "title": "CompileBoards"
+      },
+      "CompileCheck": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "compiles",
+              "compile_failed",
+              "unavailable",
+              "timeout"
+            ],
+            "title": "Status"
+          },
+          "fqbn": {
+            "type": "string",
+            "maxLength": 100,
+            "title": "Fqbn"
+          },
+          "board": {
+            "type": "string",
+            "maxLength": 100,
+            "title": "Board"
+          },
+          "run_id": {
+            "type": "string",
+            "maxLength": 200,
+            "title": "Run Id"
+          },
+          "attempt": {
+            "type": "integer",
+            "maximum": 3.0,
+            "minimum": 1.0,
+            "title": "Attempt",
+            "default": 1
+          },
+          "repairs": {
+            "type": "integer",
+            "maximum": 2.0,
+            "minimum": 0.0,
+            "title": "Repairs",
+            "default": 0
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "source_changed",
+                  "source_unavailable",
+                  "sketch_not_found",
+                  "platformio_not_supported",
+                  "too_large",
+                  "launch_failed",
+                  "runner_error"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "detail": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detail"
+          },
+          "log": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 6000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Log"
+          },
+          "core": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Core"
+          },
+          "size": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 300
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Size"
+          },
+          "sketch": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 300
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sketch"
+          },
+          "requested_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Requested At"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Expires At"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "status",
+          "fqbn",
+          "board",
+          "run_id",
+          "expires_at"
+        ],
+        "title": "CompileCheck",
+        "description": "One compile-only check of a code patch in the isolated runner (code-adapt tier 3).\n\nqueued until the runner reports. compiles / compile_failed come from arduino-cli for\n`fqbn` with the pinned `core`; a compile never uploads, runs or tests on hardware.\nunavailable always carries a reason. A queued check past `expires_at` has timed out and\ncan be requested again. AI drafts that fail get at most two repair rounds (`repairs`);\neach round replaces the patch's diffs and resets `accepted`."
+      },
+      "CompileRequest": {
+        "properties": {
+          "fqbn": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100,
+                "pattern": "^[\\w.-]+:[\\w.-]+:[\\w.-]+$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fqbn"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "CompileRequest"
       },
       "ConfirmJob": {
         "properties": {
