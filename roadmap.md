@@ -1,7 +1,7 @@
 # Proposal register — status reviewed 9 October 2026
 
 Implemented behavior is described in [backend/README.md](backend/README.md) and
-[docs/contracts/README.md](docs/contracts/README.md), currently v0.27.0.
+[docs/contracts/README.md](docs/contracts/README.md), currently v0.28.0.
 The remaining sections preserve proposals and estimates written on 6 October; they
 are not current deployment instructions or independently rechecked prices.
 

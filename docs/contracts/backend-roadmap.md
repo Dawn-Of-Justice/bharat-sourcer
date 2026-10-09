@@ -22,8 +22,9 @@ records automated probe results and the remaining human relevance-review limitat
 
 ## Remaining work and proposals
 
-- **Code adaptation:** [draft plan](../plans/code-adapt/PLAN.md), not implemented or
-  approved. The routing prerequisite is complete; owner decisions remain open.
+- **Code adaptation:** tiers 1–2 of the [plan](../plans/code-adapt/PLAN.md) shipped in
+  v0.28.0 ([contract](code-adapt.md)); the frontend UI is not built. Tier 3 (compile
+  runner) awaits owner approval, below.
 - **Evaluation:** curate real labelled extraction examples and manually review seller
   relevance before claiming accuracy. The [gold set](evaluation-gold-set.md) is a draft.
 - **Circuit context:** extend role-specific design rules only with supported inputs
