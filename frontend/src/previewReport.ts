@@ -1,9 +1,8 @@
-import { ApiError } from './api'
-import type { CartPlans, CostAmount, CostBreakdown, Explanation, ExtrasStatus, Job, MarketsResult, OrderPlanLine, Report, ReportLine, ReportOffer, SharedProject } from './api'
+import type { CartPlans, CostAmount, CostBreakdown, Job, OrderPlanLine, Report, ReportLine, ReportOffer, SharedProject } from './api'
 
 export const previewCities = ['Bengaluru', 'Chennai', 'Delhi', 'Kochi', 'Mumbai', 'Pune']
 
-// Dummy report fixtures for ?preview=1&stage=plan (order plan, costing, trust, grades, markets, share, extras).
+// Dummy report fixtures for ?preview=1&stage=plan (order plan, costing, trust, grades, share).
 // Every seller, price, grade and shop here is invented and labelled "dummy"; nothing is sent to a server.
 const svg = (text: string) => 'data:image/svg+xml,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 84 84"><rect width="84" height="84" rx="10" fill="#eaf4e9"/><text x="42" y="46" font-size="10" text-anchor="middle" fill="#28594f">${text}</text></svg>`)
 const url = (path: string) => 'https://example.com/dummy/' + path
@@ -94,14 +93,6 @@ export function planPreview(job: Job): Job {
   return { ...job, demo: false, items, report, cost_estimate: { total_usd: 0.0123, calls: 9 } }
 }
 
-// A short silent WAV so the audio control renders in the preview.
-function silentWav() {
-  const samples = 800, bytes = new Uint8Array(44 + samples * 2), view = new DataView(bytes.buffer)
-  const text = (offset: number, value: string) => { for (let i = 0; i < value.length; i++) bytes[offset + i] = value.charCodeAt(i) }
-  text(0, 'RIFF'); view.setUint32(4, 36 + samples * 2, true); text(8, 'WAVEfmt '); view.setUint32(16, 16, true); view.setUint16(20, 1, true); view.setUint16(22, 1, true); view.setUint32(24, 8000, true); view.setUint32(28, 16000, true); view.setUint16(32, 2, true); view.setUint16(34, 16, true); text(36, 'data'); view.setUint32(40, samples * 2, true)
-  return btoa(String.fromCharCode(...bytes))
-}
-
 let shareActive = false
 export function previewReportRequest(path: string, options: RequestInit, job: Job): unknown {
   const method = options.method ?? 'GET'
@@ -120,17 +111,6 @@ export function previewReportRequest(path: string, options: RequestInit, job: Jo
     const source = job.report && (job.report as Report).order_plan ? job : planPreview(job)
     const shared: SharedProject = { shared: true, demo: false, status: 'done', source_url: source.input.url, project: source.project, created_at: source.updated_at, updated_at: now(), items: source.items, report: source.report as Report, notice: 'Dummy preview share link: invented sample data. Prices are seller snapshots and may have changed; this is not a verified or payable total.' }
     return structuredClone(shared)
-  }
-  if (path === base + '/extras') return { demo: true, explain: { enabled: true, daily_limit: 10, remaining: 9 }, zoom: { enabled: false, daily_limit: 10, remaining: 10 }, scan: { enabled: false, daily_limit: 5, remaining: 5 }, languages: ['en', 'hi', 'ta', 'ml'], zoom_line_ids: [], scan_max_bytes: 4000000, scan_mime_types: ['image/jpeg'] } satisfies ExtrasStatus
-  if (path === base + '/explain') return { language: 'en', transcript: 'Dummy transcript: this preview plays a short silent sample. No speech was generated.', translated: false, audio_mime: 'audio/wav', audio_base64: silentWav(), duration_s: 0.1, cached: false, demo: true, label: 'Dummy sample · not generated for this project' } satisfies Explanation
-  if (path.startsWith(base + '/markets?')) {
-    const params = new URLSearchParams(path.split('?')[1])
-    const city = params.get('city')
-    if (city !== null && !previewCities.includes(city)) throw new ApiError('Choose a supported city.', 422, 'CITY_NOT_SUPPORTED')
-    const location = { source: city ? 'city' as const : 'coordinates' as const, city: city ?? null, latitude: 12.97, longitude: 77.59, approximate: true, label: city ? `Approximate: the centre of ${city} (dummy preview).` : 'Your location, rounded to about 1 km (dummy preview).' }
-    // Bengaluru shows a grounded layout with dummy sources; any other city shows the demo sample (no sources).
-    if (city === 'Bengaluru') return { demo: false, location, categories: ['controller boards', 'sensors'], summary: '1. Dummy Electronics (preview) — SP Road\n2. Sample Components (preview) — SP Road', summary_label: 'Shops likely to carry these parts — call first; stock is not confirmed', places: [{ title: 'Dummy Electronics (preview)', uri: url('maps-place-1'), address: 'Dummy address, SP Road' }, { title: 'Sample Components (preview)', uri: url('maps-place-2'), address: null }], attribution: { provider: 'Google Maps', sources: [{ title: 'Dummy Electronics (preview) - Google Maps', uri: url('maps-place-1'), kind: 'place' }, { title: 'Review of Dummy Electronics (preview)', uri: url('maps-review-1'), kind: 'review' }] }, cached: false, label: 'AI summary grounded in Google Maps (dummy preview)' } satisfies MarketsResult
-    return { demo: true, location, categories: ['controller boards', 'sensors'], summary: '1. Sample Market (demo) — fictional\n2. Example Parts Shop (demo) — fictional', summary_label: 'Shops likely to carry these parts — call first; stock is not confirmed', places: [{ title: 'Sample Market (demo)' }, { title: 'Example Parts Shop (demo)' }], attribution: { sources: [] }, cached: false, label: 'Demo sample · fictional shops' } satisfies MarketsResult
   }
   if (path === base + '/plans') return { method: 'exhaustive', uncovered_line_ids: ['L03', 'L04'], rules: ['Dummy rule: only offers that can be selected now (grade A or B, in stock, fresh).'], seller_penalty_inr: '60.00', plans: [
     { kind: 'cheapest', seller_count: 2, matches_selection: false, picks: [{ line_id: 'L01', offer_url: url('controller-b'), seller: sellerB, price_inr: '299.00', grade: 'B', changes_required: true }, { line_id: 'L02', offer_url: url('sensor-b'), seller: sellerB, price_inr: '199.00', grade: null }], costing: { ...costing('plan'), sellers: [], parts: amount('498.00', 'known'), total: amount(null, 'unknown', [], '498.00') } },
@@ -156,15 +136,6 @@ export function previewReportRequest(path: string, options: RequestInit, job: Jo
       }
       plan.sellers = plan.sellers?.filter(seller => seller.lines?.length)
       plan.seller_count = plan.sellers?.length ?? 0
-    }
-    job.updated_at = now()
-    return structuredClone(job)
-  }
-  if (path === base + '/import-references' && method === 'POST') {
-    const references = JSON.parse(String(options.body)).references as { line_id: string; price_usd: string | null; source_url?: string | null }[]
-    for (const reference of references) {
-      const line = job.report?.lines.find(entry => entry.item.line_id === reference.line_id)
-      if (line) line.import_reference = reference.price_usd ? { price_usd: reference.price_usd, source: 'user', source_url: reference.source_url ?? null } : null
     }
     job.updated_at = now()
     return structuredClone(job)

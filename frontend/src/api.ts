@@ -288,7 +288,7 @@ export const refreshOffers = (id: string, token: string, lineIds: string[]) => r
 export const updateRequirements = (id: string, token: string, lineId: string, requirements: PartRequirement[]) => request<Job>('/v1/jobs/' + encodeURIComponent(id) + '/specs', { method: 'POST', body: JSON.stringify({ updates: [{ line_id: lineId, requirements }] }) }, token)
 
 // --- report v0.21 ---
-// Report-side types (costing, order plan, recommendations, matching, trust, grades, markets, share, extras).
+// Report-side types (costing, order plan, recommendations, matching, trust, grades, share).
 // The ReportLine and Job interfaces below merge into the ones above; offers and report are widened through ReportOffer and Report.
 export interface CostAmount { amount_inr?: string | null; status?: 'known' | 'estimated' | 'unknown'; partial_inr?: string | null; assumptions?: string[] }
 export interface ShippingPolicyRef { seller: string; free_above_inr?: string | null; free_when?: 'above' | 'at_or_above'; flat_fee_inr?: string | null; fee_plus_gst?: boolean; unverified?: boolean; source_url?: string | null; checked_on?: string | null; note?: string | null }
@@ -370,10 +370,7 @@ export const getCompileBoards = () => request<CompileBoards>('/v1/compile/boards
 export const requestCompile = (id: string, token: string, lineId: string, fqbn?: string) => request<CodePatch>(codePatchPath(id, lineId) + '/compile', { method: 'POST', body: JSON.stringify(fqbn ? { fqbn } : {}) }, token)
 export const getPlans = (id: string, token: string) => request<CartPlans>(jobPath(id, '/plans'), {}, token)
 export const selectOffers = (id: string, token: string, selections: SelectionInput[]) => request<Job>(jobPath(id, '/selections'), { method: 'POST', body: JSON.stringify({ selections }) }, token)
-export const setImportReferences = (id: string, token: string, references: { line_id: string; price_usd: string | null; source_url?: string | null }[]) => request<Job>(jobPath(id, '/import-references'), { method: 'POST', body: JSON.stringify({ references }) }, token)
 
-export interface MarketsResult { demo: boolean; location: { source: 'city' | 'coordinates'; city?: string | null; latitude: number; longitude: number; approximate: boolean; label: string }; categories: string[]; summary?: string | null; summary_label?: string; places: { title: string; uri?: string | null; address?: string | null; place_id?: string | null }[]; attribution: { provider?: 'Google Maps'; sources: { title: string; uri: string; kind: 'place' | 'review' | 'web' }[]; rules?: string }; cached: boolean; model?: string | null; label: string }
-export const getMarkets = (id: string, token: string, place: { city: string } | { lat: number; lng: number }) => request<MarketsResult>(jobPath(id, '/markets?' + new URLSearchParams('city' in place ? { city: place.city } : { lat: String(place.lat), lng: String(place.lng) })), {}, token)
 
 export interface ShareStatus { active: boolean; created_at?: string | null }
 export interface ShareLink { share_token: string; path: string; created_at: string }
@@ -387,11 +384,6 @@ export interface Job { copied_from?: { copied_at: string; source_updated_at: str
 export const copyShared = (shareToken: string) => request<{ job_id: string; job_token: string; status: string }>('/v1/shared/' + encodeURIComponent(shareToken) + '/copy', { method: 'POST' })
 export const shareUrl = (shareToken: string) => window.location.origin + '/shared/' + encodeURIComponent(shareToken)
 
-export interface FeatureStatus { enabled: boolean; daily_limit: number; remaining: number }
-export interface ExtrasStatus { demo: boolean; explain: FeatureStatus; zoom: FeatureStatus; scan: FeatureStatus; languages: string[]; zoom_line_ids: string[]; scan_max_bytes: number; scan_mime_types: string[] }
-export interface Explanation { language: string; transcript: string; translated: boolean; audio_mime?: 'audio/wav'; audio_base64: string; duration_s: number; cached: boolean; demo: boolean; label: string }
-export const getExtras = (id: string, token: string) => request<ExtrasStatus>(jobPath(id, '/extras'), {}, token)
-export const explainAloud = (id: string, token: string, language: string) => request<Explanation>(jobPath(id, '/explain'), { method: 'POST', body: JSON.stringify({ language }) }, token)
 
 // A one-page dummy PDF for preview mode, labelled as demo data.
 const DUMMY_PDF = [

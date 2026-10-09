@@ -121,7 +121,7 @@ test('preview saves project details and serves a labelled part fallback without 
   assert.equal(requests, 0)
 })
 
-test('preview report endpoints (share, shared page, markets, plans, extras, exports) stay local and labelled', async () => {
+test('preview report endpoints (share, shared page, plans, exports) stay local and labelled', async () => {
   assert.equal((await api.getShare('ui-preview', 'dummy-token')).active, false)
   const link = await api.createShare('ui-preview', 'dummy-token')
   assert.equal((await api.getShare('ui-preview', 'dummy-token')).active, true)
@@ -134,13 +134,8 @@ test('preview report endpoints (share, shared page, markets, plans, extras, expo
   assert.ok((await api.getJob('ui-preview', 'dummy-token')).copied_from?.copied_at)
   await api.revokeShare('ui-preview', 'dummy-token')
   assert.equal((await api.getShare('ui-preview', 'dummy-token')).active, false)
-  const sample = await api.getMarkets('ui-preview', 'dummy-token', { city: 'Chennai' })
-  assert.equal(sample.demo, true)
-  assert.equal(sample.attribution.sources.length, 0)
-  await assert.rejects(api.getMarkets('ui-preview', 'dummy-token', { city: 'Atlantis' }), error => error.code === 'CITY_NOT_SUPPORTED')
   const plans = await api.getPlans('ui-preview', 'dummy-token')
   assert.deepEqual(plans.plans.map(plan => plan.kind), ['cheapest', 'fewest_sellers', 'recommended'])
-  assert.equal((await api.getExtras('ui-preview', 'dummy-token')).explain.enabled, true)
   assert.match(await (await api.exportBlob('/v1/jobs/ui-preview/export.pdf', 'dummy-token')).text(), /^%PDF[\s\S]*DEMO JOB/)
   assert.equal(requests, 0)
 })
