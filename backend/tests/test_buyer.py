@@ -410,3 +410,80 @@ def test_a_challenge_behind_googles_redirect_blocks_only_the_seller():
         pass
     assert politeness.blocked_reason("www.digikey.in")
     assert not politeness.blocked_reason("vertexaisearch.cloud.google.com")
+
+
+def test_a_kit_pick_that_needs_changes_is_grade_b():
+    buyer = Buyer(
+        choices=[
+            ChoiceDraft(
+                pick=PickDraft(
+                    candidate_id=0,
+                    fit="kit",
+                    reason="Strip a long solid jumper for the rail.",
+                    changes=["Strip the insulation off a long jumper."],
+                    claims=[{"claim": "jumper kit", "quote": "Jumper Wire Kit 120 pcs"}],
+                )
+            )
+        ]
+    )
+    service = SourcingService(
+        Discovery(), Fetcher(), judge=RejectAll(), seller_search=Sellers([JUMPERS.url]), buyer=buyer
+    )
+    line = service.source_for_project(wire_line(), [wire_line()], project=PROJECT)
+    assert line.offers[0].compatibility.grade == "B"
+
+
+def test_regrading_keeps_an_ai_buyer_substitute():
+    from bharat_sourcer.compat import reassess_report
+    from bharat_sourcer.schemas import Report
+
+    buyer = Buyer(
+        choices=[
+            ChoiceDraft(
+                pick=PickDraft(
+                    candidate_id=0,
+                    fit="substitute",
+                    reason="Scrape and use.",
+                    changes=["Scrape the enamel."],
+                    claims=[{"claim": "22 SWG", "quote": "22 SWG Enamelled Copper Wire"}],
+                )
+            )
+        ]
+    )
+    service = SourcingService(
+        Discovery(),
+        Fetcher(),
+        judge=RejectAll(),
+        seller_search=Sellers([ENAMELLED.url]),
+        buyer=buyer,
+    )
+    line = service.source_for_project(wire_line(), [wire_line()], project=PROJECT)
+    report = Report(demo=False, summary="synthetic", lines=[line])
+    reassess_report(report, PROJECT)
+    assert report.lines[0].offers[0].compatibility.grade == "B"
+    assert report.lines[0].offers[0].compatibility.changes == ["Scrape the enamel."]
+
+
+def test_refresh_rechecks_known_listings_only_when_one_was_usable():
+    from bharat_sourcer.jobs import worth_rechecking
+    from bharat_sourcer.schemas import ReportLine, VerifiedOffer
+
+    def offer(status):
+        return VerifiedOffer(
+            url="https://seller.example/p",
+            seller="seller.example",
+            title="x",
+            price_inr="5.00",
+            stock="in_stock",
+            match=OfferMatch(status=status, score=0.5),
+        )
+
+    item = BomItem(line_id="L05", raw_name="Through-hole resistor")
+    partial = ReportLine(item=item, sourcing_status="offers_found", offers=[offer("partial")])
+    good = ReportLine(item=item, sourcing_status="offers_found", offers=[offer("exact")])
+    unknown_value = good.model_copy(
+        update={"buyable_spec": RESISTOR.model_copy(update={"needs_value": True})}
+    )
+    assert worth_rechecking(good)
+    assert not worth_rechecking(partial)
+    assert not worth_rechecking(unknown_value)

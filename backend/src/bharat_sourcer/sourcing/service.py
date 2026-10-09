@@ -797,7 +797,8 @@ class SourcingService:
                         offer.compatibility = assess_offer(resolution, offer)
                     except Exception:
                         logging.getLogger(__name__).warning("ASSESS_OFFER_FAILED", exc_info=True)
-                    if pick.fit == "substitute":
+                    # Any pick that needs changes (a kit to strip, a scraped wire) is grade B.
+                    if pick.fit == "substitute" or pick.changes:
                         offer.compatibility = substitute_compatibility(pick)
                     if offer.compatibility is not None:
                         offer.compatibility_status = offer.compatibility.status

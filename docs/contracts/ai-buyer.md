@@ -1,4 +1,4 @@
-# AI buyer (v0.30.0)
+# AI buyer (v0.30.0, v0.30.1)
 
 Hard parts are decided the way a maker buying parts in India would: from the whole project
 (what it builds, its power supply, every other part and this part's role), not from keyword
