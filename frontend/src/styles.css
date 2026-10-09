@@ -1169,7 +1169,8 @@ img, video, audio { max-width: 100%; }
 .pp-chat-launcher[aria-expanded="true"] { opacity: 0; pointer-events: none; }
 .pp-chat-badge { display: grid; place-items: center; min-width: 24px; height: 24px; padding: 0 7px; border-radius: 999px; color: #0d2630; background: var(--pp-saffron); font-size: 13px; }
 
-.pp-drawer { position: fixed; top: 0; right: 0; bottom: 0; z-index: 40; display: flex; flex-direction: column; width: min(460px, 100%); border-left: 1px solid var(--pp-line); background: var(--pp-paper); box-shadow: -24px 0 60px rgba(13, 38, 48, .14); transform: translateX(104%); visibility: hidden; transition: transform .28s cubic-bezier(.2, .8, .2, 1), visibility 0s linear .28s; }
+.project-page { transition: padding-right .28s cubic-bezier(.2, .8, .2, 1); }
+.pp-drawer { position: fixed; top: var(--pp-drawer-top, 0px); right: 0; bottom: 0; z-index: 40; display: flex; flex-direction: column; width: min(460px, 100%); border-left: 1px solid var(--pp-line); background: var(--pp-paper); box-shadow: -24px 0 60px rgba(13, 38, 48, .14); transform: translateX(104%); visibility: hidden; transition: transform .28s cubic-bezier(.2, .8, .2, 1), visibility 0s linear .28s; }
 .pp-drawer.is-open { transform: none; visibility: visible; transition: transform .28s cubic-bezier(.2, .8, .2, 1); }
 .pp-drawer-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 18px 20px 18px 24px; border-bottom: 1px solid var(--pp-line); }
 .pp-drawer-head h2 { margin: 0; color: var(--pp-ink); font-size: 20px; letter-spacing: -.03em; }
@@ -1180,6 +1181,13 @@ img, video, audio { max-width: 100%; }
 .pp-drawer .chat-intro { margin-top: 0; font-size: 13px; }
 .pp-drawer .chat-history { flex: 1; min-height: 0; max-height: none; }
 
+@media (min-width: 1100px) {
+  .project-page.chat-open { padding-right: 460px; }
+  .pp-drawer { box-shadow: -10px 0 30px rgba(13, 38, 48, .06); }
+}
+@media (max-width: 1099px) {
+  .pp-drawer { top: 0; }
+}
 @media (max-width: 760px) {
   .project-page .pp-container { width: calc(100% - 32px); padding-top: 28px; }
   .project-page .editable-project-field p { font-size: 17px; }
@@ -1192,6 +1200,6 @@ img, video, audio { max-width: 100%; }
   .pp-drawer { width: 100%; border-left: 0; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .pp-drawer, .pp-drawer.is-open, .pp-chat-launcher { transition: none; }
+  .pp-drawer, .pp-drawer.is-open, .pp-chat-launcher, .project-page { transition: none; }
   .pp-live { animation: none; }
 }
