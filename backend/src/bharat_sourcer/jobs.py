@@ -11,7 +11,7 @@ from uuid import UUID, uuid4
 
 from bharat_sourcer.actions import complete_refresh
 from bharat_sourcer.compat import assess_offer, keep_buyer_substitute, reassess_report, resolve_part
-from bharat_sourcer.costing import update_costs
+from bharat_sourcer.costing import bulk_waste, cheapest_cover, update_costs
 from bharat_sourcer.countries import DEFAULT_COUNTRY
 from bharat_sourcer.extraction import ExtractionError, Extractor
 from bharat_sourcer.identity import Principal
@@ -63,8 +63,11 @@ def worth_rechecking(line: ReportLine) -> bool:
     the re-check alone would judge its pick by the strict spec check only."""
     if line.buyable_spec is not None and line.buyable_spec.needs_value:
         return False
+    qty = line.item.qty or 1
+    cheapest = cheapest_cover(qty, line.offers)
     return any(
         offer.stock == "in_stock"
+        and not bulk_waste(qty, offer, cheapest)
         and (
             offer.match is None
             or (offer.match.status in {"exact", "compatible"} and offer.match.method != "llm_buyer")

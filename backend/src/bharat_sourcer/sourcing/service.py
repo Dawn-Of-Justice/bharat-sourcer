@@ -12,6 +12,7 @@ import httpx
 
 from bharat_sourcer.compat import assess_offer, resolve_part
 from bharat_sourcer.config import Settings, site_generation
+from bharat_sourcer.costing import bulk_waste, cheapest_cover
 from bharat_sourcer.countries import INDIA, Country
 from bharat_sourcer.resilience import post_with_retry
 from bharat_sourcer.schemas import (
@@ -214,6 +215,13 @@ def accepted_offer(offer: VerifiedOffer) -> bool:
     return offer.stock == "in_stock" and (
         offer.match is None or offer.match.status in ACCEPTED_MATCHES
     )
+
+
+def useful_accepted(qty: int, offers) -> bool:
+    """An accepted offer a maker would buy: not a bulk pack far beyond the need while a
+    much cheaper listing exists (then the AI buyer weighs the cheaper listings)."""
+    cheapest = cheapest_cover(qty, offers)
+    return any(accepted_offer(o) and not bulk_waste(qty, o, cheapest) for o in offers)
 
 
 def seller_queries(spec_queries: list[str], name: str, query: str) -> list[str]:
@@ -633,7 +641,7 @@ class SourcingService:
             and self.judge
             and not free_discovery
             and not query_prefix
-            and not any(accepted_offer(offer) for offer in state.offers)
+            and not useful_accepted(item.qty or 1, state.offers)
         ):
             buyer_note, calls = self._buy(
                 item,

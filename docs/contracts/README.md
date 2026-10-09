@@ -1,4 +1,10 @@
-# Implemented API contract — v0.30.2
+# Implemented API contract — v0.30.3
+
+v0.30.3: bulk packs. A pack at least 20× the quantity needed, costing at least ₹100 and
+5× a cheaper usable listing on the same line, is never selected automatically
+(`recommendation.blocked_reason` says so). When such packs are the only accepted listings,
+the AI buyer chooses (it sees every listing and the quantity needed), and a refresh runs
+the full search for that part instead of re-checking the bulk listing.
 
 v0.30.2: a part whose only usable listing was an AI buyer pick is searched again on
 refresh (the buyer decides again) instead of re-checking that listing with the strict

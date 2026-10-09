@@ -96,18 +96,22 @@ resistor 1/4 watt", "10k resistor"). Return JSON."""
 CHOICE_PROMPT = (
     ROLE
     + """
-No listing was accepted for this part yet. You get every listing that was fetched,
-including ones a strict spec check rejected. Decide what to buy:
+No listing was accepted for this part yet (or only bulk packs far beyond the need). You
+get every listing that was fetched, including ones a strict spec check rejected. Decide
+what to buy for the quantity the build needs (qty): a single item or small pack beats a
+bulk pack of hundreds unless nothing smaller fits. A strict check can be over-literal
+(e.g. "Lens Color: White" on a clear-lens white LED); judge as a maker would.
 - fit "exact": the part the project needs.
 - fit "substitute": not the named part but it does the same job in THIS build with small,
   safe changes a hobbyist can make (e.g. enamelled copper wire for a bare-wire rail:
   scrape the enamel where you solder). List those changes plainly (at most 4).
 - fit "kit": an assortment or kit that contains a suitable part (good when one value is
   needed but a kit is the sensible buy).
-Choose by usefulness for the build, then price. Never choose a listing that would be
-unsafe or that the build cannot use. Use only candidate_id values from the list; never
-invent listings, prices or stock. For the key facts behind your choice (what the part is,
-its value, size or gauge, pack size) copy short quotes verbatim from that listing.
+Choose by usefulness for the build, then price for the quantity needed. Never choose a
+listing that would be unsafe or that the build cannot use. Use only candidate_id values
+from the list; never invent listings, prices or stock. For the key facts behind your
+choice (what the part is, its value, size or gauge, pack size) copy short quotes verbatim
+from that listing.
 If no listing will do, leave pick empty and give up to 3 NEW store searches (not in
 tried_queries), worded the way Indian shops list the part: SWG gauges for wire, "tinned",
 "single strand", "solid core", "assortment", "kit", plain values like "22 swg".
