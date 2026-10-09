@@ -562,35 +562,19 @@ details > summary:focus-visible { outline: 2px solid #167f70; outline-offset: 4p
 .grade-findings { list-style: none; padding-left: 0 !important; }
 .grade-findings li { margin-bottom: 6px; }
 .offer-title { display: block; color: #4d6264; font-size: 11px; }
-.markets-places a, .maps-sources a { color: #156d62; font-size: 12px; font-weight: 800; text-decoration: underline; text-underline-offset: 2px; }
-.unsourced-group, .markets-card, .plan-compare, .share-control { padding: 17px; border: 1px solid #e0e8de; border-radius: 11px; background: #fbfcf9; }
-.unsourced-group h3, .markets-card h3 { margin: 0 0 10px; color: #1b3b42; font-size: 16px; }
+.unsourced-group, .plan-compare, .share-control { padding: 17px; border: 1px solid #e0e8de; border-radius: 11px; background: #fbfcf9; }
+.unsourced-group h3 { margin: 0 0 10px; color: #1b3b42; font-size: 16px; }
 .unsourced-group > ul { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
 .unsourced-group > ul > li { padding: 12px; border: 1px dashed #d5dfd5; border-radius: 8px; background: #fff; font-size: 13px; color: #35564d; }
 .unsourced-head { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: 8px 14px; }
 .unsourced-head strong { min-width: 0; overflow-wrap: anywhere; line-height: 1.4; }
 .unsourced-head .report-chip { justify-self: end; background: #f4f7f2; color: #49685c; }
 .unsourced-group p { margin: 6px 0; line-height: 1.5; }
-.markets-card { margin-top: 16px; }
 .plan-compare > summary, .share-control > summary { cursor: pointer; color: #2b5553; font-weight: 800; }
 .plan-compare > summary, .share-control > summary { font-size: 13px; }
 .plan-toggle { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
 .plan-preview { color: #35564d; font-size: 13px; line-height: 1.5; }
 .plan-preview ul { padding-left: 18px; }
-.markets-form label { display: grid; gap: 4px; color: #516b65; font-size: 11px; font-weight: 800; }
-.markets-form select { height: 38px; padding: 0 10px; border: 1px solid #d5dfd5; border-radius: 7px; background: #fff; color: #1b3a3d; font: inherit; font-size: 13px; }
-.markets-card > p { margin: 6px 0 10px; color: #667973; font-size: 13px; line-height: 1.5; }
-.markets-form { display: flex; flex-wrap: wrap; align-items: end; gap: 10px; }
-.markets-form select { min-width: 180px; }
-.markets-result { margin-top: 14px; color: #35564d; font-size: 13px; line-height: 1.55; }
-.markets-location { margin: 0 0 8px; color: #5f746d; font-size: 12px; }
-.markets-label { margin: 0 0 6px; font-weight: 800; color: #765526; }
-.markets-summary { white-space: pre-line; }
-.markets-places, .maps-sources { margin: 8px 0 0; padding-left: 18px; }
-.markets-places small { display: block; color: #758781; }
-.maps-sources { font-size: 12px; }
-.markets-meta { display: block; margin-top: 8px; color: #758781; }
-.no-break { white-space: nowrap; }
 .share-control { flex: 1 1 280px; font-size: 13px; color: #35564d; }
 .share-control p { margin: 8px 0; line-height: 1.5; }
 .share-notice { margin: 0 0 16px; padding: 13px 15px; border: 1px solid #b8d3e6; border-radius: 9px; background: #eef5fb; color: #23506f; font-size: 14px; line-height: 1.5; }
@@ -604,10 +588,10 @@ details > summary:focus-visible { outline: 2px solid #167f70; outline-offset: 4p
 .report-buying-spec dt { color: #71867a; }
 .report-buying-spec dd { margin: 0; overflow-wrap: anywhere; }
 @media (max-width: 600px) {
-  .unsourced-group, .markets-card, .plan-compare, .share-control { padding: 13px; }
+  .unsourced-group, .plan-compare, .share-control { padding: 13px; }
 }
 @media print {
-  .plan-compare, .markets-form { display: none; }
+  .plan-compare { display: none; }
 }
 .country-status { color: #19766d; font-weight: 700; }
 .flag-code { display: grid; place-items: center; width: 100%; height: 100%; background: #eef2ee; color: #254048; font-size: 9px; font-weight: 900; }
@@ -726,8 +710,6 @@ img, video, audio { max-width: 100%; }
 @media (max-width: 600px) {
   .result-evidence { margin-left: 0; }
   .input-callout { margin-left: 0; }
-  .markets-form select { min-width: 0; width: 100%; }
-  .markets-form label { flex: 1 1 100%; }
   /* Keep the close button reachable while a long account panel scrolls. */
   .account-dialog { padding-top: 12px; }
   .dialog-close { position: sticky; top: 0; z-index: 1; float: right; margin: 0 -14px 0 0; border-radius: 50%; background: #faf9f4; }
@@ -744,11 +726,10 @@ img, video, audio { max-width: 100%; }
   .citation-detail button { min-height: 44px; }
   .check-label, .brand { min-height: 44px; }
   .check-label input { width: 22px; height: 22px; }
-  .markets-form select, .spec-mount select, .requirement-row input, .requirement-row select, .extra-source-row input { min-height: 44px; }
+  .spec-mount select, .requirement-row input, .requirement-row select, .extra-source-row input { min-height: 44px; }
   .share-control > summary, .plan-compare > summary, .result-evidence summary, .spec-conflicts summary, .requirements-after > summary, .trust-why > summary { padding-block: 12px; }
   .chat-citation summary { padding-block: 13px; }
   .match-chip > summary, .grade-chip > summary { padding: 6px 10px; }
-  .maps-sources li > a { display: inline-flex; align-items: center; min-height: 44px; }
 }
 @media (max-width: 420px) {
   .floating-chip { padding: 7px 10px; font-size: 10px; }
