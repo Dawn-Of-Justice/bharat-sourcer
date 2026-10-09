@@ -1131,3 +1131,67 @@ img, video, audio { max-width: 100%; }
 .compile-board select { max-width: 15rem; padding: .45rem .5rem; border: 1px solid #aab8a8; border-radius: 8px; font: inherit; font-weight: 400; background: white; }
 .compile-board.needs-board select { border-color: #c0392b; outline: 2px solid #f3c4bd; }
 .seller-identity { display: grid; justify-items: start; gap: .25rem; min-width: 0; }
+
+/* --- Project page redesign: frame (part 1) ---------------------------------------------
+   Single column, a three-step journey, chat in a side panel. Tokens follow the landing page. */
+.project-page { --pp-ink: #0d2630; --pp-teal: #19766d; --pp-mint: #e9f2ea; --pp-saffron: #df8c34; --pp-brick: #a82c24; --pp-line: #dfe4da; --pp-muted: #5d706c; --pp-paper: #fffefa; }
+.project-page .pp-container { width: min(1120px, calc(100% - 48px)); max-width: none; padding-top: 48px; padding-bottom: 150px; }
+.pp-demo-tag { display: inline-block; margin: 0 0 18px; padding: 5px 12px; border-radius: 999px; background: #fdf0dc; color: #74501c; font-size: 13px; font-weight: 750; }
+
+.project-page .project-heading { display: grid; gap: 14px; max-width: 860px; margin: 0 0 34px; }
+.project-page .editable-project-field h1 { color: var(--pp-ink); font-size: clamp(36px, 4.4vw, 56px); font-weight: 800; line-height: 1.03; letter-spacing: -.055em; text-wrap: balance; }
+.project-page .editable-project-field p { max-width: 68ch; color: #536669; font-size: 19px; font-style: italic; line-height: 1.55; }
+.project-page .project-source-link { color: var(--pp-teal); font-size: 14px; font-weight: 750; }
+
+.pp-steps { display: flex; align-items: center; gap: 24px; margin: 0 0 40px; padding: 20px 0; border-block: 1px solid var(--pp-line); }
+.pp-steps ol { display: flex; flex: 1; min-width: 0; margin: 0; padding: 0; list-style: none; }
+.pp-step { display: grid; flex: 1 1 0; grid-template-columns: 34px minmax(0, 1fr); grid-template-rows: 34px auto; row-gap: 10px; min-width: 0; }
+.pp-step-node { grid-column: 1; grid-row: 1; display: grid; place-items: center; width: 34px; height: 34px; border: 2px solid var(--pp-line); border-radius: 50%; color: #8a9a94; background: var(--pp-paper); font-size: 14px; font-weight: 850; }
+.pp-step:not(:last-child)::after { content: ""; grid-column: 2; grid-row: 1; align-self: center; height: 2px; margin: 0 10px; border-radius: 2px; background: var(--pp-line); }
+.pp-step-text { display: grid; gap: 3px; grid-column: 1 / -1; grid-row: 2; padding-right: 18px; }
+.pp-step-text strong { color: #7d8d88; font-size: 15px; font-weight: 750; letter-spacing: -.01em; }
+.pp-step-text span { display: inline-flex; align-items: center; gap: 7px; color: var(--pp-muted); font-size: 13px; line-height: 1.4; }
+.pp-step-done .pp-step-node { border-color: var(--pp-teal); color: #fff; background: var(--pp-teal); }
+.pp-step-done:not(:last-child)::after { background: var(--pp-teal); }
+.pp-step-done .pp-step-text strong { color: #3f5f59; }
+.pp-step-current .pp-step-node { border-color: var(--pp-teal); color: var(--pp-teal); box-shadow: 0 0 0 5px #19766d1c; }
+.pp-step-current .pp-step-text strong, .pp-step-failed .pp-step-text strong { color: var(--pp-ink); }
+.pp-step-failed .pp-step-node { border-color: var(--pp-brick); color: var(--pp-brick); }
+.pp-step-failed .pp-step-text span { color: var(--pp-brick); }
+.pp-steps-action { flex-shrink: 0; }
+.pp-live { width: 8px; height: 8px; flex-shrink: 0; border-radius: 50%; background: var(--pp-saffron); animation: pulse 1.5s ease-in-out infinite; }
+
+.project-page .pp-main > .job-panel:first-child { margin-top: 0; }
+
+.pp-chat-launcher { position: fixed; right: 28px; bottom: 28px; z-index: 30; display: inline-flex; align-items: center; gap: 10px; min-height: 52px; padding: 0 22px 0 18px; border: 0; border-radius: 999px; color: #fff; background: #0d2630; box-shadow: 0 14px 34px rgba(13, 38, 48, .28); font-size: 15px; font-weight: 800; transition: transform .2s, opacity .2s; }
+.pp-chat-launcher:hover { transform: translateY(-2px); }
+.pp-chat-launcher svg { width: 20px; height: 20px; }
+.pp-chat-launcher[aria-expanded="true"] { opacity: 0; pointer-events: none; }
+.pp-chat-badge { display: grid; place-items: center; min-width: 24px; height: 24px; padding: 0 7px; border-radius: 999px; color: #0d2630; background: var(--pp-saffron); font-size: 13px; }
+
+.pp-drawer { position: fixed; top: 0; right: 0; bottom: 0; z-index: 40; display: flex; flex-direction: column; width: min(460px, 100%); border-left: 1px solid var(--pp-line); background: var(--pp-paper); box-shadow: -24px 0 60px rgba(13, 38, 48, .14); transform: translateX(104%); visibility: hidden; transition: transform .28s cubic-bezier(.2, .8, .2, 1), visibility 0s linear .28s; }
+.pp-drawer.is-open { transform: none; visibility: visible; transition: transform .28s cubic-bezier(.2, .8, .2, 1); }
+.pp-drawer-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 18px 20px 18px 24px; border-bottom: 1px solid var(--pp-line); }
+.pp-drawer-head h2 { margin: 0; color: var(--pp-ink); font-size: 20px; letter-spacing: -.03em; }
+.pp-icon-button { display: grid; place-items: center; width: 40px; height: 40px; border: 1px solid var(--pp-line); border-radius: 50%; color: var(--pp-ink); background: transparent; font-size: 15px; }
+.pp-icon-button:hover { background: var(--pp-mint); }
+.pp-drawer-body { display: flex; flex: 1; min-height: 0; }
+.pp-drawer .chat-panel { position: static; display: flex; flex: 1; flex-direction: column; height: auto; max-height: none; min-height: 0; padding: 16px 24px 20px; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+.pp-drawer .chat-intro { margin-top: 0; font-size: 13px; }
+.pp-drawer .chat-history { flex: 1; min-height: 0; max-height: none; }
+
+@media (max-width: 760px) {
+  .project-page .pp-container { width: calc(100% - 32px); padding-top: 28px; }
+  .project-page .editable-project-field p { font-size: 17px; }
+  .pp-steps { flex-wrap: wrap; gap: 14px; }
+  .pp-step { grid-template-columns: 30px minmax(0, 1fr); grid-template-rows: 30px auto; }
+  .pp-step-node { width: 30px; height: 30px; font-size: 13px; }
+  .pp-step-text { padding-right: 8px; }
+  .pp-step-text strong { font-size: 13px; }
+  .pp-chat-launcher { right: 16px; bottom: 16px; min-height: 48px; padding: 0 18px 0 15px; font-size: 14px; }
+  .pp-drawer { width: 100%; border-left: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pp-drawer, .pp-drawer.is-open, .pp-chat-launcher { transition: none; }
+  .pp-live { animation: none; }
+}
