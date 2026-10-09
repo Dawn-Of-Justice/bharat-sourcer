@@ -163,7 +163,7 @@ class CodePatchService:
                 reason="file_not_read",
                 **base,
                 detail="The project's code files could not be read right now.",
-                notes=code_adapt.notes_for(from_id, to_id, code_adapt.recipe_for(from_id, to_id)),
+                notes=code_adapt.notes_for(from_id, to_id, None),
             )
         result = code_adapt.apply_recipe(files, from_id, to_id)
         if result.ok:

@@ -3,9 +3,11 @@
 Recipes in `data/code_recipes.json` implement the `code` changes of one substitute edge
 for one library. They are pure text edits applied outside comments and string literals.
 A required step that matches nothing, or more places than it allows, refuses the whole
-recipe: a curated patch is either exactly what the recipe describes or absent, with a
-reason. Wiring, power and verification changes are never patched; they become notes.
-Nothing here compiles code or calls a model.
+recipe, and so does a `refuse_if` step that finds a form the recipe cannot change safely
+(for example a humidity reading on a sensor without humidity): a curated patch is either
+exactly what the recipe describes or absent, with a reason. Wiring, power and verification
+changes are never patched; they become notes, and a refused recipe lists every catalogue
+change as a note because nothing was patched. Nothing here compiles code or calls a model.
 """
 
 import difflib
@@ -142,9 +144,21 @@ def apply_step(step: dict, files: dict[str, str]) -> tuple[dict[str, str], int]:
         elif kind == "replace_lib_dep":
             if not is_build(path):
                 continue
-            pattern = re.compile(re.escape(step["from"]), re.I)
+            # The old library's version constraint does not apply to the new library, so it
+            # is dropped; commented-out lines (; or #) are left alone.
+            pattern = re.compile(
+                r"^(?![ \t]*[;#])([^\n]*?)"
+                + re.escape(step["from"])
+                + r"(?:[ \t]*@[ \t]*[^\s,;\"']+)?",
+                re.I | re.M,
+            )
             matches = list(pattern.finditer(text))
-            new = substitute(text, matches, lambda m: step["to"])
+            new = substitute(text, matches, lambda m: m.group(1) + step["to"])
+        elif kind == "refuse_if":
+            if not is_code(path):
+                continue
+            matches = code_matches(re.compile(step["pattern"], re.M), text, python)
+            new = text
         elif kind == "insert_after":
             if not is_code(path):
                 continue
@@ -203,13 +217,15 @@ def apply_recipe(files: dict[str, str], from_id: str, to_id: str) -> PatchResult
         return PatchResult(
             False, notes=notes, reason="no_code_change_needed", detail=recipe["no_code_change"]
         )
-    if not files:
+
+    def refuse(reason: str, detail: str, **extra) -> PatchResult:
+        # Nothing was patched, so every catalogue change (code included) stays a note.
         return PatchResult(
-            False,
-            notes=notes,
-            reason="no_code",
-            detail="No code files from this project could be read.",
+            False, notes=notes_for(from_id, to_id, None), reason=reason, detail=detail, **extra
         )
+
+    if not files:
+        return refuse("no_code", "No code files from this project could be read.")
     wanted = {h.casefold() for h in recipe.get("requires_any_include", [])}
     includes = {
         m.group(1).casefold()
@@ -218,31 +234,33 @@ def apply_recipe(files: dict[str, str], from_id: str, to_id: str) -> PatchResult
         for m in re.finditer(r'^\s*#\s*include\s*[<"]([^>"]+)[>"]', text, re.M)
     }
     if wanted and not wanted & includes:
-        return PatchResult(
-            False,
-            notes=notes,
-            reason="recipe_not_applicable",
-            detail=f"The code does not use the library this recipe covers ({recipe['library']}).",
+        return refuse(
+            "recipe_not_applicable",
+            f"The code does not use the library this recipe covers ({recipe['library']}).",
         )
     current = dict(files)
     applied, skipped = [], []
     for step in recipe["steps"]:
         changed, count = apply_step(step, current)
+        if step["kind"] == "refuse_if":
+            if count:
+                return refuse(
+                    "recipe_not_applicable",
+                    f"The code uses a form this recipe does not change: '{step['describe']}' "
+                    f"({count} place{'s' if count != 1 else ''}).",
+                )
+            continue
         limit = step.get("max_matches", 10)
         if count > limit:
-            return PatchResult(
-                False,
-                notes=notes,
-                reason="recipe_not_applicable",
-                detail=f"Ambiguous: '{step['describe']}' matched {count} places (limit {limit}).",
+            return refuse(
+                "recipe_not_applicable",
+                f"Ambiguous: '{step['describe']}' matched {count} places (limit {limit}).",
             )
         if count == 0:
             if step.get("required"):
-                return PatchResult(
-                    False,
-                    notes=notes,
-                    reason="recipe_not_applicable",
-                    detail=f"The code is not in the form this recipe expects: "
+                return refuse(
+                    "recipe_not_applicable",
+                    f"The code is not in the form this recipe expects: "
                     f"'{step['describe']}' found nothing to change.",
                 )
             skipped.append(f"{step['describe']}: not used in this code")
@@ -255,11 +273,7 @@ def apply_recipe(files: dict[str, str], from_id: str, to_id: str) -> PatchResult
         if current[path] != files[path]
     ]
     if not patched:
-        return PatchResult(
-            False,
-            notes=notes,
-            skipped=skipped,
-            reason="recipe_not_applicable",
-            detail="The recipe made no changes to this code.",
+        return refuse(
+            "recipe_not_applicable", "The recipe made no changes to this code.", skipped=skipped
         )
     return PatchResult(True, files=patched, applied=applied, skipped=skipped, notes=notes)

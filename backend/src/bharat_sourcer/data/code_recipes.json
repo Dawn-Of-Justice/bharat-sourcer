@@ -1,5 +1,5 @@
 {
-  "_note": "Curated code recipes for catalogue substitute edges, written by hand for Bharat Sourcer on 2026-10-09. Each recipe implements the `code` changes of one edge in data/parts_catalog.json for the named library only; other changes stay notes. Recipes are deterministic text edits applied outside comments and strings; a required step that matches nothing, or more than max_matches places, refuses the whole recipe instead of guessing. A curated patch is not compiled or tested on hardware.",
+  "_note": "Curated code recipes for catalogue substitute edges, written by hand for Bharat Sourcer on 2026-10-09. Each recipe implements the `code` changes of one edge in data/parts_catalog.json for the named library only; other changes stay notes. Recipes are deterministic text edits applied outside comments and strings; a required step that matches nothing, or more than max_matches places, refuses the whole recipe instead of guessing, and so does a refuse_if step that finds a form the recipe cannot change safely. Recipes for the BME280/BMP180 → BMP280, WS2812B → SK6812 RGBW and DS1307 ↔ DS3231 edges were added on 2026-10-10 from a 2026-10-09 draft. A curated patch is not compiled or tested on hardware.",
   "recipes": [
     {
       "from_id": "dht22",
@@ -9,13 +9,13 @@
       "implements": ["Change #define DHTTYPE DHT22 to DHT11."],
       "steps": [
         {
-          "kind": "replace_identifier",
-          "from": "DHT22",
-          "to": "DHT11",
+          "kind": "replace_regex",
+          "pattern": "\\b(?:DHT22|AM2302)\\b",
+          "replacement": "DHT11",
           "files": "code",
           "required": true,
           "max_matches": 6,
-          "describe": "Sensor type DHT22 → DHT11 (DHTTYPE define, constructor or DHTesp setup)"
+          "describe": "Sensor type DHT22 (or its alias AM2302) → DHT11 (DHTTYPE define, constructor or DHTesp setup)"
         }
       ]
     },
@@ -47,7 +47,7 @@
         },
         {
           "kind": "replace_regex",
-          "pattern": "(\\w+)\\s*\\.\\s*begin\\s*\\(\\s*SSD1306_SWITCHCAPVCC\\s*,\\s*(0x[0-9A-Fa-f]{2})\\s*\\)",
+          "pattern": "(\\w+)\\s*\\.\\s*begin\\s*\\(\\s*SSD1306_SWITCHCAPVCC\\s*,\\s*(0x[0-9A-Fa-f]{2}|[A-Za-z_]\\w*)\\s*\\)",
           "replacement": "\\1.begin(\\2, true)",
           "files": "code",
           "required": true,
@@ -80,6 +80,21 @@
           "required": false,
           "max_matches": 200,
           "describe": "Colour constant SSD1306_INVERSE → SH110X_INVERSE"
+        },
+        {
+          "kind": "replace_regex",
+          "pattern": "\\b(BLACK|WHITE|INVERSE)\\b",
+          "replacement": "SH110X_\\1",
+          "files": "code",
+          "required": false,
+          "max_matches": 200,
+          "describe": "Old colour names BLACK, WHITE, INVERSE (defined by Adafruit_SSD1306.h, not by SH110X) → SH110X_ names"
+        },
+        {
+          "kind": "refuse_if",
+          "pattern": "\\bAdafruit_SSD1306\\b|\\bSSD1306_\\w+",
+          "files": "code",
+          "describe": "SSD1306 names left after the swap (a second display object, SSD1306_LCDHEIGHT or other constants SH110X does not have)"
         },
         {
           "kind": "replace_lib_dep",
@@ -123,6 +138,424 @@
       "implements": [],
       "no_code_change": "STEP/DIR code is unchanged for this substitute; check the motor direction on first run because some modules invert DIR.",
       "steps": []
+    },
+    {
+      "from_id": "bme280_adafruit",
+      "to_id": "bmp280_gy",
+      "library": "Adafruit BME280 → Adafruit BMP280",
+      "requires_any_include": ["Adafruit_BME280.h"],
+      "implements": ["Switch from the Adafruit BME280 library to Adafruit BMP280 and remove humidity readings (readHumidity()); setSampling() has no humidity argument on the BMP280."],
+      "steps": [
+        {
+          "kind": "refuse_if",
+          "pattern": "\\.\\s*(?:readHumidity|getHumiditySensor|setSampling|setTemperatureCompensation|getTemperatureCompensation)\\s*\\(",
+          "files": "code",
+          "describe": "Humidity readings, setSampling() or temperature compensation (the BMP280 has no humidity sensor and its setSampling() differs)"
+        },
+        {
+          "kind": "refuse_if",
+          "pattern": "\\.\\s*begin\\s*\\([^()]*,\\s*&?\\s*Wire\\w*\\s*\\)",
+          "files": "code",
+          "describe": "begin(address, &Wire) (Adafruit_BMP280 takes the I2C bus in its constructor)"
+        },
+        {
+          "kind": "replace_include",
+          "from": "Adafruit_BME280.h",
+          "to": "Adafruit_BMP280.h",
+          "required": true,
+          "max_matches": 2,
+          "describe": "Include Adafruit_BMP280.h instead of Adafruit_BME280.h"
+        },
+        {
+          "kind": "replace_identifier",
+          "from": "Adafruit_BME280",
+          "to": "Adafruit_BMP280",
+          "files": "code",
+          "required": true,
+          "max_matches": 4,
+          "describe": "Sensor object Adafruit_BME280 → Adafruit_BMP280 (same constructor arguments)"
+        },
+        {
+          "kind": "replace_identifier",
+          "from": "BME280_ADDRESS_ALTERNATE",
+          "to": "BMP280_ADDRESS_ALT",
+          "files": "code",
+          "required": false,
+          "max_matches": 4,
+          "describe": "Address constant BME280_ADDRESS_ALTERNATE (0x76) → BMP280_ADDRESS_ALT"
+        },
+        {
+          "kind": "replace_identifier",
+          "from": "BME280_ADDRESS",
+          "to": "BMP280_ADDRESS",
+          "files": "code",
+          "required": false,
+          "max_matches": 4,
+          "describe": "Address constant BME280_ADDRESS (0x77) → BMP280_ADDRESS"
+        },
+        {
+          "kind": "replace_lib_dep",
+          "from": "Adafruit BME280 Library",
+          "to": "Adafruit BMP280 Library",
+          "required": false,
+          "max_matches": 2,
+          "describe": "PlatformIO / library dependency Adafruit BME280 Library → Adafruit BMP280 Library"
+        },
+        {
+          "kind": "refuse_if",
+          "pattern": "\\bAdafruit_BME280\\w*|\\bBME280_\\w+",
+          "files": "code",
+          "describe": "BME280 names left after the swap"
+        }
+      ]
+    },
+    {
+      "from_id": "bme280_gy_3v3",
+      "to_id": "bmp280_gy",
+      "library": "Adafruit BME280 → Adafruit BMP280",
+      "requires_any_include": ["Adafruit_BME280.h"],
+      "implements": ["Switch from the Adafruit BME280 library to Adafruit BMP280 and remove humidity readings (readHumidity()); setSampling() has no humidity argument on the BMP280."],
+      "steps": [
+        {
+          "kind": "refuse_if",
+          "pattern": "\\.\\s*(?:readHumidity|getHumiditySensor|setSampling|setTemperatureCompensation|getTemperatureCompensation)\\s*\\(",
+          "files": "code",
+          "describe": "Humidity readings, setSampling() or temperature compensation (the BMP280 has no humidity sensor and its setSampling() differs)"
+        },
+        {
+          "kind": "refuse_if",
+          "pattern": "\\.\\s*begin\\s*\\([^()]*,\\s*&?\\s*Wire\\w*\\s*\\)",
+          "files": "code",
+          "describe": "begin(address, &Wire) (Adafruit_BMP280 takes the I2C bus in its constructor)"
+        },
+        {
+          "kind": "replace_include",
+          "from": "Adafruit_BME280.h",
+          "to": "Adafruit_BMP280.h",
+          "required": true,
+          "max_matches": 2,
+          "describe": "Include Adafruit_BMP280.h instead of Adafruit_BME280.h"
+        },
+        {
+          "kind": "replace_identifier",
+          "from": "Adafruit_BME280",
+          "to": "Adafruit_BMP280",
+          "files": "code",
+          "required": true,
+          "max_matches": 4,
+          "describe": "Sensor object Adafruit_BME280 → Adafruit_BMP280 (same constructor arguments)"
+        },
+        {
+          "kind": "replace_identifier",
+          "from": "BME280_ADDRESS_ALTERNATE",
+          "to": "BMP280_ADDRESS_ALT",
+          "files": "code",
+          "required": false,
+          "max_matches": 4,
+          "describe": "Address constant BME280_ADDRESS_ALTERNATE (0x76) → BMP280_ADDRESS_ALT"
+        },
+        {
+          "kind": "replace_identifier",
+          "from": "BME280_ADDRESS",
+          "to": "BMP280_ADDRESS",
+          "files": "code",
+          "required": false,
+          "max_matches": 4,
+          "describe": "Address constant BME280_ADDRESS (0x77) → BMP280_ADDRESS"
+        },
+        {
+          "kind": "replace_lib_dep",
+          "from": "Adafruit BME280 Library",
+          "to": "Adafruit BMP280 Library",
+          "required": false,
+          "max_matches": 2,
+          "describe": "PlatformIO / library dependency Adafruit BME280 Library → Adafruit BMP280 Library"
+        },
+        {
+          "kind": "refuse_if",
+          "pattern": "\\bAdafruit_BME280\\w*|\\bBME280_\\w+",
+          "files": "code",
+          "describe": "BME280 names left after the swap"
+        }
+      ]
+    },
+    {
+      "from_id": "bme280_gy_5v",
+      "to_id": "bmp280_gy",
+      "library": "Adafruit BME280 → Adafruit BMP280",
+      "requires_any_include": ["Adafruit_BME280.h"],
+      "implements": ["Switch from the Adafruit BME280 library to Adafruit BMP280 and remove humidity readings (readHumidity()); setSampling() has no humidity argument on the BMP280."],
+      "steps": [
+        {
+          "kind": "refuse_if",
+          "pattern": "\\.\\s*(?:readHumidity|getHumiditySensor|setSampling|setTemperatureCompensation|getTemperatureCompensation)\\s*\\(",
+          "files": "code",
+          "describe": "Humidity readings, setSampling() or temperature compensation (the BMP280 has no humidity sensor and its setSampling() differs)"
+        },
+        {
+          "kind": "refuse_if",
+          "pattern": "\\.\\s*begin\\s*\\([^()]*,\\s*&?\\s*Wire\\w*\\s*\\)",
+          "files": "code",
+          "describe": "begin(address, &Wire) (Adafruit_BMP280 takes the I2C bus in its constructor)"
+        },
+        {
+          "kind": "replace_include",
+          "from": "Adafruit_BME280.h",
+          "to": "Adafruit_BMP280.h",
+          "required": true,
+          "max_matches": 2,
+          "describe": "Include Adafruit_BMP280.h instead of Adafruit_BME280.h"
+        },
+        {
+          "kind": "replace_identifier",
+          "from": "Adafruit_BME280",
+          "to": "Adafruit_BMP280",
+          "files": "code",
+          "required": true,
+          "max_matches": 4,
+          "describe": "Sensor object Adafruit_BME280 → Adafruit_BMP280 (same constructor arguments)"
+        },
+        {
+          "kind": "replace_identifier",
+          "from": "BME280_ADDRESS_ALTERNATE",
+          "to": "BMP280_ADDRESS_ALT",
+          "files": "code",
+          "required": false,
+          "max_matches": 4,
+          "describe": "Address constant BME280_ADDRESS_ALTERNATE (0x76) → BMP280_ADDRESS_ALT"
+        },
+        {
+          "kind": "replace_identifier",
+          "from": "BME280_ADDRESS",
+          "to": "BMP280_ADDRESS",
+          "files": "code",
+          "required": false,
+          "max_matches": 4,
+          "describe": "Address constant BME280_ADDRESS (0x77) → BMP280_ADDRESS"
+        },
+        {
+          "kind": "replace_lib_dep",
+          "from": "Adafruit BME280 Library",
+          "to": "Adafruit BMP280 Library",
+          "required": false,
+          "max_matches": 2,
+          "describe": "PlatformIO / library dependency Adafruit BME280 Library → Adafruit BMP280 Library"
+        },
+        {
+          "kind": "refuse_if",
+          "pattern": "\\bAdafruit_BME280\\w*|\\bBME280_\\w+",
+          "files": "code",
+          "describe": "BME280 names left after the swap"
+        }
+      ]
+    },
+    {
+      "from_id": "bmp180_gy68",
+      "to_id": "bmp280_gy",
+      "library": "Adafruit BMP085 → Adafruit BMP280",
+      "requires_any_include": ["Adafruit_BMP085.h"],
+      "implements": ["Switch from the Adafruit BMP085 library to Adafruit BMP280; readAltitude() takes sea-level pressure in hPa instead of Pa, and begin() takes the I2C address instead of an oversampling mode."],
+      "steps": [
+        {
+          "kind": "refuse_if",
+          "pattern": "\\.\\s*begin\\s*\\(\\s*BMP085_\\w+|\\.\\s*readAltitude\\s*\\(\\s*[^)\\s]|\\.\\s*readSealevelPressure\\s*\\(|\\.\\s*readRaw(?:Temperature|Pressure)\\s*\\(",
+          "files": "code",
+          "describe": "begin(BMP085_ mode), readAltitude(sea-level pressure in Pa), readSealevelPressure() or raw readings (different units or missing on the BMP280)"
+        },
+        {
+          "kind": "replace_include",
+          "from": "Adafruit_BMP085.h",
+          "to": "Adafruit_BMP280.h",
+          "required": true,
+          "max_matches": 2,
+          "describe": "Include Adafruit_BMP280.h instead of Adafruit_BMP085.h"
+        },
+        {
+          "kind": "replace_identifier",
+          "from": "Adafruit_BMP085",
+          "to": "Adafruit_BMP280",
+          "files": "code",
+          "required": true,
+          "max_matches": 4,
+          "describe": "Sensor object Adafruit_BMP085 → Adafruit_BMP280"
+        },
+        {
+          "kind": "replace_lib_dep",
+          "from": "Adafruit BMP085 Library",
+          "to": "Adafruit BMP280 Library",
+          "required": false,
+          "max_matches": 2,
+          "describe": "PlatformIO / library dependency Adafruit BMP085 Library → Adafruit BMP280 Library"
+        },
+        {
+          "kind": "refuse_if",
+          "pattern": "\\bAdafruit_BMP085\\w*|\\bBMP085_\\w+",
+          "files": "code",
+          "describe": "BMP085 names left after the swap"
+        }
+      ]
+    },
+    {
+      "from_id": "ws2812b",
+      "to_id": "sk6812_rgbw",
+      "library": "Adafruit NeoPixel",
+      "requires_any_include": ["Adafruit_NeoPixel.h"],
+      "implements": ["Use NEO_GRBW instead of NEO_GRB in the Adafruit_NeoPixel constructor. FastLED's usual addLeds() sends three bytes per LED, so FastLED sketches show wrong colours until they use RGBW output or switch to Adafruit_NeoPixel."],
+      "steps": [
+        {
+          "kind": "refuse_if",
+          "pattern": "\\bFastLED\\s*\\.\\s*addLeds\\b|\\bNEO_(?:RGB|RBG|GBR|BRG|BGR)\\b",
+          "files": "code",
+          "describe": "FastLED strips, or a colour order other than NEO_GRB (choose the RGBW order by hand)"
+        },
+        {
+          "kind": "replace_regex",
+          "pattern": "(\\bAdafruit_NeoPixel\\s*(?:\\w+\\s*)?\\()(\\s*[^;(),]+,\\s*[^;(),]+)\\)",
+          "replacement": "\\1\\2, NEO_GRBW + NEO_KHZ800)",
+          "files": "code",
+          "required": false,
+          "max_matches": 4,
+          "describe": "Two-argument Adafruit_NeoPixel(count, pin), which defaults to NEO_GRB → add NEO_GRBW + NEO_KHZ800"
+        },
+        {
+          "kind": "replace_identifier",
+          "from": "NEO_GRB",
+          "to": "NEO_GRBW",
+          "files": "code",
+          "required": false,
+          "max_matches": 8,
+          "describe": "Pixel type NEO_GRB → NEO_GRBW"
+        },
+        {
+          "kind": "refuse_if",
+          "pattern": "\\bAdafruit_NeoPixel\\s+\\w+\\s*(?:;|\\(\\s*[^;(),]*\\))",
+          "files": "code",
+          "describe": "An Adafruit_NeoPixel declared without a pixel type (empty or one-argument constructor)"
+        }
+      ]
+    },
+    {
+      "from_id": "ds1307_rtc",
+      "to_id": "ds3231_rtc",
+      "library": "RTClib",
+      "requires_any_include": ["RTClib.h"],
+      "implements": ["Use RTC_DS3231 instead of RTC_DS1307 and rtc.lostPower() instead of !rtc.isrunning(); the DS3231 has no battery-backed RAM (readnvram/writenvram)."],
+      "steps": [
+        {
+          "kind": "refuse_if",
+          "pattern": "\\b(?:readnvram|writenvram)\\s*\\(|\\bDS1307_(?:OFF|ON|SquareWave32kHz)\\b",
+          "files": "code",
+          "describe": "Battery-backed RAM (readnvram/writenvram) or DS1307 square-wave modes the DS3231 does not have"
+        },
+        {
+          "kind": "replace_identifier",
+          "from": "RTC_DS1307",
+          "to": "RTC_DS3231",
+          "files": "code",
+          "required": true,
+          "max_matches": 2,
+          "describe": "Clock object RTC_DS1307 → RTC_DS3231 (same begin(), adjust() and now())"
+        },
+        {
+          "kind": "replace_regex",
+          "pattern": "!\\s*(\\w+)\\s*\\.\\s*isrunning\\s*\\(\\s*\\)",
+          "replacement": "\\1.lostPower()",
+          "files": "code",
+          "required": false,
+          "max_matches": 4,
+          "describe": "!rtc.isrunning() → rtc.lostPower()"
+        },
+        {
+          "kind": "replace_identifier",
+          "from": "DS1307_SquareWave1HZ",
+          "to": "DS3231_SquareWave1Hz",
+          "files": "code",
+          "required": false,
+          "max_matches": 4,
+          "describe": "Square wave DS1307_SquareWave1HZ → DS3231_SquareWave1Hz"
+        },
+        {
+          "kind": "replace_regex",
+          "pattern": "\\bDS1307_SquareWave([48]kHz)\\b",
+          "replacement": "DS3231_SquareWave\\1",
+          "files": "code",
+          "required": false,
+          "max_matches": 4,
+          "describe": "Square wave DS1307_SquareWave4kHz / 8kHz → DS3231_ names"
+        },
+        {
+          "kind": "refuse_if",
+          "pattern": "\\bisrunning\\s*\\(|\\bRTC_DS1307\\b|\\bDS1307_\\w+",
+          "files": "code",
+          "describe": "isrunning() without '!' or other DS1307 names left after the swap"
+        }
+      ]
+    },
+    {
+      "from_id": "ds3231_rtc",
+      "to_id": "ds1307_rtc",
+      "library": "RTClib",
+      "requires_any_include": ["RTClib.h"],
+      "implements": ["Use RTC_DS1307 instead of RTC_DS3231 and !rtc.isrunning() instead of rtc.lostPower(); the DS1307 has no temperature reading, alarms or 32 kHz output."],
+      "steps": [
+        {
+          "kind": "refuse_if",
+          "pattern": "\\bgetTemperature\\s*\\(|\\b(?:setAlarm[12]|getAlarm[12](?:Mode)?|clearAlarm|alarmFired|disableAlarm|enable32K|disable32K|isEnabled32K)\\s*\\(|\\bDS3231_(?:OFF|SquareWave1kHz|A[12]_\\w+)\\b",
+          "files": "code",
+          "describe": "Temperature reading, alarms, 32 kHz output or square-wave modes the DS1307 does not have"
+        },
+        {
+          "kind": "replace_identifier",
+          "from": "RTC_DS3231",
+          "to": "RTC_DS1307",
+          "files": "code",
+          "required": true,
+          "max_matches": 2,
+          "describe": "Clock object RTC_DS3231 → RTC_DS1307 (same begin(), adjust() and now())"
+        },
+        {
+          "kind": "replace_regex",
+          "pattern": "!\\s*(\\w+)\\s*\\.\\s*lostPower\\s*\\(\\s*\\)",
+          "replacement": "\\1.isrunning()",
+          "files": "code",
+          "required": false,
+          "max_matches": 4,
+          "describe": "!rtc.lostPower() → rtc.isrunning()"
+        },
+        {
+          "kind": "replace_regex",
+          "pattern": "\\b(\\w+)\\s*\\.\\s*lostPower\\s*\\(\\s*\\)",
+          "replacement": "!\\1.isrunning()",
+          "files": "code",
+          "required": false,
+          "max_matches": 4,
+          "describe": "rtc.lostPower() → !rtc.isrunning()"
+        },
+        {
+          "kind": "replace_identifier",
+          "from": "DS3231_SquareWave1Hz",
+          "to": "DS1307_SquareWave1HZ",
+          "files": "code",
+          "required": false,
+          "max_matches": 4,
+          "describe": "Square wave DS3231_SquareWave1Hz → DS1307_SquareWave1HZ"
+        },
+        {
+          "kind": "replace_regex",
+          "pattern": "\\bDS3231_SquareWave([48]kHz)\\b",
+          "replacement": "DS1307_SquareWave\\1",
+          "files": "code",
+          "required": false,
+          "max_matches": 4,
+          "describe": "Square wave DS3231_SquareWave4kHz / 8kHz → DS1307_ names"
+        },
+        {
+          "kind": "refuse_if",
+          "pattern": "\\blostPower\\s*\\(|\\bRTC_DS3231\\b|\\bDS3231_\\w+",
+          "files": "code",
+          "describe": "DS3231 names left after the swap"
+        }
+      ]
     }
   ]
 }

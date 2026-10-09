@@ -508,6 +508,41 @@ split across several predicted lines matches only one line. Required-change reca
 evidence-quote validity and compile rates from the plan are not computed. Small sets give
 noisy rates.
 
+## Code-adapt evaluation
+
+`bharat_sourcer/code_adapt_eval.py` and `scripts/evaluate_code_adapt.py` score the curated
+code recipes (tier 1 of [code patches](../docs/contracts/code-adapt.md)) offline: each case
+in `evaluation/code_adapt/synthetic_cases.json` is a small project (inline text or files
+under `evaluation/code_adapt/sketches/`), a catalogue substitute edge and the expected
+outcome: a patch (full expected text or the original lines that must change), `refused`
+or `no_code_change`. Files a case does not list must come back unchanged. Metrics: case
+pass rate, outcome accuracy, exact-file rate, changed-line precision and recall,
+idempotence (re-running on the output changes nothing) and comment safety (no whole-line
+comment edited), per recipe, plus coverage (every catalogue code edge needs at least 3
+gated cases). A case may carry `known_failure` (a recipe gap it documents); it is reported
+but not gated, and the gate fails once it passes so the note is removed. The shipped set
+is synthetic (62 hand-written sketches), so its output is a harness check, never an
+accuracy figure; one known failure documents that A4988 → DRV8825 leaves a bit-banged
+`delayMicroseconds(1)` STEP pulse alone. `tests/test_code_adapt_eval.py` runs the gate in CI.
+
+```powershell
+.venv/Scripts/python scripts/evaluate_code_adapt.py
+# Relax thresholds or skip the coverage gate for a partial set
+.venv/Scripts/python scripts/evaluate_code_adapt.py --cases path/to/cases.json --min-rate 0.9 --no-coverage-gate
+```
+
+Reports go to ignored `.data/evaluation/code-adapt/` (`harness-check.md`/`.json` for
+synthetic sets). Another patcher (e.g. AI drafts) can be scored by passing it to
+`code_adapt_eval.evaluate`.
+
+The harness surfaced recipe fixes that are live: `lib_deps` edits now drop the old
+version (no SH110X release matches the SSD1306 `^2.5.7`) and skip commented lines;
+SSD1306 `begin()` accepts a named address; old bare `BLACK`/`WHITE`/`INVERSE` become
+`SH110X_` names; `AM2302` is patched with `DHT22`; a refused recipe keeps its code notes.
+Curated recipes now also cover BME280/BMP180 → BMP280, WS2812B → SK6812 RGBW and
+DS1307 ↔ DS3231 (catalogue substitutes added with them); a `refuse_if` step refuses the
+whole recipe on code it cannot change safely, such as humidity readings.
+
 ## Seller sourcing
 
 New live jobs source confirmed parts by default. Set `BS_SOURCING_ENABLED=false` to keep

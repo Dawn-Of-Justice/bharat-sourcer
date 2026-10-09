@@ -170,9 +170,20 @@ def test_offer_required_and_unknown_line():
     }
 
 
+def without_recipe(monkeypatch, edge):
+    """Hide the curated recipe for an edge, so the AI tier is the only way to patch it."""
+    from bharat_sourcer import code_adapt
+
+    curated = code_adapt.recipes()
+    monkeypatch.setattr(
+        code_adapt, "recipes", lambda: {k: v for k, v in curated.items() if k != edge}
+    )
+
+
 def test_ai_draft_is_off_by_default_and_must_be_accepted_when_enabled(monkeypatch):
     # An edge with no curated recipe: falls back to AI only when the flag is on.
     edge = ("bme280_adafruit", "bmp280_gy")
+    without_recipe(monkeypatch, edge)
     sketch = (
         "// Synthetic sketch\n#include <Wire.h>\n#include <Adafruit_BME280.h>\n\n"
         "Adafruit_BME280 bme;\n\nvoid setup() {\n  Serial.begin(9600);\n  bme.begin(0x76);\n}\n\n"
@@ -211,8 +222,9 @@ def test_ai_draft_is_off_by_default_and_must_be_accepted_when_enabled(monkeypatc
     assert "Adafruit_BMP280 bme" in archive.read("src/main.ino").decode()
 
 
-def test_ai_draft_respects_job_budget_and_records_cost():
+def test_ai_draft_respects_job_budget_and_records_cost(monkeypatch):
     edge = ("bme280_adafruit", "bmp280_gy")
+    without_recipe(monkeypatch, edge)
     sketch = (FIXTURES / "ssd1306.ino").read_text().replace("SSD1306", "BME280")
     files = {RAW + "src/main.ino": sketch}
     client, app, job_id, _ = setup(

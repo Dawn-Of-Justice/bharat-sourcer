@@ -72,13 +72,25 @@ exports.
 
 | Edge | Library | What changes |
 | --- | --- | --- |
-| DHT22 → DHT11 | Adafruit DHT / DHTesp | `DHT22` identifiers (define, constructor) → `DHT11` |
-| SSD1306 0.96″ → SH1106 1.3″ (I²C) | Adafruit SSD1306 → SH110X | include, `Adafruit_SH1106G` object, `begin(addr, true)`, colour constants, PlatformIO `lib_deps` |
+| DHT22 → DHT11 | Adafruit DHT / DHTesp | `DHT22` and its alias `AM2302` (define, constructor, `DHTesp::`) → `DHT11` |
+| SSD1306 0.96″ → SH1106 1.3″ (I²C) | Adafruit SSD1306 → SH110X | include, `Adafruit_SH1106G` object, `begin(addr, true)` (hex or named address), colour constants including the old bare `BLACK`/`WHITE`/`INVERSE`, PlatformIO `lib_deps`; refuses if other `SSD1306_*` names remain |
 | A4988 → DRV8825 | AccelStepper | `setMinPulseWidth(2)` after each `setMaxSpeed()`; microstep note |
 | A4988 → TMC2209 | any | No code change (`no_code_change_needed`); wiring/power notes |
+| BME280 (Adafruit, GY 3.3 V, GY 5 V) → GY-BMP280 | Adafruit BME280 → BMP280 | include, `Adafruit_BMP280` object, address constants, `lib_deps`; refuses on humidity readings, `setSampling()`, temperature compensation or `begin(addr, &Wire)` |
+| BMP180 (GY-68) → GY-BMP280 | Adafruit BMP085 → BMP280 | include, object, `lib_deps`; refuses on `begin(BMP085_*)`, `readAltitude(Pa)`, `readSealevelPressure()` and raw readings |
+| WS2812B → SK6812 RGBW | Adafruit NeoPixel | `NEO_GRB` → `NEO_GRBW`; a two-argument constructor gets `NEO_GRBW + NEO_KHZ800`; refuses on FastLED, other colour orders or a constructor without a pixel type |
+| DS1307 → DS3231 | RTClib | `RTC_DS1307` → `RTC_DS3231`, `!rtc.isrunning()` → `rtc.lostPower()`, square-wave names; refuses on `readnvram`/`writenvram` or a bare `isrunning()` |
+| DS3231 → DS1307 | RTClib | `RTC_DS3231` → `RTC_DS1307`, `lostPower()` ↔ `!isrunning()`, square-wave names; refuses on temperature, alarms or 32 kHz calls |
 
 Recipes edit code only outside comments and strings, and refuse instead of guessing when
-an expected call is missing or ambiguous.
+an expected call is missing or ambiguous, or when the code uses a form the recipe cannot
+change safely (`detail` names it). A refused recipe lists every catalogue change in `notes`,
+code changes included (`Code (not patched): …`). PlatformIO `lib_deps` edits skip commented
+lines and drop the old library's version constraint.
+
+Offline evaluation: `backend/scripts/evaluate_code_adapt.py` scores the curated recipes
+against `backend/evaluation/code_adapt/synthetic_cases.json` (synthetic; a harness check,
+not an accuracy figure). See the backend README.
 
 ## Tier 2 (AI drafts)
 
