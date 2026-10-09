@@ -117,6 +117,10 @@ def relevance(part_terms: str | list[str], title: str) -> float:
     if wanted_models and not wanted_models <= actual_models:
         return 0.0
     wanted_values, actual_values = values(part), values(title)
+    # A missing numeric constraint is unknown, not a positive title match. Tolerance
+    # is a query qualifier; all other stated measurements need listing evidence.
+    if wanted_values.keys() - actual_values.keys() - {"tolerance"}:
+        return 0.0
     for kind in wanted_values.keys() & actual_values.keys():
         if not all(any(same_value(a, b) for b in actual_values[kind]) for a in wanted_values[kind]):
             return 0.0

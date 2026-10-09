@@ -201,3 +201,14 @@ def test_single_variant_candidate_survives_for_judge():
     assert candidate is not None
     assert candidate.listing(0)["variants"][0]["name"] == "Blue variant"
     assert candidate.extracted is not None
+
+
+def test_revalidating_cached_search_does_not_extend_expiry():
+    clock = [0.0]
+    polite = Politeness(clock=lambda: clock[0], min_interval_s=0, search_ttl_s=600)
+    response = Page(URL, 200, {"content-type": "application/json"}, b"[]")
+    polite.cache_response(URL, response, ttl_s=10)
+    clock[0] = 9.0
+    polite.cache_response(URL, response, ttl_s=10)
+    clock[0] = 11.0
+    assert polite._cached(f"search:{URL}:") is None
