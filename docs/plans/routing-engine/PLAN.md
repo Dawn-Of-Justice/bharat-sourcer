@@ -1,14 +1,19 @@
 # Robust parts routing engine — implementation plan
 
-Status: **planned, not started** (written 2026-10-08). Target release: backend v0.27.0
-(current: 0.26.0). An empty local branch `be/routing-engine` was created from `main`
-(b230306); recreate it from the latest `main` if it is gone.
+Status: **implemented and merged in backend v0.27.0**, 9 October 2026, through
+PRs [#46](https://github.com/Dawn-Of-Justice/bharat-sourcer/pull/46),
+[#47](https://github.com/Dawn-Of-Justice/bharat-sourcer/pull/47) and
+[#48](https://github.com/Dawn-Of-Justice/bharat-sourcer/pull/48).
 
-This file is the handoff for a fresh agent. Read it fully, then the evidence in
-`research/` and `probe/` before changing code. Repo rules are in `/AGENTS.md`
-(backend-only work in `backend/`, regenerate OpenAPI after schema changes, label demo
-data, never commit secrets or runtime data). `frontend/` belongs to the frontend
-teammate — do not edit it for this work.
+Both owner decisions were approved: retain labelled marketplace candidates without
+inheriting merchant trust, and continue free catalogue search after the paid AI budget.
+See the [implemented contract](../../contracts/seller-search.md) and
+[validation report](../../../backend/infra/routing-evaluation.md). Human review of all
+search results remains outstanding; the automated probe does not prove accuracy targets.
+
+The sections below preserve the original 8 October design and pre-implementation audit.
+Their line numbers, defects, branch instructions and approval questions are historical,
+not a current task list. Repository boundaries remain in `AGENTS.md`.
 
 ---
 

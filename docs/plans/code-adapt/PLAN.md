@@ -1,7 +1,7 @@
 # Code adaptation for substituted parts — plan (draft, 2026-10-09)
 
 Status: **tiers 1–2 implemented in v0.28.0** (2026-10-09), on the owner's instruction to
-start without waiting. Routing (PR #48) landed first. Tier 3 is not built; it needs owner
+start without waiting. Prerequisite complete: the [routing engine](../routing-engine/PLAN.md) merged in v0.27.0. Tier 3 is not built; it needs owner
 approval (see §8 and `docs/contracts/backend-roadmap.md`). Contract:
 [docs/contracts/code-adapt.md](../../contracts/code-adapt.md).
 

@@ -1,6 +1,6 @@
 # Recommendations, order plan and line images
 
-Status: implemented on branch `mvp/recommend` (unreleased; the version is set at merge).
+Status: released in v0.21.0; included in v0.27.0.
 Code: `backend/src/bharat_sourcer/recommend.py`, `plans.py`, `images.py` (`line_image`),
 and the completion hook in `jobs.py`. All new fields are optional, so older snapshots still
 load.
@@ -188,7 +188,7 @@ Every line gets exactly one image, chosen in this order:
 4. **The labelled category illustration** (`kind: "category"`) or a generic illustration (`kind: "placeholder"`). These are inline SVG `data:` URLs.
 
 Research candidates do not carry images in the current schema, so step 3 uses only
-`image_candidates`. `GET /images` (`frontend-image-handoff.md`) still works and now lists
+`image_candidates`. `GET /images` (see [part images](part-images.md)) still works and now lists
 the selected or recommended offer's photo first. If a `line_image` URL fails to load, the
 frontend should fall back to `GET /images` with `failed_urls`.
 

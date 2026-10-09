@@ -1,21 +1,38 @@
-# Roadmap proposals awaiting owner approval
+# Proposal register — status reviewed 9 October 2026
 
-Standing instruction 3 in [`docs/agent-handoff.md`](docs/agent-handoff.md) says that new services,
-databases or indexes, schedulers, paid third-party APIs and IAM changes need the owner's approval.
-This file has one proposal for each such item, written so the owner can decide on it. **Nothing
-here is built or provisioned.** Implemented behaviour is described in `backend/README.md` and
-`docs/contracts/README.md`.
+Implemented behavior is described in [backend/README.md](backend/README.md) and
+[docs/contracts/README.md](docs/contracts/README.md), currently v0.27.0.
+The remaining sections preserve proposals and estimates written on 6 October; they
+are not current deployment instructions or independently rechecked prices.
 
-- **Written:** Tue 6 Oct 2026. MVP freeze (G3) is **Mon 13 Oct**, submission (G4) is **Sat 17 Oct**
+## Status updates
+
+- YouTube description intake and nearby markets are implemented. Markets now use
+  `city`, not PIN code; see [nearby markets](docs/contracts/nearby-markets.md).
+- Firestore TTL policies, the queue-age alert and API max instances of 3 were provisioned;
+  see the [operations runbook](backend/infra/README.md). Future minimum-instance changes
+  remain scheduled proposals, not completed work.
+- Safety flags, costing, export/share, multi-source intake, catalogue compatibility and
+  seller trust are implemented. Export is PDF/HTML; CSV was removed in v0.26.0.
+- Routing is complete in v0.27.0. [Code adaptation](docs/plans/code-adapt/PLAN.md)
+  tiers 1–2 (curated recipes; AI drafts behind a flag) shipped diff-only in v0.28.0, with
+  no compile. Web Risk, browser rendering, compile infrastructure and other new-service
+  proposals below are not implemented.
+- New services, indexes, schedulers, paid third-party APIs and IAM changes require
+  owner review before provisioning.
+
+## Original proposal context (6 October 2026)
+
+- **Written:** Tue 6 Oct 2026. MVP freeze (G3) is **13 Oct**, submission (G4) is **17 Oct**
   and judging runs 19 Oct to 6 Nov. Mondays and Thursdays are light days.
 - **Prices** were checked on 6 Oct 2026 unless a row gives another date. The sources are listed
   at the end. Effort counts one developer's working days and includes tests and contract/README
   updates.
-- **Baseline:** backend v0.19.3 on Cloud Run `bharat-sourcer-integration` in `asia-south1`
+- **Historical baseline (6 Oct):** backend v0.19.3 on Cloud Run `bharat-sourcer-integration` in `asia-south1`
   (Cloud Run pricing **Tier 1**), 1 vCPU / 512 MiB, request-based billing, min 0 / max 1 instances,
   Cloud Tasks + Scheduler dispatch, Firestore `(default)`, and the Gemini Developer API key in
   Secret Manager.
-- **Excluded:** work other agents are building now without approval: safety flags, costing and
+- **Original exclusions (subsequently implemented):** safety flags, costing and
   the cart optimiser, export and share links, multi-source intake and fusion, the parts catalogue
   and compatibility grades, free-signal trust labels with the Shopify/Woo JSON fast path,
   flagged-off TTS, clip zoom and parts-bin scan, and the eval gold set.
@@ -183,7 +200,7 @@ after submission.
 
 ## 3. M6 structured sources
 
-**What it adds.** More verified offers. The handoff's "Coverage" item (#4) notes that many parts
+**What it adds.** More verified offers. The original coverage audit noted that many parts
 end with no verified offer because sellers lack JSON-LD or Cloudflare blocks them. Structured
 APIs return price and stock without page scraping, and DigiKey adds an official `Substitutions`
 endpoint.
@@ -340,7 +357,7 @@ now.
 (v0.9.1). v1.0 is a candidate, so the protocol may still change.
 
 **Infrastructure.** None on GCP. It adds a new frontend dependency and a new SSE message type.
-This is frontend-owned work (handoff instruction 1). The backend would emit A2UI messages next to
+This is frontend-owned work under `AGENTS.md`. The backend would emit A2UI messages next to
 the existing snapshots.
 
 **Cost.** $0, plus some output tokens if Gemini writes the UI JSON.
@@ -398,7 +415,7 @@ $0.03–0.05 per check**. Cloud Run time is inside the free tier.
 creating accounts and completing financial transactions. Our code also enforces an action
 allowlist: same-domain navigation only, no clicks on cart or checkout elements, and a step cap.
 
-**Risks.** It is preview. Cloudflare-protected sellers (robu.in, as noted in the handoff) will show
+**Risks.** It is preview. Cloudflare-protected sellers (robu.in, as observed in the original audit) will show
 challenges we must not solve. Seller pages can carry prompt injection. Typing the maker's PIN into
 third-party sites raises privacy questions and needs consent. Latency is 30–90 s.
 
