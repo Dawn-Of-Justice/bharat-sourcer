@@ -186,7 +186,9 @@ def new_shop_pages(registered=NOW - timedelta(days=20)):
         '<footer><a href="/pages/returns">Returns</a><a href="/pages/shipping">Shipping</a>'
         '<a href="/pages/contact">Contact</a></footer>',
     )
-    filler = "<p>" + "Policy text. " * 30 + "</p>"
+    filler = (
+        "<p>Returns refund, shipping delivery, contact policy. " + "Policy text. " * 30 + "</p>"
+    )
     fetcher = Fetcher(
         {
             "https://rdap.nixiregistry.in/rdap/domain/example.in": rdap_page("r", registered),

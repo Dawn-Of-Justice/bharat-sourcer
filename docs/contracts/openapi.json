@@ -3,7 +3,7 @@
   "info": {
     "title": "Bharat Sourcer API",
     "description": "Demo or live YouTube and project-page extraction with optional Firestore job persistence.",
-    "version": "0.26.0"
+    "version": "0.27.0"
   },
   "paths": {
     "/v1/session/guest": {
@@ -10021,6 +10021,44 @@
           "seller": {
             "type": "string",
             "title": "Seller"
+          },
+          "seller_domain": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Seller Domain"
+          },
+          "seller_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Seller Name"
+          },
+          "seller_kind": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "direct",
+                  "marketplace",
+                  "platform_hosted"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Seller Kind"
           },
           "title": {
             "type": "string",

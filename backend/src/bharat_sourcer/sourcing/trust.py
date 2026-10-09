@@ -21,8 +21,10 @@ from pathlib import Path
 from urllib.parse import urljoin, urlsplit
 
 from bharat_sourcer.schemas import SellerTrust, TrustSignals, VerifiedOffer, now
-from bharat_sourcer.sourcing.fetch import FetchError, Page, SafeFetcher
+from bharat_sourcer.sourcing.fetch import Page, SafeFetcher
 from bharat_sourcer.sourcing.platforms import detect_platform, html_page
+from bharat_sourcer.sourcing.politeness import Politeness
+from bharat_sourcer.sourcing.sellers import identify, registrable_domain
 
 # Curated seed list; see the file's note. It is project knowledge, not seller evidence.
 KNOWN_SELLERS = {
@@ -37,7 +39,6 @@ GSTIN_CHARS = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 # 01-38 are states and union territories; 97 other territory; 99 centre jurisdiction.
 GSTIN_STATES = {f"{code:02d}" for code in range(1, 39)} | {"97", "99"}
 # Second-level registrations under .in (https://www.registry.in/policies).
-IN_SECOND_LEVEL = {"co", "net", "org", "firm", "gen", "ind", "ac", "edu", "res", "gov", "mil"}
 POLICY_KINDS = {
     "returns": re.compile(r"return|refund|cancell?ation"),
     "shipping": re.compile(r"shipping|delivery"),
@@ -72,13 +73,6 @@ def find_gstin(text: str) -> str | None:
         if gstin_valid(candidate):
             return candidate
     return None
-
-
-def registrable_domain(host: str) -> str:
-    labels = host.lower().removeprefix("www.").split(".")
-    if len(labels) >= 3 and labels[-1] == "in" and labels[-2] in IN_SECOND_LEVEL:
-        return ".".join(labels[-3:])
-    return ".".join(labels[-2:])
 
 
 def rdap_url(domain: str) -> str:
@@ -235,7 +229,7 @@ class TrustChecker:
         clock: Callable[[], datetime] = now,
         max_workers: int = 4,
     ):
-        self.fetcher = fetcher or SafeFetcher()
+        self.fetcher = Politeness().wrap(fetcher or SafeFetcher())
         self.deadline_s = deadline_s
         self.ttl_s = ttl_s
         self.failure_ttl_s = failure_ttl_s
@@ -250,12 +244,12 @@ class TrustChecker:
         """Set `offer.trust` on every offer; checks that miss the deadline fail open."""
         if not offers:
             return
-        hosts = list(dict.fromkeys(offer.seller for offer in offers))
+        hosts = list(dict.fromkeys(registrable_domain(offer.seller) for offer in offers))
         futures = {host: self._submit(host, pages) for host in hosts}
         wait(futures.values(), timeout=self.deadline_s)
         anomalies = mark_price_anomalies(offers)
         for offer in offers:
-            future = futures[offer.seller]
+            future = futures[registrable_domain(offer.seller)]
             base = None
             if future.done() and not future.cancelled() and future.exception() is None:
                 base = future.result()
@@ -276,10 +270,22 @@ class TrustChecker:
                 deep=True,
             )
             trust = decide(signals)
+            if identify(str(offer.url)).kind == "marketplace":
+                trust.label = "unverified"
+                trust.reasons = [
+                    "Marketplace listing: the third-party merchant is unverified; "
+                    "marketplace trust does not verify the merchant."
+                ]
+                trust.signals = TrustSignals(
+                    domain=registrable_domain(offer.seller),
+                    https=signals.https,
+                    unavailable=["domain_age"],
+                )
             trust.checked_at = base.checked_at
             offer.trust = trust
 
     def _submit(self, host: str, pages: list[Page]) -> Future:
+        host = registrable_domain(host)
         with self._lock:
             cached = self._cache.get(host)
             if cached and cached[0] > time.monotonic():
@@ -288,7 +294,7 @@ class TrustChecker:
                 return future
             if host in self._inflight:
                 return self._inflight[host]
-            own = [p for p in pages if urlsplit(p.url).hostname == host]
+            own = [p for p in pages if registrable_domain(urlsplit(p.url).hostname or "") == host]
             future = self._executor.submit(self._check, host, own)
             self._inflight[host] = future
         future.add_done_callback(lambda done: self._store(host, done))
@@ -319,8 +325,12 @@ class TrustChecker:
             return SellerTrust(label="established", signals=signals, checked_at=self.clock())
         signals.known_seller = domain in KNOWN_SELLERS
         try:
-            registered = self._registered(domain)
-        except (FetchError, ValueError, RecursionError):
+            registered = (
+                None
+                if identify(domain).kind in {"platform_hosted", "marketplace"}
+                else self._registered(domain)
+            )
+        except Exception:
             registered = None
         if registered:
             signals.domain_registered = registered
@@ -334,7 +344,7 @@ class TrustChecker:
                 links.setdefault(kind, url)
         if signals.platform == "shopify":
             for kind, path in SHOPIFY_POLICY_PATHS.items():
-                links.setdefault(kind, f"https://{host}{path}")
+                links.setdefault(kind, urljoin(pages[0].url if pages else f"https://{host}", path))
         fetched, failed = 0, 0
         for kind in ("returns", "shipping", "contact"):
             if kind not in links or fetched >= self.max_policy_fetches:
@@ -342,10 +352,16 @@ class TrustChecker:
             fetched += 1
             try:
                 page = self.fetcher.get(links[kind])
-            except (FetchError, ValueError):
+            except Exception:
                 failed += 1
                 continue
-            if html_page(page) and len(page.body) > 200:
+            if (
+                html_page(page)
+                and len(page.body) > 200
+                and urlsplit(page.url).path.strip("/")
+                and registrable_domain(urlsplit(page.url).hostname or "") == domain
+                and POLICY_KINDS[kind].search(page.body.decode("utf-8", errors="replace").lower())
+            ):
                 signals.policies.append(kind)
                 texts.append(page.body.decode("utf-8", errors="replace"))
         if fetched and failed == fetched:

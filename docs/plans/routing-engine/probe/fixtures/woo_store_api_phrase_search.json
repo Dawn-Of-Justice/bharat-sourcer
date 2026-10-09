@@ -1,0 +1,180 @@
+{
+ "note": "Live 2026-10-08, WooCommerce Store API search on enabled sellers. Multi-word searches behave like a contiguous phrase/substring match: 'sg90 servo' -> 0 while 'servo sg90' -> 2 and 'sg90' -> 5. The production queries ('sg90 servo', 'hc-sr04 ultrasonic sensor', 'tp4056 charging module') returned [] on zbotic. orderby=relevance is rejected (HTTP 400); default ordering is date.",
+ "responses": [
+  {
+   "url": "https://zbotic.in/wp-json/wc/store/v1/products?search=sg90&per_page=10",
+   "status": 200,
+   "x-wp-total": "5",
+   "names": [
+    "Pan-tilt Bracket for Servo SG90S MG90S normal quality",
+    "Servo SG90 9g 180 Degree (china chip)",
+    "Servo Mount Holder Bracket For SG90/MG90-(Pack of 2)",
+    "TowerPro SG90 180 Degree Rotation Servo Motor",
+    "TowerPro SG90 Continuous Rotation 360 Degree Servo Motor"
+   ]
+  },
+  {
+   "url": "https://zbotic.in/wp-json/wc/store/v1/products?search=hc-sr04&per_page=10",
+   "status": 200,
+   "x-wp-total": "4",
+   "names": [
+    "HC-SR04 Ultrasonic range finder with cartoon Ultrasonic Sensor mounting Bracket",
+    "HC-SR04 Ultrasonic Distance Sensor Module",
+    "Digital Display for HC-SR04 Ultrasonic Distance Measurement Control Board",
+    "Cartoon Ultrasonic Sensor Mounting Bracket For HC-SR04"
+   ]
+  },
+  {
+   "url": "https://zbotic.in/wp-json/wc/store/v1/products?search=tp4056&per_page=10",
+   "status": 200,
+   "x-wp-total": "5",
+   "names": [
+    "TP4056 1A Li-Ion Battery Charging Board Micro USB with Current Protection",
+    "TP4056 Battery Charging Protection Module (Type C)",
+    "..."
+   ]
+  },
+  {
+   "url": "https://zbotic.in/wp-json/wc/store/v1/products?search=lm2596&per_page=10",
+   "status": 200,
+   "x-wp-total": "12",
+   "names": [
+    "LM2596S DC-DC Buck Converter Plastic Case",
+    "5V 16 Channel Relay Module with Light Coupling LM2596S Power Supply",
+    "LM2596S with SMD LED DC-DC Step-Down Power Supply",
+    "LM2596 LM2576 DC-DC 12V 24V to 5V DC Step-down Power Module",
+    "LM2596 DC-DC Adjustable Step-down Module with Digital Display Voltmeter （Red Button Switch)",
+    "LM2596 DC-DC 24V 40V to 12V DC Step-down Power Module",
+    "LM2596S DC-DC 24V 40V to 12V 9V 5V 3V Adjustable DC Step-down Power Module",
+    "LM2596 2A Buck Step-Down Power Converter Module DC 4 ~ 40 to 1.3-37V LED Voltmeter",
+    "LM2596 DC-DC Adjustable Step Down Buck Converter Power Supply Module",
+    "DC-DC Step-Down Buck Converter Power Supply Module 24V 12V 9V to 5V 5A 25W Replace LM2596S"
+   ]
+  },
+  {
+   "url": "https://zbotic.in/wp-json/wc/store/v1/products?search=sg90+servo&per_page=10",
+   "status": 200,
+   "x-wp-total": "0",
+   "names": []
+  },
+  {
+   "url": "https://zbotic.in/wp-json/wc/store/v1/products?search=servo%20sg90&per_page=10",
+   "status": 200,
+   "x-wp-total": "2",
+   "names": [
+    "Pan-tilt Bracket for Servo SG90S MG90S normal quality",
+    "Servo SG90 9g 180 Degree (china chip)"
+   ]
+  },
+  {
+   "url": "https://zbotic.in/wp-json/wc/store/v1/products?search=sg90%20servo%20motor&per_page=10",
+   "status": 200,
+   "x-wp-total": "0",
+   "names": []
+  },
+  {
+   "url": "https://zbotic.in/wp-json/wc/store/v1/products?search=servo%20motor&per_page=10",
+   "status": 200,
+   "x-wp-total": "20",
+   "names": [
+    "Waveshare 45kg.cm RSBL45-24 Servo Motor, High Precision And Large Torque, Aluminum Alloy Case, With Programmable 360° Magnetic Encoder",
+    "Waveshare Direct Drive Servo Motor Driver Board, Integrates ESP32 and Control Circuit, 2.4G WiFi Support, Suitable for DDSM Series Hub Motors, ESP Now Support",
+    "Original MAX ES09A (Dual-bearing) Specific Swash Servo Motor for 450 Helicopters-(original)",
+    "Waveshare DDSM115 Direct Drive Servo Motor, Low Speed &amp; High Torque, Low Noise, Hub Motor",
+    "Ultra Torque Quarter Scale 60kgcm Metal Gear Servo Motor",
+    "Waveshare 20kg.cm Bus Servo Motor, 106PRM High Speed, Large Torque, With 360 Degrees High Precision Magnetic Encoder",
+    "Tower Pro MG996R Digital Plastic Gear High Torque Servo Motor (180 Degree Rotation)",
+    "TowerPro MG995 Plastic Gear Servo Motor with CNC Aluminum Steering Servo Horn Arm",
+    "Servo Mount Brackets For MG995 MG996 Servo Motor",
+    "25T Servo motor Arm Color: blue"
+   ]
+  },
+  {
+   "url": "https://zbotic.in/wp-json/wc/store/v1/products?search=arduino%20uno%20r3&orderby=relevance&per_page=10",
+   "status": 400,
+   "x-wp-total": null,
+   "names": {
+    "code": "rest_invalid_param",
+    "message": "Invalid parameter(s): orderby",
+    "data": {
+     "status": 400,
+     "params": {
+      "orderby": "orderby is not one of date, modified, id, include, title, slug, price, popularity, rating, menu_order, and comment_count."
+     },
+     "details": {
+      "orderby": {
+       "code": "rest_not_in_enum",
+       "message": "orderby is not one of date, modified, id, include, title, slug, price, popularity, rating, menu_order, and comment_count.",
+       "data": null
+      }
+     }
+    }
+   }
+  },
+  {
+   "url": "https://compoindia.com/wp-json/wc/store/v1/products?search=sg90&per_page=10",
+   "status": 200,
+   "x-wp-total": "3",
+   "names": [
+    "TowerPro SG90 Continuous Rotation 360 Degree Servo Motor",
+    "Servo Mount Holder Bracket For SG90/MG90",
+    "SG90 Mini Servo 180 degree Rotation -TowerPro"
+   ]
+  },
+  {
+   "url": "https://compoindia.com/wp-json/wc/store/v1/products?search=tp4056&per_page=10",
+   "status": 200,
+   "x-wp-total": "5",
+   "names": [
+    "TP4056 1A Li-ion lithium Battery Charging Module – Mini USB",
+    "TP4056 1A Li-ion lithium Battery Charging Module With Current Protection – Type C",
+    "TP4056 1A Li-ion lithium Battery Charging Module With Current Protection – Mini USB",
+    "TP4056/TC4056 1A Li-Ion Lithium Battery Charging Micro B USB Module",
+    "TP4056 Micro USB 1A Li-Ion Battery Charging Board with Current Protection"
+   ]
+  },
+  {
+   "url": "https://sharvielectronics.com/wp-json/wc/store/v1/products?search=sg90&per_page=10",
+   "status": 200,
+   "x-wp-total": "2",
+   "names": [
+    "SG90 -Servo-9 gms Mini/Micro Servo Motor Tower Pro Without Trimpot",
+    "SG90 -Servo-9 gms Mini/Micro Servo Motor Tower Pro With Trimpot"
+   ]
+  },
+  {
+   "url": "https://www.rytronics.in/wp-json/wc/store/v1/products?search=sg90&per_page=10",
+   "status": 200,
+   "x-wp-total": "1",
+   "names": [
+    "towerpro sg90 9g mini servo 9 gram"
+   ]
+  },
+  {
+   "url": "https://www.rytronics.in/wp-json/wc/store/v1/products?search=tp4056&per_page=10",
+   "status": 200,
+   "x-wp-total": "2",
+   "names": [
+    "TP4056 1A Li-ion lithium Battery Charging Module With Current Protection – Type C",
+    "TP4056 1A Li-ion lithium Battery Charging Module With Current Protection – with Mini USB jack"
+   ]
+  },
+  {
+   "url": "https://sharvielectronics.com/wp-json/wc/store/v1/products?search=100uf&per_page=10",
+   "status": 200,
+   "x-wp-total": "39",
+   "names": [
+    "100uF 450V Electrolytic Capacitor ±20% Tolerance 18x42mm 105°C -Capxon",
+    "100uF 10V Electrolytic Capacitor ±20% Tolerance VT101M1ABKJ0554VBK 105°C 5&#215;5.mm -JWCO",
+    "100uF 16V Aluminium Electrolytic Capacitors With ±20% Tolerance JC1C107M6L006VR289- 6.3x6mm",
+    "100uF 16V Tantalum Capacitor ±10% Tolerance- D Case",
+    "100uF 100V Capacitor ±20% Tolerance CC1206KKX7R0BB107 &#8211; 1206 Package",
+    "100uf 50V Capacitor ±20% Tolerance &#8211; 1206 Package",
+    "100uF 50V Capacitor ±10% Tolerance CC1210KKX7R9BB107 &#8211; 1210 Package",
+    "100uF 16V Tantalum Capacitor 10% Tolerance -Case C",
+    "100uF 100V Electrolytic Capacitor 13×13 mm Samwha- SMD",
+    "100uF 100V &#8211; Aluminum Axial Electrolytic Capacitor 85°C 16&#215;32 Maxcap"
+   ]
+  }
+ ]
+}

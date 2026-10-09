@@ -25,6 +25,7 @@ from bharat_sourcer.schemas import (
     SellerCost,
     ShippingPolicyRef,
 )
+from bharat_sourcer.sourcing.sellers import registrable_domain
 
 CENT = Decimal("0.01")
 RANK = {"known": 0, "estimated": 1, "unknown": 2}
@@ -45,8 +46,7 @@ def load(name: str) -> dict:
 
 
 def seller_key(host: str | None) -> str:
-    host = (host or "").lower().rstrip(".")
-    return host[4:] if host.startswith("www.") else host
+    return registrable_domain(host or "")
 
 
 def policy_for(seller: str) -> dict | None:

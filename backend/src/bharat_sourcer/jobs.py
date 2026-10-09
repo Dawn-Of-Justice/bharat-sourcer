@@ -50,7 +50,7 @@ from bharat_sourcer.schemas import (
 from bharat_sourcer.sourcing.research import check_requirements
 from bharat_sourcer.sourcing.service import SourcingService
 from bharat_sourcer.storage import JobStore, MemoryJobStore, StoredJob
-from bharat_sourcer.usage import BUDGET_MESSAGE, JobLedger, attribute
+from bharat_sourcer.usage import JobLedger, attribute
 from bharat_sourcer.youtube_meta import apply_retention
 
 log = logging.getLogger(__name__)
@@ -950,14 +950,6 @@ class JobService:
                     refreshed = refresh_known(item, claimed.job.items, known_urls[item.line_id])
                     if refreshed is not None:
                         return refreshed
-                if ledger.exhausted():
-                    return ReportLine(
-                        item=item,
-                        sourcing_status="not_run",
-                        sourcing_error=ErrorDetail(
-                            code="JOB_BUDGET_REACHED", message=BUDGET_MESSAGE
-                        ),
-                    )
                 project_source = getattr(self.sourcing, "source_for_project", None)
                 if project_source:
                     return project_source(item, claimed.job.items, project=claimed.job.project)

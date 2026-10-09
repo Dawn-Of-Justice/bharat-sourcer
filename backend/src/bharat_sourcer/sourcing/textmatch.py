@@ -41,6 +41,8 @@ def model_numbers(text: str) -> list[str]:
     found = []
     for token in re.findall(r"(?i)\b[a-z0-9]+(?:-[a-z0-9]+)*\b", text):
         key = compact(token)
+        if key in {"i2c", "i2s", "i3c"}:
+            continue  # Interfaces are attributes, not standalone model-number queries.
         if key == "18650":
             found.append(token)
         elif len(key) >= 3 and any(c.isdigit() for c in key) and any(c.isalpha() for c in key):
@@ -115,6 +117,10 @@ def relevance(part_terms: str | list[str], title: str) -> float:
     if wanted_models and not wanted_models <= actual_models:
         return 0.0
     wanted_values, actual_values = values(part), values(title)
+    # A missing numeric constraint is unknown, not a positive title match. Tolerance
+    # is a query qualifier; all other stated measurements need listing evidence.
+    if wanted_values.keys() - actual_values.keys() - {"tolerance"}:
+        return 0.0
     for kind in wanted_values.keys() & actual_values.keys():
         if not all(any(same_value(a, b) for b in actual_values[kind]) for a in wanted_values[kind]):
             return 0.0

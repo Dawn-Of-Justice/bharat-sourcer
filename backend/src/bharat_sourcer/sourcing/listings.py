@@ -434,8 +434,6 @@ def page_rejection(page: Page) -> str | None:
 def reject_reason(page: Page) -> str:
     if reason := page_rejection(page):
         return reason
-    if page_rejection(page):
-        return None
     products, _ = page_products(page)
     if len(products) > 1:
         return "category_page"

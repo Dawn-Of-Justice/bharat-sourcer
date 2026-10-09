@@ -549,11 +549,10 @@ def test_budget_guard_stops_paid_stages_and_refresh_gets_a_new_budget():
     job = service.get(job_id, token)
     statuses = [line.sourcing_error.code for line in job.report.lines]
     # L01's search crosses the ceiling; L02 and L03 skip paid stages.
-    assert statuses == ["NO_VERIFIED_OFFERS", "JOB_BUDGET_REACHED", "JOB_BUDGET_REACHED"]
+    assert statuses == ["NO_VERIFIED_OFFERS"] * 3
     assert len(discovery.queries) == 1
-    assert job.report.lines[2].sourcing_status == "not_run"
+    assert job.report.lines[2].sourcing_status == "no_verified_offers"
     assert "job budget" in job.report.lines[2].sourcing_error.message
-    assert "within the job budget" in job.report.summary
     assert job.cost_estimate.budget_reached and job.cost_estimate.budget_usd == 0.25
     assert job.cost_estimate.calls_by_site == {"discovery": 1}
     assert job.cost_estimate.total_usd == pytest.approx(0.3, rel=0.01)

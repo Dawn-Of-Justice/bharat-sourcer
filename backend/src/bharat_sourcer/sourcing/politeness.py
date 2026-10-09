@@ -261,7 +261,7 @@ class Politeness:
         shared = self._shared_key(kind, url, shared_key)
         cached = None if bypass_cache else self._shared_get(shared)
         if cached is not None:
-            self._store(key, cached, self.search_ttl_s if kind == "search" else self.page_ttl_s)
+            # Do not extend an existing shared entry beyond its original expiry.
             return cached
         attempt = 0
         with self._slot(host):
@@ -300,6 +300,13 @@ class Politeness:
         configured = self.search_ttl_s if kind == "search" else self.page_ttl_s
         ttl = min(configured, ttl_s if ttl_s is not None else configured)
         key = f"{kind}:{url}:{kwargs.get('max_bytes', '')}"
+        if kind == "search" and (
+            self._cached(key) is not None
+            or self._shared_get(self._shared_key(kind, url, None)) is not None
+        ):
+            # Adapters validate cache hits too. Validation must not renew the original
+            # expiry on every read, especially for short-lived empty search results.
+            return
         self._store(key, page, ttl)
         self._shared_set(self._shared_key(kind, url, None), page, kind, ttl)
 

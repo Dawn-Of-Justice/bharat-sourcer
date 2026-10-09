@@ -114,6 +114,7 @@ class Page:
 class SafeFetcher:
     def __init__(self):
         self._robots: dict[str, RobotFileParser | None] = {}
+        self._robots_expiry: dict[str, float] = {}
         self._last_request: dict[str, float] = {}
 
     def _request(self, url: str, max_bytes: int) -> Page:
@@ -160,6 +161,8 @@ class SafeFetcher:
     def _allowed(self, url: str) -> bool:
         host, _ = validate_url(url)
         origin = f"https://{host}"
+        if self._robots_expiry.get(origin, float("inf")) <= time.monotonic():
+            self._robots.pop(origin, None)
         if origin not in self._robots:
             response = self.get(origin + "/robots.txt", robots=False, max_bytes=128_000)
             if response.status == 404:
@@ -169,6 +172,7 @@ class SafeFetcher:
             else:
                 parser = None
             self._robots[origin] = parser
+            self._robots_expiry[origin] = time.monotonic() + 600 if parser is None else float("inf")
         parser = self._robots[origin]
         if parser is None or not parser.can_fetch(USER_AGENT, url):
             return False

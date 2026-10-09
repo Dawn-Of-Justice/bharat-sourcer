@@ -46,6 +46,9 @@ def test_equivalent_titles(query, title):
         ("ESP32 30 pin", "ESP32 38 pin"),
         ("0.96 inch OLED", "0.96 OLED module"),
         ("5 inch display", "5 in 1 display kit"),
+        ("10k resistor", "Carbon Film Resistor"),
+        ("100uF 25V capacitor", "100uF capacitor"),
+        ("ESP32 30 pin", "ESP32 Development Board"),
     ],
 )
 def test_conflicts(query, title):
