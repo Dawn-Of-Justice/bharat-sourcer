@@ -9645,6 +9645,12 @@
                   "shopify",
                   "woocommerce",
                   "magento",
+                  "opencart",
+                  "bigcommerce",
+                  "prestashop",
+                  "wix",
+                  "dukaan",
+                  "instamojo",
                   "jsonld",
                   "unknown"
                 ]

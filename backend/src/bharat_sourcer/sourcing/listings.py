@@ -17,8 +17,10 @@ from bharat_sourcer.schemas import (
     VerifiedOffer,
 )
 from bharat_sourcer.sourcing.fetch import Page
+from bharat_sourcer.sourcing.sellers import canonical_url, host_of, identify, same_listing
 from bharat_sourcer.sourcing.specs import label_field, label_unit, parse_value, table_specs
-from bharat_sourcer.sourcing.tax import detect_tax_included
+from bharat_sourcer.sourcing.tax import detect_tax_included, price_text
+from bharat_sourcer.sourcing.textmatch import title_gate
 
 
 class ProductScripts(HTMLParser):
@@ -30,7 +32,7 @@ class ProductScripts(HTMLParser):
 
     def handle_starttag(self, tag, attrs):
         values = dict(attrs)
-        if tag == "script" and (values.get("type") or "").lower() == "application/ld+json":
+        if tag == "script" and (values.get("type") or "").lower().startswith("application/ld+json"):
             self.buffer = []
         elif tag == "meta" and len(self.meta_images) < 5:
             key = (values.get("property") or values.get("name") or "").lower()
@@ -57,6 +59,7 @@ def nodes(value):
         yield value
         # Only inspect top-level product entities, never related/recommended products.
         yield from nodes(value.get("@graph", []))
+        yield from nodes(value.get("mainEntity", []))
 
 
 def is_type(value: dict, expected: str) -> bool:
@@ -64,7 +67,7 @@ def is_type(value: dict, expected: str) -> bool:
     if isinstance(types, str):
         types = [types]
     return isinstance(types, list) and any(
-        isinstance(kind, str) and kind.rsplit("/", 1)[-1] == expected for kind in types
+        isinstance(kind, str) and re.split(r"[/:]", kind)[-1] == expected for kind in types
     )
 
 
@@ -76,37 +79,7 @@ def title_matches(query: str | None, title: str) -> bool:
     """
     if query is None:
         return True
-    aliases = {
-        "microcontroller": "",
-        "development": "",
-        "board": "",
-        "module": "",
-        "compatible": "",
-        "sensor": "",
-        "display": "",
-        "capacitive": "",
-    }
-
-    def tokens(text):
-        # Sellers write sizes as 0.96", 0.96″ or "0.91 in."; all mean the same inch token.
-        text = re.sub(r"(\d)\s*(?:″|”|\"|inch(?:es)?\b|in\.)", r"\1 inch ", text.lower())
-        # One spelling for units, so "22µF" and "22uF" are the same token.
-        text = text.replace("µ", "u").replace("μ", "u").replace("ω", "ohm")
-        plurals = {
-            "resistors": "resistor",
-            "leds": "led",
-            "wires": "wire",
-            "buttons": "button",
-            "switches": "switch",
-        }
-        return {
-            plurals.get(word, word)
-            for word in re.findall(r"[a-z0-9]+", text.lower())
-            if aliases.get(word, word)
-        }
-
-    expected, actual = tokens(query), tokens(title)
-    return bool(expected) and expected.issubset(actual)
+    return title_gate(query, title)
 
 
 # Storefront "no image" assets are not product photos (e.g. Shopify's no-image-2048.gif).
@@ -118,13 +91,8 @@ PLACEHOLDER_IMAGE = re.compile(
 
 
 def same_url(left: str, right: str) -> bool:
-    """Equal after dropping fragment/trailing slash; percent-escape hex case is insignificant."""
-
-    def norm(url):
-        url = url.split("#")[0].rstrip("/")
-        return re.sub(r"%[0-9a-fA-F]{2}", lambda m: m.group(0).upper(), url)
-
-    return norm(left) == norm(right)
+    """Compare listing identity while preserving functional variant parameters."""
+    return same_listing(left, right, base=right)
 
 
 def safe_image_url(raw: object, page_url: str, *, upgrade: bool = False) -> str | None:
@@ -174,14 +142,9 @@ def page_images(page: Page, query: str) -> list[PartImage]:
     """Matching product photos can exist even when price/stock cannot be verified."""
     if page.status != 200 or "text/html" not in page.headers.get("content-type", ""):
         return []
-    parser = ProductScripts()
-    parser.feed(page.body.decode("utf-8", errors="replace"))
-    products = []
-    for script in parser.scripts[:30]:
-        try:
-            products.extend(n for n in nodes(json.loads(script)) if is_type(n, "Product"))
-        except (ValueError, RecursionError):
-            continue
+    if page_rejection(page):
+        return []
+    products, parser = page_products(page)
     meta = parser.meta_images if len(products) == 1 else ()
     images = []
     for product in products:
@@ -199,35 +162,25 @@ def page_images(page: Page, query: str) -> list[PartImage]:
     return images[:5]
 
 
-def variant_url(page: Page, query: str) -> str | None:
+def variant_url(page: Page, query: str | None) -> str | None:
     """Follow one explicitly declared variant on the same product path, then reverify."""
     if page.status != 200 or "text/html" not in page.headers.get("content-type", ""):
         return None
-    parser = ProductScripts()
-    parser.feed(page.body.decode("utf-8", errors="replace"))
-    products = []
-    for script in parser.scripts[:30]:
-        try:
-            products.extend(n for n in nodes(json.loads(script)) if is_type(n, "Product"))
-        except (ValueError, RecursionError):
-            continue
-    if len(products) != 1:
+    if page_rejection(page):
         return None
-    product = products[0]
-    if not isinstance(product.get("name"), str) or not title_matches(query, product["name"]):
+    extracted = extract_product(page)
+    if extracted is None or not title_matches(query, extracted.title):
         return None
-    offers = product.get("offers", [])
-    if isinstance(offers, dict):
-        offers = [offers]
-    if not isinstance(offers, list) or len(offers) != 1 or not isinstance(offers[0], dict):
+    if len(extracted.options) != 1:
         return None
-    target = offers[0].get("url")
-    if not isinstance(target, str) or not is_type(offers[0], "Offer"):
+    target = extracted.options[0].url
+    if not isinstance(target, str):
         return None
-    source, dest = urlsplit(page.url), urlsplit(target)
+    target = canonical_url(urljoin(page.url, target))
+    source, dest = urlsplit(canonical_url(page.url)), urlsplit(target)
     if (
         dest.scheme != "https"
-        or dest.netloc != source.netloc
+        or host_of(dest.netloc) != host_of(source.netloc)
         or not same_url(dest.path, source.path)
         or source.query
         or dest.fragment
@@ -239,16 +192,34 @@ def variant_url(page: Page, query: str) -> str | None:
     return target
 
 
-def sane_price(raw: object) -> Decimal | None:
+def parse_inr(raw: object, declared_currency: str | None = None) -> Decimal | None:
+    """Strict seller-declared rupee amount, including Western and lakh grouping."""
+    if isinstance(raw, bool) or raw is None:
+        return None
+    text = str(raw).strip().replace("\xa0", " ")
+    explicit = bool(re.search(r"\u20b9|\b(?:INR|Rs\.?)", text, re.I))
+    if declared_currency and str(declared_currency).strip().upper() != "INR":
+        return None
+    if not declared_currency and not explicit:
+        return None
+    text = re.sub(r"^(?:\u20b9|INR\b|Rs\.?)\s*", "", text, flags=re.I)
+    text = re.sub(r"\s*/-$", "", text).strip()
+    if not re.fullmatch(
+        r"(?:[0-9]+|[0-9]{1,3}(?:,[0-9]{3})+|[0-9]{1,2}(?:,[0-9]{2})*,[0-9]{3})(?:\.[0-9]+)?", text
+    ):
+        return None
     try:
-        price = Decimal(str(raw))
+        price = Decimal(text.replace(",", ""))
+        if not price.is_finite() or not 0 < price <= 10_000_000:
+            return None
+        return price if price == price.quantize(Decimal("0.01")) else None
     except (InvalidOperation, ValueError):
         return None
-    if not price.is_finite() or price <= 0 or price > 10_000_000:
-        return None
-    if price != price.quantize(Decimal("0.01")):
-        return None
-    return price
+
+
+def sane_price(raw: object) -> Decimal | None:
+    """Compatibility helper for callers with an already declared INR currency."""
+    return parse_inr(raw, "INR")
 
 
 STOCK = {
@@ -259,11 +230,16 @@ STOCK = {
     "oos": "out_of_stock",
     "soldout": "out_of_stock",
     "preorder": "preorder",
+    "presale": "preorder",
+    "backorder": "preorder",
+    "limitedavailability": "in_stock",
+    "onlineonly": "in_stock",
+    "discontinued": "out_of_stock",
 }
 
 
 def stock_of(raw: object) -> str:
-    key = str(raw or "").rsplit("/", 1)[-1].strip().lower().replace("_", "")
+    key = re.split(r"[/:]", str(raw or "").rstrip("/"))[-1].strip().lower().replace("_", "")
     return STOCK.get(key, STOCK.get(key.replace(" ", ""), "unknown"))
 
 
@@ -340,26 +316,38 @@ def offer_options(offers: object, currency: str | None = None) -> list[OfferOpti
     for entry in offers[:50]:
         if not isinstance(entry, dict):
             continue
-        entry_currency = entry.get("priceCurrency") or currency
+        specs = entry.get("priceSpecification", [])
+        specs = [specs] if isinstance(specs, dict) else specs
+        specs = (
+            [
+                v
+                for v in specs
+                if isinstance(v, dict)
+                and str(v.get("priceType", "")).rsplit("/", 1)[-1].lower()
+                not in {"listprice", "strikethroughprice", "msrp"}
+            ]
+            if isinstance(specs, list)
+            else []
+        )
+        spec = specs[0] if len(specs) == 1 else {}
+        entry_currency = entry.get("priceCurrency") or spec.get("priceCurrency") or currency
         if is_type(entry, "AggregateOffer"):
             nested = entry.get("offers")
             if nested:
                 inner = offer_options(nested, entry_currency)
-                if inner is None:
-                    return None
-                options.extend(inner)
+                options.extend(inner or [])
                 continue
             low, high = sane_price(entry.get("lowPrice")), sane_price(entry.get("highPrice"))
             if low is None or (high is not None and high != low):
                 # A price range without its offers cannot be attributed to a variant.
-                return None
+                continue
             raw_price = low
-        elif is_type(entry, "Offer"):
-            raw_price = entry.get("price")
+        elif is_type(entry, "Offer") or (not entry.get("@type") and ("price" in entry or specs)):
+            raw_price = entry.get("price", spec.get("price"))
         else:
             continue
-        price = sane_price(raw_price)
-        if price is None or entry_currency != "INR":
+        price = parse_inr(raw_price, entry_currency)
+        if price is None:
             continue
         item = entry.get("itemOffered") if isinstance(entry.get("itemOffered"), dict) else {}
         name = entry.get("name") or item.get("name")
@@ -378,21 +366,115 @@ def offer_options(offers: object, currency: str | None = None) -> list[OfferOpti
     return options
 
 
+def load_script(script: str):
+    script = re.sub(r"^\s*<!--|-->\s*$", "", script).strip()
+    script = re.sub(r"^\s*(?://\s*)?<!\[CDATA\[", "", script)
+    script = re.sub(r"(?://\s*)?\]\]>\s*$", "", script).strip()
+    try:
+        return json.loads(script)
+    except json.JSONDecodeError:
+        # Repair only punctuation outside strings; do not alter text or numbers.
+        repaired, quoted, escaped = [], False, False
+        for i, char in enumerate(script):
+            if quoted:
+                repaired.append(json.dumps(char)[1:-1] if ord(char) < 32 else char)
+                if char == '"' and not escaped:
+                    quoted = False
+                escaped = char == "\\" and not escaped
+            else:
+                if char == '"':
+                    quoted = True
+                if char == "," and script[i + 1 :].lstrip().startswith(("}", "]")):
+                    continue
+                repaired.append(char)
+        return json.loads("".join(repaired))
+
+
+def is_product(node):
+    return any(
+        is_type(node, kind)
+        for kind in ("Product", "ProductGroup", "IndividualProduct", "ProductModel")
+    )
+
+
+def clean_title(title: str, url: str) -> str:
+    seller = identify(url)
+    parts = re.split(r"\s+(?:\||-|\u2013)\s+", title)
+    if len(parts) > 1:
+        tail = re.sub(r"[^a-z0-9]", "", parts[-1].lower())
+        aliases = (seller.name, seller.domain, seller.domain.split(".")[0])
+        if any(
+            tail.startswith(re.sub(r"[^a-z0-9]", "", alias.lower())) for alias in aliases if alias
+        ):
+            return title[: len(title) - len(parts[-1])].rstrip(" |-\u2013")
+    return title
+
+
+def page_rejection(page: Page) -> str | None:
+    body = page.body.decode("utf-8", "replace")
+    headings = re.findall(r"<(?:title|h1)\b[^>]*>(.*?)</(?:title|h1)>", body, re.I | re.S)
+    if any(
+        re.search(
+            r"\b(?:page not found|product not found|no longer available|404)\b",
+            re.sub(r"<[^>]+>", " ", heading),
+            re.I,
+        )
+        for heading in headings
+    ):
+        return "soft_404"
+    path = urlsplit(page.url).path.lower()
+    if path in {"", "/"} or (
+        re.match(r"^/(?:collections|category|product-category|search)(?:/|$)", path)
+        and "/products/" not in path
+    ):
+        return "category_page"
+    return None
+
+
+def reject_reason(page: Page) -> str:
+    if reason := page_rejection(page):
+        return reason
+    if page_rejection(page):
+        return None
+    products, _ = page_products(page)
+    if len(products) > 1:
+        return "category_page"
+    for product in products:
+        for node in [product, *nodes(product.get("offers", []))]:
+            currency = node.get("priceCurrency")
+            if currency and str(currency).upper() != "INR":
+                return "not_inr"
+    return "no_structured_price"
+
+
 def page_products(page: Page) -> tuple[list[dict], ProductScripts]:
     parser = ProductScripts()
     parser.feed(page.body.decode("utf-8", errors="replace"))
     products = []
     for script in parser.scripts[:30]:
         try:
-            products.extend(node for node in nodes(json.loads(script)) if is_type(node, "Product"))
+            products.extend(node for node in nodes(load_script(script)) if is_product(node))
         except (ValueError, RecursionError):
             continue
-    return products, parser
+    unique = {}
+    for product in products:
+        identity = product.get("@id") or product.get("url")
+        key = (
+            str(identity)
+            if identity
+            else json.dumps(
+                {k: product.get(k) for k in ("name", "sku", "offers", "hasVariant")}, sort_keys=True
+            )
+        )
+        unique.setdefault(key, product)
+    return list(unique.values()), parser
 
 
 def extract_product(page: Page) -> ExtractedProduct | None:
     """The page's single JSON-LD Product with its INR offers (several variants allowed)."""
     if page.status != 200 or "text/html" not in page.headers.get("content-type", ""):
+        return None
+    if page_rejection(page):
         return None
     products, parser = page_products(page)
     # Category pages list several products; they are not product pages.
@@ -402,13 +484,30 @@ def extract_product(page: Page) -> ExtractedProduct | None:
     title = product.get("name")
     if not isinstance(title, str) or not title.strip() or len(title) > 500:
         return None
-    options = offer_options(product.get("offers", []))
+    title = clean_title(title, page.url)
+    options = offer_options(product.get("offers", []), product.get("priceCurrency")) or []
+    variants = product.get("hasVariant", [])
+    variants = [variants] if isinstance(variants, dict) else variants
+    for variant in variants[:50] if isinstance(variants, list) else []:
+        if not isinstance(variant, dict):
+            continue
+        for option in (
+            offer_options(
+                variant.get("offers", []),
+                variant.get("priceCurrency") or product.get("priceCurrency"),
+            )
+            or []
+        ):
+            option.name = option.name or variant.get("name")
+            option.sku = option.sku or variant.get("sku")
+            option.url = option.url or variant.get("url")
+            options.append(option)
     if not options:
         return None
     return ExtractedProduct(page, product, title, options, parser.meta_images)
 
 
-def verify_page(page: Page, query: str | None = None) -> VerifiedOffer | None:
+def verify_page(page: Page, query: str | None = None, *, seller=None) -> VerifiedOffer | None:
     """Verified price/stock for an unambiguous product page.
 
     With a query string this keeps the legacy title gate (used when no spec judge runs).
@@ -433,12 +532,23 @@ class MetaPrices(HTMLParser):
         self.images: list[str] = []
         self.in_title = False
         self.doc_title: list[str] = []
+        self.product_signal = False
+        self.product_count = 0
+        self.text_prop = None
+        self.text_buffer = []
 
     def handle_starttag(self, tag, attrs):
         values = dict(attrs)
         key = (values.get("property") or values.get("name") or "").lower()
         prop = (values.get("itemprop") or "").lower()
         content = values.get("content")
+        if str(values.get("itemtype", "")).rstrip("/").rsplit("/", 1)[-1] == "Product":
+            self.product_count += 1
+        if key == "og:type" and content in {"product", "product.item"}:
+            self.product_signal = True
+        if prop in {"price", "pricecurrency"} and content is None:
+            self.text_prop = (tag, prop)
+            self.text_buffer = []
         if tag == "title":
             self.in_title = True
         if content is None and prop in {"price", "pricecurrency", "availability"}:
@@ -457,12 +567,18 @@ class MetaPrices(HTMLParser):
             self.images.append(content)
 
     def handle_endtag(self, tag):
+        if self.text_prop and tag == self.text_prop[0]:
+            target = self.prices if self.text_prop[1] == "price" else self.currencies
+            target.append("".join(self.text_buffer).strip())
+            self.text_prop = None
         if tag == "title":
             self.in_title = False
 
     def handle_data(self, data):
         if self.in_title:
             self.doc_title.append(data)
+        if self.text_prop:
+            self.text_buffer.append(data)
 
 
 def meta_offer(page: Page, query: str | None = None) -> VerifiedOffer | None:
@@ -475,6 +591,8 @@ def meta_offer(page: Page, query: str | None = None) -> VerifiedOffer | None:
     """
     if page.status != 200 or "text/html" not in page.headers.get("content-type", ""):
         return None
+    if page_rejection(page):
+        return None
     products, _ = page_products(page)
     if len(products) > 1 or any(offer_options(p.get("offers", [])) for p in products):
         return None
@@ -484,18 +602,38 @@ def meta_offer(page: Page, query: str | None = None) -> VerifiedOffer | None:
         return None
     parser = MetaPrices()
     parser.feed(page.body.decode("utf-8", errors="replace"))
-    prices = {sane_price(raw) for raw in parser.prices}
-    if len(prices) != 1 or None in prices or set(parser.currencies) != {"INR"}:
+    path_signal = bool(re.search(r"/(?:products?|dp|p)/", urlsplit(page.url).path))
+    if not (parser.product_signal or parser.product_count == 1 or path_signal):
+        return None
+    currencies = {v.upper() for v in parser.currencies}
+    if currencies - {"INR"}:
+        return None
+    prices = {parse_inr(raw, "INR" if currencies else None) for raw in parser.prices}
+    if len(prices) != 1 or None in prices:
         return None
     price = prices.pop()
     product = products[0] if products else {}
     title = product.get("name") if isinstance(product.get("name"), str) else None
     title = title or next(iter(parser.titles), None) or " ".join("".join(parser.doc_title).split())
+    title = clean_title(title, page.url) if title else title
     if not title or len(title) > 500 or not title_matches(query, title):
         return None
     stocks = {stock_of(raw) for raw in parser.stock} - {"unknown"}
     specs, evidence, conflicts = seller_specs(product, page, title)
-    tax_included, tax_evidence = detect_tax_included({}, page.body.decode("utf-8", "replace"))
+    tax_included, tax_evidence = detect_tax_included(
+        {"price": str(price)}, page.body.decode("utf-8", "replace")
+    )
+    visible = price_text(page.body.decode("utf-8", "replace"))
+    if tax_included is True:
+        visible_prices = {
+            parse_inr(m.group(), "INR")
+            for m in re.finditer(r"(?:\u20b9|Rs\.?|INR)\s*[0-9][0-9,.]*", visible, re.I)
+        } - {None}
+        if visible_prices and price not in visible_prices:
+            tax_included, tax_evidence = (
+                None,
+                "Tax-inclusive visible price differs from structured price",
+            )
     return VerifiedOffer(
         url=page.url,
         seller=urlsplit(page.url).hostname,

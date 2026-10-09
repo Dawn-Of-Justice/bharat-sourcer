@@ -33,8 +33,10 @@ def json_page(name: str, url: str | None = None, response=None) -> Page:
 
 
 def shopify_html(url: str) -> Page:
-    # A product page whose theme emits no Product JSON-LD; only the Shopify CDN marker.
-    html = f'<link rel="preconnect" href="https://cdn.shopify.com"><h1>Product</h1><a href="{url}">'
+    # A product page whose theme emits no Product JSON-LD; an explicit Shopify shop marker.
+    html = (
+        f'<script>Shopify.shop = "example.myshopify.com";</script><h1>Product</h1><a href="{url}">'
+    )
     return Page(url, 200, HTML, html.encode())
 
 

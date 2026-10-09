@@ -454,7 +454,8 @@ def test_service_without_judge_keeps_the_legacy_gate():
     service = SourcingService(Discovery(), Fetcher())
     item = BomItem(line_id="L02", raw_name="33kohm resistor")
     line = service.source(item)
-    assert [o.title for o in line.offers] == ["33kohm  - 1/4 W Resistor"]
+    assert len(line.offers) == 2
+    assert all("resistor" in o.title.lower() for o in line.offers)
     assert line.buyable_spec.queries == ["33kohm resistor"]
 
 

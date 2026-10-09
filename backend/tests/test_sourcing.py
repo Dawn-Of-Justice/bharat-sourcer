@@ -88,7 +88,10 @@ def test_reject_ambiguous_or_invalid_offer(change):
 
 
 def test_reject_category_page_and_wrong_part():
-    assert verify_page(page([PRODUCT, PRODUCT]), "TTP223") is None
+    # Duplicate theme/SEO declarations describe one product; distinct products are a list.
+    assert verify_page(page([PRODUCT, PRODUCT]), "TTP223") is not None
+    other = {**PRODUCT, "name": "A different product"}
+    assert verify_page(page([PRODUCT, other]), "TTP223") is None
     assert verify_page(page(), "TTP224") is None
     assert verify_page(page({**PRODUCT, "offers": [PRODUCT["offers"]] * 2}), "TTP223") is None
 
