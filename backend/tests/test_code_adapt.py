@@ -54,7 +54,8 @@ def test_ssd1306_to_sh1106_patches_sketch_and_platformio():
     assert "setTextColor(SH110X_WHITE)" in sketch and "SH110X_BLACK" in sketch
     # The string literal mentioning the old constant is untouched.
     assert '"Using SSD1306_WHITE text"' in sketch
-    assert "adafruit/Adafruit SH110X@^2.5.7" in patched["platformio.ini"]
+    # The SSD1306 version constraint is dropped: no SH110X release matches ^2.5.7.
+    assert "    adafruit/Adafruit SH110X\n" in patched["platformio.ini"]
     assert not result.skipped or all("not used" in s for s in result.skipped)
 
 
@@ -110,3 +111,32 @@ def test_no_code_change_and_unknown_edges_have_reasons():
 def test_code_mask_skips_comments_and_strings(text, python, code):
     mask = code_mask(text, python)
     assert "".join(c for c, keep in zip(text, mask, strict=True) if keep) == code
+
+
+def test_refuse_if_refuses_the_whole_recipe_and_refusals_keep_every_code_note():
+    sketch = (
+        "// Synthetic sketch\n#include <Adafruit_BME280.h>\nAdafruit_BME280 bme;\n"
+        "void setup() { bme.begin(0x76); }\n"
+        "void loop() { float h = bme.readHumidity(); }\n"
+    )
+    result = apply_recipe({"a.ino": sketch}, "bme280_adafruit", "bmp280_gy")
+    assert not result.ok and result.reason == "recipe_not_applicable" and result.files == []
+    assert "Humidity" in result.detail and "1 place" in result.detail
+    # Nothing was patched, so the catalogue code change is still listed as a note.
+    assert any(n.startswith("Code (not patched):") and "BMP280" in n for n in result.notes)
+    # In a comment the same call does not refuse; the patch lists only non-code notes.
+    commented = sketch.replace("float h = bme.readHumidity();", "// bme.readHumidity();")
+    ok = apply_recipe({"a.ino": commented}, "bme280_adafruit", "bmp280_gy")
+    assert ok.ok and "Adafruit_BMP280 bme;" in ok.files[0].patched
+    assert not any(n.startswith("Code") for n in ok.notes)
+
+
+def test_lib_dep_drops_the_old_version_and_skips_commented_lines():
+    ini = (
+        "; Synthetic test project\n[env:uno]\nlib_deps =\n"
+        "    adafruit/Adafruit SSD1306 @ ^2.5.7\n;   adafruit/Adafruit SSD1306@2.4.0\n"
+    )
+    files = {"src/main.ino": read("ssd1306.ino"), "platformio.ini": ini}
+    result = apply_recipe(files, "ssd1306_096_i2c", "sh1106_13_i2c")
+    patched = {p.path: p.patched for p in result.files}["platformio.ini"]
+    assert patched.endswith("    adafruit/Adafruit SH110X\n;   adafruit/Adafruit SSD1306@2.4.0\n")

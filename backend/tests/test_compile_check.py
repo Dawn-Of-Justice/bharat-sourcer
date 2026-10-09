@@ -10,7 +10,7 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from bharat_sourcer import compile_check
+from bharat_sourcer import code_adapt, compile_check
 from bharat_sourcer.code_adapt import unified
 from bharat_sourcer.config import Settings
 from bharat_sourcer.main import create_app
@@ -353,8 +353,13 @@ def test_runner_errors_and_timeouts():
     assert patch["compile"]["status"] == "timeout" and patch["check"] == "not_checked"
 
 
-def test_ai_draft_gets_two_repair_rounds_then_fails():
+def test_ai_draft_gets_two_repair_rounds_then_fails(monkeypatch):
     edge = ("bme280_adafruit", "bmp280_gy")
+    # Hide the curated recipe so this edge goes to the AI tier.
+    curated = code_adapt.recipes()
+    monkeypatch.setattr(
+        code_adapt, "recipes", lambda: {k: v for k, v in curated.items() if k != edge}
+    )
     repo = {"src/main.ino": BME_SKETCH}
     client, app, job_id, _ = setup(repo=repo, edge=edge, code_adapt_ai=True)
     launcher = app.state.compile_service.launcher

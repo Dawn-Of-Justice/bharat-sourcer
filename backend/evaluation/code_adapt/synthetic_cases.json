@@ -1,0 +1,916 @@
+{
+  "synthetic": true,
+  "label_status": "synthetic",
+  "description": "SYNTHETIC HARNESS CHECK. Short sketches written by hand for the code-adapt eval (not copied from any project), with expected outcomes. They check the curated recipes and the scorer; they are not evidence of how well code adaptation works on real projects. Labels were first written on 2026-10-09 and re-labelled on 2026-10-10 for the v0.28 recipe engine (a recipe patches fully or refuses; there are no per-line manual steps); every expected patch was reviewed line by line against the catalogue changes.",
+  "labelled_by": "Claude (AI agent), synthetic labels",
+  "labelled_on": "2026-10-10",
+  "cases": [
+    {
+      "id": "oled-adafruit-basic",
+      "from": "ssd1306_096_i2c",
+      "to": "sh1106_13_i2c",
+      "description": "Adafruit SSD1306 sketch: include, 4-argument constructor, begin() with a named address (SCREEN_ADDRESS), SSD1306_WHITE and the old bare BLACK colour name (SH110X has no BLACK, so it becomes SH110X_BLACK).",
+      "files": {
+        "oled_clock/oled_clock.ino": {
+          "ref": "sketches/oled-adafruit-basic/before/oled_clock/oled_clock.ino"
+        }
+      },
+      "expect": "patch",
+      "expected_files": {
+        "oled_clock/oled_clock.ino": {
+          "after": {
+            "ref": "sketches/oled-adafruit-basic/after/oled_clock/oled_clock.ino"
+          }
+        }
+      }
+    },
+    {
+      "id": "oled-helper-file",
+      "from": "ssd1306_096_i2c",
+      "to": "sh1106_13_i2c",
+      "description": "Helper file without the Adafruit_SSD1306.h include (extern declaration, scroll and dim calls): the recipe refuses rather than guessing.",
+      "files": {
+        "effects.cpp": {
+          "ref": "sketches/oled-helper-file/before/effects.cpp"
+        }
+      },
+      "expect": "refused"
+    },
+    {
+      "id": "oled-unsafe-forms",
+      "from": "ssd1306_096_i2c",
+      "to": "sh1106_13_i2c",
+      "description": "Include and begin() are patchable, but SSD1306_LCDHEIGHT has no SH110X equivalent: the whole recipe refuses instead of leaving code that does not compile.",
+      "files": {
+        "oled/oled.ino": {
+          "ref": "sketches/oled-unsafe-forms/before/oled/oled.ino"
+        }
+      },
+      "expect": "refused"
+    },
+    {
+      "id": "oled-comments-safe",
+      "from": "ssd1306_096_i2c",
+      "to": "sh1106_13_i2c",
+      "description": "Commented include, // and /* */ commented scroll, dim and raw-command calls, and trailing comments naming SSD1306 stay unchanged and are not manual steps.",
+      "files": {
+        "strip/strip.ino": {
+          "ref": "sketches/oled-comments-safe/before/strip/strip.ino"
+        }
+      },
+      "expect": "patch",
+      "expected_files": {
+        "strip/strip.ino": {
+          "after": {
+            "ref": "sketches/oled-comments-safe/after/strip/strip.ino"
+          }
+        }
+      }
+    },
+    {
+      "id": "oled-commented-constructor",
+      "from": "ssd1306_096_i2c",
+      "to": "sh1106_13_i2c",
+      "description": "A commented-out constructor, a commented setTextColor(SSD1306_*) call and a commented platformio lib_deps line stay unchanged; the real lib_deps entry drops the SSD1306 version (no SH110X release matches ^2.5.7).",
+      "files": {
+        "platformio.ini": {
+          "ref": "sketches/oled-commented-constructor/before/platformio.ini"
+        },
+        "src/main.cpp": {
+          "ref": "sketches/oled-commented-constructor/before/src/main.cpp"
+        }
+      },
+      "expect": "patch",
+      "expected_files": {
+        "platformio.ini": {
+          "after": {
+            "ref": "sketches/oled-commented-constructor/after/platformio.ini"
+          }
+        },
+        "src/main.cpp": {
+          "after": {
+            "ref": "sketches/oled-commented-constructor/after/src/main.cpp"
+          }
+        }
+      }
+    },
+    {
+      "id": "oled-u8g2-platformio",
+      "from": "ssd1306_096_i2c",
+      "to": "sh1106_13_i2c",
+      "description": "U8g2/U8x8 sketch: the curated recipe covers the Adafruit SSD1306 library only, so it refuses (U8g2 needs a hand edit or the AI tier).",
+      "files": {
+        "platformio.ini": {
+          "ref": "sketches/oled-u8g2-platformio/before/platformio.ini"
+        },
+        "README.md": {
+          "ref": "sketches/oled-u8g2-platformio/before/README.md"
+        },
+        "src/main.cpp": {
+          "ref": "sketches/oled-u8g2-platformio/before/src/main.cpp"
+        },
+        "src/sensors.h": {
+          "ref": "sketches/oled-u8g2-platformio/before/src/sensors.h"
+        }
+      },
+      "expect": "refused"
+    },
+    {
+      "id": "oled-thingpulse",
+      "from": "ssd1306_096_i2c",
+      "to": "sh1106_13_i2c",
+      "description": "ThingPulse SSD1306Wire sketch: the curated recipe covers the Adafruit SSD1306 library only, so it refuses.",
+      "files": {
+        "weather/weather.ino": {
+          "ref": "sketches/oled-thingpulse/before/weather/weather.ino"
+        }
+      },
+      "expect": "refused"
+    },
+    {
+      "id": "oled-already-patched",
+      "from": "ssd1306_096_i2c",
+      "to": "sh1106_13_i2c",
+      "description": "Already uses Adafruit SH110X: nothing to change, so the recipe refuses.",
+      "files": {
+        "oled/oled.ino": {
+          "ref": "sketches/oled-already-patched/before/oled/oled.ino"
+        }
+      },
+      "expect": "refused"
+    },
+    {
+      "id": "oled-python",
+      "from": "ssd1306_096_i2c",
+      "to": "sh1106_13_i2c",
+      "description": "CircuitPython adafruit_ssd1306: Python is outside the Adafruit SSD1306 (Arduino) recipe, so it refuses.",
+      "files": {
+        "code.py": {
+          "ref": "sketches/oled-python/before/code.py"
+        }
+      },
+      "expect": "refused"
+    },
+    {
+      "id": "oled-unrelated",
+      "from": "ssd1306_096_i2c",
+      "to": "sh1106_13_i2c",
+      "description": "Character LCD sketch; colour words only in a string and SSD1306 only in a comment.",
+      "files": {
+        "lcd/lcd.ino": {
+          "ref": "sketches/oled-unrelated/before/lcd/lcd.ino"
+        }
+      },
+      "expect": "refused"
+    },
+    {
+      "id": "dht-define-type",
+      "from": "dht22",
+      "to": "dht11",
+      "description": "#define DHTTYPE DHT22 becomes DHT11.",
+      "files": {
+        "station/station.ino": {
+          "ref": "sketches/dht-define-type/before/station/station.ino"
+        }
+      },
+      "expect": "patch",
+      "expected_files": {
+        "station/station.ino": {
+          "after": {
+            "ref": "sketches/dht-define-type/after/station/station.ino"
+          }
+        }
+      }
+    },
+    {
+      "id": "dht-constructor-am2302",
+      "from": "dht22",
+      "to": "dht11",
+      "description": "DHT constructors with AM2302 (an alias of DHT22) and DHT22 both become DHT11; a string literal naming DHT22 is left alone.",
+      "files": {
+        "greenhouse/greenhouse.ino": {
+          "ref": "sketches/dht-constructor-am2302/before/greenhouse/greenhouse.ino"
+        }
+      },
+      "expect": "patch",
+      "expected_files": {
+        "greenhouse/greenhouse.ino": {
+          "after": {
+            "ref": "sketches/dht-constructor-am2302/after/greenhouse/greenhouse.ino"
+          }
+        }
+      }
+    },
+    {
+      "id": "dht-esp",
+      "from": "dht22",
+      "to": "dht11",
+      "description": "DHTesp::AM2302 becomes DHTesp::DHT11.",
+      "files": {
+        "src/main.cpp": {
+          "ref": "sketches/dht-esp/before/src/main.cpp"
+        }
+      },
+      "expect": "patch",
+      "expected_files": {
+        "src/main.cpp": {
+          "after": {
+            "ref": "sketches/dht-esp/after/src/main.cpp"
+          }
+        }
+      }
+    },
+    {
+      "id": "dht-python",
+      "from": "dht22",
+      "to": "dht11",
+      "description": "CircuitPython adafruit_dht.DHT22(...) and MicroPython dht.DHT22(...): the recipe covers the Arduino DHT and DHTesp libraries only, so it refuses.",
+      "files": {
+        "code.py": {
+          "ref": "sketches/dht-python/before/code.py"
+        },
+        "main.py": {
+          "ref": "sketches/dht-python/before/main.py"
+        }
+      },
+      "expect": "refused"
+    },
+    {
+      "id": "dht-commented-constructor",
+      "from": "dht22",
+      "to": "dht11",
+      "description": "Commented DHT constructor and commented Python constructor must stay unchanged.",
+      "files": {
+        "code.py": {
+          "ref": "sketches/dht-commented-constructor/before/code.py"
+        },
+        "weather/weather.ino": {
+          "ref": "sketches/dht-commented-constructor/before/weather/weather.ino"
+        }
+      },
+      "expect": "patch",
+      "expected_files": {
+        "code.py": {
+          "after": {
+            "ref": "sketches/dht-commented-constructor/after/code.py"
+          }
+        },
+        "weather/weather.ino": {
+          "after": {
+            "ref": "sketches/dht-commented-constructor/after/weather/weather.ino"
+          }
+        }
+      }
+    },
+    {
+      "id": "dht-comments-safe",
+      "from": "dht22",
+      "to": "dht11",
+      "description": "Commented #define lines and a block comment naming AM2302 stay unchanged; the trailing comment on the real define is kept and is not a manual step.",
+      "files": {
+        "dht_log/dht_log.ino": {
+          "ref": "sketches/dht-comments-safe/before/dht_log/dht_log.ino"
+        }
+      },
+      "expect": "patch",
+      "expected_files": {
+        "dht_log/dht_log.ino": {
+          "after": {
+            "ref": "sketches/dht-comments-safe/after/dht_log/dht_log.ino"
+          }
+        }
+      }
+    },
+    {
+      "id": "dht-already-dht11",
+      "from": "dht22",
+      "to": "dht11",
+      "description": "Sketch already selects DHT11: nothing to change, so the recipe refuses.",
+      "files": {
+        "station/station.ino": {
+          "ref": "sketches/dht-already-dht11/before/station/station.ino"
+        }
+      },
+      "expect": "refused"
+    },
+    {
+      "id": "dht-indirect-type",
+      "from": "dht22",
+      "to": "dht11",
+      "description": "Sensor type chosen through another macro (#define SENSOR_MODEL DHT22): the DHT22 identifier itself becomes DHT11.",
+      "files": {
+        "sensor/sensor.ino": {
+          "ref": "sketches/dht-indirect-type/before/sensor/sensor.ino"
+        }
+      },
+      "expect": "patch",
+      "expected_files": {
+        "sensor/sensor.ino": {
+          "after": {
+            "ref": "sketches/dht-indirect-type/after/sensor/sensor.ino"
+          }
+        }
+      }
+    },
+    {
+      "id": "dht-unrelated",
+      "from": "dht22",
+      "to": "dht11",
+      "description": "BME280 sketch that names DHT22 only in a comment, plus a README.",
+      "files": {
+        "bme/bme.ino": {
+          "ref": "sketches/dht-unrelated/before/bme/bme.ino"
+        },
+        "README.md": {
+          "ref": "sketches/dht-unrelated/before/README.md"
+        }
+      },
+      "expect": "refused"
+    },
+    {
+      "id": "stepper-accelstepper-setup",
+      "from": "a4988",
+      "to": "drv8825",
+      "description": "One AccelStepper: setMinPulseWidth(2) is inserted after its setMaxSpeed().",
+      "files": {
+        "feeder/feeder.ino": {
+          "ref": "sketches/stepper-accelstepper-setup/before/feeder/feeder.ino"
+        }
+      },
+      "expect": "patch",
+      "expected_files": {
+        "feeder/feeder.ino": {
+          "after": {
+            "ref": "sketches/stepper-accelstepper-setup/after/feeder/feeder.ino"
+          }
+        }
+      }
+    },
+    {
+      "id": "stepper-bitbang-pulse",
+      "from": "a4988",
+      "to": "drv8825",
+      "description": "Bit-banged STEP pulses without AccelStepper: the curated recipe covers AccelStepper only, so it refuses (the catalogue note asks for a check of delayMicroseconds(1) loops).",
+      "files": {
+        "pulse/pulse.ino": {
+          "ref": "sketches/stepper-bitbang-pulse/before/pulse/pulse.ino"
+        }
+      },
+      "expect": "refused"
+    },
+    {
+      "id": "stepper-stepperdriver",
+      "from": "a4988",
+      "to": "drv8825",
+      "description": "StepperDriver A4988 class: the curated recipe covers AccelStepper only, so it refuses.",
+      "files": {
+        "turntable/turntable.ino": {
+          "ref": "sketches/stepper-stepperdriver/before/turntable/turntable.ino"
+        }
+      },
+      "expect": "refused"
+    },
+    {
+      "id": "stepper-two-axes",
+      "from": "a4988",
+      "to": "drv8825",
+      "description": "setup(void); one axis already sets a pulse width and is skipped, the other gets setMinPulseWidth(2) after its setMaxSpeed().",
+      "files": {
+        "plotter/plotter.ino": {
+          "ref": "sketches/stepper-two-axes/before/plotter/plotter.ino"
+        }
+      },
+      "expect": "patch",
+      "expected_files": {
+        "plotter/plotter.ino": {
+          "after": {
+            "ref": "sketches/stepper-two-axes/after/plotter/plotter.ino"
+          }
+        }
+      }
+    },
+    {
+      "id": "stepper-helper-file",
+      "from": "a4988",
+      "to": "drv8825",
+      "description": "AccelStepper in a library file with no setup(): setMinPulseWidth(2) goes after setMaxSpeed() in motionInit(); the header is untouched.",
+      "files": {
+        "src/motion.cpp": {
+          "ref": "sketches/stepper-helper-file/before/src/motion.cpp"
+        },
+        "src/motion.h": {
+          "ref": "sketches/stepper-helper-file/before/src/motion.h"
+        }
+      },
+      "expect": "patch",
+      "expected_files": {
+        "src/motion.cpp": {
+          "after": {
+            "ref": "sketches/stepper-helper-file/after/src/motion.cpp"
+          }
+        }
+      }
+    },
+    {
+      "id": "stepper-commented-delay",
+      "from": "a4988",
+      "to": "drv8825",
+      "description": "A commented delayMicroseconds(1) and a commented AccelStepper stay unchanged; the real stepper gets setMinPulseWidth(2) and the real 1 us bit-banged pulse should become 2 us.",
+      "files": {
+        "pulse/pulse.ino": {
+          "ref": "sketches/stepper-commented-delay/before/pulse/pulse.ino"
+        }
+      },
+      "expect": "patch",
+      "expected_files": {
+        "pulse/pulse.ino": {
+          "after": {
+            "ref": "sketches/stepper-commented-delay/after/pulse/pulse.ino"
+          }
+        }
+      },
+      "known_failure": "Recipe gap: the A4988 -> DRV8825 recipe only inserts AccelStepper setMinPulseWidth(2); a bit-banged delayMicroseconds(1) STEP pulse in the same sketch stays 1 us (DRV8825 needs 1.9 us). The catalogue text that says to check delayMicroseconds(1) loops is marked implemented, so it is not repeated in the notes of a ready patch either."
+    },
+    {
+      "id": "stepper-comments-safe",
+      "from": "a4988",
+      "to": "drv8825",
+      "description": "A4988 named only in comments and a /* */ commented AccelStepper: only the real stepper gets setMinPulseWidth(2).",
+      "files": {
+        "door/door.ino": {
+          "ref": "sketches/stepper-comments-safe/before/door/door.ino"
+        }
+      },
+      "expect": "patch",
+      "expected_files": {
+        "door/door.ino": {
+          "after": {
+            "ref": "sketches/stepper-comments-safe/after/door/door.ino"
+          }
+        }
+      }
+    },
+    {
+      "id": "stepper-already-patched",
+      "from": "a4988",
+      "to": "drv8825",
+      "description": "Already sets setMinPulseWidth(2): nothing to change, so the recipe refuses.",
+      "files": {
+        "feeder/feeder.ino": {
+          "ref": "sketches/stepper-already-patched/before/feeder/feeder.ino"
+        }
+      },
+      "expect": "refused"
+    },
+    {
+      "id": "stepper-unrelated",
+      "from": "a4988",
+      "to": "drv8825",
+      "description": "Servo sketch and a platformio.ini that lists AccelStepper: nothing to change.",
+      "files": {
+        "platformio.ini": {
+          "ref": "sketches/stepper-unrelated/before/platformio.ini"
+        },
+        "src/main.cpp": {
+          "ref": "sketches/stepper-unrelated/before/src/main.cpp"
+        }
+      },
+      "expect": "refused"
+    },
+    {
+      "id": "tmc-accelstepper-unchanged",
+      "from": "a4988",
+      "to": "tmc2209_mks",
+      "description": "AccelStepper STEP/DIR code works unchanged.",
+      "files": {
+        "feeder/feeder.ino": {
+          "ref": "sketches/tmc-accelstepper-unchanged/before/feeder/feeder.ino"
+        }
+      },
+      "expect": "no_code_change"
+    },
+    {
+      "id": "tmc-stepperdriver",
+      "from": "a4988",
+      "to": "tmc2209_mks",
+      "description": "StepperDriver A4988 class: STEP/DIR code is unchanged for the TMC2209 (microstep pins are a wiring note).",
+      "files": {
+        "turntable/turntable.ino": {
+          "ref": "sketches/tmc-stepperdriver/before/turntable/turntable.ino"
+        }
+      },
+      "expect": "no_code_change"
+    },
+    {
+      "id": "tmc-commented-class",
+      "from": "a4988",
+      "to": "tmc2209_mks",
+      "description": "A4988 class only in // and /* */ comments; BasicStepperDriver is fine.",
+      "files": {
+        "turntable/turntable.ino": {
+          "ref": "sketches/tmc-commented-class/before/turntable/turntable.ino"
+        }
+      },
+      "expect": "no_code_change"
+    },
+    {
+      "id": "tmc-bitbang-delay",
+      "from": "a4988",
+      "to": "tmc2209_mks",
+      "description": "Bit-banged 1 us pulses are long enough for the TMC2209: no change.",
+      "files": {
+        "pulse/pulse.ino": {
+          "ref": "sketches/tmc-bitbang-delay/before/pulse/pulse.ino"
+        }
+      },
+      "expect": "no_code_change"
+    },
+    {
+      "id": "tmc-two-files",
+      "from": "a4988",
+      "to": "tmc2209_mks",
+      "description": "Two A4988 objects, include in a header: STEP/DIR code is unchanged for the TMC2209.",
+      "files": {
+        "rover/drivers.h": {
+          "ref": "sketches/tmc-two-files/before/rover/drivers.h"
+        },
+        "rover/rover.ino": {
+          "ref": "sketches/tmc-two-files/before/rover/rover.ino"
+        }
+      },
+      "expect": "no_code_change"
+    },
+    {
+      "id": "tmc-basic-driver",
+      "from": "a4988",
+      "to": "tmc2209_mks",
+      "description": "BasicStepperDriver already: nothing to change.",
+      "files": {
+        "src/main.cpp": {
+          "ref": "sketches/tmc-basic-driver/before/src/main.cpp"
+        }
+      },
+      "expect": "no_code_change"
+    },
+    {
+      "id": "tmc-python-mention",
+      "from": "a4988",
+      "to": "tmc2209_mks",
+      "description": "A Python config naming the A4988 is not StepperDriver code.",
+      "files": {
+        "config.py": {
+          "ref": "sketches/tmc-python-mention/before/config.py"
+        }
+      },
+      "expect": "no_code_change"
+    },
+    {
+      "id": "bme-adafruit-basic",
+      "from": "bme280_adafruit",
+      "to": "bmp280_gy",
+      "description": "Adafruit BME280 sketch reading pressure only: include, object and BME280_ADDRESS_ALTERNATE switch to the BMP280 library; the message string naming BME280 is left alone.",
+      "files": {
+        "weather/weather.ino": "// Synthetic sketch written for the Bharat Sourcer code-adapt eval; not from a real project.\n#include <Wire.h>\n#include <Adafruit_Sensor.h>\n#include <Adafruit_BME280.h>\n\nAdafruit_BME280 bme;  // I2C\n\nvoid setup() {\n  Serial.begin(9600);\n  if (!bme.begin(BME280_ADDRESS_ALTERNATE)) {\n    Serial.println(\"No BME280 found\");\n  }\n}\n\nvoid loop() {\n  Serial.println(bme.readPressure() / 100.0F);\n  delay(2000);\n}\n"
+      },
+      "expect": "patch",
+      "expected_files": {
+        "weather/weather.ino": {
+          "after": "// Synthetic sketch written for the Bharat Sourcer code-adapt eval; not from a real project.\n#include <Wire.h>\n#include <Adafruit_Sensor.h>\n#include <Adafruit_BMP280.h>\n\nAdafruit_BMP280 bme;  // I2C\n\nvoid setup() {\n  Serial.begin(9600);\n  if (!bme.begin(BMP280_ADDRESS_ALT)) {\n    Serial.println(\"No BME280 found\");\n  }\n}\n\nvoid loop() {\n  Serial.println(bme.readPressure() / 100.0F);\n  delay(2000);\n}\n"
+        }
+      }
+    },
+    {
+      "id": "bme-adafruit-humidity",
+      "from": "bme280_adafruit",
+      "to": "bmp280_gy",
+      "description": "The sketch reads humidity, which the BMP280 cannot measure: the recipe refuses instead of deleting the reading.",
+      "files": {
+        "climate/climate.ino": "// Synthetic sketch written for the Bharat Sourcer code-adapt eval; not from a real project.\n#include <Adafruit_BME280.h>\n\nAdafruit_BME280 bme;\n\nvoid setup() {\n  bme.begin(0x76);\n}\n\nvoid loop() {\n  float h = bme.readHumidity();\n  float t = bme.readTemperature();\n}\n"
+      },
+      "expect": "refused"
+    },
+    {
+      "id": "bme-adafruit-platformio",
+      "from": "bme280_adafruit",
+      "to": "bmp280_gy",
+      "description": "PlatformIO project: lib_deps switches to the Adafruit BMP280 Library without the BME280 version; the commented lib_deps line is left alone.",
+      "files": {
+        "platformio.ini": "; Synthetic project file written for the Bharat Sourcer code-adapt eval; not from a real project.\n[env:esp32dev]\nplatform = espressif32\nboard = esp32dev\nframework = arduino\nlib_deps =\n    adafruit/Adafruit BME280 Library@^2.2.4\n;   adafruit/Adafruit BME280 Library@2.1.0\n",
+        "src/main.cpp": "// Synthetic sketch written for the Bharat Sourcer code-adapt eval; not from a real project.\n#include <Arduino.h>\n#include <Adafruit_BME280.h>\n\nAdafruit_BME280 sensor;\n\nvoid setup() {\n  sensor.begin();\n}\n\nvoid loop() {\n  Serial.println(sensor.readAltitude(1013.25));\n}\n"
+      },
+      "expect": "patch",
+      "expected_files": {
+        "platformio.ini": {
+          "after": "; Synthetic project file written for the Bharat Sourcer code-adapt eval; not from a real project.\n[env:esp32dev]\nplatform = espressif32\nboard = esp32dev\nframework = arduino\nlib_deps =\n    adafruit/Adafruit BMP280 Library\n;   adafruit/Adafruit BME280 Library@2.1.0\n"
+        },
+        "src/main.cpp": {
+          "after": "// Synthetic sketch written for the Bharat Sourcer code-adapt eval; not from a real project.\n#include <Arduino.h>\n#include <Adafruit_BMP280.h>\n\nAdafruit_BMP280 sensor;\n\nvoid setup() {\n  sensor.begin();\n}\n\nvoid loop() {\n  Serial.println(sensor.readAltitude(1013.25));\n}\n"
+        }
+      }
+    },
+    {
+      "id": "bme-gy3v3-basic",
+      "from": "bme280_gy_3v3",
+      "to": "bmp280_gy",
+      "description": "GY-BME280-3.3 sketch reading temperature and pressure at 0x76.",
+      "files": {
+        "logger/logger.ino": "// Synthetic sketch written for the Bharat Sourcer code-adapt eval; not from a real project.\n#include <Adafruit_BME280.h>\n\nAdafruit_BME280 bme;\n\nvoid setup() {\n  Serial.begin(115200);\n  bme.begin(0x76);\n}\n\nvoid loop() {\n  Serial.println(bme.readTemperature());\n  Serial.println(bme.readPressure());\n}\n"
+      },
+      "expect": "patch",
+      "expected_files": {
+        "logger/logger.ino": {
+          "after": "// Synthetic sketch written for the Bharat Sourcer code-adapt eval; not from a real project.\n#include <Adafruit_BMP280.h>\n\nAdafruit_BMP280 bme;\n\nvoid setup() {\n  Serial.begin(115200);\n  bme.begin(0x76);\n}\n\nvoid loop() {\n  Serial.println(bme.readTemperature());\n  Serial.println(bme.readPressure());\n}\n"
+        }
+      }
+    },
+    {
+      "id": "bme-gy3v3-wire-bus",
+      "from": "bme280_gy_3v3",
+      "to": "bmp280_gy",
+      "description": "begin(0x76, &Wire1) passes the I2C bus to begin(), which Adafruit_BMP280 takes in its constructor: refused.",
+      "files": {
+        "src/main.cpp": "// Synthetic sketch written for the Bharat Sourcer code-adapt eval; not from a real project.\n#include <Wire.h>\n#include <Adafruit_BME280.h>\n\nAdafruit_BME280 bme;\n\nvoid setup() {\n  Wire1.begin(21, 22);\n  bme.begin(0x76, &Wire1);\n}\n\nvoid loop() {\n  bme.readTemperature();\n}\n"
+      },
+      "expect": "refused"
+    },
+    {
+      "id": "bme-gy3v3-setsampling",
+      "from": "bme280_gy_3v3",
+      "to": "bmp280_gy",
+      "description": "setSampling() with a humidity oversampling argument has no BMP280 form: refused.",
+      "files": {
+        "station/station.ino": "// Synthetic sketch written for the Bharat Sourcer code-adapt eval; not from a real project.\n#include <Adafruit_BME280.h>\n\nAdafruit_BME280 bme;\n\nvoid setup() {\n  bme.begin(0x76);\n  bme.setSampling(Adafruit_BME280::MODE_FORCED,\n                  Adafruit_BME280::SAMPLING_X1,\n                  Adafruit_BME280::SAMPLING_X1,\n                  Adafruit_BME280::SAMPLING_NONE,\n                  Adafruit_BME280::FILTER_OFF);\n}\n\nvoid loop() {}\n"
+      },
+      "expect": "refused"
+    },
+    {
+      "id": "bme-gy5v-basic",
+      "from": "bme280_gy_5v",
+      "to": "bmp280_gy",
+      "description": "GY-BME280 5 V sketch with BME280_ADDRESS; a commented SPI constructor stays unchanged.",
+      "files": {
+        "baro/baro.ino": "// Synthetic sketch written for the Bharat Sourcer code-adapt eval; not from a real project.\n#include <Adafruit_BME280.h>\n\n// Adafruit_BME280 bme(BME_CS);  // SPI option\nAdafruit_BME280 bme;\n\nvoid setup() {\n  bme.begin(BME280_ADDRESS);\n}\n\nvoid loop() {\n  Serial.println(bme.readPressure());\n}\n"
+      },
+      "expect": "patch",
+      "expected_files": {
+        "baro/baro.ino": {
+          "after": "// Synthetic sketch written for the Bharat Sourcer code-adapt eval; not from a real project.\n#include <Adafruit_BMP280.h>\n\n// Adafruit_BME280 bme(BME_CS);  // SPI option\nAdafruit_BMP280 bme;\n\nvoid setup() {\n  bme.begin(BMP280_ADDRESS);\n}\n\nvoid loop() {\n  Serial.println(bme.readPressure());\n}\n"
+        }
+      }
+    },
+    {
+      "id": "bme-gy5v-sparkfun",
+      "from": "bme280_gy_5v",
+      "to": "bmp280_gy",
+      "description": "SparkFun BME280 library: not the library this recipe covers, so it refuses.",
+      "files": {
+        "sf/sf.ino": "// Synthetic sketch written for the Bharat Sourcer code-adapt eval; not from a real project.\n#include <SparkFunBME280.h>\n\nBME280 sensor;\n\nvoid setup() {\n  sensor.beginI2C();\n}\n\nvoid loop() {\n  sensor.readTempC();\n}\n"
+      },
+      "expect": "refused"
+    },
+    {
+      "id": "bme-gy5v-humidity-sensor",
+      "from": "bme280_gy_5v",
+      "to": "bmp280_gy",
+      "description": "Unified-sensor getHumiditySensor() has no BMP280 equivalent: refused.",
+      "files": {
+        "unified/unified.ino": "// Synthetic sketch written for the Bharat Sourcer code-adapt eval; not from a real project.\n#include <Adafruit_BME280.h>\n\nAdafruit_BME280 bme;\nAdafruit_Sensor *humidity = bme.getHumiditySensor();\n\nvoid setup() {\n  bme.begin();\n}\n\nvoid loop() {}\n"
+      },
+      "expect": "refused"
+    },
+    {
+      "id": "bmp180-basic",
+      "from": "bmp180_gy68",
+      "to": "bmp280_gy",
+      "description": "Adafruit BMP085 sketch with begin() and readAltitude() without arguments: include and object switch to Adafruit BMP280.",
+      "files": {
+        "alti/alti.ino": "// Synthetic sketch written for the Bharat Sourcer code-adapt eval; not from a real project.\n#include <Wire.h>\n#include <Adafruit_BMP085.h>\n\nAdafruit_BMP085 bmp;\n\nvoid setup() {\n  Serial.begin(9600);\n  bmp.begin();\n}\n\nvoid loop() {\n  Serial.println(bmp.readTemperature());\n  Serial.println(bmp.readPressure());\n  Serial.println(bmp.readAltitude());\n}\n"
+      },
+      "expect": "patch",
+      "expected_files": {
+        "alti/alti.ino": {
+          "after": "// Synthetic sketch written for the Bharat Sourcer code-adapt eval; not from a real project.\n#include <Wire.h>\n#include <Adafruit_BMP280.h>\n\nAdafruit_BMP280 bmp;\n\nvoid setup() {\n  Serial.begin(9600);\n  bmp.begin();\n}\n\nvoid loop() {\n  Serial.println(bmp.readTemperature());\n  Serial.println(bmp.readPressure());\n  Serial.println(bmp.readAltitude());\n}\n"
+        }
+      }
+    },
+    {
+      "id": "bmp180-sealevel",
+      "from": "bmp180_gy68",
+      "to": "bmp280_gy",
+      "description": "readAltitude(101500) passes sea-level pressure in Pa; the BMP280 wants hPa: refused.",
+      "files": {
+        "alti/alti.ino": "// Synthetic sketch written for the Bharat Sourcer code-adapt eval; not from a real project.\n#include <Adafruit_BMP085.h>\n\nAdafruit_BMP085 bmp;\n\nvoid setup() {\n  bmp.begin();\n}\n\nvoid loop() {\n  Serial.println(bmp.readAltitude(101500));\n}\n"
+      },
+      "expect": "refused"
+    },
+    {
+      "id": "bmp180-mode",
+      "from": "bmp180_gy68",
+      "to": "bmp280_gy",
+      "description": "begin(BMP085_ULTRAHIGHRES) passes an oversampling mode where the BMP280 takes an address: refused.",
+      "files": {
+        "src/main.cpp": "// Synthetic sketch written for the Bharat Sourcer code-adapt eval; not from a real project.\n#include <Adafruit_BMP085.h>\n\nAdafruit_BMP085 bmp;\n\nvoid setup() {\n  bmp.begin(BMP085_ULTRAHIGHRES);\n}\n\nvoid loop() {}\n"
+      },
+      "expect": "refused"
+    },
+    {
+      "id": "bmp180-platformio",
+      "from": "bmp180_gy68",
+      "to": "bmp280_gy",
+      "description": "PlatformIO project: lib_deps and the sketch switch to Adafruit BMP280; the BMP085 version is dropped.",
+      "files": {
+        "platformio.ini": "; Synthetic project file written for the Bharat Sourcer code-adapt eval; not from a real project.\n[env:uno]\nplatform = atmelavr\nboard = uno\nframework = arduino\nlib_deps = adafruit/Adafruit BMP085 Library@^1.2.4\n",
+        "src/main.cpp": "// Synthetic sketch written for the Bharat Sourcer code-adapt eval; not from a real project.\n#include <Arduino.h>\n#include <Adafruit_BMP085.h>\n\nAdafruit_BMP085 bmp;\n\nvoid setup() {\n  bmp.begin();\n}\n\nvoid loop() {\n  Serial.println(bmp.readPressure());\n}\n"
+      },
+      "expect": "patch",
+      "expected_files": {
+        "platformio.ini": {
+          "after": "; Synthetic project file written for the Bharat Sourcer code-adapt eval; not from a real project.\n[env:uno]\nplatform = atmelavr\nboard = uno\nframework = arduino\nlib_deps = adafruit/Adafruit BMP280 Library\n"
+        },
+        "src/main.cpp": {
+          "after": "// Synthetic sketch written for the Bharat Sourcer code-adapt eval; not from a real project.\n#include <Arduino.h>\n#include <Adafruit_BMP280.h>\n\nAdafruit_BMP280 bmp;\n\nvoid setup() {\n  bmp.begin();\n}\n\nvoid loop() {\n  Serial.println(bmp.readPressure());\n}\n"
+        }
+      }
+    },
+    {
+      "id": "ws-three-arg",
+      "from": "ws2812b",
+      "to": "sk6812_rgbw",
+      "description": "Three-argument Adafruit_NeoPixel with NEO_GRB + NEO_KHZ800 becomes NEO_GRBW; a comment naming NEO_GRB stays unchanged.",
+      "files": {
+        "strip/strip.ino": "// Synthetic sketch written for the Bharat Sourcer code-adapt eval; not from a real project.\n#include <Adafruit_NeoPixel.h>\n\n#define LED_PIN 6\n#define LED_COUNT 30\n// NEO_GRB + NEO_KHZ800 suits most WS2812B strips\nAdafruit_NeoPixel strip(LED_COUNT, LED_PIN, NEO_GRB + NEO_KHZ800);\n\nvoid setup() {\n  strip.begin();\n  strip.show();\n}\n\nvoid loop() {}\n"
+      },
+      "expect": "patch",
+      "expected_files": {
+        "strip/strip.ino": {
+          "after": "// Synthetic sketch written for the Bharat Sourcer code-adapt eval; not from a real project.\n#include <Adafruit_NeoPixel.h>\n\n#define LED_PIN 6\n#define LED_COUNT 30\n// NEO_GRB + NEO_KHZ800 suits most WS2812B strips\nAdafruit_NeoPixel strip(LED_COUNT, LED_PIN, NEO_GRBW + NEO_KHZ800);\n\nvoid setup() {\n  strip.begin();\n  strip.show();\n}\n\nvoid loop() {}\n"
+        }
+      }
+    },
+    {
+      "id": "ws-two-arg",
+      "from": "ws2812b",
+      "to": "sk6812_rgbw",
+      "description": "Two-argument Adafruit_NeoPixel(count, pin) defaults to NEO_GRB, so NEO_GRBW + NEO_KHZ800 is added.",
+      "files": {
+        "ring/ring.ino": "// Synthetic sketch written for the Bharat Sourcer code-adapt eval; not from a real project.\n#include <Adafruit_NeoPixel.h>\n\nAdafruit_NeoPixel pixels(16, 6);\n\nvoid setup() {\n  pixels.begin();\n}\n\nvoid loop() {\n  pixels.setPixelColor(0, pixels.Color(255, 0, 0));\n  pixels.show();\n}\n"
+      },
+      "expect": "patch",
+      "expected_files": {
+        "ring/ring.ino": {
+          "after": "// Synthetic sketch written for the Bharat Sourcer code-adapt eval; not from a real project.\n#include <Adafruit_NeoPixel.h>\n\nAdafruit_NeoPixel pixels(16, 6, NEO_GRBW + NEO_KHZ800);\n\nvoid setup() {\n  pixels.begin();\n}\n\nvoid loop() {\n  pixels.setPixelColor(0, pixels.Color(255, 0, 0));\n  pixels.show();\n}\n"
+        }
+      }
+    },
+    {
+      "id": "ws-fastled",
+      "from": "ws2812b",
+      "to": "sk6812_rgbw",
+      "description": "FastLED sketch: not Adafruit_NeoPixel, so the recipe refuses (FastLED sends three bytes per LED).",
+      "files": {
+        "fx/fx.ino": "// Synthetic sketch written for the Bharat Sourcer code-adapt eval; not from a real project.\n#include <FastLED.h>\n\nCRGB leds[30];\n\nvoid setup() {\n  FastLED.addLeds<WS2812B, 6, GRB>(leds, 30);\n}\n\nvoid loop() {}\n"
+      },
+      "expect": "refused"
+    },
+    {
+      "id": "ws-rgb-order",
+      "from": "ws2812b",
+      "to": "sk6812_rgbw",
+      "description": "NEO_RGB colour order: the RGBW order must be chosen by hand, so the recipe refuses.",
+      "files": {
+        "strip/strip.ino": "// Synthetic sketch written for the Bharat Sourcer code-adapt eval; not from a real project.\n#include <Adafruit_NeoPixel.h>\n\nAdafruit_NeoPixel strip(8, 5, NEO_RGB + NEO_KHZ800);\n\nvoid setup() {\n  strip.begin();\n}\n\nvoid loop() {}\n"
+      },
+      "expect": "refused"
+    },
+    {
+      "id": "ws-assignment",
+      "from": "ws2812b",
+      "to": "sk6812_rgbw",
+      "description": "Old-style assignment constructor with NEO_GRB + NEO_KHZ800 becomes NEO_GRBW.",
+      "files": {
+        "old/old.ino": "// Synthetic sketch written for the Bharat Sourcer code-adapt eval; not from a real project.\n#include <Adafruit_NeoPixel.h>\n\nAdafruit_NeoPixel strip = Adafruit_NeoPixel(60, 6, NEO_GRB + NEO_KHZ800);\n\nvoid setup() {\n  strip.begin();\n}\n\nvoid loop() {}\n"
+      },
+      "expect": "patch",
+      "expected_files": {
+        "old/old.ino": {
+          "after": "// Synthetic sketch written for the Bharat Sourcer code-adapt eval; not from a real project.\n#include <Adafruit_NeoPixel.h>\n\nAdafruit_NeoPixel strip = Adafruit_NeoPixel(60, 6, NEO_GRBW + NEO_KHZ800);\n\nvoid setup() {\n  strip.begin();\n}\n\nvoid loop() {}\n"
+        }
+      }
+    },
+    {
+      "id": "rtc1307-basic",
+      "from": "ds1307_rtc",
+      "to": "ds3231_rtc",
+      "description": "RTClib DS1307 sketch: RTC_DS1307 becomes RTC_DS3231 and ! rtc.isrunning() becomes rtc.lostPower().",
+      "files": {
+        "clock/clock.ino": "// Synthetic sketch written for the Bharat Sourcer code-adapt eval; not from a real project.\n#include <RTClib.h>\n\nRTC_DS1307 rtc;\n\nvoid setup() {\n  rtc.begin();\n  if (! rtc.isrunning()) {\n    rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));\n  }\n}\n\nvoid loop() {\n  DateTime now = rtc.now();\n}\n"
+      },
+      "expect": "patch",
+      "expected_files": {
+        "clock/clock.ino": {
+          "after": "// Synthetic sketch written for the Bharat Sourcer code-adapt eval; not from a real project.\n#include <RTClib.h>\n\nRTC_DS3231 rtc;\n\nvoid setup() {\n  rtc.begin();\n  if (rtc.lostPower()) {\n    rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));\n  }\n}\n\nvoid loop() {\n  DateTime now = rtc.now();\n}\n"
+        }
+      }
+    },
+    {
+      "id": "rtc1307-nvram",
+      "from": "ds1307_rtc",
+      "to": "ds3231_rtc",
+      "description": "readnvram(): the DS3231 has no battery-backed RAM, so the recipe refuses.",
+      "files": {
+        "store/store.ino": "// Synthetic sketch written for the Bharat Sourcer code-adapt eval; not from a real project.\n#include <RTClib.h>\n\nRTC_DS1307 rtc;\n\nvoid setup() {\n  rtc.begin();\n  uint8_t boots = rtc.readnvram(0);\n  rtc.writenvram(0, boots + 1);\n}\n\nvoid loop() {}\n"
+      },
+      "expect": "refused"
+    },
+    {
+      "id": "rtc1307-sqw",
+      "from": "ds1307_rtc",
+      "to": "ds3231_rtc",
+      "description": "DS1307_SquareWave1HZ becomes DS3231_SquareWave1Hz along with the class and the isrunning() check.",
+      "files": {
+        "tick/tick.ino": "// Synthetic sketch written for the Bharat Sourcer code-adapt eval; not from a real project.\n#include <RTClib.h>\n\nRTC_DS1307 rtc;\n\nvoid setup() {\n  rtc.begin();\n  if (!rtc.isrunning()) rtc.adjust(DateTime(2026, 1, 1, 0, 0, 0));\n  rtc.writeSqwPinMode(DS1307_SquareWave1HZ);\n}\n\nvoid loop() {}\n"
+      },
+      "expect": "patch",
+      "expected_files": {
+        "tick/tick.ino": {
+          "after": "// Synthetic sketch written for the Bharat Sourcer code-adapt eval; not from a real project.\n#include <RTClib.h>\n\nRTC_DS3231 rtc;\n\nvoid setup() {\n  rtc.begin();\n  if (rtc.lostPower()) rtc.adjust(DateTime(2026, 1, 1, 0, 0, 0));\n  rtc.writeSqwPinMode(DS3231_SquareWave1Hz);\n}\n\nvoid loop() {}\n"
+        }
+      }
+    },
+    {
+      "id": "rtc1307-isrunning-check",
+      "from": "ds1307_rtc",
+      "to": "ds3231_rtc",
+      "description": "rtc.isrunning() used without '!': there is no DS3231 equivalent the recipe can write safely, so it refuses.",
+      "files": {
+        "clock/clock.ino": "// Synthetic sketch written for the Bharat Sourcer code-adapt eval; not from a real project.\n#include <RTClib.h>\n\nRTC_DS1307 rtc;\n\nvoid setup() {\n  rtc.begin();\n  if (rtc.isrunning()) {\n    Serial.println(\"clock ok\");\n  }\n}\n\nvoid loop() {}\n"
+      },
+      "expect": "refused"
+    },
+    {
+      "id": "rtc3231-basic",
+      "from": "ds3231_rtc",
+      "to": "ds1307_rtc",
+      "description": "RTClib DS3231 sketch: RTC_DS3231 becomes RTC_DS1307 and rtc.lostPower() becomes !rtc.isrunning().",
+      "files": {
+        "clock/clock.ino": "// Synthetic sketch written for the Bharat Sourcer code-adapt eval; not from a real project.\n#include <RTClib.h>\n\nRTC_DS3231 rtc;\n\nvoid setup() {\n  rtc.begin();\n  if (rtc.lostPower()) {\n    rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));\n  }\n}\n\nvoid loop() {\n  DateTime now = rtc.now();\n}\n"
+      },
+      "expect": "patch",
+      "expected_files": {
+        "clock/clock.ino": {
+          "after": "// Synthetic sketch written for the Bharat Sourcer code-adapt eval; not from a real project.\n#include <RTClib.h>\n\nRTC_DS1307 rtc;\n\nvoid setup() {\n  rtc.begin();\n  if (!rtc.isrunning()) {\n    rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));\n  }\n}\n\nvoid loop() {\n  DateTime now = rtc.now();\n}\n"
+        }
+      }
+    },
+    {
+      "id": "rtc3231-temperature",
+      "from": "ds3231_rtc",
+      "to": "ds1307_rtc",
+      "description": "getTemperature(): the DS1307 has no temperature sensor, so the recipe refuses.",
+      "files": {
+        "clock/clock.ino": "// Synthetic sketch written for the Bharat Sourcer code-adapt eval; not from a real project.\n#include <RTClib.h>\n\nRTC_DS3231 rtc;\n\nvoid setup() {\n  rtc.begin();\n}\n\nvoid loop() {\n  Serial.println(rtc.getTemperature());\n}\n"
+      },
+      "expect": "refused"
+    },
+    {
+      "id": "rtc3231-negated",
+      "from": "ds3231_rtc",
+      "to": "ds1307_rtc",
+      "description": "!rtc.lostPower() becomes rtc.isrunning().",
+      "files": {
+        "src/main.cpp": "// Synthetic sketch written for the Bharat Sourcer code-adapt eval; not from a real project.\n#include <Arduino.h>\n#include <RTClib.h>\n\nRTC_DS3231 clock3231;\n\nvoid setup() {\n  clock3231.begin();\n  if (!clock3231.lostPower()) Serial.println(\"time kept\");\n}\n\nvoid loop() {}\n"
+      },
+      "expect": "patch",
+      "expected_files": {
+        "src/main.cpp": {
+          "after": "// Synthetic sketch written for the Bharat Sourcer code-adapt eval; not from a real project.\n#include <Arduino.h>\n#include <RTClib.h>\n\nRTC_DS1307 clock3231;\n\nvoid setup() {\n  clock3231.begin();\n  if (clock3231.isrunning()) Serial.println(\"time kept\");\n}\n\nvoid loop() {}\n"
+        }
+      }
+    },
+    {
+      "id": "rtc3231-alarm",
+      "from": "ds3231_rtc",
+      "to": "ds1307_rtc",
+      "description": "setAlarm1(): the DS1307 has no alarms, so the recipe refuses.",
+      "files": {
+        "wake/wake.ino": "// Synthetic sketch written for the Bharat Sourcer code-adapt eval; not from a real project.\n#include <RTClib.h>\n\nRTC_DS3231 rtc;\n\nvoid setup() {\n  rtc.begin();\n  rtc.setAlarm1(DateTime(2026, 1, 1, 7, 0, 0), DS3231_A1_Hour);\n}\n\nvoid loop() {}\n"
+      },
+      "expect": "refused"
+    },
+    {
+      "id": "oled-legacy-colours",
+      "from": "ssd1306_096_i2c",
+      "to": "sh1106_13_i2c",
+      "description": "Old bare WHITE and INVERSE colour names (defined by Adafruit_SSD1306.h, not SH110X) become SH110X_ names; WHITE inside a string is left alone.",
+      "files": {
+        "menu/menu.ino": "// Synthetic sketch written for the Bharat Sourcer code-adapt eval; not from a real project.\n#include <Adafruit_SSD1306.h>\n\nAdafruit_SSD1306 display(128, 64, &Wire, -1);\n\nvoid setup() {\n  display.begin(SSD1306_SWITCHCAPVCC, 0x3C);\n  display.setTextColor(WHITE);\n  display.println(\"WHITE on black\");\n  display.fillRect(0, 0, 10, 10, INVERSE);\n  display.display();\n}\n\nvoid loop() {}\n"
+      },
+      "expect": "patch",
+      "expected_files": {
+        "menu/menu.ino": {
+          "after": "// Synthetic sketch written for the Bharat Sourcer code-adapt eval; not from a real project.\n#include <Adafruit_SH110X.h>\n\nAdafruit_SH1106G display(128, 64, &Wire, -1);\n\nvoid setup() {\n  display.begin(0x3C, true);\n  display.setTextColor(SH110X_WHITE);\n  display.println(\"WHITE on black\");\n  display.fillRect(0, 0, 10, 10, SH110X_INVERSE);\n  display.display();\n}\n\nvoid loop() {}\n"
+        }
+      }
+    }
+  ]
+}

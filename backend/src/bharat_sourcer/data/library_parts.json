@@ -20,6 +20,8 @@
     {"name": "nRF24L01 radio module", "headers": ["RF24.h", "nRF24L01.h"], "python": ["nrf24l01"], "libraries": ["rf24"]},
     {"name": "GPS receiver module", "headers": ["TinyGPS++.h", "TinyGPSPlus.h", "TinyGPS.h"], "python": ["adafruit_gps", "micropygps"], "libraries": ["tinygps"]},
     {"name": "DS3231 real-time clock module", "headers": ["DS3231.h", "RTClib.h"], "python": ["adafruit_ds3231"], "libraries": ["rtclib", "ds3231"]},
+    {"name": "DS1307 real-time clock module", "headers": ["DS1307.h"], "python": ["adafruit_ds1307"], "libraries": ["ds1307"]},
+    {"name": "Real-time clock module (DS1307 or DS3231)", "headers": ["DS1307RTC.h"], "python": [], "libraries": ["ds1307rtc"]},
     {"name": "HX711 load cell amplifier", "headers": ["HX711.h"], "python": ["hx711"], "libraries": ["hx711"]},
     {"name": "INA219 current sensor module", "headers": ["Adafruit_INA219.h"], "python": ["adafruit_ina219", "ina219"], "libraries": ["ina219"]},
     {"name": "ADS1115 analog-to-digital converter module", "headers": ["Adafruit_ADS1X15.h", "ADS1X15.h"], "python": ["adafruit_ads1x15"], "libraries": ["ads1x15"]},
