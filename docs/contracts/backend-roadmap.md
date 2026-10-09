@@ -1,6 +1,6 @@
 # Backend delivery roadmap
 
-Reviewed against backend **v0.27.0**, 9 October 2026. The [API contract](README.md)
+Reviewed against backend **v0.28.0**, 9 October 2026. The [API contract](README.md)
 and [backend README](../../backend/README.md) describe implemented behavior.
 Architecture documents describe the broader target.
 
@@ -23,7 +23,7 @@ records automated probe results and the remaining human relevance-review limitat
 ## Remaining work and proposals
 
 - **Code adaptation:** tiers 1–2 of the [plan](../plans/code-adapt/PLAN.md) shipped in
-  v0.28.0 ([contract](code-adapt.md)); the frontend UI is not built. Tier 3 (compile
+  v0.28.0 ([contract](code-adapt.md)); the frontend UI is built. Tier 3 (compile
   runner) awaits owner approval, below.
 - **Evaluation:** curate real labelled extraction examples and manually review seller
   relevance before claiming accuracy. The [gold set](evaluation-gold-set.md) is a draft.

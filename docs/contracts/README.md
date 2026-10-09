@@ -151,11 +151,11 @@ and `/openapi.json` are public. `/health` is the cloud-safe liveness path.
 The API base URL has no `/api` suffix.
 
 [Backend roadmap](backend-roadmap.md) tracks agreed features still to implement.
-[Export and share](export-and-share.md): CSV, printable HTML report and revocable read-only share links.
+[Export and share](export-and-share.md): PDF, printable HTML report and revocable read-only share links.
 [Frontend quickstart](frontend-quickstart.md) includes local configuration, request code,
 credentials guidance and the integration acceptance checklist.
 [Gemini extras](gemini-extras.md): opt-in explain-aloud audio, clip zoom and parts-bin scan.
-[Nearby markets](nearby-markets.md): `GET /v1/jobs/{job_id}/markets?pin=` lists Maps-grounded electronics shops near the maker, with required Google Maps attribution.
+[Nearby markets](nearby-markets.md): `GET /v1/jobs/{job_id}/markets?city=` lists Maps-grounded electronics shops near the maker, with required Google Maps attribution.
 [Seller trust labels and storefront JSON fast path](seller-trust.md): `offers[].trust` and new `verification` values.
 [Safety flags](safety-flags.md): deterministic MAINS / LIPO / HIGH_CURRENT / LEVEL_SHIFT banners on `job.safety_flags`.
 

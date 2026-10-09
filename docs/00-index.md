@@ -1,11 +1,12 @@
 # Documentation index
 
-## Current implementation — v0.27.0
+## Current implementation — v0.28.0
 
 Start with the [backend README](../backend/README.md), [API contracts](contracts/README.md),
 [frontend quickstart](contracts/frontend-quickstart.md), and [remaining backend work](contracts/backend-roadmap.md).
 The [routing plan](plans/routing-engine/PLAN.md) is completed;
-[code adaptation](plans/code-adapt/PLAN.md) is an unapproved draft.
+[code adaptation](contracts/code-adapt.md) tiers 1–2 are implemented. The compile runner
+in tier 3 remains a proposal.
 Obsolete agent and release handoffs have been removed; use the feature contracts.
 
 ## Architecture and dated research

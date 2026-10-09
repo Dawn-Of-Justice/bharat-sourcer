@@ -69,6 +69,19 @@ test('preview labels AI project understanding, inferred qty and inferred build d
   assert.equal(requests, 0)
 })
 
+test('plan preview includes a labelled sample code patch without contacting the backend', () => {
+  const { previewRequest } = load('./preview')
+  const job = previewRequest('/v1/jobs/ui-preview', {})
+  const { planPreview } = load('./previewReport')
+  const plan = planPreview(job)
+  const patch = plan.report.lines.find(line => line.item.line_id === 'L02').code_patch
+  assert.equal(patch.status, 'ready')
+  assert.equal(patch.check, 'not_checked')
+  assert.match(patch.files[0].diff, /Dummy preview only/)
+  assert.ok(patch.notes.every(note => /Dummy/.test(note)))
+  assert.equal(requests, 0)
+})
+
 test('evidence text renders code, description, page and video evidence without null placeholders', () => {
   assert.equal(api.evidenceText({ source: 'code', file: 'src/main.cpp', line: 3, quote: '#include <Adafruit_BME280.h>', url: 'https://github.com/o/r/blob/HEAD/src/main.cpp#L3', observation: 'includes the library' }), 'Code src/main.cpp:3 “#include <Adafruit_BME280.h>” — includes the library')
   assert.equal(api.evidenceText({ source: 'youtube_description', quote: 'BME280 module', timestamp: null, observation: 'Listed in the description.' }), 'Video description “BME280 module” — Listed in the description.')
