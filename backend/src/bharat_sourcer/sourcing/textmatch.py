@@ -6,13 +6,16 @@ import unicodedata
 from bharat_sourcer.sourcing.part_spec import find_measures, normalise_text, same_value
 
 FILLER = set(
-    ("a an the of for with to and pack set pcs piece pieces compatible development "
-     "board module sensor display capacitive").split()
+    (
+        "a an the of for with to and pack set pcs piece pieces compatible development "
+        "board module sensor display capacitive"
+    ).split()
 )
 ACCESSORIES = set("case holder bracket mount cover enclosure stand clip".split())
 UNITS = set(
-    ("mm cm m v mv a ma w watt watts uf nf pf mfd ohm ohms k mhz mah awg "
-     "pin pins cell cells inch").split()
+    (
+        "mm cm m v mv a ma w watt watts uf nf pf mfd ohm ohms k mhz mah awg pin pins cell cells"
+    ).split()
 )
 
 
@@ -23,12 +26,15 @@ def compact(text: str) -> str:
 def _text(text: str) -> str:
     text = unicodedata.normalize("NFKC", text).replace("μ", "u").replace("µ", "u")
     text = re.sub(r"(?i)\bmfd\b", "uF", text)
-    text = re.sub(r"(?i)(\d)\s*(?:″|”|\"|inches\b|inch\b|in\.)", r"\1 inch", text)
+    text = re.sub(r"(?i)(\d)\s*(?:′′|″|”|\"|inches\b|inch\b|in\.)", r"\1 inch", text)
     return text
 
 
 def model_numbers(text: str) -> list[str]:
     text = re.sub(r"(?i)-channel\b", " channel", _text(text))
+    text = normalise_text(text)
+    for measure in find_measures(text, resistor_context=True):
+        text = text.replace(measure.text, " ")
     # Join a split MPN suffix, but never swallow the following descriptive word.
     text = re.sub(r"(?i)\b([a-z]+\d+)\s+([a-z])(?=-|\b)", r"\1\2", text)
     text = re.sub(r"(?i)\b(nema|hc|sr|wroom)\s+(\d+|sr\d+)\b", r"\1\2", text)
@@ -61,6 +67,9 @@ def values(text: str) -> dict[str, set[float]]:
             result.setdefault(kind, set()).add(float(number))
     if re.search(r"(?i)\b(?:dual|double)\b", text):
         result.setdefault("cells", set()).add(2.0)
+    if "18650" in text:
+        for match in re.finditer(r"(?i)\b18650\s*x\s*(\d+)\b|\b(\d+)\s*x\s*18650\b", text):
+            result.setdefault("cells", set()).add(float(next(v for v in match.groups() if v)))
     return result
 
 
@@ -82,6 +91,7 @@ def _tokens(text: str) -> set[str]:
         text,
     )
     text = re.sub(r"(?i)\b(\d+)\s*-?\s*(?:pins?|cells?)\b", " ", text)
+    text = re.sub(r"(?i)\b(?:dual|double)\s*(?:cells?)?\b", " ", text)
     words = re.findall(r"[^\W_]+", text.casefold())
     plurals = {"switches": "switch", "inches": "inch"}
     return {

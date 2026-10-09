@@ -15,6 +15,21 @@ from bharat_sourcer.sourcing.textmatch import pack_size, title_gate, values
         ("5mm LED (red) x5", "5mm Red LED (Pack of 10)"),
         ("Breadboard 830 points", "830 Point Solderless Breadboard"),
         ("20cm jumper wires", "200mm Jumper Wire"),
+        ("18650 holder 2 cell", "Dual 18650 Battery Holder"),
+        ('0.96" OLED', "OLED 0.96 inch module"),
+        ("Wire 22 AWG solid core", "22 AWG Solid Core Wire"),
+        ("Arduino Uno R3", "Arduino UNO R3 Compatible Board"),
+        ("ESP32 DevKit V1", "ESP32 DevKit V1 Development Board"),
+        ("BME280 sensor module", "BME280 Environmental Sensor"),
+        ("SG90 servo", "TowerPro SG90 Servo Motor"),
+        ("LM2596 buck converter", "LM2596 Buck Converter Module"),
+        ("TP4056 charging module", "TP4056 Charging Module"),
+        ("jumper wires male to female", "Male to Female Jumper Wire"),
+        ("WS2812B LED strip", "WS2812B Addressable LED Strip"),
+        ("A4988 driver", "A4988 Stepper Motor Driver"),
+        ("100uF 25V capacitor", "100 MFD 25 V Electrolytic Capacitor"),
+        ("IRFZ44N mosfet", "IRFZ44 N-Channel MOSFET"),
+        ("Raspberry Pi Pico", "Raspberry Pi Pico Board"),
     ],
 )
 def test_equivalent_titles(query, title):
@@ -29,6 +44,8 @@ def test_equivalent_titles(query, title):
         ("Arduino Uno R3", "Case for Arduino UNO R3"),
         ("NEMA 17", "Bracket for NEMA17"),
         ("ESP32 30 pin", "ESP32 38 pin"),
+        ("0.96 inch OLED", "0.96 OLED module"),
+        ("5 inch display", "5 in 1 display kit"),
     ],
 )
 def test_conflicts(query, title):
