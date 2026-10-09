@@ -53,19 +53,26 @@ candidates."
 
 ## Queries
 
-`query_variants([item.raw_name, resolution.query])`: NFKC, `µ`→`u`, `33kΩ`→`33k`,
-`10Ω`→`10 ohm`, bracketed aliases (`Light dependent resistor (LDR)` → `ldr`), and a short
-core form (values + units + noun: `22uf 16v capacitor`, `copper wire`). Each seller gets at
-most 2 queries; the second only when the first returns nothing. When the spec exposes
-`queries`, they can be passed instead.
+`routing.route_queries(spec, raw_name, resolution_query)` builds a ladder: model numbers
+(with compact and spaced spellings), buying-spec queries, cleaned names, value plus category,
+then synonyms. It removes quantities, packs, tolerances and generic bracket qualifiers.
+One-word generic queries and nounless fragments are rejected. Unicode letters, combining
+marks and digits survive normalisation, including Devanagari.
+
+Each seller tries at most **4** rungs by default. WooCommerce tries model numbers first
+because its catalogue search can require a contiguous phrase. Parsing errors are recorded
+and the next rung is tried; robots refusals and bot challenges stop that seller. A result
+scoring at least 0.8 against the original part stops the ladder only for a model or a query
+with at least two tokens. The legacy `query_variants` helper remains available to callers.
 
 ## Ranking and dedupe
 
-Within a seller: the seller's own result order, with title-token overlap as a light
-tie-break (rounded to 0.1). Nothing is rejected on overlap. Across sellers: round-robin in
-registry order, so one store cannot fill the budget; URLs are deduped on host (without
-`www.`), path and no query. Shopify URLs are canonical `/products/<handle>` (tracking
-parameters `_pos`, `_psq` dropped).
+Every candidate is scored against the original part, including model and value conflicts;
+accessories for another part are demoted. The score never uses the fallback query as its
+reference. Within a seller, descending relevance comes first and catalogue order breaks
+ties. Candidates are retained as unverified leads even at low scores. Across sellers the
+merge is round-robin, with relevance ordering each round. Shared listing identity normalises
+host aliases and tracking parameters while preserving functional variant/product parameters.
 
 ## Sellers, endpoints and robots findings (checked 2026-10-07)
 
@@ -95,14 +102,12 @@ The Shopify `/search?…&view=json` and `/products.json` paging fallbacks are no
 ## Politeness
 
 - Per-host concurrency ≤ 2 and ≥ 1 s between requests to a host (shared across lines).
-- In-memory TTL cache per `SourcingService`: search responses 6 h
-  (`BS_SELLER_SEARCH_CACHE_S`), product pages and product JSON 15 min
-  (`BS_SELLER_PAGE_CACHE_S`; short because offers carry `checked_at`). Only HTTP 200 is
-  cached; up to 2,000 entries (LRU). An optional shared cache (`Politeness(cache=…)`,
-  `seller_search.from_settings(settings, cache)`; interface `get(key)` / `set(key, dict,
-  ttl_s)`) is read after the in-memory one, with keys `cache_key("seller_search", seller,
-  normalise_part(query))` and `cache_key("page", url)` and TTLs from `sourcing.cache.TTL`.
-  Shared-cache errors fall back to fetching.
+- In-memory and shared search caches use the exact request URL. A response is stored only
+  after the adapter parses it successfully. Successful nonempty results use the configured
+  search lifetime (6 h by default); empty results live at most 10 min. Product pages and
+  product JSON use the configured 15 min default. Shared TTLs cannot exceed configured TTLs.
+  HTTP errors and unparsable responses are not cached. Up to 2,000 local entries are kept
+  in LRU order; shared-cache errors fall back to fetching.
 - Paid budget: before grounded discovery the service checks `usage.paid_allowed()`; when it
   is false, grounded is skipped (no `grounded` stage) and the no-offer message includes
   `usage.BUDGET_MESSAGE`.
@@ -110,7 +115,9 @@ The Shopify `/search?…&view=json` and `/products.json` paging fallbacks are no
   then 2 s. A `Retry-After` above 10 s is not waited for; the response is returned as is.
 - User agent: the existing `BharatSourcer/0.4 (+product-data-verification)`; HTTPS only,
   public-address pinning and size limits from `SafeFetcher`.
-- Seller search has a 20 s overall deadline; unfinished sellers are reported as `timeout`.
+- Seller search has a 20 s overall deadline. Results already collected from an unfinished
+  seller are retained with `timeout_partial`; an empty unfinished seller is `timeout`.
+  After the deadline, workers stop before starting another rung (an in-flight request can finish).
 
 ## Bot protection: detect and stop, never circumvent
 
@@ -142,7 +149,10 @@ proposal (`roadmap.md` §15) and would never run on challenge pages.
 
 `BS_SOURCING_CANDIDATES_PER_PART` (5) still caps grounded URLs per discovery.
 
-## Live check (2026-10-07, no Gemini)
+## Historical live check (2026-10-07, before v0.27.0, no Gemini)
+
+These results describe the old matcher. See the [v0.27.0 routing evaluation](../../backend/infra/routing-evaluation.md)
+for the later probe and its validation limits.
 
 `cd backend && python scripts/check_seller_search.py` runs seller search and the existing
 verifier for 33kΩ resistor, 22µF 16V electrolytic capacitor, 5mm LED, LDR and bare copper
@@ -159,7 +169,7 @@ wire. Grounded discovery is not run (0 grounded candidates).
 
 "Extractable" counts any INR price the verifier can read; it says nothing about whether the
 product is the right part (the 33k row includes 330 Ω and 22k listings). The capacitor's
-exact match ("22uF 16V SMD Electrolytic Capacitor", Quartz) fails the current title gate on
+exact match ("22uF 16V SMD Electrolytic Capacitor", Quartz) failed the then-current title gate on
 `µ`/`u` and the extra "SMD" word; the matching stream's judge decides relevance.
 
 ## Tests

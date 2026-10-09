@@ -1,10 +1,37 @@
 # Backend
 
+v0.28.0 adds code patches for substituted parts: for a line whose chosen offer is a
+catalogue substitute, `POST /v1/jobs/{id}/lines/{line_id}/code-patch` re-reads the GitHub
+code files that code evidence cited and applies a curated recipe (DHT22→DHT11,
+SSD1306→SH1106, A4988→DRV8825; A4988→TMC2209 needs no code change) outside comments and
+strings, refusing instead of guessing. Wiring, power and verification changes stay notes.
+AI-drafted patches (validated, must be accepted) exist behind `BS_CODE_ADAPT_AI` (off).
+Patches are never compiled (`check: not_checked`), are owner-only, and download as a ZIP
+with the repository LICENSE. See [code patches](../docs/contracts/code-adapt.md).
+
+v0.27.0 improves parts routing and seller offer reading. Searches use a bounded query
+ladder and score results against the requested part, preserve partial seller results,
+and continue free catalogue searches after the AI budget is spent. Offer parsing handles
+Indian price grouping, additional structured product shapes and tracking URLs. Optional
+seller identity fields distinguish direct stores, hosted stores and marketplaces;
+marketplace reputation is never credited to an unknown merchant. Failed paid searches
+retain earlier seller evidence, and per-line rejection reasons are logged.
+See [seller search](../docs/contracts/seller-search.md),
+[seller trust](../docs/contracts/seller-trust.md) and
+[part matching](../docs/contracts/part-matching.md).
+
+`BS_LOG_LEVEL` defaults to `INFO`; set it to `WARNING` to reduce diagnostics.
+`SELLER_SEARCH` and `SOURCING_LINE` logs report stages, candidate counts and rejection
+reasons. `BS_SELLER_PAGE_CACHE_S` bounds both local and shared page caches. Refreshing
+known offer URLs bypasses cached pages while retaining pacing and challenge checks.
+For a bounded free live probe, run `python scripts/probe_routing.py` from `backend/`;
+`--verify-only` rechecks saved candidate pages. Output is ignored under `.data/`.
+
 The integration deployment was observed on 5 October 2026 with Firebase account and
 guest authentication enabled. The frontend origin is included in CORS. The
 `BS_AUTH_ENABLED=false` setting shown below remains the default for a fresh local setup.
 
-Unreleased (recommendations): when sourcing completes the backend scores every offer, picks one per line with a basket that consolidates sellers (a configurable `BS_RECOMMEND_SELLER_PENALTY_INR`, default ₹60, per extra seller), applies it as the selection where the selection rules allow (`selection_source: "recommended"`), and exposes a seller-grouped `report.order_plan` plus one resolved `line_image` per line. User choices are never overwritten. See [recommendations](../docs/contracts/recommendations.md).
+Released in v0.21.0 (recommendations): when sourcing completes the backend scores every offer, picks one per line with a basket that consolidates sellers (a configurable `BS_RECOMMEND_SELLER_PENALTY_INR`, default ₹60, per extra seller), applies it as the selection where the selection rules allow (`selection_source: "recommended"`), and exposes a seller-grouped `report.order_plan` plus one resolved `line_image` per line. User choices are never overwritten. See [recommendations](../docs/contracts/recommendations.md).
 
 v0.26.0 replaces CSV with a downloadable PDF of the order plan (`export.pdf`, rendered by
 WeasyPrint; the Docker image installs Pango and DejaVu fonts for it). The printable

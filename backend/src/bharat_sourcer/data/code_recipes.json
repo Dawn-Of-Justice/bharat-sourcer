@@ -1,0 +1,128 @@
+{
+  "_note": "Curated code recipes for catalogue substitute edges, written by hand for Bharat Sourcer on 2026-10-09. Each recipe implements the `code` changes of one edge in data/parts_catalog.json for the named library only; other changes stay notes. Recipes are deterministic text edits applied outside comments and strings; a required step that matches nothing, or more than max_matches places, refuses the whole recipe instead of guessing. A curated patch is not compiled or tested on hardware.",
+  "recipes": [
+    {
+      "from_id": "dht22",
+      "to_id": "dht11",
+      "library": "Adafruit DHT sensor library or DHTesp",
+      "requires_any_include": ["DHT.h", "DHT_U.h", "DHTesp.h"],
+      "implements": ["Change #define DHTTYPE DHT22 to DHT11."],
+      "steps": [
+        {
+          "kind": "replace_identifier",
+          "from": "DHT22",
+          "to": "DHT11",
+          "files": "code",
+          "required": true,
+          "max_matches": 6,
+          "describe": "Sensor type DHT22 → DHT11 (DHTTYPE define, constructor or DHTesp setup)"
+        }
+      ]
+    },
+    {
+      "from_id": "ssd1306_096_i2c",
+      "to_id": "sh1106_13_i2c",
+      "library": "Adafruit SSD1306 → Adafruit SH110X",
+      "requires_any_include": ["Adafruit_SSD1306.h"],
+      "implements": [
+        "Swap Adafruit_SSD1306 for Adafruit_SH110X: Adafruit_SH1106G display(128, 64, &Wire, -1); display.begin(0x3C, true); SSD1306_WHITE becomes SH110X_WHITE. Drawing calls (Adafruit GFX) are unchanged."
+      ],
+      "steps": [
+        {
+          "kind": "replace_include",
+          "from": "Adafruit_SSD1306.h",
+          "to": "Adafruit_SH110X.h",
+          "required": true,
+          "max_matches": 2,
+          "describe": "Include Adafruit_SH110X.h instead of Adafruit_SSD1306.h"
+        },
+        {
+          "kind": "replace_regex",
+          "pattern": "\\bAdafruit_SSD1306(\\s+\\w+\\s*\\()",
+          "replacement": "Adafruit_SH1106G\\1",
+          "files": "code",
+          "required": true,
+          "max_matches": 1,
+          "describe": "Display object Adafruit_SSD1306 → Adafruit_SH1106G (same width, height, Wire and reset arguments)"
+        },
+        {
+          "kind": "replace_regex",
+          "pattern": "(\\w+)\\s*\\.\\s*begin\\s*\\(\\s*SSD1306_SWITCHCAPVCC\\s*,\\s*(0x[0-9A-Fa-f]{2})\\s*\\)",
+          "replacement": "\\1.begin(\\2, true)",
+          "files": "code",
+          "required": true,
+          "max_matches": 1,
+          "describe": "begin(SSD1306_SWITCHCAPVCC, addr) → begin(addr, true)"
+        },
+        {
+          "kind": "replace_identifier",
+          "from": "SSD1306_WHITE",
+          "to": "SH110X_WHITE",
+          "files": "code",
+          "required": false,
+          "max_matches": 200,
+          "describe": "Colour constant SSD1306_WHITE → SH110X_WHITE"
+        },
+        {
+          "kind": "replace_identifier",
+          "from": "SSD1306_BLACK",
+          "to": "SH110X_BLACK",
+          "files": "code",
+          "required": false,
+          "max_matches": 200,
+          "describe": "Colour constant SSD1306_BLACK → SH110X_BLACK"
+        },
+        {
+          "kind": "replace_identifier",
+          "from": "SSD1306_INVERSE",
+          "to": "SH110X_INVERSE",
+          "files": "code",
+          "required": false,
+          "max_matches": 200,
+          "describe": "Colour constant SSD1306_INVERSE → SH110X_INVERSE"
+        },
+        {
+          "kind": "replace_lib_dep",
+          "from": "Adafruit SSD1306",
+          "to": "Adafruit SH110X",
+          "required": false,
+          "max_matches": 2,
+          "describe": "PlatformIO / library dependency Adafruit SSD1306 → Adafruit SH110X"
+        }
+      ]
+    },
+    {
+      "from_id": "a4988",
+      "to_id": "drv8825",
+      "library": "AccelStepper",
+      "requires_any_include": ["AccelStepper.h"],
+      "implements": [
+        "STEP high and low must each last at least 1.9 µs: call stepper.setMinPulseWidth(2) (AccelStepper) and check delayMicroseconds(1) loops."
+      ],
+      "not_implemented": [
+        "Microstep tables differ (up to 1/32); update steps per mm."
+      ],
+      "steps": [
+        {
+          "kind": "insert_after",
+          "anchor": "^(?P<indent>[ \\t]*)(?P<var>\\w+)\\s*\\.\\s*setMaxSpeed\\s*\\(.*\\)\\s*;\\s*$",
+          "insert": "{indent}{var}.setMinPulseWidth(2);  // DRV8825: STEP pulses of at least 1.9 µs",
+          "skip_if": "\\b{var}\\s*\\.\\s*setMinPulseWidth\\s*\\(",
+          "files": "code",
+          "required": true,
+          "max_matches": 4,
+          "describe": "Call setMinPulseWidth(2) after each stepper's setMaxSpeed()"
+        }
+      ]
+    },
+    {
+      "from_id": "a4988",
+      "to_id": "tmc2209_mks",
+      "library": "any STEP/DIR code",
+      "requires_any_include": [],
+      "implements": [],
+      "no_code_change": "STEP/DIR code is unchanged for this substitute; check the motor direction on first run because some modules invert DIR.",
+      "steps": []
+    }
+  ]
+}

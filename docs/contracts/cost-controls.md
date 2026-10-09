@@ -1,6 +1,6 @@
 # Cost controls: shared cache, research rules, refresh, budget and cost accounting
 
-Implemented on branch `mvp/cost`; not yet released. Gemini prices, measurements and
+Released in v0.21.0; budget and cache behavior updated for v0.27.0. Gemini prices, measurements and
 estimates are in [`backend/infra/gemini-cost.md`](../../backend/infra/gemini-cost.md).
 All dollar figures are **estimates** computed from logged token counts and a dated price
 table, not Google invoices.
@@ -51,11 +51,11 @@ Treat it like a line without research candidates. `sources` still lists fetched 
 
 ### Line error `JOB_BUDGET_REACHED`
 
-A line with `sourcing_status: "not_run"` and `sourcing_error.code: "JOB_BUDGET_REACHED"`
-was not searched because the run reached its budget. Message: "Skipped paid search to stay
-within the job budget. Refresh this line to try again." The report summary also says so.
-Offer a refresh button: each refresh run starts with a fresh budget (refreshes are still
-limited to two batches per job).
+Older snapshots can contain `sourcing_status: "not_run"` and
+`sourcing_error.code: "JOB_BUDGET_REACHED"`. In v0.27.0, reaching the budget skips
+paid stages while free catalogue search, known-URL verification and cache reuse continue.
+The report summary notes skipped paid search. A refresh starts a fresh run budget;
+the existing refresh limits still apply.
 
 ## Behaviour
 
@@ -71,8 +71,8 @@ units normalised, whitespace collapsed), so `33kΩ resistor`, `33K resistor` and
 | --- | --- | --- | --- |
 | `discovery` | normalised part query | grounded candidate URLs | 7 days |
 | `judge` | spec hash + URL + content hash | verdict | 7 days |
-| `page` | URL | extracted offer | 8 h |
-| `seller_search` | seller + query | candidate URLs | 6 h |
+| `page` | URL | fetched response, parsed again before use | min(8 h, `BS_SELLER_PAGE_CACHE_S`), default 15 min |
+| `seller_search` | seller host + exact request URL | successfully parsed search response | min(6 h, `BS_SELLER_SEARCH_CACHE_S`); empty results at most 10 min |
 | `research` | normalised part + specs/requirements + document URLs | quote-checked candidates | 7 days |
 | `spec` | normalised item name + qty + requirements + project-context hash | guarded buyable spec (derived from that project, so only the same item in the same project reads it) | 7 days |
 
@@ -116,8 +116,9 @@ page is gone, no longer verifies or is out of stock. A refreshed line's
 ### Budget guard
 
 `BS_JOB_GEMINI_BUDGET_USD` (default `0.25`) caps the estimated Gemini spend of each
-sourcing run. Once reached, remaining lines skip paid stages (`JOB_BUDGET_REACHED`);
-known-URL refreshes and cache hits still run because they are free. It is a soft ceiling:
+sourcing run. Once reached, remaining lines skip paid stages;
+free catalogue searches, known-URL refreshes and cache hits still run. Judge failures or
+budget exhaustion preserve available deterministic and cached results. It is a soft ceiling:
 lines already in flight (up to `BS_SOURCING_PARALLELISM`) finish their current call.
 `0` disables paid sourcing entirely; use a large value (max 10) to effectively disable the
 guard.
@@ -129,8 +130,8 @@ guard.
 | `BS_GEMINI_SITE_MODELS` | `{}` | JSON map of call site to model; unset sites use `BS_GEMINI_MODEL` |
 | `BS_GEMINI_SITE_THINKING` | `{"chat_scope": "low", "discovery": "low", "judge": "low", "spec": "low"}` | JSON map of call site to `thinkingLevel` (`low`/`medium`/`high`); setting it replaces the whole map; unlisted sites use the model default (medium on 3.8 Flash) |
 
-Applied today to `chat_scope`, `discovery` and `research`. New call sites (`judge`,
-`spec`, seller search) should use `config.site_model(settings, site)` and merge
+Paid call sites use per-site configuration, including the spec judge.
+New paid call sites should use `config.site_model(settings, site)` and merge
 `config.site_generation(settings, site)` into `generationConfig`.
 
 ## Guidance for other call sites

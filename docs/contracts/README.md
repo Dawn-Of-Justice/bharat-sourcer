@@ -1,4 +1,18 @@
-# Implemented API contract — v0.26.0
+# Implemented API contract — v0.28.0
+
+v0.28.0 adds [code patches for substituted parts](code-adapt.md): optional
+`report.lines[].code_patch` (`CodePatch`), `POST …/lines/{line_id}/code-patch`,
+`POST …/code-patch/accept` and `GET …/code-patch.zip`. Owner-only; never compiled.
+**Frontend to do:** diff viewer, labels, notes, Accept and Download.
+
+v0.27.0 improves [seller query routing](seller-search.md) and structured offer parsing.
+Offers add optional `seller_domain`, `seller_name` and `seller_kind`
+(`direct`, `marketplace`, `platform_hosted`). Existing `seller` remains available.
+Hosted stores do not inherit their platform's domain age; marketplace trust does not
+verify the merchant. Free catalogue search continues after the paid AI budget is spent.
+Search, judge and page-reading failures preserve earlier results where possible;
+`DISCOVERY_FAILED` can accompany `no_verified_offers` when seller pages were retained.
+See [seller trust](seller-trust.md) and [part matching](part-matching.md).
 
 This directory is the handoff between backend and frontend. The architecture docs describe
 the target system; this contract describes the runnable local milestone.
@@ -23,26 +37,26 @@ v0.23.0 removes the PIN code and adds [countries](countries.md): `country` on
 (`CITY_NOT_SUPPORTED`, `LOCATION_OUTSIDE_COUNTRY`). Requests that still send `pin` are accepted
 and the value is ignored. Only India is supported.
 
-Unreleased: automatic [recommendations](recommendations.md). Adds optional `report.order_plan`, `lines[].selection_source`, `user_offer_url`, `recommended_offer_url`, `recommendation` and `line_image`; `GET /plans` adds a `recommended` plan and `seller_penalty_inr`. Completed live reports now arrive with default selections.
+Released in v0.21.0: automatic [recommendations](recommendations.md). Adds optional `report.order_plan`, `lines[].selection_source`, `user_offer_url`, `recommended_offer_url`, `recommendation` and `line_image`; `GET /plans` adds a `recommended` plan and `seller_penalty_inr`. Completed live reports now arrive with default selections.
 
 v0.22.0 adds `research_skipped` to `stages`, `part_name` to `BuyableSpec`, Shopify variant
 offers (`verification: shopify_storefront_json` with `?variant=` URLs) and AI buying specs for
-older jobs. The v0.20 and v0.21 frontend handoffs are now built in `frontend/`.
+older jobs. See the [frontend quickstart](frontend-quickstart.md) for integration guidance.
 
 v0.21.0 adds the sourcing engine: buyable specs, seller catalogue search, an LLM spec
 judge (`offers[].match`), automatic recommendations and selections, a seller-grouped
 `report.order_plan`, `line_image`, cost controls (`job.cost_estimate`), nearby markets and
-YouTube description intake. All new fields are optional. Frontend work is listed in the
-[v0.21 frontend handoff](frontend-handoff-v0.21.md).
+YouTube description intake. All new fields are optional. See [seller search](seller-search.md)
+and [recommendations](recommendations.md) for implemented behavior.
 
 v0.20.0 adds safety flags, costing breakdowns and cart plans, multi-source intake with
 conflicts, look-alikes and confidence, seller trust labels, export and share links, catalogue-backed
-compatibility grades A–D/X, and disabled-by-default Gemini extras. All new fields are optional. Frontend work is listed in
-the [v0.20 frontend handoff](frontend-handoff-v0.20.md).
+compatibility grades A–D/X, and disabled-by-default Gemini extras. All new fields are optional.
+The feature contracts below describe implemented behavior.
 
-Unreleased (`mvp/cost`): [cost controls](cost-controls.md) add optional
-`job.cost_estimate`, research status `skipped` and line error `JOB_BUDGET_REACHED`
-(refresh the line to retry). All additive.
+Released in v0.21.0: [cost controls](cost-controls.md) add optional
+`job.cost_estimate` and research status `skipped`. Older snapshots may contain line error
+`JOB_BUDGET_REACHED`; v0.27.0 continues free searches and skips paid stages at the limit.
 
 v0.19.2 adds internal Gemini usage logging only; no API changes.
 

@@ -229,7 +229,7 @@ def test_malformed_or_incomplete_judge_output_means_no_verdict(response):
     result = review_candidates(
         CAP_22UF, PROJECT, [candidate("sharvi_cap_22uf_16v.html")], model.judge()
     )
-    assert result is None
+    assert result == []
 
 
 def test_out_of_range_and_duplicate_verdicts_are_ignored():
@@ -375,7 +375,7 @@ def test_budget_exhaustion_skips_the_paid_call(monkeypatch):
     result = review_candidates(
         CAP_22UF, PROJECT, [candidate("sharvi_cap_22uf_16v.html")], model.judge()
     )
-    assert result is None and model.requests == []
+    assert result == [] and model.requests == []
 
 
 def test_zero_candidates_make_no_call():
@@ -454,7 +454,8 @@ def test_service_without_judge_keeps_the_legacy_gate():
     service = SourcingService(Discovery(), Fetcher())
     item = BomItem(line_id="L02", raw_name="33kohm resistor")
     line = service.source(item)
-    assert [o.title for o in line.offers] == ["33kohm  - 1/4 W Resistor"]
+    assert len(line.offers) == 2
+    assert all("resistor" in o.title.lower() for o in line.offers)
     assert line.buyable_spec.queries == ["33kohm resistor"]
 
 

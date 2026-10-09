@@ -43,6 +43,7 @@ from bharat_sourcer.sourcing.part_spec import (
     spec_hash,
 )
 from bharat_sourcer.sourcing.research import clean
+from bharat_sourcer.sourcing.textmatch import title_gate
 from bharat_sourcer.usage import record_usage
 
 # Shims for the shared cost-control helpers (cache, budget, per-site generation settings),
@@ -374,10 +375,10 @@ class GeminiJudge:
             return results
         if not paid_allowed():
             log.warning("JUDGE_SKIPPED %s", BUDGET_MESSAGE)
-            return None
+            return results
         drafts = self._call(spec, project, [candidates[i] for i in pending])
         if drafts is None:
-            return None
+            return results
         seen = set()
         for draft in drafts.verdicts:
             if draft.candidate_id >= len(pending) or draft.candidate_id in seen:
@@ -499,11 +500,19 @@ def review_candidates(
         return []
     verdicts = judge.judge_candidates(spec, project, candidates)
     if verdicts is None:
-        return None
+        verdicts = [None] * len(candidates)
     rank = {"exact": 0, "compatible": 1, "partial": 2}
-    offers = [
-        offer
-        for candidate, verdict in zip(candidates, verdicts, strict=True)
-        if verdict is not None and (offer := judged_offer(candidate, verdict))
-    ]
-    return sorted(offers, key=lambda o: (rank[o.match.status], -o.match.score))
+    offers = []
+    for candidate, verdict in zip(candidates, verdicts, strict=True):
+        if verdict is None:
+            if candidate.offer and title_gate(
+                spec.part_name or " ".join(spec.queries), candidate.offer.title
+            ):
+                offer = candidate.offer.model_copy(deep=True)
+                offer.match = None
+                offers.append(offer)
+        elif offer := judged_offer(candidate, verdict):
+            offers.append(offer)
+    return sorted(
+        offers, key=lambda o: (rank[o.match.status], -o.match.score) if o.match else (3, 0)
+    )

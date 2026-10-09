@@ -84,7 +84,7 @@ class Candidate:
         if self.offer is not None:
             entry["price_inr"] = self.offer.price_inr
             entry["stock"] = self.offer.stock
-        if len(self.options) > 1:
+        if self.options:
             entry["variants"] = [
                 {"variant_id": i, "name": name, "price_inr": f"{o.price:.2f}", "stock": o.stock}
                 for i, (name, o) in enumerate(zip(self.variant_names(), self.options, strict=True))
@@ -145,7 +145,7 @@ def build_candidate(
     """
     extracted = extracted or extract_product(page)
     options = extracted.options if extracted else []
-    if offer is None and len(options) < 2:
+    if offer is None and not options:
         return None
     products, _ = page_products(page)
     product = extracted.product if extracted else (products[0] if len(products) == 1 else {})
@@ -155,11 +155,11 @@ def build_candidate(
         url=str(offer.url) if offer else page.url,
         title=title,
         offer=offer,
-        options=options if len(options) > 1 else [],
+        options=options if offer is None or len(options) > 1 else [],
         rows=spec_rows(page, product if isinstance(product, dict) else {}),
         description=strip_tags(description)[:300] if isinstance(description, str) else "",
         snippet=snippet_of(page, title, snippet_chars),
-        extracted=extracted if len(options) > 1 else None,
+        extracted=extracted if offer is None or len(options) > 1 else None,
     )
 
 

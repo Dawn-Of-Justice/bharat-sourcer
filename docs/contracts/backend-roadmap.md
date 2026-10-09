@@ -1,71 +1,47 @@
 # Backend delivery roadmap
 
-This roadmap tracks decisions from implementation discussions. Architecture documents
-describe a broader target; the API contract describes what actually works.
+Reviewed against backend **v0.27.0**, 9 October 2026. The [API contract](README.md)
+and [backend README](../../backend/README.md) describe implemented behavior.
+Architecture documents describe the broader target.
 
-## Available in the integration backend (v0.16.1)
+## Delivered
 
-v0.16 is deployed: [general part research](part-research.md), arbitrary
-categories, source quotes, AI suitability assessments, flexible requirements, and
-reviewed selection of verified quotes. Frontend research controls need integration.
-
-v0.16.1 adds a single automatic alternative-source search for empty research results
-and fixes readable-document budget handling. The live API version and health are verified.
-
-| Area | Implemented |
+| Area | Implemented contract |
 | --- | --- |
-| Input | Public YouTube extraction; Instructables, Hackster and GitHub README extraction with server-checked page quotes; editable BOM with timestamp or page-quote evidence |
-| Review | Confirm quantities, ownership and specs; atomic confirmation |
-| Conversation | Persistent job chat, saved-state questions, draft edit proposals with accept/reject |
-| Live updates | SSE job snapshots and chat state; complete replies rather than token streaming |
-| Sourcing | Grounded discovery, guarded seller fetches, explicit JSON-LD price/stock verification |
-| Compatibility | General AI suitability assessments with cited facts and generic requirement checks; legacy A/B/X rules for four families |
-| Costs | Explicit quote selection, parts subtotals, unknown tax/shipping |
-| Revisions | Targeted seller refresh; post-report required-spec updates and reassessment |
-| Design advice | Confirmed single-LED resistor calculation; contextual role questions |
-| Recovery | Bounded HTTP retries, leases, checkpoint resume, tested resistor-selector fallback |
-| Sourcing controls (v0.11) | Persisted pause intent, acknowledgement after the active sourcing batch is saved, resume saved work; chat stays available |
-| Chat actions (v0.12) | Proposed scoped seller refresh with explicit approval, atomic queuing, stale-report checks and existing limits |
-| Durable dispatch (v0.13) | Cloud Tasks HTTP execution, sourcing checkpoints, scheduled pending-state reconciliation and scale to zero |
-| Project-only chat and search behavior (v0.14) | LLM scope gate with fail-closed handling; up to three concurrent part searches; verified same-product variant fetch; per-line no-offer diagnostics |
-| Offer images (v0.15) | Optional HTTPS seller image URL extracted only from the matching verified Product JSON-LD |
-| Storage | Firestore persistence and private per-job tokens |
+| Intake | [Multiple sources and code evidence](multi-source-intake.md), [project context](project-understanding.md) |
+| Conversation | [Chat actions](chat-actions.md), [pause/resume](pause-resume.md), [durable dispatch](queued-dispatch.md) |
+| Sourcing | [Seller routing](seller-search.md), [spec matching](part-matching.md), [research](part-research.md), [seller trust](seller-trust.md) |
+| Decisions | [Compatibility grades](compatibility-rules.md), [recommendations](recommendations.md), [costing](costing.md), [AI budgets](cost-controls.md) |
+| Access | [Account/guest authorization and deletion](authentication.md), [PDF/HTML export, sharing and copying](export-and-share.md) |
+| Location | [Country settings](countries.md), [nearby markets by city](nearby-markets.md) |
+| Operations | [Firestore TTL, queue alerts and scaling runbook](../../backend/infra/README.md) |
 
-## Agreed work still to implement
+Routing merged through PRs #46–#48. Free seller search continues after the paid budget
+is exhausted. The [validation report](../../backend/infra/routing-evaluation.md)
+records automated probe results and the remaining human relevance-review limitation.
 
-| Priority | Deliverable | Completion criteria / frontend impact |
-| --- | --- | --- |
-| 1 | End-to-end conversational UI integration | BOM beside chat; citation navigation; proposal diff and accept/reject; SSE reconnect; explicit confirmation; integration smoke test |
-| 2 | User steering during sourcing | Pause/resume implemented in v0.11; reviewed edits to a paused sourcing plan and frontend controls remain |
-| 3 | More agent search and report tools | Refresh proposals (v0.12), reviewed spec/requirement proposals (v0.17.9), deterministic refresh completion messages and a bounded per-action history implemented. Remaining: frontend display of completion messages and history; chat-proposed paused-plan edits |
-| 4 | Broader seller-spec parsing | v0.17.7 reads spec tables and labelled JSON-LD properties with field-level evidence and reports contradictions. Evaluated on 17 trimmed real pages from 7 Indian sellers ([findings](../../backend/infra/seller-page-evaluation.md)): offers 16/16, images 15/15, stated spec fields 27/27 after fixing inch-notation title matching and volt-unit labels. Remaining: decide whether a spec-table controller may satisfy a query the title omits; add Robu access and more TTP223/Pro Micro pages; extend labels only from fixture evidence |
-| 5 | Circuit context and more design rules | Establish resistor roles, topology and source-backed inputs; support additional roles only with validated calculations; attach suggestions to a specific physical component |
-| 6 | Permanent rule repair workflow | Capture bounded failure cases; generate candidate patch in isolation; regression/property tests; versioned release and rollback. Current runtime only quarantines and falls back; no automatic patch authoring/deployment |
-| 7 | Queue operations hardening | Durable dispatch, per-user quotas (v0.17), bounded sweep, per-job failure isolation and queue-age log signals (v0.17.6) implemented. Remaining: provision a log-based alert policy and raise max instances when load requires |
-| 8 | Public launch controls | v0.17.2 deploys opt-in account/guest authorization, transactional quotas and revoked/disabled-account checks; Google provider is enabled. Frontend integration, real-login staging tests and auth activation remain, alongside retention, operational alerts and access review. See [authentication rollout](authentication.md) |
-| 9 | Extraction quality evaluation | Offline harness implemented (`scripts/evaluate_extraction.py`): deterministic name/alias matching; recall, precision, quantity agreement and evidence-window hit rate; synthetic sets report only a format check. A real labelled-video BOM set is still needed before any accuracy figure can be stated |
-| 10 | Project page/code evidence | Single-source page extraction with `source`/`quote`/`url` evidence implemented. Remaining: combine a video with its project page in one job, report conflicts, read code beyond READMEs; frontend must render page citations |
-| 11 | Richer sourcing decisions | Seller trust checks, module-backed compatibility rules, delivery/tax/shipping inputs and final cost calculations |
+## Remaining work and proposals
 
-## Discussed follow-ups requiring design
+- **Code adaptation:** tiers 1–2 of the [plan](../plans/code-adapt/PLAN.md) shipped in
+  v0.28.0 ([contract](code-adapt.md)); the frontend UI is not built. Tier 3 (compile
+  runner) awaits owner approval, below.
+- **Evaluation:** curate real labelled extraction examples and manually review seller
+  relevance before claiming accuracy. The [gold set](evaluation-gold-set.md) is a draft.
+- **Circuit context:** extend role-specific design rules only with supported inputs
+  and validated calculations. Compatibility does not establish whole-project safety.
+- **Conversation:** token-level answer streaming and reviewed edits to paused sourcing
+  plans remain follow-ups; current SSE sends persisted snapshots and complete replies.
+- **Infrastructure and broader features:** see the dated [proposal register](../../roadmap.md).
 
-- Token-by-token answer streaming (current SSE delivers persisted complete replies).
-- File/schematic uploads to supply missing circuit context.
-- Broader substitutions and adaptations (C/D grades remain reserved).
-- Autonomous permanent patch promotion: define permitted changes and release gates before enabling it.
+Check client integration against the current frontend and [quickstart](frontend-quickstart.md).
+Obsolete release handoffs have been removed. There is no checkout, automatic purchase,
+or verified final delivered total.
 
-## Current constraints to show in the UI
+## Proposed, awaiting owner approval: code-adapt tier 3 compile runner
 
-Unknown specifications block positive grades and selection. Advice is conditional on user
-inputs, and does not establish whole-project safety. Many real seller listings lack enough
-data for selection. The test video has two unspecified resistors; no actual resistor value
-for that circuit has been established. Chat edits support drafts; report changes use existing
-structured endpoints. No checkout, automatic purchase or verified final delivered total exists.
-
-## Suggested implementation order
-
-Integrate the v0.15 API including optional offer images, sourcing progress diagnostics
-and reviewed refresh actions, then add reviewed specification changes. Develop seller
-parsing and circuit-context work against real labelled examples. Add public-launch controls
-before opening paid job creation to general users. Rule repairs must preserve failure
-evidence and earn promotion through regression checks.
+Compile curated/AI code patches with `arduino-cli` in an isolated Cloud Run **Job** (pinned
+cores, no secrets, egress limited to GitHub and the Arduino index, compile only, never
+upload), writing results to an inbox the API processes idempotently; at most two
+compiler-error repair rounds. New infrastructure (job, images, service account, egress
+policy), so it is not built. Details: `docs/plans/code-adapt/PLAN.md` §6. Tiers 1–2 shipped
+in v0.28.0 with `check: not_checked`.

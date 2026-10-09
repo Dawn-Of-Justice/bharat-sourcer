@@ -1,0 +1,345 @@
+requests 179 Counter({(200, ''): 179})
+robocraze.com 20 median 0.39 max 1.44
+quartzcomponents.com 20 median 0.39 max 1.38
+thinkrobotics.com 25 median 0.39 max 1.5
+zbotic.in 30 median 0.5 max 1.56
+sharvielectronics.com 28 median 1.005 max 2.11
+www.rytronics.in 28 median 0.77 max 1.95
+compoindia.com 28 median 1.1 max 2.47
+== Arduino Uno R3 | robocraze.com ok 5 ['arduino uno r3'] 
+     1.0 True 370.00 Arduino Uno R3 Board compatible
+     1.0 True 293.00 Arduino Uno R3 CH340G Development compatible Board with Micro USB port
+     1.0 True 256.00 Arduino UNO R3 SMD ATmega328P Compatible Development Board
+== Arduino Uno R3 | quartzcomponents.com ok 5 ['arduino uno r3'] 
+     1.0 True 2650.00 Arduino Uno R3 - Original
+     1.0 True 218.00 Uno R3 CH340G ATmega328p Development Board - Compatible with Arduino (Without Cable)
+     1.0 True 998.00 Starter Kit with UNO R3, Breadboard, LED, Resistor, Jumper Wires and Power Supply Based on
+== Arduino Uno R3 | thinkrobotics.com ok 5 ['arduino uno r3'] 
+     1.0 True 499.99 Arduino Uno R3 Compatible Board with Cable
+     1.0 True 499.99 Arduino UNO R3 Compatible Board ATmega328P DIP Version
+     1.0 True 3299.99 RFID Starter DIY Kit for Arduino UNO R3 Upgraded Version
+== Arduino Uno R3 | zbotic.in ok 5 ['arduino uno r3'] 
+     1.0 True 58.06 Transparent Acrylic Case Shell Enclosure Gloss Box For Arduino UNO R3
+     1.0 True 234.82 Arduino Uno R3 CH340G ATMega328PB Development Board Compatible with Arduino
+     1.0 True 377.60 Arduino UNO R3 Development Board ATMEGA16U2 ATMEGA328P (DIP)
+== Arduino Uno R3 | sharvielectronics.com ok 4 ['arduino uno r3'] 
+     1.0 True 29.87 Transparent Acrylic Case For Compatible With Arduino UNO R3 Board
+     1.0 True 225.85 DIY Soldering UNO R3 PCB Board ATMEGA328 Development Board For Arduino UNO R3
+     1.0 True 191.73 Transparent ABS Plastic Case for Arduino UNO R3
+== Arduino Uno R3 | rytronics.in ok 4 ['arduino uno r3'] 
+     1.0 True 519.00 Arduino Uno R3 with Cable
+     1.0 True 2199.00 Arduino Uno R3 Compatible Upgraded Starter Learning Kit
+     1.0 True 79.00 Transparent Acrylic Case For Arduino Uno R3
+== Arduino Uno R3 | compoindia.com ok 2 ['arduino uno r3'] 
+     1.0 True 350.00 Arduino Uno R3 development Board without Cable
+     1.0 True 380.00 Arduino Uno R3 development board with cable
+== ESP32 DevKit V1 | robocraze.com ok 6 ['esp32 devkit v1', 'esp32 v1'] 
+     0.67 False 686.00 7Semi ESP32-DEVKIT-E – ESP32 WiFi BLE Development Board with CP2102 USB-UART
+     0.67 False 689.00 7Semi ESP32-DEVKIT-D – ESP32 WiFi BLE Development Board
+     0.67 False 791.00 SmartElex ESP32-WROOM-32D-N8 WiFi + BLE DevKit Development Board
+== ESP32 DevKit V1 | quartzcomponents.com ok 7 ['esp32 devkit v1', 'esp32 v1'] 
+     0.5 False 358.00 ESP32S 38Pin Development Board (WIFI+BLUETOOTH)
+     0.5 False 285.00 ESP32 WROOM-32 WiFi BLE Bluetooth MCU Module
+     0.33 False 375.00 ESP32 30 Pin CP2102 Development Board with Wi-Fi and Bluetooth
+== ESP32 DevKit V1 | thinkrobotics.com ok 7 ['esp32 devkit v1', 'esp32 v1'] 
+     0.5 False 1749.99 ESP32-P4-ETH High-Performance Development Board, Based On ESP32-P4
+     0.5 False 4649.99 ESP32-S3 4.3inch Touch LCD Development Board Type B, 800×480, 5-point Touch, 32-bit LX7 Du
+     0.33 False 1849.99 ESP32-S3 Development Kit N8R8 with ESP32-S3-WROOM Module
+== ESP32 DevKit V1 | zbotic.in no_results 0 ['esp32 devkit v1', 'esp32 v1'] 
+== ESP32 DevKit V1 | sharvielectronics.com no_results 0 ['esp32 devkit v1', 'esp32 v1'] 
+== ESP32 DevKit V1 | rytronics.in no_results 0 ['esp32 devkit v1', 'esp32 v1'] 
+== ESP32 DevKit V1 | compoindia.com no_results 0 ['esp32 devkit v1', 'esp32 v1'] 
+== 10k ohm resistor | robocraze.com ok 5 ['10k ohm resistor'] 
+     0.67 False 13.00 100K Ohm Resistor (Pack of 10)
+     0.33 False 10.00 10K Temperature Sensor (Thermistor) - Color may Vary
+     0.33 False 148.00 10K Pot Potentiometer - (Pack of 5)
+== 10k ohm resistor | quartzcomponents.com ok 5 ['10k ohm resistor'] 
+     1.0 True 799.00 10K Ohm 1/10W Resistor Reel - 0603 SMD Package 5% Tolerance (5000 Resistors)
+     1.0 True 7.00 10K ohm, 1/4 Watt Resistor with 5% tolerance (Pack of 10)
+     1.0 True 8.00 10K ohm, 1/4 Watt Resistor with 1% tolerance (Pack of 10)
+== 10k ohm resistor | thinkrobotics.com ok 5 ['10k ohm resistor'] 
+     0.33 False 229.99 Assorted Resistor / Resistance Pack (30 variants - 600 resistors)
+     0.0 False 45.99 Precision Adjustable Potentiometer - Knob Version (3386P) (Pack of 2)
+     0.0 False 5649.99 Arduino Make Your Uno Kit (AKX00037)
+== 10k ohm resistor | zbotic.in no_results 0 ['10k ohm resistor'] 
+== 10k ohm resistor | sharvielectronics.com ok 3 ['10k ohm resistor'] 
+     1.0 True 9.69 A10-103JP – 10K Ohm Resistor Network – SIP-10 Package
+     1.0 True 12.63 6A103G – 10K Ohm Resistor Network – SIP-6 Package
+     1.0 True 9.63 A05-103JP – 10K Ohm Resistor Network – SIP-5 Package
+== 10k ohm resistor | rytronics.in ok 1 ['10k ohm resistor'] 
+     1.0 True 5.60 10k ohm Resistor 1/4 watt (pack of 10pcs)
+== 10k ohm resistor | compoindia.com no_results 0 ['10k ohm resistor'] 
+== BME280 sensor module | robocraze.com ok 5 ['bme280 sensor module'] 
+     1.0 True 500.00 7Semi BME280 Temperature Humidity Pressure Sensor Nano Breakout Module 2.54mm 4Pin
+     0.67 False 34.00 BMP280 Sensor Module
+     0.67 True 856.00 BME280 Humidity & Temperature Sensor Probe -7Semi
+== BME280 sensor module | quartzcomponents.com ok 5 ['bme280 sensor module'] 
+     1.0 True 464.00 GY-BME280-5V Temperature and Humidity Sensor Module
+     0.67 False 33.00 BMP280 Pressure and Temperature Sensor Module (Barometer)
+     0.67 False 735.00 BME680 Digital Humidity Temperature Pressure and High Altitude Sensor Module
+== BME280 sensor module | thinkrobotics.com ok 6 ['bme280 sensor module', 'bme280 module'] 
+     0.67 True 329.99 BME280 Digital Sensor 3.3V
+     0.67 False 6249.99 Environment Sensors Module for Jetson Nano
+     0.67 False 1249.99 BME680 Digital Humidity Temperature Pressure High Altitude Sensor Module
+== BME280 sensor module | zbotic.in no_results 0 ['bme280 sensor module', 'bme280 module'] 
+== BME280 sensor module | sharvielectronics.com no_results 0 ['bme280 sensor module', 'bme280 module'] 
+== BME280 sensor module | rytronics.in no_results 0 ['bme280 sensor module', 'bme280 module'] 
+== BME280 sensor module | compoindia.com no_results 0 ['bme280 sensor module', 'bme280 module'] 
+== SG90 servo | robocraze.com ok 5 ['sg90 servo'] 
+     1.0 True 105.00 TowerPro SG90 9G Micro Servo Motor 180° for Arduino & Robotics
+     0.5 False 145.00 MG90S Mini Servo Motor (180 Degree)
+     0.5 False 230.00 Towerpro MG90S Micro Servo Motor with 360Â° Rotation
+== SG90 servo | quartzcomponents.com ok 5 ['sg90 servo'] 
+     1.0 True 86.00 Tower Pro SG90 Servo Motor - 9 gms Mini/Micro Servo Motor
+     0.5 False 259.00 MG996R Tower Pro Digital Metal Gear High Torque Servo Motor (180 Degree Rotation)
+     0.5 False 254.00 MG996R Tower Pro Digital Metal Gear High Torque Servo Motor - 360 Degree Rotation
+== SG90 servo | thinkrobotics.com ok 5 ['sg90 servo'] 
+     1.0 True 139.99 SG90 9G Micro Servo Motor - High Quality
+     1.0 False 299.99 60mm Wheel for Continuous Rotation SG90 / MG90S Servos (Pack of 2)
+     0.5 False 259.99 Mini Digital Metal Servo (MG90S)
+== SG90 servo | zbotic.in no_results 0 ['sg90 servo'] 
+== SG90 servo | sharvielectronics.com no_results 0 ['sg90 servo'] 
+== SG90 servo | rytronics.in no_results 0 ['sg90 servo'] 
+== SG90 servo | compoindia.com no_results 0 ['sg90 servo'] 
+== HC-SR04 ultrasonic sensor | robocraze.com ok 5 ['hc-sr04 ultrasonic sensor'] 
+     1.0 True 69.00 HC-SR04 Ultrasonic Distance Sensor Module
+     1.0 True 1529.00 HC-SR04 Ultrasonic Distance Sensor Module (Pack of 20)
+     1.0 True 24.00 HC-SR04 Ultrasonic Sensor Holder
+== HC-SR04 ultrasonic sensor | quartzcomponents.com ok 5 ['hc-sr04 ultrasonic sensor'] 
+     1.0 True 72.00 Ultrasonic Sensor Module - HC-SR04
+     1.0 True 22.00 HC-SR04 Ultrasonic Sensor Acrylic Holder Mounting Bracket
+     0.75 True 179.00 Digital Display for HC-SR04 Ultrasonic Distance Measurement Control Board
+== HC-SR04 ultrasonic sensor | thinkrobotics.com ok 5 ['hc-sr04 ultrasonic sensor'] 
+     1.0 True 69.98 HC-SR04 Ultrasonic Distance Sensor
+     0.5 False 459.99 US-100 Ultrasonic Sensor Module
+     0.25 False 549.99 Sharp Infrared Proximity Sensor GP2Y0A02YK0F (20-150cm)
+== HC-SR04 ultrasonic sensor | zbotic.in no_results 0 ['hc-sr04 ultrasonic sensor', 'hc-sr04 sensor'] 
+== HC-SR04 ultrasonic sensor | sharvielectronics.com no_results 0 ['hc-sr04 ultrasonic sensor', 'hc-sr04 sensor'] 
+== HC-SR04 ultrasonic sensor | rytronics.in ok 2 ['hc-sr04 ultrasonic sensor'] 
+     1.0 True 39.00 Mounted Holder for HC-SR04 Ultrasonic Sensor Module
+     1.0 True 84.00 HC-SR04 Ultrasonic Sensor for arduino
+== HC-SR04 ultrasonic sensor | compoindia.com ok 3 ['hc-sr04 ultrasonic sensor'] 
+     1.0 True 109.00 EasyMech Snap-fit ABS Cartoon Bracket with HC-SR04 Ultrasonic sensor
+     1.0 True 41.00 EasyMech Snap-fit ABS Cartoon Bracket for HC-SR04 Ultrasonic sensor
+     1.0 True 41.00 EasyMech Snap-fit ABS Bracket for HC-SR04 Ultrasonic Sensor
+== 0.96 inch OLED I2C | robocraze.com ok 5 ['0.96 inch oled i2c'] 
+     1.0 True 169.00 0.96 Inch OLED Display Module SPI/I2C 4pin Blue Color
+     0.75 False 308.00 1.3 Inch I2C OLED Display Module 128×64 4-Pin Blue
+     0.75 False 2349.00 ESP32 LoRa with 0.96 Inch Blue OLED Display ( Type C- Connector)
+== 0.96 inch OLED I2C | quartzcomponents.com ok 5 ['0.96 inch oled i2c'] 
+     1.0 True 144.00 OLED Display 0.96 Inch I2C Interface / 4 Pin Blue SSD1306
+     0.75 False 263.00 OLED Display 1.3 Inch I2C Interface / 4 Pin Blue SH1106
+     0.75 False 180.00 0.91 inch 128x32 OLED Display Module with I2C/IIC Serial Interface
+== 0.96 inch OLED I2C | thinkrobotics.com ok 9 ['0.96 inch oled i2c', '0.96 i2c'] 
+     0.75 False 2349.99 Waveshare 1.51 inch Transparent OLED 128×64 Resolution SPI or I2C Interfaces
+     0.5 False 799.99 Waveshare 1.3 inch OLED with Vertical Pin header
+     0.5 False 1059.99 CAP1188 - 8-Key Capacitive Touch Sensor Breakout - I2C or SPI
+== 0.96 inch OLED I2C | zbotic.in ok 1 ['0.96 inch oled i2c', '0.96 i2c', '0.96 inch oled'] 
+     1.0 False 658.44 Waveshare 0.96 Inch OLED Display (B)
+== 0.96 inch OLED I2C | sharvielectronics.com ok 2 ['0.96 inch oled i2c', '0.96 i2c', '0.96 inch oled'] 
+     1.0 False 2190.63 863MHz-928MHz SX1262 ESP32 WiFi Bluetooth Lora With 0.96 Inch OLED Display – Version 3
+     1.0 False 2098.45 LILYGO TTGO LoRa V1.3 868Mhz ESP32 Chip SX1276 Module 0.96 Inch OLED Screen WiFi And Bluet
+== 0.96 inch OLED I2C | rytronics.in no_results 0 ['0.96 inch oled i2c', '0.96 i2c', '0.96 inch oled'] 
+== 0.96 inch OLED I2C | compoindia.com no_results 0 ['0.96 inch oled i2c', '0.96 i2c', '0.96 inch oled'] 
+== LM2596 buck converter | robocraze.com ok 5 ['lm2596 buck converter'] 
+     1.0 True 48.00 LM2596 DC-DC Buck Converter Adjustable Step Down Power Supply Module
+     1.0 True 334.00 LM2596 & XL6009 DC-DC Adjustable Step-Up and step-down Power Supply Module boost and buck 
+     0.67 False 195.00 XL4016E1 DC 4-40V to DC 1.25-36V 8A Buck Converter Voltage Regulator 36V 24V 12V to 5V
+== LM2596 buck converter | quartzcomponents.com ok 5 ['lm2596 buck converter'] 
+     1.0 True 45.00 LM2596 3A DC DC Buck Converter Power Supply Module
+     1.0 True 107.00 LM2596 2A Buck Step-down Power Converter Module DC 4-40V to 1.3-37V with LED Voltmeter
+     0.67 False 237.00 LM2577S + LM2596S Automatic Buck-Boost Power Module
+== LM2596 buck converter | thinkrobotics.com ok 4 ['lm2596 buck converter', 'lm2596 converter'] 
+     0.67 False 349.99 8A 200W DC-DC Step Down Buck Converter Power Supply Board, XH-M401
+     0.33 False 57.99 LM2596 Step Down Power Module
+     0.0 False 99.99 XM1584 Ultra-Small Size DC-DC Step Down Module
+== LM2596 buck converter | zbotic.in no_results 0 ['lm2596 buck converter', 'lm2596 converter'] 
+== LM2596 buck converter | sharvielectronics.com no_results 0 ['lm2596 buck converter', 'lm2596 converter'] 
+== LM2596 buck converter | rytronics.in no_results 0 ['lm2596 buck converter', 'lm2596 converter'] 
+== LM2596 buck converter | compoindia.com no_results 0 ['lm2596 buck converter', 'lm2596 converter'] 
+== TP4056 charging module | robocraze.com ok 5 ['tp4056 charging module'] 
+     1.0 True 26.00 TP4056 1A Li-Ion Battery Charging Protection Module Micro USB
+     1.0 True 18.00 TP4056 Li-ion Battery Charging Module
+     0.67 False 19.00 TP4056 Battery Charger C Type Module with Protection
+== TP4056 charging module | quartzcomponents.com ok 5 ['tp4056 charging module'] 
+     1.0 True 18.00 TP4056 Battery Charging Protection Module (Type C)
+     1.0 True 13.00 TP4056 1A Li-ion Battery Charging Module - Mini USB
+     0.67 True 14.00 TP4056 - Battery Charging (Micro USB)
+== TP4056 charging module | thinkrobotics.com ok 10 ['tp4056 charging module', 'tp4056 module'] 
+     0.67 False 28.99 TP4056 Lithium Battery Charger Module
+     0.5 False 2699.99 MAX31856 High Precision Universal Thermocouple Amplifier Module
+     0.5 False 999.99 SC3336 3MP Camera Module (B), With High Sensitivity, High SNR, and Low Light Performance, 
+== TP4056 charging module | zbotic.in no_results 0 ['tp4056 charging module', 'tp4056 module'] 
+== TP4056 charging module | sharvielectronics.com no_results 0 ['tp4056 charging module', 'tp4056 module'] 
+== TP4056 charging module | rytronics.in no_results 0 ['tp4056 charging module', 'tp4056 module'] 
+== TP4056 charging module | compoindia.com no_results 0 ['tp4056 charging module', 'tp4056 module'] 
+== jumper wires male to female | robocraze.com ok 5 ['jumper wires male to female'] 
+     1.0 True 43.00 Male to Female Jumper Wires (20cm) 40pcs
+     1.0 True 28.00 Male to Female Jumper Wires (20cm) (20pcs)
+     0.8 False 55.00 Male to Male Jumper Wires (20cm) 40pcs
+== jumper wires male to female | quartzcomponents.com ok 5 ['jumper wires male to female'] 
+     1.0 True 159.00 Jumper Wires Combo Pack - Male to Male, Male to Female, Female to Female (Set of 120)
+     1.0 True 32.00 Male to Male and Female to Male Jumper Wires Combo (Set of 10+10)
+     1.0 True 52.00 Jumper Wire Combo - Male to Male, Male to Female and Female to Female Breadboard Connectin
+== jumper wires male to female | thinkrobotics.com ok 9 ['jumper wires male to female', 'to female'] 
+     1.0 False 79.99 Stainless Steel Hex Standoff Male to Female (Pack of 4)
+     0.6 False 499.99 460PCS JST PH 2.0 / XH 2.54 Connector Kit – 2P to 6P Male & Female Housing with Crimp Term
+     0.5 False 229.99 T Male to XT60 Male Adapter
+== jumper wires male to female | zbotic.in ok 5 ['jumper wires male to female', 'to female'] 
+     1.0 False 56.64 USB Adapter Board Male To Female Adapter Micro USB/Type-C Interface 4P 2.54mm
+     1.0 False 167.56 Micro HDMI to HDMI Cable 15cm Male to Female
+     1.0 False 57.82 GPIO Flat Grey Cable Female to Female Connectors for Raspberry Pi (40pin 20CM )
+== jumper wires male to female | sharvielectronics.com ok 5 ['jumper wires male to female', 'to female'] 
+     1.0 False 5.22 HTS-306 -M3x6mm Nylon Threaded Male To Female Spacer -White
+     1.0 False 7.22 HTS-310 -M3x10mm Nylon Threaded Male To Female Spacer -White
+     1.0 False 10.22 HTS-315 -M3x15mm Nylon Threaded Male To Female Spacer -White
+== jumper wires male to female | rytronics.in ok 5 ['jumper wires male to female', 'to female'] 
+     1.0 False 19.00 8 Pin Relimate Female to Female Connector – 2.54mm Pitch
+     1.0 False 7.80 5 Pin Relimate Female to Female Connector – 2.54mm Pitch
+     1.0 False 10.00 4 Pin Relimate Female to Female Connector – 2.54mm Pitch
+== jumper wires male to female | compoindia.com ok 5 ['jumper wires male to female', 'to female'] 
+     1.0 True 55.00 Male To Female Jumper Wires 40 Pcs 10cm
+     1.0 False 56.00 10CM Female to Female Breadboard Jumper DuPont 2.54MM 1P-1P Cable 40 Pcs
+     1.0 False 83.00 40pin GPIO Flat Grey Cable Female to Female Connectors for Raspberry Pi -20CM
+== 18650 battery holder 2 cell | robocraze.com ok 5 ['18650 battery holder 2 cell', '18650 2 cell'] 
+     0.8 False 29.00 18650 2 CELL HOLDER
+     0.8 False 38.00 4 Cell 18650 Lithium ion Battery Holder
+     0.6 False 43.00 18650 Dual Battery Holder with Cover and On/Off Switch
+== 18650 battery holder 2 cell | quartzcomponents.com ok 10 ['18650 battery holder 2 cell', '18650 2 cell'] 
+     0.8 False 35.00 Double Cell 18650 Li-ion Battery Holder
+     0.8 False 29.00 3 Cell 18650 Lithium Battery Holder
+     0.8 False 46.00 18650 x 2 Battery Holder with Cover and On/Off Switch
+== 18650 battery holder 2 cell | thinkrobotics.com ok 6 ['18650 battery holder 2 cell', '18650 2 cell'] 
+     0.6 False 52.99 18650 Lithim-Ion Battery Holder (3.7v - 7.4v)
+     0.4 False 225.99 18650 Li-Ion Battery with Protection (3.7V) - BIS Certified
+     0.4 False 125.99 Flat Top 18650 Li-Ion Battery without Protection (3.7V) - BIS Certified
+== 18650 battery holder 2 cell | zbotic.in ok 5 ['18650 battery holder 2 cell', '18650 2 cell', '18650 battery holder'] 
+     1.0 False 5.94 3 x 18650 Battery Holder with 18.2MM Bore Diameter
+     1.0 False 3.87 2 x 18650 Battery Holder with 18.2MM Bore Diameter
+     1.0 False 156.94 18650 Battery Holder/Development Board Compatible With Raspberry Pi3B/3B+
+== 18650 battery holder 2 cell | sharvielectronics.com ok 2 ['18650 battery holder 2 cell', '18650 2 cell', '18650 battery holder'] 
+     1.0 False 1176.77 ESP32 DHT11 Wi-Fi Bluetooth Soil Temperature Humidity Sensor With 18650 Battery Holder
+     1.0 False 113.53 3 x 18650 Battery Holder With Parallel Battery Connections
+== 18650 battery holder 2 cell | rytronics.in ok 3 ['18650 battery holder 2 cell', '18650 2 cell', '18650 battery holder'] 
+     1.0 False 259.00 18650 Battery Holder/Development Board Compatible With Raspberry Pi3B/3B+
+     1.0 False 18.00 18650 Battery Holder for Lithium-Ion 1 Cell
+     1.0 True 29.00 18650 Battery Holder for Lithium-Ion 2 Cell
+== 18650 battery holder 2 cell | compoindia.com ok 2 ['18650 battery holder 2 cell', '18650 2 cell', '18650 battery holder'] 
+     1.0 False 3620.00 TTGO T-Beam V1.1 ESP32 LORA 868MHz WiFi Wireless Bluetooth Module with IPEX &18650 Battery
+     1.0 False 3750.00 TTGO T-Beam V1.1 ESP32 LORA 433MHz WiFi Wireless Bluetooth Module with IPEX &18650 Battery
+== WS2812B LED strip | robocraze.com ok 6 ['ws2812b led strip', 'ws2812b strip'] 
+     0.67 False 62.00 7Semi WS2812B Digital RGB LED Module
+     0.67 False 480.00 12V Warm White 5050 SMD LED Strip Flexible 5M/Roll Waterproof (5 Meter) (352)
+     0.5 False 849.00 24V RGB 5050 SMD LED Strip Flexible 5M/Roll NO Waterproof (355)
+== WS2812B LED strip | quartzcomponents.com ok 5 ['ws2812b led strip'] 
+     1.0 True 1365.00 WS2812B Waterproof Neopixel LED Strip 60LED/MTR - 5V IP67 Addressable LED Strip (5 Meter P
+     1.0 True 775.00 WS2812B Neopixel LED Strip 60LED/MTR - 5V IP20 Addressable LED Strip (5 Meter Pack)
+     0.67 False 1854.00 SMD3535RGB Neon Flexible Strip Light WS2811 12V DC Waterproof LED light for Decoration- 5 
+== WS2812B LED strip | thinkrobotics.com ok 5 ['ws2812b led strip'] 
+     1.0 True 3899.99 RGB COB LED Strip with WS2812B: Cuttable, Programmable, 5m
+     1.0 True 649.99 WS2812B RGB Addressable LED Strip - IP67 Waterproof
+     0.67 False 599.99 WS2812 Digital RGB LED Strip - 1m / 60 LEDs / IP65
+== WS2812B LED strip | zbotic.in no_results 0 ['ws2812b led strip', 'ws2812b strip'] 
+== WS2812B LED strip | sharvielectronics.com no_results 0 ['ws2812b led strip', 'ws2812b strip'] 
+== WS2812B LED strip | rytronics.in ok 2 ['ws2812b led strip'] 
+     1.0 True 189.00 WS2812B LED Strip 5V 60 LEDs/m 1 Meter pack | Addressable RGB NeoPixel
+     1.0 True 749.00 WS2812B LED Strip 5V 60 LEDs/m 5 Meter pack | Addressable RGB NeoPixel
+== WS2812B LED strip | compoindia.com no_results 0 ['ws2812b led strip', 'ws2812b strip'] 
+== NEMA 17 stepper motor | robocraze.com ok 5 ['nema 17 stepper motor'] 
+     1.0 True 518.00 17HS4401S NEMA 17 Stepper Motor 40mm
+     1.0 True 96.00 NEMA 17 Mounting L Bracket for Stepper Motor for 3d printer
+     0.5 False 571.00 17HS3401S NEMA17 Stepper Motor
+== NEMA 17 stepper motor | quartzcomponents.com ok 5 ['nema 17 stepper motor', '17 motor'] 
+     0.5 False 79.00 28BYJ-48 Stepper Motor
+     0.5 False 98.00 A4988 Stepper Motor Driver Module with Heatsink
+     0.5 False 36.00 ULN2003 Stepper Motor Driver Module
+== NEMA 17 stepper motor | thinkrobotics.com ok 5 ['nema 17 stepper motor', '17 motor'] 
+     0.5 False 2699.99 NEMA17 Planetary Geared Stepper Motor
+     0.5 False 1099.99 NEMA23 HYBRID STEPPER MOTOR with Optional Gearbox
+     0.5 False 189.99 Stepper Motor Bracket
+== NEMA 17 stepper motor | zbotic.in no_results 0 ['nema 17 stepper motor', '17 motor', 'nema 17 stepper'] 
+== NEMA 17 stepper motor | sharvielectronics.com ok 2 ['nema 17 stepper motor'] 
+     1.0 True 159.76 Bracket For NEMA 17 Stepper Motor – Straight
+     1.0 True 169.76 Bracket For NEMA 17 Stepper Motor – BEND
+== NEMA 17 stepper motor | rytronics.in no_results 0 ['nema 17 stepper motor', '17 motor', 'nema 17 stepper'] 
+== NEMA 17 stepper motor | compoindia.com ok 2 ['nema 17 stepper motor', '17 motor'] 
+     0.5 False 296.00 EasyMech NEMA17 Motor Coupling Hub 5 MM Internal Dia (ID) (Small)
+     0.5 False 400.00 EasyMech NEMA17 Motor Coupling Hub 5 MM Internal Dia (ID) (BIG)
+== A4988 driver | robocraze.com ok 5 ['a4988 driver'] 
+     1.0 True 89.00 A4988 Stepper Motor Driver Module with Heat Sink For 3D Printer (Red)
+     1.0 True 71.00 A4988 Stepper Motor Driver Module with Heat Sink For 3D Printer (Green)
+     1.0 True 59.00 Stepper Motor Driver Expansion Board | A4988/8825 Driver Module for 3D Printer 42 Stepper 
+== A4988 driver | quartzcomponents.com ok 5 ['a4988 driver'] 
+     1.0 True 98.00 A4988 Stepper Motor Driver Module with Heatsink
+     1.0 True 80.00 A4988 Stepper Motor Driver IC (Allegro) - QFN-28 SMD Package
+     1.0 True 60.00 A4988 Stepper Motor Driver Controller Board
+== A4988 driver | thinkrobotics.com ok 5 ['a4988 driver'] 
+     1.0 True 89.99 Reprap Stepper Driver A4988
+     0.5 False 629.99 TB6600 Stepper Motor Driver Controller 4A / 9~42V
+     0.5 False 2449.99 DM422 2-Phase Digital Stepper Driver
+== A4988 driver | zbotic.in ok 1 ['a4988 driver'] 
+     1.0 True 77.88 Green A4988 driver Stepper Motor Driver- Normal Quality
+== A4988 driver | sharvielectronics.com no_results 0 ['a4988 driver'] 
+== A4988 driver | rytronics.in ok 1 ['a4988 driver'] 
+     1.0 True 96.00 A4988 driver Stepper Motor Driver
+== A4988 driver | compoindia.com ok 4 ['a4988 driver'] 
+     1.0 True 65.00 Green A4988 driver Stepper Motor Driver- Normal Quality
+     1.0 True 151.00 A4988 driver Stepper Motor Driver- Good Quality
+     1.0 True 70.36 A4988 driver Stepper Motor Driver- Normal Quality
+== 100uF 25V capacitor | robocraze.com ok 5 ['100uf 25v capacitor'] 
+     1.0 True 23.00 100uF / 25V Electrolytic Capacitor (Pack of 5)
+     0.67 False 6.00 1000uF 25V Electrolytic Capacitor – Through Hole DIP
+     0.67 False 16.00 220µF 25V Electrolytic Capacitor (Pack of 5)
+== 100uF 25V capacitor | quartzcomponents.com ok 5 ['100uf 25v capacitor'] 
+     1.0 True 3.00 100uF 25V Radial Electrolytic Capacitor
+     1.0 True 8.00 100uF 25V SMD Electrolytic Capacitor
+     1.0 True 3.00 Enfalion 100uF 25V Radial Electrolytic Capacitor - Through Hole Package
+== 100uF 25V capacitor | thinkrobotics.com ok 2 ['100uf 25v capacitor'] 
+     0.33 False 39.99 Ceramic Capacitor Box (100 pieces, 20 Values)
+     0.0 False 7999.99 Arduino Student Kit (AKX00025)
+== 100uF 25V capacitor | zbotic.in no_results 0 ['100uf 25v capacitor'] 
+== 100uF 25V capacitor | sharvielectronics.com no_results 0 ['100uf 25v capacitor'] 
+== 100uF 25V capacitor | rytronics.in no_results 0 ['100uf 25v capacitor'] 
+== 100uF 25V capacitor | compoindia.com no_results 0 ['100uf 25v capacitor'] 
+== IRFZ44N mosfet | robocraze.com ok 5 ['irfz44n mosfet'] 
+     0.5 False 32.00 IRLZ44N Mosfet Ic Dip-3 Package
+     0.5 False 38.00 15A 400W Mosfet Trigger Switch Driver
+     0.0 False 359.00 7Semi UCC21330 Dual-channel Isolated Gate Driver Breakout Board
+== IRFZ44N mosfet | quartzcomponents.com ok 5 ['irfz44n mosfet'] 
+     0.5 False 22.00 IRFZ44 N-Channel MOSFET
+     0.5 False 62.00 IRFZ44VS-VB N-Channel MOSFET (VBSemi) - TO-263 SMD Package
+     0.5 False 34.00 IRF9540N P-Channel Power MOSFET
+== IRFZ44N mosfet | thinkrobotics.com ok 3 ['irfz44n mosfet'] 
+     0.5 False 39.99 N-Channel Logic Level MOSFET
+     0.5 False 99.99 15A 400W DC 5V-36V Dual Large Power Mosfet
+     0.0 False 499.99 TB6612FNG Wemos D1 Mini I2C Dual Motor Driver Shield
+== IRFZ44N mosfet | zbotic.in no_results 0 ['irfz44n mosfet'] 
+== IRFZ44N mosfet | sharvielectronics.com no_results 0 ['irfz44n mosfet'] 
+== IRFZ44N mosfet | rytronics.in no_results 0 ['irfz44n mosfet'] 
+== IRFZ44N mosfet | compoindia.com no_results 0 ['irfz44n mosfet'] 
+== Raspberry Pi Pico | robocraze.com ok 5 ['raspberry pi pico'] 
+     1.0 True 659.00 Raspberry Pi Pico
+     1.0 True 469.00 Raspberry Pi Pico H - Pico with Headers Soldered
+     1.0 True 649.00 Raspberry Pi Pico W
+== Raspberry Pi Pico | quartzcomponents.com ok 5 ['raspberry pi pico'] 
+     1.0 True 835.00 Raspberry Pi Pico 2 W with Header Pins
+     1.0 True 325.00 Raspberry Pi Pico - Original
+     1.0 True 518.00 Raspberry Pi Pico 2 with Header Pins
+== Raspberry Pi Pico | thinkrobotics.com ok 5 ['raspberry pi pico'] 
+     1.0 True 5099.99 Raspberry Pi Pico Sensor Kit - expansion board and 15 modules
+     1.0 True 1949.99 Industrial 8-Channel Relay Module for Raspberry Pi Pico
+     0.67 False 8299.99 Raspberry Pi 4 Model B
+== Raspberry Pi Pico | zbotic.in ok 5 ['raspberry pi pico'] 
+     1.0 True 705.29 Raspberry Pi Pico 2 with Header
+     1.0 True 543.98 Raspberry Pi Pico 2
+     1.0 True 1009.47 Raspberry Pi Pico 2 W with Header
+== Raspberry Pi Pico | sharvielectronics.com ok 5 ['raspberry pi pico'] 
+     1.0 True 993.67 Raspberry Pi Pico 2 W
+     1.0 True 629.67 Raspberry Pi Pico 2
+     1.0 True 1170.18 2.23inch OLED Display Module For Raspberry Pi Pico 128×32 SPI/I2C
+== Raspberry Pi Pico | rytronics.in ok 1 ['raspberry pi pico'] 
+     1.0 True 345.00 Raspberry Pi Pico
+== Raspberry Pi Pico | compoindia.com ok 5 ['raspberry pi pico'] 
+     1.0 True 580.00 Raspberry Pi Pico W
+     1.0 True 973.00 Waveshare Precision RTC Module for Raspberry Pi Pico, Onboard DS3231 Chip
+     1.0 True 1455.00 2.8 Inch Touch Display Module for Raspberry Pi Pico

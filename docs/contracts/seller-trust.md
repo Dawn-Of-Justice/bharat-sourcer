@@ -1,5 +1,18 @@
 # Seller trust labels and storefront JSON fast path
 
+## Seller identity and resilience (v0.27.0)
+
+Each verified offer adds optional `seller_domain`, `seller_name` and `seller_kind`.
+The kind is `direct`, `marketplace` or `platform_hosted`. The original `seller` host is
+retained for existing clients. Names come from the curated registry where available.
+
+Marketplace offers remain candidates, but their trust label is `unverified` with a
+third-party merchant explanation. Marketplace domain age and policies do not verify that
+merchant. Hosted shops have separate store identities and `domain_age` is unavailable;
+they never inherit the hosting platform's registration date. Policy checks require
+relevant policy words, the same seller domain and a final path other than the home page.
+All trust reads use the same pacing and challenge detection as product reads.
+
 Implemented behaviour (M6b free checks and the M6 Shopify/WooCommerce fast path). The
 architecture target is in `docs/02-architecture/06-sourcing-and-seller-data.md` §3.3 and §4.
 Labels are **rule output, not verified seller facts**. Offers are never hidden by them.
@@ -17,7 +30,7 @@ is disabled, or if the step failed). Shape:
 | `signals.domain` | string | Registrable domain that was checked |
 | `signals.https` | bool | Offer URL is HTTPS (always true today; non-HTTPS pages are never fetched) |
 | `signals.known_seller` | bool | On the curated list `backend/src/bharat_sourcer/sourcing/known_sellers.json` |
-| `signals.platform` | `shopify` \| `woocommerce` \| `magento` \| `jsonld` \| `unknown` \| null | Detected from fetched page markup/headers |
+| `signals.platform` | `shopify` \| `woocommerce` \| `magento` \| `opencart` \| `bigcommerce` \| `prestashop` \| `wix` \| `dukaan` \| `instamojo` \| `jsonld` \| `unknown` \| null | Detected from fetched page markup/headers |
 | `signals.domain_registered` | datetime \| null | RDAP registration event |
 | `signals.domain_age_days` | int \| null | Days since registration at `checked_at` |
 | `signals.gstin` | string \| null | First GSTIN on fetched pages that passes format, state code and the GSTN mod-36 check character. **Not checked with the GST portal** (captcha) |
@@ -76,9 +89,25 @@ from `docs/04-reference/02-india-sellers-and-apis.md`; it is not seller-provided
 
 ## Storefront JSON fast path (M6)
 
-Used only when a fetched product page has **no Product JSON-LD** (JSON-LD pages keep the
-existing verifier). The platform is detected deterministically (Shopify CDN markers or
-`x-shopid`; `woocommerce` markup; Magento markers/headers; else JSON-LD/unknown).
+Used when a fetched product page has no usable JSON-LD offer. Explicit Shopify shop,
+wallet, theme or header signals enable the Shopify fallback; one Shopify CDN asset alone
+does not. WooCommerce, Magento, OpenCart, BigCommerce, PrestaShop, Wix, Dukaan and
+Instamojo have deterministic fingerprints (only Shopify/WooCommerce have JSON adapters).
+
+JSON-LD supports Product, ProductGroup variants, IndividualProduct and ProductModel,
+including `mainEntity` and `@graph`, duplicate product entities, script parameters,
+CDATA and bounded repair of trailing commas/control characters. Related-product lists
+are not traversed. Prices require declared INR or an explicit rupee marker; Western and
+Indian grouping are accepted, while ranges and ambiguous decimal formats are rejected.
+Currency can be inherited from price specifications or the product. Unresolvable
+aggregate ranges do not discard usable sibling offers.
+
+Tracking parameters, relative URLs and equivalent seller host spellings are reconciled
+for listing comparison; functional variant parameters remain significant. Soft 404 titles
+and category pages are rejected. Meta/microdata fallback requires a product-page signal
+and reads price element text as well as attributes. Tax phrases are scoped to price blocks
+or nearby price text, excluding footers and recommendations. A visible inclusive price
+that differs from the meta price leaves tax treatment unknown.
 
 - **Shopify** (`/products/<handle>` URLs, optional locale/collection prefix, optional
   `?variant=<id>`): `GET /products/<handle>.json` gives title, variants, price and declared
@@ -90,7 +119,8 @@ existing verifier). The platform is detected deterministically (Shopify CDN mark
   exactly one entry whose `permalink` equals the page, `type: simple`, `currency_code:
   INR`, price from minor units, `is_in_stock` → stock. Store API prices follow the store's
   tax display setting (Zbotic shows prices including GST); tax handling is out of scope here.
-- Both still require the title match, a positive 2-decimal price and the fetch guards;
+- Both require the shared title gate when no judge is configured, a positive price with
+  no meaningful digits beyond two decimal places, and the fetch guards;
   specs come from the title and spec tables on the HTML page.
 - robots.txt checked on 2026-10-06: robocraze.com and quartzcomponents.com allow
   `/products/*.json`, `/products/*.js` and `/search/suggest.json` (`Allow: /`; only cart,

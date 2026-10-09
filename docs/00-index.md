@@ -1,5 +1,18 @@
 # Documentation index
 
+## Current implementation — v0.27.0
+
+Start with the [backend README](../backend/README.md), [API contracts](contracts/README.md),
+[frontend quickstart](contracts/frontend-quickstart.md), and [remaining backend work](contracts/backend-roadmap.md).
+The [routing plan](plans/routing-engine/PLAN.md) is completed;
+[code adaptation](plans/code-adapt/PLAN.md) is an unapproved draft.
+Obsolete agent and release handoffs have been removed; use the feature contracts.
+
+## Architecture and dated research
+
+The sections below describe the target system and original planning research, not a list
+of shipped features. External prices, schedules and product claims retain their source dates.
+
 Two ways through these docs:
 
 - **Skim path** (≈10 min): files marked ⭐. Each starts with a short "In one minute" box so you can stop after it.
@@ -9,8 +22,8 @@ Conventions used everywhere:
 
 - **Must / Should / Could** = MVP / stretch / future.
 - ⚠️ **Verify** = a fact that could not be confirmed on a primary page, or that changes often. All such items are also collected in the [day-1 verification list](03-delivery/03-roadmap-and-timeline.md#4-day-1-verification-list).
-- Money: ₹ with Indian digit grouping (₹1,23,456), prices incl. 18% GST unless marked "ex-GST". USD for Google costs.
-- Dates: 2026 unless stated. "Today" = 30 Sep 2026.
+- Money: ₹ with Indian digit grouping (₹1,23,456), worked-example tax assumptions are illustrative. Live offers report tax as included, excluded or unknown; do not assume 18% GST. USD for Google costs.
+- Dates: 2026 unless stated. "Today" in the original research means 30 Sep 2026, not the current date.
 
 ---
 

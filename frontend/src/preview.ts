@@ -5,13 +5,13 @@ import { planPreview, previewCities, previewReportRequest } from './previewRepor
 
 const items: BomItem[] = ['Sample controller board', 'Sample sensor module', 'Jumper wires'].map((raw_name, index) => ({ line_id: 'L0' + (index + 1), raw_name, qty: index === 2 ? 10 : 1, user_has_it: false, user_edited: false, evidence: [], clarifications: [] }))
 // Dummy AI-inferred states: a quantity the source did not state and pre-filled build details, each with a reason.
-items[2] = { ...items[2], qty_source: 'inferred', qty_reason: 'Dummy reason: the sample source shows wiring but no count; 10 covers two sensors plus spares.' }
+items[2] = { ...items[2], qty_source: 'inferred', qty_reason: 'Dummy reason: the sample source shows wiring but no count; 10 covers the controller, one sensor and spares.' }
 items[0] = { ...items[0], requirements: [
   { name: 'logic voltage', value: '3.3', unit: 'V', operator: 'equals', origin: 'inferred', reason: 'Dummy reason: the sample project powers the sensor from a 3.3 V rail.' },
-  { name: 'GPIO pins', value: '4', unit: null, operator: 'at_least', origin: 'inferred', reason: 'Dummy reason: one sensor and three indicator LEDs.' },
+  { name: 'GPIO pins', value: '4', unit: null, operator: 'at_least', origin: 'inferred', reason: 'Dummy reason: the sample build leaves extra pins available for later additions.' },
 ] }
 items.splice(0, items.length, ...reviewItems(items))
-const project: ProjectUnderstanding = { title: 'Demo: Sensor logger', title_source: 'ai', description: 'Dummy battery-powered sensor logger for UI preview.', description_source: 'ai', summary: 'Dummy preview project: a sample battery-powered sensor logger. Not extracted from a real source.', power: 'Sample 3.7 V Li-ion cell (dummy)', controller: 'Sample controller board (dummy)', interfaces: ['I2C', 'USB'], assumptions: ['Dummy assumption: the sensor runs at 3.3 V logic.', 'Dummy assumption: one sensor per build.'], origin: 'ai_inferred' }
+const project: ProjectUnderstanding = { title: 'Demo: Sensor logger', title_source: 'ai', description: 'Dummy battery-powered sensor logger for UI preview.', description_source: 'ai', summary: 'Dummy preview project: a sample battery-powered sensor logger. Not extracted from a real source.', power: 'Sample 3.7 V Li-ion cell (dummy)', controller: 'Sample controller board (dummy)', interfaces: ['I2C', 'USB'], assumptions: ['Dummy assumption: the sensor may need level shifting with the 3.3 V controller.', 'Dummy assumption: one sensor per build.'], origin: 'ai_inferred' }
 const phase = new URLSearchParams(window.location.search).get('stage')
 const status: JobStatus = phase === 'done' || phase === 'plan' ? 'done' : phase === 'sourcing' ? 'sourcing' : 'awaiting_confirmation'
 const lines = items.map(item => ({ item, sourcing_status: 'offers_found' as const, sourcing_error: null, subtotal_inr: '199', offers: [{ url: '#demo-seller', seller: 'Sample seller (dummy)', title: item.raw_name, price_inr: '199', stock: 'sample_stock', checked_at: new Date().toISOString(), image_url: '/preview-part.svg', compatibility: null, spec_conflicts: item.line_id === 'L01' ? [{ field: 'logic_v', candidates: [{ field: 'logic_v', value: '3.3 V', source: 'seller_title' as const, locator: 'dummy title' }, { field: 'logic_v', value: '5 V', source: 'seller_table' as const, locator: 'dummy table' }] }] : [] }] }))
