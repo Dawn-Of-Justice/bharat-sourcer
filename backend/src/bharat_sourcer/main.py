@@ -190,7 +190,7 @@ def create_app(
 
     app = FastAPI(
         title="Bharat Sourcer API",
-        version="0.30.1",
+        version="0.30.2",
         description=(
             "Demo or live YouTube and project-page extraction with optional Firestore job "
             "persistence."

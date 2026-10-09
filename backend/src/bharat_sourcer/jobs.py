@@ -58,12 +58,17 @@ log = logging.getLogger(__name__)
 
 def worth_rechecking(line: ReportLine) -> bool:
     """A refresh re-checks known listings only when one was usable: in stock, judged an
-    exact or compatible match (or unjudged), on a part whose value is known."""
+    exact or compatible match by the spec judge (or unjudged), on a part whose value is
+    known. A part the AI buyer decided is searched again so the buyer can decide again;
+    the re-check alone would judge its pick by the strict spec check only."""
     if line.buyable_spec is not None and line.buyable_spec.needs_value:
         return False
     return any(
         offer.stock == "in_stock"
-        and (offer.match is None or offer.match.status in {"exact", "compatible"})
+        and (
+            offer.match is None
+            or (offer.match.status in {"exact", "compatible"} and offer.match.method != "llm_buyer")
+        )
         for offer in line.offers
     )
 

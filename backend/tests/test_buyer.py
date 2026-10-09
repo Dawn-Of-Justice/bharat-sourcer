@@ -485,5 +485,8 @@ def test_refresh_rechecks_known_listings_only_when_one_was_usable():
         update={"buyable_spec": RESISTOR.model_copy(update={"needs_value": True})}
     )
     assert worth_rechecking(good)
+    buyer_pick = good.model_copy(deep=True)
+    buyer_pick.offers[0].match.method = "llm_buyer"
+    assert not worth_rechecking(buyer_pick)
     assert not worth_rechecking(partial)
     assert not worth_rechecking(unknown_value)
