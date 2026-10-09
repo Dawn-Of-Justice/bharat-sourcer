@@ -8,10 +8,11 @@ from datetime import timedelta
 from fastapi import BackgroundTasks, FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import JSONResponse, Response, StreamingResponse
 from google.api_core.exceptions import GoogleAPICallError
 
 from bharat_sourcer.access import Access, ProjectAccess, add_access_routes
+from bharat_sourcer.code_patches import CodePatchService
 from bharat_sourcer.config import Settings
 from bharat_sourcer.conversation import Assistant, ConversationService, GeminiAssistant
 from bharat_sourcer.dispatch import CloudDispatcher, Work, work_once
@@ -24,6 +25,8 @@ from bharat_sourcer.markets import MarketsService, add_markets_routes
 from bharat_sourcer.plans import cart_plans, set_import_references
 from bharat_sourcer.schemas import (
     CartPlans,
+    CodePatch,
+    CodePatchRequest,
     ConfirmationAccepted,
     ConfirmJob,
     CreatedJob,
@@ -46,6 +49,7 @@ from bharat_sourcer.schemas import (
 from bharat_sourcer.sharing import add_share_routes
 from bharat_sourcer.sourcing import seller_search
 from bharat_sourcer.sourcing.cache import build_cache
+from bharat_sourcer.sourcing.fetch import SafeFetcher
 from bharat_sourcer.sourcing.judge import GeminiJudge
 from bharat_sourcer.sourcing.politeness import Politeness
 from bharat_sourcer.sourcing.research import GeminiResearch
@@ -179,7 +183,7 @@ def create_app(
 
     app = FastAPI(
         title="Bharat Sourcer API",
-        version="0.27.0",
+        version="0.28.0",
         description=(
             "Demo or live YouTube and project-page extraction with optional Firestore job "
             "persistence."
@@ -190,6 +194,8 @@ def create_app(
     app.state.job_service = service
     app.state.shared_cache = shared_cache
     images = PartImageService(settings, service)
+    code_patches = CodePatchService(settings, service, SafeFetcher())
+    app.state.code_patch_service = code_patches
     app.state.image_service = images
     app.state.conversation_service = conversation
     access = Access(settings, service, identity_verifier)
@@ -239,7 +245,16 @@ def create_app(
                     # or creating/revoking a read-only share link (no work is started).
                     # Gemini extras (explain, zoom, scan) are charged by their own quotas.
                     if not request.url.path.endswith(
-                        ("/pause", "/image", "/project", "/share", "/explain", "/zoom", "/scan")
+                        (
+                            "/pause",
+                            "/image",
+                            "/project",
+                            "/share",
+                            "/explain",
+                            "/zoom",
+                            "/scan",
+                            "/code-patch/accept",
+                        )
                     ):
                         await asyncio.to_thread(access.charge, request, principal)
             except JobError as exc:
@@ -337,6 +352,44 @@ def create_app(
     @app.post("/v1/jobs/{job_id}/parts/{line_id}/image", response_model=PartImages, tags=["images"])
     def fallback_image(job_id: str, line_id: str, body: ImageRequest, x_job_token: JobToken = None):
         return images.resolve(job_id, line_id, x_job_token, body.failed_urls, generate=True)
+
+    @app.post(
+        "/v1/jobs/{job_id}/lines/{line_id}/code-patch",
+        response_model=CodePatch,
+        tags=["code"],
+        responses={404: {"model": ErrorResponse}, 409: {"model": ErrorResponse}},
+    )
+    def create_code_patch(
+        job_id: str, line_id: str, body: CodePatchRequest, x_job_token: JobToken = None
+    ):
+        return code_patches.create(job_id, line_id, x_job_token, body)
+
+    @app.post(
+        "/v1/jobs/{job_id}/lines/{line_id}/code-patch/accept",
+        response_model=CodePatch,
+        tags=["code"],
+        responses={404: {"model": ErrorResponse}},
+    )
+    def accept_code_patch(job_id: str, line_id: str, x_job_token: JobToken = None):
+        return code_patches.accept(job_id, line_id, x_job_token)
+
+    @app.get(
+        "/v1/jobs/{job_id}/lines/{line_id}/code-patch.zip",
+        response_class=Response,
+        tags=["code"],
+        responses={
+            200: {"content": {"application/zip": {}}},
+            404: {"model": ErrorResponse},
+            409: {"model": ErrorResponse},
+        },
+    )
+    def download_code_patch(job_id: str, line_id: str, x_job_token: JobToken = None):
+        content = code_patches.download(job_id, line_id, x_job_token)
+        return Response(
+            content,
+            media_type="application/zip",
+            headers={"Content-Disposition": f'attachment; filename="code-patch-{line_id}.zip"'},
+        )
 
     @app.post(
         "/v1/jobs/{job_id}/confirm",

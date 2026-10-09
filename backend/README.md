@@ -1,5 +1,14 @@
 # Backend
 
+v0.28.0 adds code patches for substituted parts: for a line whose chosen offer is a
+catalogue substitute, `POST /v1/jobs/{id}/lines/{line_id}/code-patch` re-reads the GitHub
+code files that code evidence cited and applies a curated recipe (DHT22→DHT11,
+SSD1306→SH1106, A4988→DRV8825; A4988→TMC2209 needs no code change) outside comments and
+strings, refusing instead of guessing. Wiring, power and verification changes stay notes.
+AI-drafted patches (validated, must be accepted) exist behind `BS_CODE_ADAPT_AI` (off).
+Patches are never compiled (`check: not_checked`), are owner-only, and download as a ZIP
+with the repository LICENSE. See [code patches](../docs/contracts/code-adapt.md).
+
 v0.27.0 improves parts routing and seller offer reading. Searches use a bounded query
 ladder and score results against the requested part, preserve partial seller results,
 and continue free catalogue searches after the AI budget is spent. Offer parsing handles

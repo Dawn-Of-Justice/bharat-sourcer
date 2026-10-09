@@ -15,8 +15,9 @@ are not current deployment instructions or independently rechecked prices.
 - Safety flags, costing, export/share, multi-source intake, catalogue compatibility and
   seller trust are implemented. Export is PDF/HTML; CSV was removed in v0.26.0.
 - Routing is complete in v0.27.0. [Code adaptation](docs/plans/code-adapt/PLAN.md)
-  remains a design draft. Web Risk, browser rendering, compile infrastructure and other
-  new-service proposals below are not implemented.
+  tiers 1–2 (curated recipes; AI drafts behind a flag) shipped diff-only in v0.28.0, with
+  no compile. Web Risk, browser rendering, compile infrastructure and other new-service
+  proposals below are not implemented.
 - New services, indexes, schedulers, paid third-party APIs and IAM changes require
   owner review before provisioning.
 

@@ -1039,6 +1039,58 @@ SourcingStage = Literal[
 ]
 
 
+CodePatchReason = Literal[
+    "no_code",
+    "file_not_read",
+    "no_substitute",
+    "recipe_not_applicable",
+    "no_code_change_needed",
+    "ai_failed_validation",
+    "out_of_scope_mcu",
+    "budget",
+    "source_changed",
+]
+
+
+class CodePatchFile(Model):
+    path: str = Field(min_length=1, max_length=300)
+    diff: str = Field(max_length=60_000)
+    source_url: str = Field(max_length=600)
+    # sha256 of the file as read; downloads re-read the file and refuse if it changed.
+    sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+
+class CodePatch(Model):
+    """Code changes for a substituted part; never compiled or tested on hardware.
+
+    origin: curated (a maintained recipe) or ai_draft (model-written, validated, must be
+    accepted by the owner). check: not_checked until a compile runner exists. status
+    unavailable always carries a reason; notes always list the non-code changes.
+    """
+
+    status: Literal["ready", "unavailable"]
+    origin: Literal["curated", "ai_draft"] | None = None
+    check: Literal["not_checked", "compiles", "compile_failed"] = "not_checked"
+    reason: CodePatchReason | None = None
+    detail: str | None = Field(default=None, max_length=500)
+    from_catalog_id: str | None = None
+    to_catalog_id: str | None = None
+    offer_url: HttpUrl | None = None
+    files: list[CodePatchFile] = Field(default_factory=list, max_length=8)
+    applied: list[str] = Field(default_factory=list, max_length=20)
+    skipped: list[str] = Field(default_factory=list, max_length=20)
+    notes: list[str] = Field(default_factory=list, max_length=20)
+    assumptions: list[str] = Field(default_factory=list, max_length=10)
+    accepted: bool = False
+    ai_calls: int = Field(default=0, ge=0, le=10)
+    created_at: datetime = Field(default_factory=now)
+
+
+class CodePatchRequest(Model):
+    # Defaults to the line's selected offer.
+    offer_url: HttpUrl | None = None
+
+
 class ReportLine(Model):
     item: BomItem
     sourcing_status: Literal[
@@ -1075,6 +1127,8 @@ class ReportLine(Model):
     # Sourcing stages in the order they ran, and the paid model calls the line used.
     stages: list[SourcingStage] = Field(default_factory=list, max_length=12)
     gemini_calls: int = Field(default=0, ge=0)
+    # Owner-only; removed from share links and shared exports.
+    code_patch: CodePatch | None = None
 
 
 class Report(Model):

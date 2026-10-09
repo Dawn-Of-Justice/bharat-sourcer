@@ -1,8 +1,9 @@
 # Code adaptation for substituted parts — plan (draft, 2026-10-09)
 
-Status: **design only, not approved.** Do not implement until the owner answers §8.
-Prerequisite complete: the [routing engine](../routing-engine/PLAN.md) merged in v0.27.0.
-Code adaptation remains design only; the owner decisions in §8 are still open.
+Status: **tiers 1–2 implemented in v0.28.0** (2026-10-09), on the owner's instruction to
+start without waiting. Prerequisite complete: the [routing engine](../routing-engine/PLAN.md) merged in v0.27.0. Tier 3 is not built; it needs owner
+approval (see §8 and `docs/contracts/backend-roadmap.md`). Contract:
+[docs/contracts/code-adapt.md](../../contracts/code-adapt.md).
 
 ## 1. Goal
 
@@ -111,6 +112,25 @@ running user code.
 - Frontend is the teammate's: backend ships the fields; UI is a follow-up.
 
 ## 8. Owner decisions
+
+Defaults chosen by the implementing agent on 2026-10-09 (owner asked not to wait); each can
+be changed:
+
+1. Tiers 1–2 built; tier 2 ships disabled (`BS_CODE_ADAPT_AI=false`). Tier 3 not built:
+   it adds a Cloud Run Job, images and a new service account (infrastructure), so it waits
+   for explicit approval.
+2. Share links: **owner-only** (`code_patch` stripped from shared views and exports).
+3. Input mix measured on 2026-10-09 from `backend_integration_jobs`: 17 jobs (14 YouTube,
+   2 GitHub, 1 Instructables), 0 with code evidence, 0 offers on a curated substitute edge.
+   Code-adapt is therefore low-traffic today; built at minimal scope as instructed.
+4. PlatformIO-only repos: accepted for tiers 1–2 (recipes also patch `lib_deps`).
+
+Implementation notes that differ from the draft: `source_commit` is not pinned (resolving
+a commit SHA needs the GitHub API); instead each file stores the `sha256` of the text read
+at `HEAD`, and downloads refuse with `SOURCE_CHANGED` if any file changed. Patched files
+are not stored; the ZIP is rebuilt from the re-read originals plus the stored diffs.
+
+Original questions:
 
 1. Build tiers 1–2 now (after routing)? Tier 3 compile runner later or never?
 2. Share links: include patches (labelled) or owner-only?
