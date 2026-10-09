@@ -739,6 +739,9 @@ class OfferMatch(Model):
 class VerifiedOffer(Model):
     url: HttpUrl
     seller: str
+    seller_domain: str | None = None
+    seller_name: str | None = None
+    seller_kind: Literal["direct", "marketplace", "platform_hosted"] | None = None
     title: str
     image_url: HttpUrl | None = None
     price_inr: str = Field(pattern=r"^\d+\.\d{2}$")

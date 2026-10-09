@@ -1,5 +1,18 @@
 # Buyable specs and spec matching (unreleased, branch `mvp/matching`)
 
+## Routing and fallback changes (v0.27.0)
+
+Seller queries use a bounded ladder with model numbers and spelling variants, buying-spec
+queries, cleaned names, value/category searches and synonyms. Every candidate is scored
+against the original part, including stated values, rather than the relaxed query that
+found it. Accessory titles are demoted. This is search relevance, not a compatibility grade.
+
+When a judge call fails or the paid budget is exhausted, deterministic shortcut and cached
+verdicts survive. Remaining candidates pass a conservative title gate that normalises
+model spellings, passive values, units and plurals while rejecting known conflicts.
+Offers admitted by that fallback keep `match: null`; they are not labelled AI-confirmed.
+The gate does not establish complete electrical or mechanical compatibility.
+
 Why: on the 2026-10 "Freeform Light-Activated LED Circuit" job a token title match missed an
 exact Sharvi 22µF page ("22µF" vs "22uF"), rejected "5mm clear LED" and "LDR (Photoresistor)"
 listings for wording, and accepted 0603 SMD chip resistors for a dead-bug soldered build.

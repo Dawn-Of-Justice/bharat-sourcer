@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import os
 import secrets
 from contextlib import asynccontextmanager
 from datetime import timedelta
@@ -46,6 +47,7 @@ from bharat_sourcer.sharing import add_share_routes
 from bharat_sourcer.sourcing import seller_search
 from bharat_sourcer.sourcing.cache import build_cache
 from bharat_sourcer.sourcing.judge import GeminiJudge
+from bharat_sourcer.sourcing.politeness import Politeness
 from bharat_sourcer.sourcing.research import GeminiResearch
 from bharat_sourcer.sourcing.service import GeminiDiscovery, SourcingService
 from bharat_sourcer.sourcing.spec_writer import GeminiSpecWriter
@@ -63,6 +65,14 @@ def create_app(
     assistant: Assistant | None = None,
     identity_verifier=None,
 ) -> FastAPI:
+    app_logger = logging.getLogger("bharat_sourcer")
+    app_logger.setLevel(os.getenv("BS_LOG_LEVEL", "INFO").upper())
+    if not app_logger.handlers and not logging.getLogger().handlers:
+        # Uvicorn configures its own loggers, not the root logger. Without a handler,
+        # Python's WARNING-only lastResort handler silently drops search diagnostics.
+        handler = logging.StreamHandler()
+        handler.setFormatter(logging.Formatter("%(levelname)s %(name)s %(message)s"))
+        app_logger.addHandler(handler)
     settings = settings or Settings()
     live_extractor = None if settings.demo_mode else (extractor or GeminiExtractor(settings))
     if store is None:
@@ -75,6 +85,12 @@ def create_app(
         )
     # Cross-job cache for paid sourcing results, beside the job store (cost-controls.md).
     shared_cache = build_cache(settings, store)
+    searcher = seller_search.from_settings(settings, cache=shared_cache)
+    polite = (
+        searcher.politeness
+        if searcher
+        else Politeness(page_ttl_s=settings.seller_page_cache_s, cache=shared_cache)
+    )
     service = JobService(
         live_extractor,
         settings.gemini_model if live_extractor else None,
@@ -87,8 +103,11 @@ def create_app(
                 if settings.research_enabled
                 else None,
                 followup_enabled=settings.research_followup_enabled,
-                trust=TrustChecker() if settings.seller_trust_enabled else None,
-                seller_search=seller_search.from_settings(settings, cache=shared_cache),
+                trust=TrustChecker(fetcher=polite.wrap(None))
+                if settings.seller_trust_enabled
+                else None,
+                seller_search=searcher,
+                fetcher=polite.wrap(None),
                 seller_fetch_budget=settings.seller_search_fetch_budget,
                 seller_limit=settings.seller_search_per_seller,
                 judge=GeminiJudge(settings, cache=shared_cache) if settings.judge_enabled else None,
@@ -160,7 +179,7 @@ def create_app(
 
     app = FastAPI(
         title="Bharat Sourcer API",
-        version="0.26.0",
+        version="0.27.0",
         description=(
             "Demo or live YouTube and project-page extraction with optional Firestore job "
             "persistence."

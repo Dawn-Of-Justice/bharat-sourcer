@@ -261,7 +261,7 @@ class Politeness:
         shared = self._shared_key(kind, url, shared_key)
         cached = None if bypass_cache else self._shared_get(shared)
         if cached is not None:
-            self._store(key, cached, self.search_ttl_s if kind == "search" else self.page_ttl_s)
+            # Do not extend an existing shared entry beyond its original expiry.
             return cached
         attempt = 0
         with self._slot(host):

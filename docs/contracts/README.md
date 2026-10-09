@@ -1,4 +1,13 @@
-# Implemented API contract — v0.26.0
+# Implemented API contract — v0.27.0
+
+v0.27.0 improves [seller query routing](seller-search.md) and structured offer parsing.
+Offers add optional `seller_domain`, `seller_name` and `seller_kind`
+(`direct`, `marketplace`, `platform_hosted`). Existing `seller` remains available.
+Hosted stores do not inherit their platform's domain age; marketplace trust does not
+verify the merchant. Free catalogue search continues after the paid AI budget is spent.
+Search, judge and page-reading failures preserve earlier results where possible;
+`DISCOVERY_FAILED` can accompany `no_verified_offers` when seller pages were retained.
+See [seller trust](seller-trust.md) and [part matching](part-matching.md).
 
 This directory is the handoff between backend and frontend. The architecture docs describe
 the target system; this contract describes the runnable local milestone.

@@ -1,5 +1,18 @@
 # Seller trust labels and storefront JSON fast path
 
+## Seller identity and resilience (v0.27.0)
+
+Each verified offer adds optional `seller_domain`, `seller_name` and `seller_kind`.
+The kind is `direct`, `marketplace` or `platform_hosted`. The original `seller` host is
+retained for existing clients. Names come from the curated registry where available.
+
+Marketplace offers remain candidates, but their trust label is `unverified` with a
+third-party merchant explanation. Marketplace domain age and policies do not verify that
+merchant. Hosted shops have separate store identities and `domain_age` is unavailable;
+they never inherit the hosting platform's registration date. Policy checks require
+relevant policy words, the same seller domain and a final path other than the home page.
+All trust reads use the same pacing and challenge detection as product reads.
+
 Implemented behaviour (M6b free checks and the M6 Shopify/WooCommerce fast path). The
 architecture target is in `docs/02-architecture/06-sourcing-and-seller-data.md` §3.3 and §4.
 Labels are **rule output, not verified seller facts**. Offers are never hidden by them.

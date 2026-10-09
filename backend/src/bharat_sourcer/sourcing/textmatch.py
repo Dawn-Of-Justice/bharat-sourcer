@@ -41,6 +41,8 @@ def model_numbers(text: str) -> list[str]:
     found = []
     for token in re.findall(r"(?i)\b[a-z0-9]+(?:-[a-z0-9]+)*\b", text):
         key = compact(token)
+        if key in {"i2c", "i2s", "i3c"}:
+            continue  # Interfaces are attributes, not standalone model-number queries.
         if key == "18650":
             found.append(token)
         elif len(key) >= 3 and any(c.isdigit() for c in key) and any(c.isalpha() for c in key):

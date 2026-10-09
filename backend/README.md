@@ -1,5 +1,23 @@
 # Backend
 
+v0.27.0 improves parts routing and seller offer reading. Searches use a bounded query
+ladder and score results against the requested part, preserve partial seller results,
+and continue free catalogue searches after the AI budget is spent. Offer parsing handles
+Indian price grouping, additional structured product shapes and tracking URLs. Optional
+seller identity fields distinguish direct stores, hosted stores and marketplaces;
+marketplace reputation is never credited to an unknown merchant. Failed paid searches
+retain earlier seller evidence, and per-line rejection reasons are logged.
+See [seller search](../docs/contracts/seller-search.md),
+[seller trust](../docs/contracts/seller-trust.md) and
+[part matching](../docs/contracts/part-matching.md).
+
+`BS_LOG_LEVEL` defaults to `INFO`; set it to `WARNING` to reduce diagnostics.
+`SELLER_SEARCH` and `SOURCING_LINE` logs report stages, candidate counts and rejection
+reasons. `BS_SELLER_PAGE_CACHE_S` bounds both local and shared page caches. Refreshing
+known offer URLs bypasses cached pages while retaining pacing and challenge checks.
+For a bounded free live probe, run `python scripts/probe_routing.py` from `backend/`;
+`--verify-only` rechecks saved candidate pages. Output is ignored under `.data/`.
+
 The integration deployment was observed on 5 October 2026 with Firebase account and
 guest authentication enabled. The frontend origin is included in CORS. The
 `BS_AUTH_ENABLED=false` setting shown below remains the default for a fresh local setup.
