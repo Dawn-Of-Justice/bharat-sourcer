@@ -5,7 +5,7 @@ import { ChatIcon } from './LandingIcons'
 // The project page's three-step journey: the same order the user goes through.
 const steps = ['Review the parts', 'Find sellers', 'Order plan'] as const
 
-function stepOf(job: Job): number {
+export function stepOf(job: Job): number {
   if (['queued', 'extracting', 'awaiting_confirmation'].includes(job.status)) return 0
   if (['resolving', 'sourcing', 'paused'].includes(job.status)) return 1
   if (job.status === 'done') return 2
@@ -27,7 +27,8 @@ export function stageNote(job: Job, reading: string): string {
   return 'Ready'
 }
 
-export function StageSteps({ job, reading, action }: { job: Job; reading: string; action?: ReactNode }) {
+// Reached steps are buttons: the user can look back at an earlier stage (`viewing`).
+export function StageSteps({ job, reading, viewing, onView, action }: { job: Job; reading: string; viewing: number; onView: (step: number) => void; action?: ReactNode }) {
   const current = stepOf(job)
   const finished = job.status === 'done'
   const failed = job.status === 'failed'
@@ -35,9 +36,10 @@ export function StageSteps({ job, reading, action }: { job: Job; reading: string
   return <nav className="pp-steps" aria-label="Project progress">
     <ol>{steps.map((label, index) => {
       const state = index < current || (finished && index === current) ? 'done' : index === current ? failed ? 'failed' : 'current' : 'next'
-      return <li key={label} className={`pp-step pp-step-${state}`} aria-current={index === current ? 'step' : undefined}>
-        <span className="pp-step-node" aria-hidden="true">{state === 'done' ? '✓' : state === 'failed' ? '!' : index + 1}</span>
-        <span className="pp-step-text"><strong>{label}</strong>{index === current && <span role="status" aria-live="polite">{working && <i className="pp-live" aria-hidden="true" />}{stageNote(job, reading)}</span>}</span>
+      const node = <span className="pp-step-node" aria-hidden="true">{state === 'done' ? '✓' : state === 'failed' ? '!' : index + 1}</span>
+      const text = <span className="pp-step-text"><strong>{label}</strong>{index === current ? <span role="status" aria-live="polite">{working && <i className="pp-live" aria-hidden="true" />}{stageNote(job, reading)}</span> : index < current && viewing !== index ? <span>View</span> : null}</span>
+      return <li key={label} className={`pp-step pp-step-${state}${viewing === index ? ' pp-step-viewing' : ''}`} aria-current={index === current ? 'step' : undefined}>
+        {index <= current ? <button type="button" className="pp-step-button" aria-pressed={viewing === index} onClick={() => onView(index)}>{node}{text}</button> : <>{node}{text}</>}
       </li>
     })}</ol>
     {action && <div className="pp-steps-action">{action}</div>}

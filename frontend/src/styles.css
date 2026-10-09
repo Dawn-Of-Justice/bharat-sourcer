@@ -1158,10 +1158,28 @@ img, video, audio { max-width: 100%; }
 .pp-step-current .pp-step-text strong, .pp-step-failed .pp-step-text strong { color: var(--pp-ink); }
 .pp-step-failed .pp-step-node { border-color: var(--pp-brick); color: var(--pp-brick); }
 .pp-step-failed .pp-step-text span { color: var(--pp-brick); }
+.pp-step-button { grid-column: 1 / -1; grid-row: 1 / 3; display: grid; grid-template-columns: 34px minmax(0, 1fr); grid-template-rows: 34px auto; row-gap: 10px; padding: 0; border: 0; border-radius: 10px; color: inherit; background: none; text-align: left; }
+.pp-step-button .pp-step-node { position: relative; z-index: 1; }
+.pp-step-button:hover .pp-step-text strong { color: var(--pp-teal); }
+.pp-step-button:focus-visible { outline: 3px solid #d9802e; outline-offset: 4px; }
+.pp-step-viewing .pp-step-text strong { text-decoration: underline 2px var(--pp-saffron); text-underline-offset: 6px; }
 .pp-steps-action { flex-shrink: 0; }
 .pp-live { width: 8px; height: 8px; flex-shrink: 0; border-radius: 50%; background: var(--pp-saffron); animation: pulse 1.5s ease-in-out infinite; }
 
 .project-page .pp-main > .job-panel:first-child { margin-top: 0; }
+.pp-lookback-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; margin-bottom: 22px; }
+.pp-lookback-head h2 { margin: 0 0 8px; }
+.pp-lookback-head p { max-width: 60ch; margin: 0; color: var(--pp-muted); line-height: 1.55; }
+.pp-lookback-head .nav-cta { flex-shrink: 0; }
+.pp-confirmed { margin: 0 0 24px; padding: 0; list-style: none; border-top: 1px solid var(--pp-line); }
+.pp-confirmed li { display: grid; grid-template-columns: minmax(0, 1fr) 64px 140px; align-items: baseline; gap: 16px; padding: 14px 2px; border-bottom: 1px solid var(--pp-line); color: var(--pp-ink); font-size: 16px; font-weight: 700; }
+.pp-confirmed-qty { color: #3f5f59; font-variant-numeric: tabular-nums; text-align: right; }
+.pp-confirmed-note { color: var(--pp-teal); font-size: 13px; text-align: right; }
+@media (max-width: 760px) {
+  .pp-lookback-head { flex-direction: column; gap: 14px; }
+  .pp-confirmed li { grid-template-columns: minmax(0, 1fr) 48px; }
+  .pp-confirmed-note { grid-column: 1 / -1; text-align: left; }
+}
 
 .pp-chat-launcher { position: fixed; right: 28px; bottom: 28px; z-index: 30; display: inline-flex; align-items: center; gap: 10px; min-height: 52px; padding: 0 22px 0 18px; border: 0; border-radius: 999px; color: #fff; background: #0d2630; box-shadow: 0 14px 34px rgba(13, 38, 48, .28); font-size: 15px; font-weight: 800; transition: transform .2s, opacity .2s; }
 .pp-chat-launcher:hover { transform: translateY(-2px); }
@@ -1194,6 +1212,7 @@ img, video, audio { max-width: 100%; }
   .pp-steps { flex-wrap: wrap; gap: 14px; }
   .pp-step { grid-template-columns: 30px minmax(0, 1fr); grid-template-rows: 30px auto; }
   .pp-step-node { width: 30px; height: 30px; font-size: 13px; }
+  .pp-step-button { grid-template-columns: 30px minmax(0, 1fr); grid-template-rows: 30px auto; }
   .pp-step-text { padding-right: 8px; }
   .pp-step-text strong { font-size: 13px; }
   .pp-chat-launcher { right: 16px; bottom: 16px; min-height: 48px; padding: 0 18px 0 15px; font-size: 14px; }

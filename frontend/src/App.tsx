@@ -6,7 +6,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type FormEvent } from 're
 import { BagIcon, ChecklistIcon, CompatibilityIcon, EvidenceIcon, LinkIcon, StoreIcon } from './LandingIcons'
 import { ApiError, claimProject, pauseJob, resumeJob, confirmJob, createJob, getJob, updateProject, type BomItem, type BuyableSpec, type Job } from './api'
 import ChatPanel from './ChatPanel'
-import { ChatDrawer, StageSteps } from './ProjectFrame'
+import { ChatDrawer, StageSteps, stepOf } from './ProjectFrame'
 import Requirements, { requirementPayload, validRequirements } from './Requirements'
 import SafetyBanners, { SafetyLineBadges } from './SafetyBanners'
 import SpecPanel, { specPayload, validSpec } from './SpecPanel'
@@ -423,10 +423,27 @@ function Review({ job, token, onConfirmed }: { job: Job; token: string; onConfir
   </section>
 }
 
-function AnalysisProgress({ job }: { job: Job }) {
+// The confirmed list, shown when the user steps back to "Review the parts" after confirming.
+function ConfirmedParts({ job, back }: { job: Job; back: { label: string; onClick: () => void } }) {
+  return <section className="job-panel pp-lookback">
+    <header className="pp-lookback-head"><div><h2>The parts you confirmed</h2><p>To change a part now, ask in the chat. Every suggested change needs your approval before it is applied.</p></div><button type="button" className="nav-cta" onClick={back.onClick}>{back.label}</button></header>
+    <ul className="pp-confirmed">{job.items.map(item => <li key={item.line_id}><span>{item.raw_name}</span><span className="pp-confirmed-qty">×{item.qty ?? '?'}</span><span className="pp-confirmed-note">{item.user_has_it ? 'You have this' : ''}</span></li>)}</ul>
+    <ProjectCard project={job.project} />
+    <SourcesCard job={job} />
+  </section>
+}
+
+function AnalysisProgress({ job, back }: { job: Job; back?: { label: string; onClick: () => void } }) {
   const results = new Map(job.report?.lines.map(line => [line.item.line_id, line]) ?? [])
   const finished = job.items.filter(item => item.user_has_it || (results.has(item.line_id) && results.get(item.line_id)?.sourcing_status !== 'not_run')).length
   const labels = { offers_found: 'Offers found', no_verified_offers: 'No verified offers', failed: 'Check failed', already_owned: 'Already owned', not_run: 'Pending result' }
+  if (back) return <section className="job-panel progress-panel pp-lookback">
+    <header className="pp-lookback-head"><div><h2>How the seller search went</h2><p>{job.items.filter(item => results.get(item.line_id)?.sourcing_status === 'offers_found').length} of {job.items.length} parts have seller offers.</p></div><button type="button" className="nav-cta" onClick={back.onClick}>{back.label}</button></header>
+    <ul className="parallel-parts">{job.items.map((item, index) => {
+      const status = item.user_has_it ? 'already_owned' : results.get(item.line_id)?.sourcing_status ?? 'not_run'
+      return <li key={item.line_id} className={'part-progress ' + status}><div><small>Part {index + 1}</small><strong>{item.raw_name}</strong><span>Qty {item.qty ?? 'unknown'}</span></div><span className="part-status">{labels[status]}</span></li>
+    })}</ul>
+  </section>
   return <section className="job-panel progress-panel">
     <span className="section-kicker">IN PROGRESS</span>
     <h2>{job.status === 'sourcing' ? 'Finding offers for your parts' : job.status === 'resolving' ? 'Preparing your parts' : job.status === 'extracting' ? jobSourceCopy(job).reading : 'Waiting to start'}</h2>
@@ -455,6 +472,9 @@ function JobPage({ id }: { id: string }) {
   const [actionBusy, setActionBusy] = useState(false)
   const [actionError, setActionError] = useState('')
   const [chatOpen, setChatOpen] = useState(false)
+  // null follows the live stage; a number is an earlier step the user chose to look at.
+  const [viewStep, setViewStep] = useState<number | null>(null)
+  useEffect(() => setViewStep(null), [job?.status])
 
   function applySnapshot(next: Job) {
     setJob((previous) => previous && Date.parse(next.updated_at) < Date.parse(previous.updated_at) ? previous : next)
@@ -508,6 +528,9 @@ function JobPage({ id }: { id: string }) {
   }, [id, token, revision, account.ready, account.identity])
 
 
+  const currentStep = job ? stepOf(job) : 0
+  const viewing = viewStep ?? currentStep
+  const back = { label: currentStep === 2 ? 'Back to order plan' : 'Back to seller search', onClick: () => setViewStep(null) }
   const pauseControl = job && !job.demo && ['resolving', 'sourcing', 'paused'].includes(job.status)
     ? <button className="nav-cta" title={job.status === 'paused' ? 'Your progress is saved.' : 'Pausing does not use your action quota.'} disabled={actionBusy || job.pause_requested && job.status !== 'paused'} onClick={async () => { setActionBusy(true); setActionError(''); try { await (job.status === 'paused' ? resumeJob(id, token) : pauseJob(id, token)); setRevision(n => n + 1) } catch (cause) { setActionError(cause instanceof Error ? cause.message : 'Could not update sourcing') } finally { setActionBusy(false) } }}>{job.pause_requested && job.status !== 'paused' ? 'Pausing after this part…' : actionBusy ? 'Updating…' : job.status === 'paused' ? 'Resume' : 'Pause'}</button>
     : undefined
@@ -518,14 +541,14 @@ function JobPage({ id }: { id: string }) {
       {connectionIssue ? <div className="connection-warning" role="status">{connectionIssue} Your saved parts and conversation remain visible.</div> : null}
       {(job.demo || localPreview) && <p className="pp-demo-tag">Demo project with sample data</p>}
       <ProjectHeading key={job.project?.title_source + ':' + job.project?.title + ':' + job.project?.description} job={job} token={token} onJob={applySnapshot} />
-      <StageSteps job={job} reading={jobSourceCopy(job).reading} action={pauseControl} />
+      <StageSteps job={job} reading={jobSourceCopy(job).reading} viewing={viewing} onView={step => setViewStep(step === currentStep ? null : step)} action={pauseControl} />
       {actionError && <p className="form-error" role="alert">{actionError}</p>}
-      <div className="pp-main">
+      <div className="pp-main">{viewing !== currentStep ? viewing === 0 ? <ConfirmedParts job={job} back={back} /> : <AnalysisProgress job={job} back={back} /> : <>
         {job.status === 'failed' ? <section className="job-panel"><h2>Analysis stopped</h2><p>{job.error?.message || 'Please start a new job and try again.'}</p></section> : null}
         {job.status === 'awaiting_confirmation' ? <Review key={JSON.stringify(job.items)} job={job} token={token} onConfirmed={() => setRevision((value) => value + 1)} /> : null}
         {job.status === 'done' ? <Results job={job} token={token} onJob={applySnapshot} /> : null}
         {!['awaiting_confirmation', 'done', 'failed'].includes(job.status) ? <AnalysisProgress job={job} /> : null}
-      </div>
+      </>}</div>
       <ChatDrawer job={job} open={chatOpen} onOpenChange={setChatOpen}><ChatPanel job={job} token={token} onJob={applySnapshot} bare /></ChatDrawer>
     </>}
   </div></main>
