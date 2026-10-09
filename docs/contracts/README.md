@@ -5,7 +5,7 @@ v0.29.0 adds [compile checks for code patches](code-adapt.md#compile-check-v0290
 `code_patch.compile` (`CompileCheck`); `code_patch.check` becomes `compiles` or
 `compile_failed`. Compile only, in isolated runners; never uploaded or tested on hardware.
 Answers 503 `COMPILE_UNAVAILABLE` until the runner is provisioned on a server.
-**Frontend to do:** compile button, board picker on `FQBN_REQUIRED`, result badge and log.
+Frontend: built (board picker, "Check it compiles", result badge, size or compiler output).
 
 v0.28.0 adds [code patches for substituted parts](code-adapt.md): optional
 `report.lines[].code_patch` (`CodePatch`), `POST …/lines/{line_id}/code-patch`,

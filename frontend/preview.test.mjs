@@ -76,7 +76,9 @@ test('plan preview includes a labelled sample code patch without contacting the 
   const plan = planPreview(job)
   const patch = plan.report.lines.find(line => line.item.line_id === 'L02').code_patch
   assert.equal(patch.status, 'ready')
-  assert.equal(patch.check, 'not_checked')
+  assert.equal(patch.check, 'compiles')
+  assert.match(patch.compile.board, /dummy/)
+  assert.match(patch.compile.size, /Dummy/)
   assert.match(patch.files[0].diff, /Dummy preview only/)
   assert.ok(patch.notes.every(note => /Dummy/.test(note)))
   assert.equal(requests, 0)

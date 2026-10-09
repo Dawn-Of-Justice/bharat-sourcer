@@ -325,7 +325,28 @@ export interface CodePatch {
   accepted: boolean
   ai_calls: number
   created_at: string
+  compile?: CompileCheck | null
 }
+// Compile-only check of a code patch (backend v0.29.0); never uploaded or tested on hardware.
+export interface CompileCheck {
+  status: 'queued' | 'compiles' | 'compile_failed' | 'unavailable' | 'timeout'
+  fqbn: string
+  board: string
+  run_id: string
+  attempt: number
+  repairs: number
+  reason?: 'source_changed' | 'source_unavailable' | 'sketch_not_found' | 'platformio_not_supported' | 'too_large' | 'launch_failed' | 'runner_error' | null
+  detail?: string | null
+  log?: string | null
+  core?: string | null
+  size?: string | null
+  sketch?: string | null
+  requested_at: string
+  expires_at: string
+  finished_at?: string | null
+}
+export interface CompileBoard { fqbn: string; label: string; family: string }
+export interface CompileBoards { enabled: boolean; boards: CompileBoard[] }
 export interface CostEstimate { total_usd?: number; budget_reached?: boolean; calls?: number; prices_checked?: string | null }
 export interface ReportLine { buyable_spec?: BuyableSpec | null; stages?: ('seller_search' | 'judge' | 'grounded' | 'known_urls' | 'research' | 'research_skipped' | 'followup')[]; gemini_calls?: number; line_image?: LineImage | null; selection_source?: 'recommended' | 'user' | null; user_offer_url?: string | null; recommended_offer_url?: string | null; recommendation?: LineRecommendation | null; changes_accepted?: boolean; import_reference?: { price_usd: string; source?: 'user' | 'research_fact'; source_url?: string | null; quote?: string | null } | null; seller_search?: { queries?: string[]; candidate_urls?: string[]; sellers_checked?: number; blocked_sellers?: string[]; message?: string } | null; code_patch?: CodePatch | null }
 export interface Job { cost_estimate?: CostEstimate | null }
@@ -342,6 +363,9 @@ const codePatchPath = (id: string, lineId: string) => jobPath(id, '/lines/' + en
 export const createCodePatch = (id: string, token: string, lineId: string, offerUrl: string) => request<CodePatch>(codePatchPath(id, lineId), { method: 'POST', body: JSON.stringify({ offer_url: offerUrl }) }, token)
 export const acceptCodePatch = (id: string, token: string, lineId: string) => request<CodePatch>(codePatchPath(id, lineId) + '/accept', { method: 'POST' }, token)
 export const downloadCodePatch = (id: string, token: string, lineId: string) => exportBlob(codePatchPath(id, lineId) + '.zip', token)
+export const getCompileBoards = () => request<CompileBoards>('/v1/compile/boards')
+// Without fqbn the backend reads the board from the parts list (422 FQBN_REQUIRED if unclear).
+export const requestCompile = (id: string, token: string, lineId: string, fqbn?: string) => request<CodePatch>(codePatchPath(id, lineId) + '/compile', { method: 'POST', body: JSON.stringify(fqbn ? { fqbn } : {}) }, token)
 export const getPlans = (id: string, token: string) => request<CartPlans>(jobPath(id, '/plans'), {}, token)
 export const selectOffers = (id: string, token: string, selections: SelectionInput[]) => request<Job>(jobPath(id, '/selections'), { method: 'POST', body: JSON.stringify({ selections }) }, token)
 export const setImportReferences = (id: string, token: string, references: { line_id: string; price_usd: string | null; source_url?: string | null }[]) => request<Job>(jobPath(id, '/import-references'), { method: 'POST', body: JSON.stringify({ references }) }, token)
