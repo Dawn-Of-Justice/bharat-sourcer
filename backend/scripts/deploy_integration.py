@@ -138,9 +138,13 @@ def main():
             "BS_TRUSTED_PROXY_IP_HEADER",
             "BS_CORS_ORIGINS",
         }
-        env.update(
-            {e["name"]: e["value"] for e in current_env if e["name"] in auth_keys and "value" in e}
-        )
+        # Compile-runner settings come from scripts/setup_compile_runner.py; keep them too.
+        kept = [
+            e
+            for e in current_env
+            if "value" in e and (e["name"] in auth_keys or e["name"].startswith("BS_COMPILE_"))
+        ]
+        env.update({e["name"]: e["value"] for e in kept})
     elif "NOT_FOUND" not in current.stderr:
         raise RuntimeError(current.stderr)
     env_path.write_text(json.dumps(env), encoding="utf-8")

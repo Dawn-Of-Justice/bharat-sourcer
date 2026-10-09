@@ -1,10 +1,12 @@
-# Code patches for substituted parts (v0.28.0)
+# Code patches for substituted parts (v0.28.0; compile checks v0.29.0)
 
 When a part is replaced by a catalogue substitute and the project's code is available
 (GitHub projects whose code files were read as code evidence), the backend can produce
 the code change for the substitute: a unified diff per file, a ZIP of patched files, and
-the non-code changes (wiring, power, verification) as notes. Implements tiers 1–2 of
-[docs/plans/code-adapt/PLAN.md](../plans/code-adapt/PLAN.md). Nothing is compiled or run.
+the non-code changes (wiring, power, verification) as notes. Implements tiers 1–3 of
+[docs/plans/code-adapt/PLAN.md](../plans/code-adapt/PLAN.md). Since v0.29.0 the owner can
+ask for a compile-only check ([below](#compile-check-v0290)). Nothing is ever uploaded, run
+or tested on hardware.
 
 ## Labels (show them every time)
 
@@ -12,7 +14,9 @@ the non-code changes (wiring, power, verification) as notes. Implements tiers 1�
 | --- | --- | --- |
 | `origin` | `curated` | A maintained recipe for this exact substitute and library. |
 | | `ai_draft` | Model-written, then checked by rules; the owner must accept it. |
-| `check` | `not_checked` | Always today: no compile runner exists. Show "Not compiled". |
+| `check` | `not_checked` | No finished compile check. Show "Not compiled". |
+| | `compiles` | Compiled for `compile.board`. Show "Compiles for <board>, not tested on hardware". |
+| | `compile_failed` | The compiler rejected it; show `compile.log`. |
 | `status` | `ready` / `unavailable` | `unavailable` always has a `reason` and usually `detail`. |
 
 Wiring, power and verification changes are never patched; they are listed in `notes`
@@ -86,7 +90,63 @@ stay near lines that use the original library; one repair attempt, then
 `ai_failed_validation`. Calls count against the project's AI budget and a daily cap
 (`BS_CODE_ADAPT_DAILY_LIMIT`, default 50).
 
+## Compile check (v0.29.0)
+
+`GET /v1/compile/boards` returns `{enabled, boards: [{fqbn, label, family}]}`. Show the
+compile button only when `enabled` is true.
+
+`POST /v1/jobs/{job_id}/lines/{line_id}/code-patch/compile` with `{"fqbn": "…"}` (optional)
+returns `202` and the `CodePatch` with `compile.status: "queued"`. Owner/job-token access;
+counts as one action. Without `fqbn` the board comes from the parts list; if it names no
+supported board, or several, the answer is 422 `FQBN_REQUIRED`: let the user pick one from
+`/v1/compile/boards`. Poll the job (or use the stream) until the status changes; a check
+takes about 1–3 minutes, longer on the first run of the day (image start).
+
+`code_patch.compile` (`CompileCheck`):
+
+| Field | Meaning |
+| --- | --- |
+| `status` | `queued`, `compiles`, `compile_failed`, `unavailable` (with `reason`), `timeout` |
+| `fqbn`, `board` | Board compiled for, e.g. `esp32:esp32:esp32` / "ESP32 Dev Module" |
+| `core` | Pinned core used, e.g. `esp32:esp32@3.3.12` |
+| `log` | Up to 40 compiler lines, errors first, when it failed; paths are sketch-relative |
+| `size` | The compiler's flash/RAM usage line when it compiled |
+| `sketch` | Repository path of the compiled sketch |
+| `attempt`, `repairs` | AI drafts that fail get up to 2 repair rounds (below) |
+| `expires_at` | A `queued` check past this time has timed out and can be requested again |
+
+`reason` when `status: unavailable`: `source_changed` (request a new patch),
+`source_unavailable`, `sketch_not_found`, `platformio_not_supported` (PlatformIO projects
+are not compiled because their build scripts run project code), `too_large`,
+`launch_failed`, `runner_error`.
+
+When a check finishes, the top-level `check` becomes `compiles` or `compile_failed`;
+`timeout` and `unavailable` leave it `not_checked`. The ZIP README states the result. A new
+patch (`POST …/code-patch`) starts again at `not_checked`.
+
+**AI drafts:** if an `ai_draft` fails to compile and `BS_CODE_ADAPT_AI` is on, the backend
+asks the model for a revision with the compiler errors, validates it with the same rules as
+the first draft, replaces `files`, sets `accepted: false` and compiles again, at most twice
+(`repairs`), each call counted against the AI budget. Show the new diff and ask for Accept
+again. Curated patches are never rewritten.
+
+Errors: 503 `COMPILE_UNAVAILABLE` (not enabled), 404 `PATCH_NOT_FOUND`, 409
+`COMPILE_IN_PROGRESS`, 409 `PROPOSAL_STALE` (patch replaced meanwhile), 409
+`INVALID_STATE` (demo project), 422 `FQBN_REQUIRED` / `FQBN_UNSUPPORTED`, 429
+`COMPILE_DAILY_LIMIT` (`BS_COMPILE_DAILY_LIMIT`, default 100 per day).
+
+Boards (v0.29.0): Arduino Uno, Nano (ATmega328P), Mega 2560, Leonardo, Micro; ESP32 and
+ESP32-S3/-C3/-S2 Dev Modules, Adafruit Feather ESP32; NodeMCU 1.0, Wemos D1 mini; Raspberry
+Pi Pico / Pico W. Libraries are the pinned set in `backend/compile/pins.json` (the libraries
+in the code-evidence map, with their dependencies); a sketch that needs another library
+fails with "No such file or directory" in `log`.
+
+How it runs: one isolated Cloud Run job per core family, with no permissions, no secrets
+and no internet route, compiles the sketch the API assembles from the repository snapshot.
+See [the runbook](../../backend/infra/README.md#compile-runner-code-adapt-tier-3).
+
 ## Frontend status
 
 Not built. Suggested: on a line whose selected offer is a substitute, a "Code changes"
-button → diff viewer with labels and notes → Accept (AI drafts) → Download ZIP.
+button → diff viewer with labels and notes → Accept (AI drafts) → "Check it compiles"
+(board picker on `FQBN_REQUIRED`) → result badge and log → Download ZIP.

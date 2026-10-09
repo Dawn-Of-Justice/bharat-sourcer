@@ -1,7 +1,7 @@
 # Proposal register — status reviewed 9 October 2026
 
 Implemented behavior is described in [backend/README.md](backend/README.md) and
-[docs/contracts/README.md](docs/contracts/README.md), currently v0.28.0.
+[docs/contracts/README.md](docs/contracts/README.md), currently v0.29.0.
 The remaining sections preserve proposals and estimates written on 6 October; they
 are not current deployment instructions or independently rechecked prices.
 
@@ -15,9 +15,10 @@ are not current deployment instructions or independently rechecked prices.
 - Safety flags, costing, export/share, multi-source intake, catalogue compatibility and
   seller trust are implemented. Export is PDF/HTML; CSV was removed in v0.26.0.
 - Routing is complete in v0.27.0. [Code adaptation](docs/plans/code-adapt/PLAN.md)
-  tiers 1–2 (curated recipes; AI drafts behind a flag) shipped diff-only in v0.28.0, with
-  no compile. Web Risk, browser rendering, compile infrastructure and other new-service
-  proposals below are not implemented.
+  tiers 1–2 (curated recipes; AI drafts behind a flag) shipped in v0.28.0 and the tier 3
+  compile check (M9, approved 9 October 2026) in v0.29.0: Cloud Run jobs per core family
+  with no internet route, provisioned by `backend/scripts/setup_compile_runner.py`.
+  Web Risk, browser rendering and the other new-service proposals below are not implemented.
 - New services, indexes, schedulers, paid third-party APIs and IAM changes require
   owner review before provisioning.
 

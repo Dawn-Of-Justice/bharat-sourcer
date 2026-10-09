@@ -1060,12 +1060,68 @@ class CodePatchFile(Model):
     sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
 
 
+CompileReason = Literal[
+    "source_changed",
+    "source_unavailable",
+    "sketch_not_found",
+    "platformio_not_supported",
+    "too_large",
+    "launch_failed",
+    "runner_error",
+]
+
+
+class CompileCheck(Model):
+    """One compile-only check of a code patch in the isolated runner (code-adapt tier 3).
+
+    queued until the runner reports. compiles / compile_failed come from arduino-cli for
+    `fqbn` with the pinned `core`; a compile never uploads, runs or tests on hardware.
+    unavailable always carries a reason. A queued check past `expires_at` has timed out and
+    can be requested again. AI drafts that fail get at most two repair rounds (`repairs`);
+    each round replaces the patch's diffs and resets `accepted`.
+    """
+
+    status: Literal["queued", "compiles", "compile_failed", "unavailable", "timeout"]
+    fqbn: str = Field(max_length=100)
+    board: str = Field(max_length=100)
+    run_id: str = Field(max_length=200)
+    attempt: int = Field(default=1, ge=1, le=3)
+    repairs: int = Field(default=0, ge=0, le=2)
+    reason: CompileReason | None = None
+    detail: str | None = Field(default=None, max_length=500)
+    # First compiler error lines (at most 40), with runner paths made sketch-relative.
+    log: str | None = Field(default=None, max_length=6000)
+    core: str | None = Field(default=None, max_length=100)
+    size: str | None = Field(default=None, max_length=300)
+    sketch: str | None = Field(default=None, max_length=300)
+    requested_at: datetime = Field(default_factory=now)
+    expires_at: datetime
+    finished_at: datetime | None = None
+
+
+class CompileRequest(Model):
+    # Arduino FQBN from GET /v1/compile/boards; defaults to the board found in the BOM.
+    fqbn: str | None = Field(default=None, max_length=100, pattern=r"^[\w.-]+:[\w.-]+:[\w.-]+$")
+
+
+class CompileBoard(Model):
+    fqbn: str
+    label: str
+    family: str
+
+
+class CompileBoards(Model):
+    enabled: bool
+    boards: list[CompileBoard]
+
+
 class CodePatch(Model):
-    """Code changes for a substituted part; never compiled or tested on hardware.
+    """Code changes for a substituted part; never tested on hardware.
 
     origin: curated (a maintained recipe) or ai_draft (model-written, validated, must be
-    accepted by the owner). check: not_checked until a compile runner exists. status
-    unavailable always carries a reason; notes always list the non-code changes.
+    accepted by the owner). check: not_checked until a compile check finishes (`compile`),
+    then compiles or compile_failed. status unavailable always carries a reason; notes
+    always list the non-code changes.
     """
 
     status: Literal["ready", "unavailable"]
@@ -1084,6 +1140,7 @@ class CodePatch(Model):
     accepted: bool = False
     ai_calls: int = Field(default=0, ge=0, le=10)
     created_at: datetime = Field(default_factory=now)
+    compile: CompileCheck | None = None
 
 
 class CodePatchRequest(Model):

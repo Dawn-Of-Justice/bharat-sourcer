@@ -1,0 +1,19 @@
+{
+  "_note": "Boards the compile runner (code-adapt tier 3) can compile for, written by hand for Bharat Sourcer on 2026-10-09. family names the runner image (backend/compile/pins.json). names are lower-case phrases matched against BOM part names (exclude lists phrases of look-alike boards on other cores); a BOM that matches more than one board, or none, needs the board chosen explicitly. Compiling only checks that the code builds for the board; it is never uploaded or run.",
+  "boards": [
+    {"fqbn": "arduino:avr:uno", "label": "Arduino Uno", "family": "avr", "names": ["arduino uno", "uno r3", "atmega328p uno"], "exclude": ["r4", "minima", "uno wifi"]},
+    {"fqbn": "arduino:avr:nano", "label": "Arduino Nano (ATmega328P)", "family": "avr", "names": ["arduino nano"], "exclude": ["every", "33", "esp32", "rp2040", "matter"]},
+    {"fqbn": "arduino:avr:mega", "label": "Arduino Mega 2560", "family": "avr", "names": ["arduino mega", "mega 2560", "mega2560"]},
+    {"fqbn": "arduino:avr:leonardo", "label": "Arduino Leonardo", "family": "avr", "names": ["arduino leonardo"]},
+    {"fqbn": "arduino:avr:micro", "label": "Arduino Micro", "family": "avr", "names": ["arduino micro"]},
+    {"fqbn": "esp32:esp32:esp32", "label": "ESP32 Dev Module", "family": "esp32", "names": ["esp32 development board", "esp32 devkit", "esp32 dev module", "esp32-wroom", "esp32 wroom", "esp32 doit", "nodemcu esp32", "esp32 board"]},
+    {"fqbn": "esp32:esp32:esp32s3", "label": "ESP32-S3 Dev Module", "family": "esp32", "names": ["esp32-s3 development board", "esp32-s3", "esp32 s3"]},
+    {"fqbn": "esp32:esp32:esp32c3", "label": "ESP32-C3 Dev Module", "family": "esp32", "names": ["esp32-c3 development board", "esp32-c3", "esp32 c3"]},
+    {"fqbn": "esp32:esp32:esp32s2", "label": "ESP32-S2 Dev Module", "family": "esp32", "names": ["esp32-s2 development board", "esp32-s2", "esp32 s2"]},
+    {"fqbn": "esp32:esp32:featheresp32", "label": "Adafruit Feather ESP32", "family": "esp32", "names": ["feather esp32", "adafruit feather esp32"]},
+    {"fqbn": "esp8266:esp8266:nodemcuv2", "label": "NodeMCU 1.0 (ESP-12E)", "family": "esp8266", "names": ["nodemcu esp8266", "nodemcu", "esp8266 board", "esp-12e", "esp8266"]},
+    {"fqbn": "esp8266:esp8266:d1_mini", "label": "Wemos D1 mini", "family": "esp8266", "names": ["d1 mini", "wemos d1"]},
+    {"fqbn": "rp2040:rp2040:rpipico", "label": "Raspberry Pi Pico", "family": "rp2040", "names": ["raspberry pi pico", "rpi pico", "pico rp2040"], "exclude": ["pico 2", "pico2"]},
+    {"fqbn": "rp2040:rp2040:rpipicow", "label": "Raspberry Pi Pico W", "family": "rp2040", "names": ["raspberry pi pico w", "pico w"], "exclude": ["pico 2", "pico2"]}
+  ]
+}

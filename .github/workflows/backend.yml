@@ -83,3 +83,54 @@ jobs:
           actual=$(curl -fsS "$url/openapi.json" | python3 -c "import json, sys; print(json.load(sys.stdin)['info']['version'])")
           echo "Deployed $actual at $url"
           test "$actual" = "$expected"
+
+  # Compile runner images (code-adapt tier 3), rebuilt only when backend/compile changes.
+  # Jobs, network and identities are provisioned by scripts/setup_compile_runner.py.
+  compile-images:
+    needs: check
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        family: [avr, esp32, esp8266, rp2040]
+    concurrency:
+      group: compile-image-${{ matrix.family }}
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      GCP_PROJECT: hackathon-510415
+      REGION: asia-south1
+      JOB: bharat-sourcer-compile-${{ matrix.family }}
+      IMAGE: asia-south1-docker.pkg.dev/hackathon-510415/bharat-sourcer-compile/runner-${{ matrix.family }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Check for runner changes
+        id: changed
+        run: |
+          if [ "${{ github.event_name }}" = "push" ] \
+            && git diff --quiet "${{ github.event.before }}" "${{ github.sha }}" -- backend/compile; then
+            echo "build=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "build=true" >> "$GITHUB_OUTPUT"
+          fi
+      - if: steps.changed.outputs.build == 'true'
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: projects/689415686498/locations/global/workloadIdentityPools/bharat-github/providers/backend
+          service_account: bharat-sourcer-deploy@hackathon-510415.iam.gserviceaccount.com
+      - if: steps.changed.outputs.build == 'true'
+        uses: google-github-actions/setup-gcloud@v3
+      - name: Build, push and update the job image
+        if: steps.changed.outputs.build == 'true'
+        run: |
+          gcloud auth configure-docker asia-south1-docker.pkg.dev --quiet
+          docker build --build-arg FAMILY=${{ matrix.family }} --tag "$IMAGE:$GITHUB_SHA" backend/compile
+          docker push "$IMAGE:$GITHUB_SHA"
+          gcloud run jobs update "$JOB" --project "$GCP_PROJECT" --region "$REGION" \
+            --image "$IMAGE:$GITHUB_SHA" --quiet
