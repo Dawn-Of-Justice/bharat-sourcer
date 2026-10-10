@@ -4,7 +4,7 @@ export function sellerName(offer: ReportOffer): string {
   return offer.seller_name?.trim() || offer.seller
 }
 
-export function SellerIdentity({ offer }: { offer: ReportOffer }) {
+export function SellerIdentity({ offer, compact = false }: { offer: ReportOffer; compact?: boolean }) {
   const trust = offer.trust
   const displayName = sellerName(offer)
   const domain = offer.seller_domain?.trim() || offer.seller
@@ -23,23 +23,26 @@ export function SellerIdentity({ offer }: { offer: ReportOffer }) {
     <div className="seller-identity">
       <div className="trust-badges">
         <strong>{displayName}</strong>
-        {trust ? (
-          <>
-            {trust.label === 'established' && <span className="trust-badge trust-established">Established seller</span>}
-            {trust.label === 'verified_basics' && (
-              <span className="trust-badge trust-verified_basics">Verified basics</span>
-            )}
-            {trust.label === 'unverified' && (
-              <span className="trust-badge trust-unverified">Unverified seller — check before paying</span>
-            )}
-            {trust.new_seller && <span className="trust-badge trust-new">New seller</span>}
-            {trust.signals?.price_anomaly && (
-              <span className="trust-badge trust-cheap">Unusually cheap — check seller</span>
-            )}
-          </>
-        ) : (
-          <span className="trust-badge trust-none">Trust not checked</span>
-        )}
+        {!compact &&
+          (trust ? (
+            <>
+              {trust.label === 'established' && (
+                <span className="trust-badge trust-established">Established seller</span>
+              )}
+              {trust.label === 'verified_basics' && (
+                <span className="trust-badge trust-verified_basics">Verified basics</span>
+              )}
+              {trust.label === 'unverified' && (
+                <span className="trust-badge trust-unverified">Unverified seller — check before paying</span>
+              )}
+              {trust.new_seller && <span className="trust-badge trust-new">New seller</span>}
+              {trust.signals?.price_anomaly && (
+                <span className="trust-badge trust-cheap">Unusually cheap — check seller</span>
+              )}
+            </>
+          ) : (
+            <span className="trust-badge trust-none">Trust not checked</span>
+          ))}
       </div>
       {(displayName !== domain || kind) && (
         <small className="trust-hint">
@@ -47,10 +50,10 @@ export function SellerIdentity({ offer }: { offer: ReportOffer }) {
           {domain}
         </small>
       )}
-      {trust?.label === 'unverified' && (
+      {!compact && trust?.label === 'unverified' && (
         <small className="trust-hint">Check the seller before paying; prefer cash on delivery.</small>
       )}
-      {trust && (
+      {!compact && trust && (
         <details className="trust-why">
           <summary>Why this trust label?</summary>
           <ul>

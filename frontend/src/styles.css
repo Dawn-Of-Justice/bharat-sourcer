@@ -6214,6 +6214,50 @@ button.pp-row-summary {
   gap: 8px;
   padding-bottom: 6px;
 }
+.pp-part .build-details-heading {
+  margin: 0;
+  padding: 14px;
+  color: #245d51;
+  font-size: 14px;
+}
+.pp-part .build-details-content {
+  padding: 0 14px 14px;
+}
+.pp-part .build-details-help {
+  font-size: 12px;
+  line-height: 1.5;
+}
+.pp-part .requirement-row {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 14px;
+  padding-top: 14px;
+}
+.pp-part .requirement-row label,
+.pp-part .requirement-row input,
+.pp-part .requirement-row select {
+  min-width: 0;
+  width: 100%;
+}
+.pp-part .remove-requirement {
+  justify-self: start;
+}
+.pp-part .requirement-origin {
+  grid-column: 1 / -1;
+}
+.pp-research-match,
+.pp-pick-reasons {
+  margin-bottom: 16px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.pp-research-match p {
+  margin: 4px 0 8px;
+  color: var(--pp-muted);
+}
+.pp-pick-reasons ul {
+  padding-left: 18px;
+}
 .pp-part-price {
   display: flex;
   align-items: baseline;
