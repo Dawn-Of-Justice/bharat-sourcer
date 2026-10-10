@@ -74,6 +74,30 @@ python -m ruff check .
 python -m ruff format --check .
 python -m pytest
 python scripts/export_openapi.py --check
+python -m mypy
+```
+
+Frontend (from `frontend/`):
+
+```bash
+npm run lint
+npm run format:check
+npm run build
+npm run test:server && npm run test:preview && npm run test:integration
+```
+
+Run all hooks automatically on commit with [pre-commit](https://pre-commit.com/)
+(backend venv and frontend `node_modules` must be installed):
+
+```bash
+pre-commit install
+pre-commit run --all-files
+```
+
+To hide the bulk formatting commit from `git blame`:
+
+```bash
+git config blame.ignoreRevsFile .git-blame-ignore-revs
 ```
 
 ## Important notes

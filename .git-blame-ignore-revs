@@ -1,0 +1,5 @@
+# Revisions to skip in `git blame`.
+# Enable locally with: git config blame.ignoreRevsFile .git-blame-ignore-revs
+
+# Add ESLint, Prettier and typecheck to the frontend; format codebase
+d94cb2f2f6cc76330adb1acab817a87521f2efaa

@@ -1,0 +1,48 @@
+# Install: pip install pre-commit (or uvx pre-commit), then `pre-commit install`.
+# The local hooks expect the backend venv and frontend node_modules to be installed.
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: check-yaml
+      - id: check-toml
+      - id: check-json
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        args: [--maxkb=1024]
+      - id: detect-private-key
+      # end-of-file-fixer and trailing-whitespace are omitted on purpose: they would
+      # rewrite captured seller-page fixtures and docs that must stay byte-for-byte.
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.16.10
+    hooks:
+      - id: ruff-check
+        args: [--fix]
+        files: ^backend/
+      - id: ruff-format
+        files: ^backend/
+
+  - repo: local
+    hooks:
+      - id: mypy
+        name: mypy (backend)
+        language: system
+        # Prefer the backend venv (Windows or POSIX layout), else python on PATH.
+        entry: >-
+          bash -c 'cd backend && for py in .venv/Scripts/python .venv/bin/python python;
+          do if command -v "$py" >/dev/null 2>&1; then exec "$py" -m mypy; fi; done'
+        pass_filenames: false
+        files: ^backend/src/
+      - id: eslint
+        name: eslint (frontend)
+        language: system
+        entry: bash -c 'cd frontend && npm run lint'
+        pass_filenames: false
+        files: ^frontend/
+      - id: prettier
+        name: prettier --check (frontend)
+        language: system
+        entry: bash -c 'cd frontend && npm run format:check'
+        pass_filenames: false
+        files: ^frontend/
