@@ -92,10 +92,21 @@ fetcher still re-checks robots.txt (strict RFC 9309 parser) before every request
 | probots.co.in | Magento | `/catalogsearch/result/?q=…` | **No** (`/catalogsearch/result/`, `/search/`, `/*?*`) | Disabled; adapter tested on synthetic HTML |
 | electronicscomp.com (`www.`) | OpenCart | `index.php?route=product/search&search=…` (generic template) | **No** (`/*?route=product/search`) | Disabled |
 | flyrobo.in (`www.`) | OpenCart | same (generic template) | **No** (`/*?route=product/search`, `/*?keyword`) | Disabled |
-| robu.in | custom | none | n/a | **Blocked by bot protection**: home page answers HTTP 403 with a Cloudflare "Just a moment..." challenge (`cf-mitigated: challenge`). Recorded as `access: blocked_by_bot_protection`; not circumvented |
+| robu.in | custom (headless) | GraphQL proxy `/api/proxy/graphql/?query={ productSearch(search: …) … }` | Yes (`Disallow: /api/` but `Allow: /api/proxy/graphql` for `*`, checked 2026-10-10) | Enabled (v0.31.0). HTML pages answer a Cloudflare challenge, so they are never requested: product URLs are read through `productdetails(slug:)` (see below). `/api/search/` is disallowed and not used |
 | thingbits.in | custom | none | not reviewed | Disabled |
 
 Product pages of disabled sellers are still verified when grounded discovery returns them.
+
+robu.in (`sourcing/robu.py`): its pages answer a Cloudflare challenge, and one challenge
+blocks the host for the cooldown, so `SafeFetcher` never requests a robu.in URL outside
+`/api/proxy/graphql/` and `/robots.txt`; it raises `ApiRoute` instead, including when a
+search redirect lands on robu.in. `PoliteFetcher` reads `https://robu.in/product/<slug>/`
+through `productdetails(slug:)` and renders one Product JSON-LD block (name, SKU, images,
+INR `price.final` and availability from `in_stock`/`is_backorder`) plus the seller's
+description, so the normal verifier and judge read it. Only `simple` products get an offer;
+configurable products' headline price is not one. "Product not found." becomes a soft 404,
+a different `url_key` is rejected, and other robu.in pages are not read. Such offers carry
+`verification: seller_product_api`.
 The Shopify `/search?…&view=json` and `/products.json` paging fallbacks are not used:
 `suggest.json` works on all three Shopify stores.
 

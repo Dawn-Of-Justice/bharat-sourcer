@@ -760,6 +760,8 @@ class VerifiedOffer(Model):
         "woocommerce_store_api",
         # Seller-declared OpenGraph product meta tags or microdata (one INR price).
         "seller_meta_tags",
+        # The seller's own product API (robu.in GraphQL), read where its pages are challenged.
+        "seller_product_api",
     ] = "seller_structured_data"
     seller_trust: Literal["unverified"] = "unverified"
     # Seller-declared only (JSON-LD or fixed page phrases); None means unknown or conflicting.

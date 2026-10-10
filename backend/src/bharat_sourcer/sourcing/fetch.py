@@ -19,6 +19,19 @@ class FetchError(Exception):
     pass
 
 
+# Sellers whose pages answer bot challenges while robots.txt allows a product API. Their pages
+# are never requested, since one challenge blocks the whole host; only these path prefixes are.
+API_ONLY = {"robu.in": ("/api/proxy/graphql/", "/robots.txt")}
+
+
+class ApiRoute(FetchError):
+    """The URL (possibly reached by a redirect) belongs to a seller read through its API."""
+
+    def __init__(self, url: str):
+        super().__init__("Seller pages are read through its product API")
+        self.url = url
+
+
 def public_addresses(host: str) -> list[str]:
     try:
         addresses = list(
@@ -192,6 +205,9 @@ class SafeFetcher:
     def get(self, url: str, *, robots: bool = True, max_bytes: int = 2_000_000) -> Page:
         for _ in range(6):
             host, path = validate_url(url)
+            allowed = API_ONLY.get(host.removeprefix("www."))
+            if allowed is not None and not path.startswith(allowed):
+                raise ApiRoute(url)
             grounding_redirect = host == "vertexaisearch.cloud.google.com" and path.startswith(
                 "/grounding-api-redirect/"
             )

@@ -502,7 +502,10 @@ def extract_product(page: Page) -> ExtractedProduct | None:
             options.append(option)
     if not options:
         return None
-    return ExtractedProduct(page, product, title, options, parser.meta_images)
+    extracted = ExtractedProduct(page, product, title, options, parser.meta_images)
+    # Pages rendered from a seller's product API (robu.py) say so in the offer.
+    extracted.verification = getattr(page, "verification", extracted.verification)
+    return extracted
 
 
 def verify_page(page: Page, query: str | None = None, *, seller=None) -> VerifiedOffer | None:

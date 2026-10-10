@@ -3,7 +3,7 @@
   "info": {
     "title": "Bharat Sourcer API",
     "description": "Demo or live YouTube and project-page extraction with optional Firestore job persistence.",
-    "version": "0.30.3"
+    "version": "0.31.0"
   },
   "paths": {
     "/v1/session/guest": {
@@ -11156,7 +11156,8 @@
               "seller_structured_data",
               "shopify_storefront_json",
               "woocommerce_store_api",
-              "seller_meta_tags"
+              "seller_meta_tags",
+              "seller_product_api"
             ],
             "title": "Verification",
             "default": "seller_structured_data"
