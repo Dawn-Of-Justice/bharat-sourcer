@@ -194,10 +194,6 @@ def normalize(text: str) -> list[str]:
     return re.findall(r"[a-z0-9]+(?:\.[0-9]+)?", text)
 
 
-def compact(text: str) -> str:
-    return "".join(normalize(text))
-
-
 @dataclass(frozen=True)
 class Hit:
     entry: CatalogEntry

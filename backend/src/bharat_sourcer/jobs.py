@@ -261,9 +261,6 @@ class JobService:
         except ValueError as exc:
             raise JobError(404, "JOB_NOT_FOUND", "Job not found or token invalid") from exc
 
-    def extract_demo(self, job_id: str) -> None:
-        self.extract(job_id)
-
     def extract(self, job_id: str) -> None:
         run_id = str(uuid4())
 

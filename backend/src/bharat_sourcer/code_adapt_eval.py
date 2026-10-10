@@ -42,7 +42,6 @@ from bharat_sourcer.code_evidence import MAX_LINES, safe_path, uncommented
 from bharat_sourcer.evaluation import DATE_PATTERN, LabelStatus
 
 Expect = Literal["patch", "refused", "no_code_change"]
-EXPECTS: tuple[str, ...] = ("patch", "refused", "no_code_change")
 MIN_CASES_PER_EDGE = 3
 # Gated rates, in report order. A rate with no basis (n/a) does not fail a threshold.
 RATES: tuple[str, ...] = (

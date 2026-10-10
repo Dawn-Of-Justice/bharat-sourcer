@@ -534,15 +534,6 @@ def merge(per_seller: list[list[Candidate]], budget: int) -> list[Candidate]:
     return merged[: max(0, budget)]
 
 
-def search_sellers(
-    queries: list[str],
-    limit_per_seller: int = 5,
-    total_budget: int = 12,
-    searcher: SellerSearch | None = None,
-) -> SearchResult:
-    return (searcher or SellerSearch()).search(queries, limit_per_seller, total_budget)
-
-
 def from_settings(settings, cache=None) -> SellerSearch | None:
     """Build the shared searcher from `BS_SELLER_*` settings; None when disabled.
 

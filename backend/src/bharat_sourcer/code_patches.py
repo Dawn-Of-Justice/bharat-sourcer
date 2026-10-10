@@ -11,7 +11,6 @@ Patches are never compiled or run here.
 import hashlib
 import io
 import json
-import logging
 import re
 import zipfile
 from datetime import UTC, datetime
@@ -23,8 +22,6 @@ from bharat_sourcer.jobs import JobError
 from bharat_sourcer.schemas import CodePatch, CodePatchFile, CodePatchRequest, Job, ReportLine
 from bharat_sourcer.sourcing.fetch import FetchError
 from bharat_sourcer.usage import JobLedger, attribute, paid_allowed
-
-log = logging.getLogger(__name__)
 
 RAW_HOST = "raw.githubusercontent.com"
 CODE_FILE_BYTES = 200_000

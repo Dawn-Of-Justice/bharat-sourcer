@@ -75,14 +75,6 @@ def values(text: str) -> dict[str, set[float]]:
     return result
 
 
-def pack_size(text: str) -> int | None:
-    match = re.search(
-        r"(?i)\b(?:pack|set|lot|bag)\s+of\s+(\d+)|\b(\d+)\s*(?:pcs?|pieces?|units?)\b|\bx\s*(\d+)\b",
-        text,
-    )
-    return next(int(v) for v in match.groups() if v) if match else None
-
-
 def _tokens(text: str) -> set[str]:
     text = normalise_text(_text(text))
     for measure in find_measures(text, resistor_context=True):

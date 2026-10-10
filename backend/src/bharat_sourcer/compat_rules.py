@@ -70,14 +70,6 @@ def side_from_entry(entry: CatalogEntry, source: str = "catalog") -> Side:
     return side
 
 
-def side_from_facts(source: str = "test", entry: CatalogEntry | None = None, **values) -> Side:
-    """Build a side from explicit facts (tests and seller data); entry facts fill gaps."""
-    side = side_from_entry(entry) if entry else Side()
-    for name, value in values.items():
-        side.set(name, value, source)
-    return side
-
-
 @dataclass
 class Context:
     """Project facts: the controller the part connects to, rails and stated needs."""
