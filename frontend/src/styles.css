@@ -85,11 +85,29 @@ svg {
   letter-spacing: -1.1px;
 }
 .brand-mark {
-  width: 42px;
-  height: 42px;
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+}
+.brand-wordmark {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  font-size: 22px;
+  line-height: 1.15;
+  letter-spacing: -0.8px;
 }
 .brand-light {
-  color: #328078;
+  color: #207c70;
+  font-size: inherit;
+  font-weight: 650;
+  letter-spacing: inherit;
+}
+@media (max-width: 600px) {
+  .brand-wordmark {
+    font-size: 18px;
+    gap: 3px;
+  }
 }
 .header-nav {
   display: flex;
@@ -216,7 +234,7 @@ svg {
   margin: 0;
   color: #536669;
   font-size: 19px;
-  font-style: italic;
+  font-style: normal;
   line-height: 1.58;
 }
 .source-support {
@@ -281,7 +299,7 @@ svg {
 }
 .source-options {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 4px;
   margin-bottom: 18px;
   padding: 4px;
@@ -320,6 +338,16 @@ svg {
 }
 .source-option > span {
   font-size: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+.source-option > span svg {
+  width: 16px;
+  height: 16px;
 }
 .source-form > label {
   display: block;
@@ -2023,7 +2051,13 @@ svg {
     border-radius: 14px;
   }
   .source-options {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .source-option {
+    flex-direction: column;
+    gap: 5px;
+    min-height: 58px;
+    font-size: 11px;
   }
   .source-form > label {
     font-size: 13px;

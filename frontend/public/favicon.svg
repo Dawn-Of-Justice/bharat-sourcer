@@ -1,5 +1,15 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <rect width="64" height="64" rx="17" fill="#0d2630"/>
-  <path d="M19 17h18c8 0 12 4 12 10 0 4-2 7-6 9 5 2 7 5 7 10 0 7-5 11-14 11H19V17Zm10 9v8h7c3 0 5-2 5-4s-2-4-5-4h-7Zm0 16v7h8c3 0 5-1 5-4 0-2-2-3-5-3h-8Z" fill="#f6f4ed" transform="translate(0 -5)"/>
-  <circle cx="51" cy="15" r="6" fill="#f0a447"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <g stroke="#207C70" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M17 10V54H38L49 45V38L40 31H17M17 10H36L46 18V24L37 31"/>
+  </g>
+  <g stroke="#207C70" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M17 20H8M17 43H8M29 10V5M31 54V59M46 21H56M49 42H57"/>
+    <path d="M26 23H33L37 20M26 39H33L39 44"/>
+  </g>
+  <g fill="#F8F7F2" stroke="#207C70" stroke-width="2.5">
+    <circle cx="8" cy="20" r="2.5"/><circle cx="8" cy="43" r="2.5"/>
+    <circle cx="56" cy="21" r="2.5"/><circle cx="57" cy="42" r="2.5"/>
+  </g>
+  <circle cx="17" cy="10" r="4" fill="#D98A3A"/>
+  <circle cx="39" cy="44" r="3" fill="#D98A3A"/>
 </svg>

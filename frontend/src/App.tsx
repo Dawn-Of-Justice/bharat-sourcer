@@ -1,9 +1,18 @@
 import Results from './Results'
+import YoutubeJourney from './YoutubeJourney'
 import SharedReport from './SharedReport'
 import { watchJob } from './stream'
 import { useAccount, Projects } from './Account'
 import { useEffect, useLayoutEffect, useRef, useState, type FormEvent } from 'react'
-import { BagIcon, ChecklistIcon, CompatibilityIcon, EvidenceIcon, LinkIcon, StoreIcon } from './LandingIcons'
+import {
+  BagIcon,
+  ChecklistIcon,
+  CompatibilityIcon,
+  DocumentIcon,
+  EvidenceIcon,
+  LinkIcon,
+  StoreIcon,
+} from './LandingIcons'
 import {
   ApiError,
   claimProject,
@@ -25,16 +34,7 @@ import SpecPanel, { specPayload, validSpec } from './SpecPanel'
 import { ConfidenceChip, ConflictNotes, EvidenceList, LookalikeNotes, SourcesCard } from './ReviewDetails'
 
 function BrandMark() {
-  return (
-    <svg className="brand-mark" viewBox="0 0 42 42" fill="none" aria-hidden="true">
-      <rect width="42" height="42" rx="13" fill="currentColor" />
-      <path
-        d="M12 10h13c6 0 9 3 9 7 0 3-2 5-4 6 3 1 5 3 5 6 0 5-4 8-10 8H12V10Zm8 7v5h5c2 0 3-1 3-3 0-1-1-2-3-2h-5Zm0 11v4h5c2 0 3-1 3-2 0-2-1-2-3-2h-5Z"
-        fill="#FAF7EE"
-      />
-      <circle cx="33" cy="9" r="5" fill="#F0AA51" />
-    </svg>
-  )
+  return <img className="brand-mark" src="/brand-mark.svg" width="44" height="44" alt="" />
 }
 
 function ArrowIcon({ diagonal = false }: { diagonal?: boolean }) {
@@ -76,8 +76,9 @@ function Header({ onHome, isHome, onProjects }: { onHome: () => void; isHome: bo
           aria-label="Bharat Sourcer home"
         >
           <BrandMark />
-          <span>
-            Bharat<span className="brand-light">Sourcer</span>
+          <span className="brand-wordmark">
+            <span>Bharat</span>
+            <span className="brand-light">Sourcer</span>
           </span>
         </a>
         {isHome ? (
@@ -106,217 +107,19 @@ function Header({ onHome, isHome, onProjects }: { onHome: () => void; isHome: bo
 type LinkSource = 'youtube' | 'article' | 'github'
 type SourceType = LinkSource | 'document'
 
-const previewCopy: Record<
-  SourceType,
-  {
-    label: string
-    symbol: string
-    caption: string
-    firstStep: string
-    firstDetail: string
-    footnote: string
-    accessibleLabel: string
-  }
-> = {
-  youtube: {
-    label: 'YouTube',
-    symbol: '▶',
-    caption: 'A project you want to make',
-    firstStep: 'Parts found in the video',
-    firstDetail: 'With moments you can revisit',
-    footnote: 'Illustration of the workflow · No sample prices or grades',
-    accessibleLabel: 'A YouTube project becomes a reviewable parts list and Indian seller options',
-  },
-  article: {
-    label: 'Article / blog',
-    symbol: '▤',
-    caption: 'A guide worth building from',
-    firstStep: 'Parts mentioned in the guide',
-    firstDetail: 'Review each part before sourcing',
-    footnote: 'Instructables, Adafruit Learn & maker blogs · Each part cites a quote from the guide',
-    accessibleLabel:
-      'Turning an Instructables project, Adafruit Learn guide or maker blog post into a reviewable parts list, with each part citing a quote from the guide.',
-  },
-  github: {
-    label: 'GitHub',
-    symbol: '</>',
-    caption: 'An open-source build idea',
-    firstStep: 'Parts noted in project files',
-    firstDetail: 'Check the list against the repository',
-    footnote: 'Reads the README and code files · Each part cites a quote or code line',
-    accessibleLabel:
-      'Turning a GitHub repository README into a reviewable parts list, with each part citing a quote from the README.',
-  },
-  document: {
-    label: 'Document',
-    symbol: '▤',
-    caption: 'A project guide or build notes',
-    firstStep: 'Parts from your document',
-    firstDetail: 'Review what the document says',
-    footnote: 'Preview concept · Document upload is not available yet',
-    accessibleLabel:
-      'Preview concept for turning a PDF or Word project document into a reviewable parts list. Document upload is not yet available.',
-  },
-}
-
 function HeroIllustration({ source }: { source: SourceType }) {
-  const preview = previewCopy[source]
-  return (
-    <div className="hero-visual" role="img" aria-label={preview.accessibleLabel}>
-      <div className="orbit orbit-one" aria-hidden="true" />
-      <div className="orbit orbit-two" aria-hidden="true" />
-      <div className="preview-card">
-        <div className="preview-heading">
-          <span className="preview-label">
-            <span className="preview-dot" /> THE JOURNEY
-          </span>
-          <span className="preview-counter">01 / 03</span>
-        </div>
-        <div className="video-tile">
-          <div className={`video-art source-art-${source}`} key={source} aria-hidden="true">
-            {source === 'youtube' ? (
-              <>
-                <div className="board board-main">
-                  <span />
-                  <span />
-                  <span />
-                  <span />
-                </div>
-                <div className="board board-small">
-                  <span />
-                  <span />
-                </div>
-                <i className="wire wire-one" />
-                <i className="wire wire-two" />
-                <i className="wire wire-three" />
-                <div className="play-button">
-                  <svg viewBox="0 0 16 16" aria-hidden="true">
-                    <path d="m5 3 8 5-8 5V3Z" fill="currentColor" />
-                  </svg>
-                </div>
-              </>
-            ) : source === 'article' ? (
-              <div className="article-sheet">
-                <div className="article-sheet-top">
-                  <span>MAKER JOURNAL</span>
-                  <span>↗</span>
-                </div>
-                <strong>Build something brilliant</strong>
-                <div className="article-rule article-rule-long" />
-                <div className="article-rule" />
-                <div className="article-parts">
-                  <span>IN THE BUILD</span>
-                  <b>Controller · display · sensor</b>
-                </div>
-              </div>
-            ) : source === 'github' ? (
-              <div className="repo-window">
-                <div className="repo-top">
-                  <span className="repo-dots">
-                    <i />
-                    <i />
-                    <i />
-                  </span>
-                  <span>maker / project</span>
-                  <span>⌄</span>
-                </div>
-                <div className="repo-file">
-                  <span>▤</span> README.md <small>main</small>
-                </div>
-                <div className="repo-code">
-                  <div>
-                    <span>01</span>
-                    <b># Build notes</b>
-                  </div>
-                  <div>
-                    <span>02</span>
-                    <em>parts:</em> controller, display
-                  </div>
-                  <div>
-                    <span>03</span>
-                    <em>power:</em> USB cable
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className="document-stage">
-                <div className="document-sheet">
-                  <span className="document-fold" />
-                  <span className="document-type">
-                    PROJECT GUIDE <b>PDF</b>
-                  </span>
-                  <span className="document-title-line" />
-                  <span className="document-rule document-rule-long" />
-                  <span className="document-rule" />
-                  <span className="document-rule document-rule-short" />
-                  <span className="document-part">PARTS &amp; MATERIALS</span>
-                  <span className="document-rule document-rule-long" />
-                </div>
-                <span className="document-file-chip">PDF · DOC · DOCX</span>
-              </div>
-            )}
-          </div>
-          <div className="video-caption">
-            <span className={`source-pill source-pill-${source}`}>
-              {preview.symbol} {preview.label}
-            </span>
-            <strong>{preview.caption}</strong>
-          </div>
-        </div>
-        <div className="flow-line" aria-hidden="true">
-          <span />
-        </div>
-        <div className="preview-steps">
-          <div className="preview-step">
-            <span className="step-icon step-icon-one">01</span>
-            <span>
-              <strong>{preview.firstStep}</strong>
-              <small>{preview.firstDetail}</small>
-            </span>
-            <span className="step-check">✓</span>
-          </div>
-          <div className="preview-step">
-            <span className="step-icon step-icon-two">02</span>
-            <span>
-              <strong>You review the list</strong>
-              <small>Fix anything before sourcing</small>
-            </span>
-            <span className="step-check">✓</span>
-          </div>
-          <div className="preview-step current">
-            <span className="step-icon step-icon-three">03</span>
-            <span>
-              <strong>India-ready options</strong>
-              <small>Seller links & compatibility notes</small>
-            </span>
-            <span className="step-spark" aria-hidden="true">
-              ✦
-            </span>
-          </div>
-        </div>
-        <div className="preview-footnote">{preview.footnote}</div>
-      </div>
-      <div className="floating-chip chip-top">
-        <span>⌁</span> From inspiration
-      </div>
-      <div className="floating-chip chip-bottom">
-        <span>✳</span> To a buildable plan
-      </div>
-    </div>
-  )
+  return <YoutubeJourney key={source} source={source === 'github' ? 'article' : source} />
 }
-
 const sourceOptions: { id: SourceType; label: string; symbol: string }[] = [
   { id: 'youtube', label: 'YouTube', symbol: '▶' },
-  { id: 'article', label: 'Article / blog', symbol: '▤' },
-  { id: 'github', label: 'GitHub', symbol: '</>' },
+  { id: 'article', label: 'Project links', symbol: '▤' },
   { id: 'document', label: 'Document', symbol: '▤' },
 ]
 
 const sourceFields: Record<LinkSource, { label: string; placeholder: string }> = {
   youtube: { label: 'Paste a YouTube project link', placeholder: 'https://www.youtube.com/watch?v=...' },
   article: {
-    label: 'Paste an Instructables, Adafruit Learn or maker blog link',
+    label: 'Paste an article, maker blog or GitHub project link',
     placeholder: 'https://learn.adafruit.com/your-guide',
   },
   github: { label: 'Paste a GitHub repository link', placeholder: 'https://github.com/creator/project' },
@@ -398,11 +201,11 @@ function Landing({ onCreated }: { onCreated: (id: string) => void }) {
       setError('Enter a full project URL, starting with https://.')
       return
     }
-    if (source === 'article' && linkKind(parsed) !== 'article') {
+    if (source === 'article' && !['article', 'github'].includes(linkKind(parsed) ?? '')) {
       setError(
         linkKind(parsed) === 'hackster'
           ? hacksterMessage
-          : 'Article links can be Instructables projects, Adafruit Learn guides or a supported maker blog (listed below the field).',
+          : 'Use a GitHub repository, Instructables project, Adafruit Learn guide or a supported maker blog (listed below the field).',
       )
       return
     }
@@ -458,18 +261,20 @@ function Landing({ onCreated }: { onCreated: (id: string) => void }) {
         <div className="container hero-layout">
           <div className="hero-copy">
             <div className="eyebrow">
-              <span className="eyebrow-line" /> BUILT FOR MAKERS IN INDIA
+              <span className="eyebrow-line" /> YOUR DIY PROJECT ASSISTANT
             </div>
             <h1 className="hero-headline">
-              Found your next project? <span>Source it. Plan it. Build it.</span>
+              Found a project you want to build? <span>Can’t find the parts?</span>
             </h1>
             <p className="hero-description">
-              Saved a project you want to make? Get a practical parts list, Indian seller options, and clear notes on
-              what to change.
+              Paste a YouTube, blog, or GitHub link, and we’ll help you work out what you need, explore alternatives,
+              and find Indian sellers.
             </p>
-            <p className="source-support">This works for projects found in videos, blogs, or elsewhere.</p>
+            <p className="source-support">
+              Ask questions, adapt the project to parts you already have, and save your plan for later.
+            </p>
             <div className="input-callout" aria-hidden="true" ref={calloutRef}>
-              <span>Your build starts here</span>
+              <span>Start with your project link</span>
               <svg
                 className={arrowPosition ? 'tab-arrow is-ready' : 'tab-arrow'}
                 style={arrowPosition ?? undefined}
@@ -521,7 +326,15 @@ function Landing({ onCreated }: { onCreated: (id: string) => void }) {
                     aria-pressed={source === option.id}
                     onClick={() => chooseSource(option.id)}
                   >
-                    <span aria-hidden="true">{option.symbol}</span>
+                    <span aria-hidden="true">
+                      {option.id === 'article' ? (
+                        <LinkIcon />
+                      ) : option.id === 'document' ? (
+                        <DocumentIcon />
+                      ) : (
+                        option.symbol
+                      )}
+                    </span>
                     {option.label}
                   </button>
                 ))}
@@ -547,7 +360,7 @@ function Landing({ onCreated }: { onCreated: (id: string) => void }) {
                           <path d="m10 9 6 3-6 3V9Z" fill="#fff" />
                         </svg>
                       ) : source === 'article' ? (
-                        '▤'
+                        <LinkIcon />
                       ) : (
                         '</>'
                       )}
@@ -566,9 +379,9 @@ function Landing({ onCreated }: { onCreated: (id: string) => void }) {
                   </div>
                   {source === 'article' ? (
                     <p className="source-note">
-                      We read Instructables projects, Adafruit Learn guides and these maker blogs:{' '}
-                      {blogHosts.join(', ')}. Each part cites a quote from the page; review the list before sourcing.
-                      Hackster pages cannot be read yet.
+                      GitHub repositories, Instructables projects, Adafruit Learn guides and these maker blogs:{' '}
+                      {blogHosts.join(', ')}. Parts cite source text or code; review the list before sourcing. Hackster
+                      pages cannot be read yet.
                     </p>
                   ) : source === 'github' ? (
                     <p className="source-note">
@@ -640,10 +453,6 @@ function Landing({ onCreated }: { onCreated: (id: string) => void }) {
                 </p>
               ) : null}
             </form>
-            <div className="hero-reassurance">
-              <span className="reassurance-check">✓</span> Review the parts before any seller search begins{' '}
-              <span className="reassurance-separator">·</span> Sign in to keep track of your projects
-            </div>
           </div>
           <HeroIllustration source={source} />
         </div>

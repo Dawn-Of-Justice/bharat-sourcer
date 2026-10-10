@@ -9,8 +9,11 @@ interface WatchJobOptions {
   onError: (message: string, status?: number) => void
 }
 
-// Firebase Hosting (bharatsource.web.app) buffers responses until they end, so a stream that
-// sends nothing for this long is being buffered: the rest of the visit polls instead.
+// Known Firebase Hosting origins cannot deliver this stream incrementally.
+// Poll immediately there; retain stream detection for other proxies and direct Cloud Run.
+export function usesBufferedHosting(hostname: string): boolean {
+  return hostname === 'bharatsource.web.app' || hostname === 'bharatsource.firebaseapp.com'
+}
 const FIRST_BYTE_MS = 10000
 const POLL_MS = 3000
 let buffered = false
@@ -102,6 +105,7 @@ async function pollJob({ jobId, token, signal, onSnapshot, onError }: WatchJobOp
 
 // The backend sends complete saved jobs. A new connection always starts with a fresh snapshot.
 export async function watchJob(options: WatchJobOptions): Promise<void> {
+  if (usesBufferedHosting(window.location.hostname)) return pollJob(options)
   const { jobId, token, signal, onSnapshot, onError } = options
   const url = `/api/v1/jobs/${encodeURIComponent(jobId)}/stream`
   let backoff = 1000

@@ -71,8 +71,10 @@ gcloud run services update bharat-sourcer-web --project=hackathon-510415 --regio
 `https://bharatsource.web.app` is a Firebase Hosting site (`firebase.json`) that sends every
 request to the `bharat-sourcer-web` Cloud Run service; `hosting/` is intentionally empty. The
 Cloud Run URL keeps working. Firebase Hosting buffers responses and cuts them off after 60
-seconds, so live updates fall back to polling the job every 3 seconds when the stream sends
-nothing for 10 seconds (`src/stream.ts`). It forwards only a cookie named `__session`, which
+seconds, so `bharatsource.web.app` and `bharatsource.firebaseapp.com` immediately fetch the job
+and poll every 3 seconds (`src/stream.ts`). They skip the old 10-second stream probe on each
+fresh page load. Direct Cloud Run keeps streaming, with timeout-based polling fallback for
+unrecognized buffering proxies. It forwards only a cookie named `__session`, which
 is the backend's guest cookie name. The address is in Firebase Auth's authorized domains and
 the backend's `BS_CORS_ORIGINS`. Redeploy the config with
 `npx firebase-tools deploy --only hosting` from `frontend/`; app changes need only the Cloud

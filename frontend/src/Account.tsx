@@ -4,15 +4,12 @@ import {
   getAccountSettings,
   getCountries,
   saveAccountSettings,
-  getUsage,
   getSession,
-  startGuest,
   logoutSession,
   listProjects,
   claimProject,
   type Session,
   type Project,
-  type UsageWindow,
 } from './api'
 import { auth, firebaseLogout, googleLogin, localPreview } from './auth'
 import ProjectCard from './ProjectCard'
@@ -29,12 +26,6 @@ const AccountContext = createContext<{
 }>({ identity: null, ready: false, revision: 0, country: 'IN', requireIdentity: () => false, open: () => {} })
 export const useAccount = () => useContext(AccountContext)
 
-function resetTime(window: UsageWindow) {
-  return window.resets_at
-    ? new Date(window.resets_at * 1000).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })
-    : 'the next reset'
-}
-
 export function AccountProvider({ children }: { children: ReactNode }) {
   const [identity, setIdentity] = useState<Identity>(null)
   const [ready, setReady] = useState(false)
@@ -47,7 +38,6 @@ export function AccountProvider({ children }: { children: ReactNode }) {
   const [guestCaptureError, setGuestCaptureError] = useState('')
   const [captureAttempt, setCaptureAttempt] = useState(0)
   const [revision, setRevision] = useState(0)
-  const [usage, setUsage] = useState<Awaited<ReturnType<typeof getUsage>> | null>(null)
   // Delivery country: saved on the account by the backend, which also lists the supported countries.
   const [country, setCountry] = useState('IN')
   const [countryOptions, setCountryOptions] = useState<CountryOption[]>(fallbackCountries)
@@ -121,20 +111,6 @@ export function AccountProvider({ children }: { children: ReactNode }) {
   }, [visible, identity, captureAttempt])
   useEffect(() => {
     let active = true
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- resets local state when the effect inputs change; restructuring would change render timing
-    setUsage(null)
-    if (visible && identity && identity !== 'legacy')
-      getUsage()
-        .then(value => {
-          if (active) setUsage(value)
-        })
-        .catch(() => {})
-    return () => {
-      active = false
-    }
-  }, [visible, identity, revision])
-  useEffect(() => {
-    let active = true
     getSession()
       .then(value => {
         if (active) setIdentity(value)
@@ -145,10 +121,11 @@ export function AccountProvider({ children }: { children: ReactNode }) {
         else if (!(cause instanceof ApiError && cause.status === 401 && !auth?.currentUser)) {
           setError(
             cause instanceof ApiError && cause.status === 503
-              ? 'The account service is temporarily unavailable. Your project remains saved. Retry the session check.'
-              : 'Your sign-in needs to be checked again. Please retry or sign in.',
+              ? 'The account service is temporarily unavailable. Your project remains saved. Please try signing in again later.'
+              : 'Please sign in with Google to reconnect your account.',
           )
-          setVisible(true)
+          // Session discovery is passive. Keep errors for the account panel,
+          // but let visitors browse without opening a modal on every refresh.
         }
       })
       .finally(() => {
@@ -166,7 +143,7 @@ export function AccountProvider({ children }: { children: ReactNode }) {
       window.removeEventListener('bs-signin-required', recover)
     }
   }, [])
-  async function act(action: 'google' | 'guest' | 'logout' | 'retry') {
+  async function act(action: 'google' | 'logout') {
     if (
       action === 'google' &&
       (checkingGuestProjects ||
@@ -195,11 +172,7 @@ export function AccountProvider({ children }: { children: ReactNode }) {
         setIdentity(null)
         setRevision(n => n + 1)
       }
-      const session = action === 'guest' ? await startGuest() : await getSession()
-      if (action === 'guest') {
-        setGuestProjects([])
-        setGuestCaptureDone(false)
-      }
+      const session = await getSession()
       setIdentity(session)
       setRevision(n => n + 1)
       setVisible(false)
@@ -212,7 +185,7 @@ export function AccountProvider({ children }: { children: ReactNode }) {
         cause instanceof ApiError && cause.code === 'AUTH_DISABLED'
           ? 'Account access is temporarily unavailable. Please retry later.'
           : cause instanceof ApiError && cause.status === 503
-            ? 'The account service is temporarily unavailable. Your project remains saved. Retry the session check.'
+            ? 'The account service is temporarily unavailable. Your project remains saved. Please try signing in again later.'
             : cause instanceof Error
               ? cause.message
               : 'Sign-in failed. Please try again.',
@@ -301,22 +274,6 @@ export function AccountProvider({ children }: { children: ReactNode }) {
               account.
             </p>
           )}
-          {usage && (
-            <div className="usage-summary">
-              <p>
-                New projects: {usage.daily_projects.remaining} of {usage.daily_projects.limit} remaining. Resets{' '}
-                {resetTime(usage.daily_projects)}.
-              </p>
-              <p>
-                Actions today: {usage.daily_actions.remaining} of {usage.daily_actions.limit} remaining. Resets{' '}
-                {resetTime(usage.daily_actions)}.
-              </p>
-              <p>
-                Actions this minute: {usage.minute_actions.remaining} of {usage.minute_actions.limit} remaining. Resets{' '}
-                {resetTime(usage.minute_actions)}. Saved projects remain readable at the limit.
-              </p>
-            </div>
-          )}
           {isAccount && (
             <div className="country-setting">
               <span className="country-label" id="account-country">
@@ -366,11 +323,6 @@ export function AccountProvider({ children }: { children: ReactNode }) {
                     ? 'Switch Google account'
                     : 'Sign in with Google'}
             </button>
-            {(!identity || identity === 'legacy') && (
-              <button className="nav-cta" disabled={busy || !ready} onClick={() => void act('guest')}>
-                Continue as guest
-              </button>
-            )}
             {identity && identity !== 'legacy' && (
               <button className="nav-cta" disabled={busy} onClick={() => void act('logout')}>
                 Logout
@@ -381,14 +333,9 @@ export function AccountProvider({ children }: { children: ReactNode }) {
                 Retry loading guest projects
               </button>
             )}
-            {error && (
-              <button className="nav-cta" disabled={busy} onClick={() => void act('retry')}>
-                Retry session check
-              </button>
-            )}
           </div>
           <p className="account-footnote">
-            Guest access is temporary and has lower usage limits. An account keeps your projects together across visits.
+            Your account keeps your projects, parts lists, and conversations together across visits.
           </p>
         </AccountDialog>
       )}
