@@ -504,18 +504,21 @@ function Landing({ onCreated }: { onCreated: (id: string) => void }) {
               <div className="how-icon video-icon">
                 <LinkIcon />
               </div>
-              <h3>Bring in your project</h3>
-              <p>Start with a YouTube video, blog post, or GitHub repository. Document support is coming soon.</p>
+              <h3>Share a project you want to build</h3>
+              <p>
+                Paste a YouTube, blog, or GitHub link. We’ll help identify the parts you need. Document support is
+                coming soon.
+              </p>
             </article>
             <article className="how-card">
               <span className="how-number">02 / REVIEW</span>
               <div className="how-icon review-icon">
                 <ChecklistIcon />
               </div>
-              <h3>Shape your build plan</h3>
+              <h3>Make the plan your own</h3>
               <p>
-                Check the evidence, adjust parts and quantities, mark what you own, and ask questions before confirming
-                the list.
+                Review the parts list, ask questions, and adapt it to your needs. Change quantities and mark parts you
+                already have before confirming.
               </p>
             </article>
             <article className="how-card">
@@ -523,10 +526,10 @@ function Landing({ onCreated }: { onCreated: (id: string) => void }) {
               <div className="how-icon source-icon">
                 <BagIcon />
               </div>
-              <h3>Explore Indian options</h3>
+              <h3>Find parts from Indian sellers</h3>
               <p>
-                After you confirm, inspect seller listings, prices, and compatibility notes with unknowns left visible
-                for you to verify.
+                Explore seller links, listed prices, and alternatives for your build. See what fits your project and
+                what still needs checking before you buy.
               </p>
             </article>
           </div>
@@ -536,40 +539,44 @@ function Landing({ onCreated }: { onCreated: (id: string) => void }) {
       <section className="trust-section" id="why-it-matters">
         <div className="container trust-layout">
           <div>
-            <span className="section-kicker light-kicker">MADE FOR THE REAL BUILD</span>
+            <span className="section-kicker light-kicker">BEFORE YOU BUY</span>
             <h2>
-              Build with context.
+              Know what you need.
               <br />
-              Not guesswork.
+              Know what to check.
             </h2>
             <p>
-              A useful build plan shows where parts came from, what still needs checking, and how Indian seller options
-              compare. Bharat Sourcer keeps that context visible as you plan.
+              A part can look right and still be wrong for your build. See why it’s on your list, review details that
+              need checking, and explore seller options before ordering.
             </p>
             <a href="#start" className="text-link">
-              Start with a project <ArrowIcon />
+              Plan your build <ArrowIcon />
             </a>
           </div>
           <div className="trust-stack">
             <div className="trust-item">
               <span className="trust-item-index">01</span>
               <div>
-                <strong>Inspect the evidence</strong>
-                <p>See the saved observations behind a part and decide what deserves a closer look.</p>
+                <strong>Understand why each part is needed</strong>
+                <p>
+                  See what the project source tells us about a part, and ask questions about its role in your build.
+                </p>
               </div>
             </div>
             <div className="trust-item">
               <span className="trust-item-index">02</span>
               <div>
-                <strong>See what is still unknown</strong>
-                <p>Compatibility notes separate declared-spec matches from missing details and assumptions.</p>
+                <strong>Check whether it fits your build</strong>
+                <p>
+                  Review compatibility notes, missing specifications, and assumptions that could affect your choice.
+                </p>
               </div>
             </div>
             <div className="trust-item">
               <span className="trust-item-index">03</span>
               <div>
-                <strong>Check the seller's page</strong>
-                <p>Open Indian listings and review seller-reported prices and availability before ordering.</p>
+                <strong>Check the listing before ordering</strong>
+                <p>Open the seller’s page to confirm the exact variant, current price, and availability.</p>
               </div>
             </div>
           </div>
