@@ -9,6 +9,10 @@ from bharat_sourcer.sourcing.textmatch import compact, model_numbers
 class Rung(str):
     """A search string with routing metadata; also serialises as an ordinary string."""
 
+    query: str
+    kind: str
+    part_terms: str
+
     def __new__(cls, query: str, kind: str, part_terms: str):
         obj = super().__new__(cls, query)
         obj.query, obj.kind, obj.part_terms = query, kind, part_terms

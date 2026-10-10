@@ -33,7 +33,8 @@ parser.add_argument("job_json")
 parser.add_argument("--lines", nargs="*", help="only these line ids")
 args = parser.parse_args()
 
-job = Job.model_validate(json.load(open(args.job_json, encoding="utf-8")))
+with open(args.job_json, encoding="utf-8") as handle:
+    job = Job.model_validate(json.load(handle))
 if args.lines:
     job.items = [item for item in job.items if item.line_id in args.lines]
 settings = Settings(demo_mode=False, storage_backend="memory", sourcing_enabled=True)

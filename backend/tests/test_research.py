@@ -441,7 +441,7 @@ def selection_setup(grade=None):
 
 
 def test_research_selection_requires_explicit_review_and_is_invalidated_by_sibling_edit():
-    client, service, job_id, headers = selection_setup()
+    client, _service, job_id, headers = selection_setup()
     path = f"/v1/jobs/{job_id}/selections"
     body = {"selections": [{"line_id": "L01", "offer_url": URL}]}
     assert client.post(path, headers=headers, json=body).status_code == 422

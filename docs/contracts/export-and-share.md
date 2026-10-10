@@ -1,7 +1,6 @@
 # Export and share (M14)
 
-Owners can download a project's BOM as CSV, open a printable HTML report (print to PDF
-from the browser), and create a revocable, read-only share link. Code:
+Owners can download the order plan as a PDF, open a printable HTML report, and create a revocable, read-only share link. Code:
 `backend/src/bharat_sourcer/export.py` (redaction and rendering) and `sharing.py` (routes).
 
 ## Endpoints

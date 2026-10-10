@@ -78,7 +78,7 @@ def test_saved_project_reopens_with_identity_and_never_runs_extraction_again():
 
 
 def test_guest_cookie_security_claim_and_old_guest_access_revoked():
-    client, app = setup()
+    client, _app = setup()
     session = client.post("/v1/session/guest")
     cookie = session.headers["set-cookie"].lower()
     assert all(flag in cookie for flag in ("httponly", "secure", "samesite=lax"))
@@ -125,13 +125,13 @@ def test_legacy_claim_requires_old_token_and_is_atomic():
 
 
 def test_invalid_account_token_never_falls_back_to_valid_guest():
-    client, app = setup()
+    client, _app = setup()
     client.post("/v1/session/guest")
     assert client.get("/v1/session", headers={"Authorization": "Bearer invalid"}).status_code == 401
 
 
 def test_daily_limit_does_not_block_saved_reads_and_cookie_reset_has_ip_limit():
-    client, app = setup(guest_daily_actions=1, ip_daily_actions=1)
+    client, _app = setup(guest_daily_actions=1, ip_daily_actions=1)
     client.post("/v1/session/guest")
     created = create(client)
     assert created.status_code == 202
@@ -143,7 +143,7 @@ def test_daily_limit_does_not_block_saved_reads_and_cookie_reset_has_ip_limit():
 
 
 def test_global_limits_apply_across_accounts_and_atomic_counters():
-    client, app = setup(global_daily_actions=1)
+    client, _app = setup(global_daily_actions=1)
     assert create(client, "alice").status_code == 202
     assert create(client, "bob").status_code == 429
     store = MemoryJobStore()
@@ -153,7 +153,7 @@ def test_global_limits_apply_across_accounts_and_atomic_counters():
 
 
 def test_csrf_header_and_origin_checks():
-    client, app = setup()
+    client, _app = setup()
     client.headers.pop("X-Requested-With")
     assert client.post("/v1/session/guest").status_code == 403
     client.headers["X-Requested-With"] = "BharatSourcer"
@@ -164,7 +164,7 @@ def test_csrf_header_and_origin_checks():
 
 
 def test_guest_confirmation_part_limit_is_atomic():
-    client, app = setup(guest_part_limit=1)
+    client, _app = setup(guest_part_limit=1)
     client.post("/v1/session/guest")
     key = create(client).json()["job_id"]
     assert client.post(f"/v1/jobs/{key}/confirm", json={"edits": []}).status_code == 422
@@ -200,9 +200,11 @@ def test_verifier_checks_issuer_project_provider_and_email():
         {"firebase": {"sign_in_provider": "anonymous"}},
         {"sub": ""},
     ]:
-        with patch("google.oauth2.id_token.verify_firebase_token", return_value=valid | change):
-            with pytest.raises(ValueError):
-                verifier.verify("fixture-token")
+        with (
+            patch("google.oauth2.id_token.verify_firebase_token", return_value=valid | change),
+            pytest.raises(ValueError),
+        ):
+            verifier.verify("fixture-token")
 
 
 def test_pagination_is_owner_scoped_and_cursor_validated():
@@ -222,7 +224,7 @@ def test_pagination_is_owner_scoped_and_cursor_validated():
 
 
 def test_proxy_ip_requires_trusted_integration_and_cannot_be_arbitrary_text():
-    client, app = setup(trusted_proxy_ip_header=True, integration_key="fixture-key")
+    client, _app = setup(trusted_proxy_ip_header=True, integration_key="fixture-key")
     client.headers["X-Integration-Key"] = "fixture-key"
     assert client.post("/v1/session/guest").status_code == 400
     assert (
@@ -264,7 +266,7 @@ def test_usage_storage_outage_fails_closed_before_job_creation():
 
 
 def test_pause_and_saved_reads_remain_available_after_quota_exhaustion():
-    client, app = setup(account_daily_actions=1)
+    client, _app = setup(account_daily_actions=1)
     key = create(client, "alice").json()["job_id"]
     headers = {"Authorization": "Bearer alice"}
     assert client.post(f"/v1/jobs/{key}/confirm", headers=headers, json={}).status_code == 429
@@ -285,7 +287,7 @@ def test_expired_principal_cannot_continue_reading_saved_project():
 
 
 def test_usage_is_private_read_only_and_resets_at_utc_boundary():
-    client, app = setup(account_daily_actions=2)
+    client, _app = setup(account_daily_actions=2)
     headers = {"Authorization": "Bearer alice"}
     moment = 1750000020
     with patch("time.time", return_value=moment):
@@ -304,7 +306,7 @@ def test_usage_is_private_read_only_and_resets_at_utc_boundary():
 
 
 def test_daily_quota_retry_after_waits_until_midnight():
-    client, app = setup(account_daily_actions=1)
+    client, _app = setup(account_daily_actions=1)
     moment = 1750000020
     with patch("time.time", return_value=moment):
         assert create(client, "alice").status_code == 202
@@ -314,7 +316,7 @@ def test_daily_quota_retry_after_waits_until_midnight():
 
 
 def test_burst_quota_retry_after_waits_only_until_next_minute():
-    client, app = setup()
+    client, _app = setup()
     moment = 1750000020
     with patch("time.time", return_value=moment):
         key = create(client, "alice").json()["job_id"]

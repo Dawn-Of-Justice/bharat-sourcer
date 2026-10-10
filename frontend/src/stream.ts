@@ -1,7 +1,7 @@
 import { auth } from './auth'
-import type { Job } from './api'
+import type { ErrorBody, Job } from './api'
 
-export interface WatchJobOptions {
+interface WatchJobOptions {
   jobId: string
   token: string
   signal: AbortSignal
@@ -11,7 +11,7 @@ export interface WatchJobOptions {
 
 function pause(ms: number, signal: AbortSignal): Promise<void> {
   if (signal.aborted) return Promise.resolve()
-  return new Promise((resolve) => {
+  return new Promise(resolve => {
     const finish = () => {
       clearTimeout(timer)
       signal.removeEventListener('abort', finish)
@@ -47,7 +47,7 @@ export async function watchJob({ jobId, token, signal, onSnapshot, onError }: Wa
       })
 
       if (!response.ok) {
-        const detail = await response.json().catch(() => null)
+        const detail = (await response.json().catch(() => null)) as ErrorBody | null
         if (response.status === 401) {
           onError('Sign in again to continue receiving updates.', 401)
           if (detail?.error?.code === 'IDENTITY_REQUIRED') window.dispatchEvent(new Event('bs-signin-required'))
@@ -65,7 +65,12 @@ export async function watchJob({ jobId, token, signal, onSnapshot, onError }: Wa
           onError(detail?.error?.message || `Live updates unavailable (${response.status}).`, response.status)
           return
         }
-        onError(response.status === 503 ? 'Live updates are temporarily unavailable. Reconnecting to your saved project…' : `Live updates unavailable (${response.status}). Reconnecting…`, response.status)
+        onError(
+          response.status === 503
+            ? 'Live updates are temporarily unavailable. Reconnecting to your saved project…'
+            : `Live updates unavailable (${response.status}). Reconnecting…`,
+          response.status,
+        )
       } else {
         if (!response.body) throw new Error('Streaming body unavailable')
         reader = response.body.getReader()

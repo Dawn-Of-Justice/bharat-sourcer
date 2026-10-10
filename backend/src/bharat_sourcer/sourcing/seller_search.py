@@ -399,7 +399,7 @@ class SellerSearch:
             query = str(rung)
             with lock:
                 diagnostic.queries.append(query)
-            pages = []
+            pages: list[tuple[str, Page]] = []
             try:
                 found = adapter(self._fetcher_for(seller, query, pages), seller, query, limit)
                 for url, page in pages:
@@ -467,7 +467,7 @@ class SellerSearch:
             else:
                 sellers.append(seller)
         pool = ThreadPoolExecutor(max_workers=min(self.max_workers, max(1, len(sellers))))
-        progress = {
+        progress: dict[str, tuple[list, SellerDiagnostic, threading.Lock, threading.Event]] = {
             seller["domain"]: (
                 [],
                 SellerDiagnostic(seller["domain"], "no_results"),
@@ -532,15 +532,6 @@ def merge(per_seller: list[list[Candidate]], budget: int) -> list[Candidate]:
             seen.add(key)
             merged.append(candidate)
     return merged[: max(0, budget)]
-
-
-def search_sellers(
-    queries: list[str],
-    limit_per_seller: int = 5,
-    total_budget: int = 12,
-    searcher: SellerSearch | None = None,
-) -> SearchResult:
-    return (searcher or SellerSearch()).search(queries, limit_per_seller, total_budget)
 
 
 def from_settings(settings, cache=None) -> SellerSearch | None:

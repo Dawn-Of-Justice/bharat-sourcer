@@ -1,6 +1,7 @@
 import json
 from concurrent.futures import ThreadPoolExecutor
 from threading import Barrier, Event
+from typing import ClassVar
 
 import httpx
 import pytest
@@ -110,7 +111,7 @@ def test_explicit_variant_is_fetched_before_price_accepted():
             return SearchAttribution(source_urls=[base])
 
     class Fetcher:
-        calls = []
+        calls: ClassVar[list] = []
 
         def get(self, url):
             self.calls.append(url)

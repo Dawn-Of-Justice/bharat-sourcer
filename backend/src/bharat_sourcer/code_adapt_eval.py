@@ -42,7 +42,6 @@ from bharat_sourcer.code_evidence import MAX_LINES, safe_path, uncommented
 from bharat_sourcer.evaluation import DATE_PATTERN, LabelStatus
 
 Expect = Literal["patch", "refused", "no_code_change"]
-EXPECTS: tuple[str, ...] = ("patch", "refused", "no_code_change")
 MIN_CASES_PER_EDGE = 3
 # Gated rates, in report order. A rate with no basis (n/a) does not fail a threshold.
 RATES: tuple[str, ...] = (
@@ -537,7 +536,7 @@ def gate_failures(
     require_coverage: bool = True,
 ) -> list[str]:
     """Reasons the report misses its thresholds (default: every gated rate 1.0)."""
-    wanted = {name: 1.0 for name in RATES} | (thresholds or {})
+    wanted = dict.fromkeys(RATES, 1.0) | (thresholds or {})
     unknown = set(wanted) - set(RATES)
     if unknown:
         raise ValueError(f"Unknown metric(s): {', '.join(sorted(unknown))}")

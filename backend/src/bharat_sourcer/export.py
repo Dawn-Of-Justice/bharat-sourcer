@@ -213,7 +213,7 @@ def inr(value) -> str:
     sign = "-" if whole.startswith("-") else ""
     whole = whole.lstrip("-")
     head, tail = whole[:-3], whole[-3:]
-    groups = []
+    groups: list[str] = []
     while len(head) > 2:
         groups.insert(0, head[-2:])
         head = head[:-2]
@@ -455,14 +455,14 @@ def to_html(view: SharedProject) -> str:
         p = view.project
         facts = [("Power", p.power), ("Controller", p.controller)]
         facts += [("Interfaces", ", ".join(p.interfaces) or None)]
-        listed = [f"<li>{e(k)}: {e(v)}</li>" for k, v in facts if v]
-        listed += [f"<li>Assumption: {e(a)}</li>" for a in p.assumptions]
-        if p.summary or listed:
+        notes = [f"<li>{e(k)}: {e(v)}</li>" for k, v in facts if v]
+        notes += [f"<li>Assumption: {e(a)}</li>" for a in p.assumptions]
+        if p.summary or notes:
             parts.append("<h2>Project notes <span class='tag'>AI-inferred</span></h2>")
             if p.summary:
                 parts.append(f"<p class='meta'>{e(p.summary)}</p>")
-            if listed:
-                parts.append("<ul class='facts'>" + "".join(listed) + "</ul>")
+            if notes:
+                parts.append("<ul class='facts'>" + "".join(notes) + "</ul>")
 
     footer = [
         "Prices, stock and compatibility are snapshots copied from seller pages when each "

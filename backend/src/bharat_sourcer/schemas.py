@@ -113,7 +113,8 @@ class Evidence(Model):
 class PartSpecs(Model):
     family: str | None = Field(default=None, min_length=1, max_length=100)
     controller: Literal["atmega32u4", "ssd1306", "sh1106", "ttp223"] | None = None
-    logic_v: Literal[3.3, 5.0] | None = None
+    # Float literals are valid for pydantic (enum in OpenAPI) but not in the typing spec.
+    logic_v: Literal[3.3, 5.0] | None = None  # type: ignore[valid-type]
     clock_mhz: Literal[8, 16] | None = None
     interface: Literal["i2c", "spi", "digital", "usb"] | None = None
     resolution: Literal["128x32", "128x64"] | None = None
@@ -141,9 +142,13 @@ class PartSpecs(Model):
             and (self.controller not in controllers[self.family])
         ):
             raise ValueError("Controller does not belong to the declared part family")
-        if self.family == "pro_micro" and self.logic_v is not None and self.clock_mhz is not None:
-            if (self.logic_v, self.clock_mhz) not in {(3.3, 8), (5.0, 16)}:
-                raise ValueError("Unsupported Pro Micro voltage/clock combination")
+        if (
+            self.family == "pro_micro"
+            and self.logic_v is not None
+            and self.clock_mhz is not None
+            and (self.logic_v, self.clock_mhz) not in {(3.3, 8), (5.0, 16)}
+        ):
+            raise ValueError("Unsupported Pro Micro voltage/clock combination")
         if (
             self.supply_min_v is not None
             and self.supply_max_v is not None

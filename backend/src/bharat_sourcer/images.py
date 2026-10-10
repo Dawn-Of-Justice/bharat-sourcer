@@ -49,7 +49,7 @@ def illustration(name: str, category=True) -> PartImage:
     kind = "category" if key and category else "placeholder"
     shape = (
         shapes[key]
-        if kind == "category"
+        if kind == "category" and key
         else (
             '<rect x="60" y="55" width="90" height="90" rx="12"/>'
             '<path d="M40 75h20m-20 25h20m-20 25h20m90-50h20m-20 25h20m-20 25h20"/>'
@@ -236,7 +236,7 @@ class PartImageService:
             ]
             candidates += line.image_candidates
         # Keep the first (highest-priority) entry per URL: seller photos before page references.
-        unique = {}
+        unique: dict[str, PartImage] = {}
         for image in candidates:
             unique.setdefault(image.url, image)
         candidates = [image for image in unique.values() if image.url not in failed_urls]

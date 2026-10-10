@@ -26,8 +26,7 @@ def compact(text: str) -> str:
 def _text(text: str) -> str:
     text = unicodedata.normalize("NFKC", text).replace("μ", "u").replace("µ", "u")
     text = re.sub(r"(?i)\bmfd\b", "uF", text)
-    text = re.sub(r"(?i)(\d)\s*(?:′′|″|”|\"|inches\b|inch\b|in\.)", r"\1 inch", text)
-    return text
+    return re.sub(r"(?i)(\d)\s*(?:′′|″|”|\"|inches\b|inch\b|in\.)", r"\1 inch", text)
 
 
 def model_numbers(text: str) -> list[str]:
@@ -73,14 +72,6 @@ def values(text: str) -> dict[str, set[float]]:
         for match in re.finditer(r"(?i)\b18650\s*x\s*(\d+)\b|\b(\d+)\s*x\s*18650\b", text):
             result.setdefault("cells", set()).add(float(next(v for v in match.groups() if v)))
     return result
-
-
-def pack_size(text: str) -> int | None:
-    match = re.search(
-        r"(?i)\b(?:pack|set|lot|bag)\s+of\s+(\d+)|\b(\d+)\s*(?:pcs?|pieces?|units?)\b|\bx\s*(\d+)\b",
-        text,
-    )
-    return next(int(v) for v in match.groups() if v) if match else None
 
 
 def _tokens(text: str) -> set[str]:

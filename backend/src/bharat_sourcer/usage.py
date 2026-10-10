@@ -167,7 +167,7 @@ def record_cache_hit(namespace: str) -> None:
         fields = {"namespace": namespace, "job_id": ledger.job_id if ledger else None}
         fields["line_id"] = line_id
         log.info("GEMINI_CACHE_HIT %s", json.dumps(fields, sort_keys=True))
-    except Exception:  # noqa: BLE001 - metering must never break a request
+    except Exception:  # Metering must never break a request
         log.debug("GEMINI_CACHE_HIT unavailable for %s", namespace)
 
 
@@ -209,5 +209,5 @@ def record_usage(site: str, model: str, data: object, queries: int | None = None
         if ledger is not None:
             ledger.add(site, fields["usd_est"], queries)
         log.info("GEMINI_USAGE %s", json.dumps(fields, sort_keys=True))
-    except Exception:  # noqa: BLE001 - metering must never break a request
+    except Exception:  # Metering must never break a request
         log.debug("GEMINI_USAGE unavailable for %s", site)

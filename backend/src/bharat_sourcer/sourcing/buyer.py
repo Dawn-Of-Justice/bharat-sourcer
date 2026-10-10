@@ -272,10 +272,14 @@ def picked_offer(
     offer = candidate.offer
     variant = None
     names = candidate.variant_names()
-    if candidate.options and candidate.extracted is not None and draft.variant_id is not None:
-        if draft.variant_id < len(names):
-            variant = names[draft.variant_id]
-            offer = candidate.extracted.offer(candidate.options[draft.variant_id])
+    if (
+        candidate.options
+        and candidate.extracted is not None
+        and draft.variant_id is not None
+        and draft.variant_id < len(names)
+    ):
+        variant = names[draft.variant_id]
+        offer = candidate.extracted.offer(candidate.options[draft.variant_id])
     if offer is None:
         return None
     text = candidate.quote_text()

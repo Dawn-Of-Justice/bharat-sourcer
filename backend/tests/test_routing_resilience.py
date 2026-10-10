@@ -25,7 +25,7 @@ class Catalogue:
             candidates=[SimpleNamespace(url=URL)],
             queries=list(queries),
             diagnostics=[],
-            blocked=lambda: [],
+            blocked=list,
             message=lambda: "Synthetic catalogue",
         )
 

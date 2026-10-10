@@ -27,3 +27,4 @@ Thumbs.db
 build/
 
 .agents
+.playwright-mcp/

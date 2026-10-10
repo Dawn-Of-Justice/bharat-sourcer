@@ -72,7 +72,7 @@ def ceil_text(value: Decimal) -> str:
 
 
 def calculate(inputs: ResistorInputs) -> ResistorAdvice:
-    global _quarantined
+    global _quarantined  # noqa: PLW0603 - process-wide quarantine flag set once on failure
     drop = Decimal(str(inputs.supply_max_v)) - Decimal(str(inputs.led_forward_min_v))
     if drop <= 0:
         raise ValueError("Supply maximum must exceed the LED minimum forward voltage")

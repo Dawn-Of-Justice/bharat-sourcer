@@ -352,7 +352,7 @@ class CompileService:
         )
 
     # -- owner route -----------------------------------------------------------------------
-    def request(self, job_id: str, line_id: str, token, body: CompileRequest) -> CodePatch:
+    def request(self, job_id: str, line_id: str, token, body: CompileRequest) -> CodePatch | None:
         if self.launcher is None:
             raise JobError(503, "COMPILE_UNAVAILABLE", "Compile checks are not enabled here")
         job = self.jobs.get(job_id, token)
@@ -389,7 +389,7 @@ class CompileService:
     def start(self, job_id: str, line_id: str, family: str, run_id: str) -> CodePatch | None:
         try:
             self.launcher.launch(family, run_id)
-        except Exception as exc:  # noqa: BLE001 - any launch failure is reported on the check
+        except Exception as exc:  # Any launch failure is reported on the check
             log.error("COMPILE_LAUNCH_FAILED run=%s type=%s", run_id, type(exc).__name__)
             record = self.finish(
                 run_id,
@@ -416,7 +416,7 @@ class CompileService:
         return record.job, line_id, patch
 
     def bundle(self, run_id: str) -> dict:
-        job, line_id, patch = self.locate(run_id)
+        _job, _line_id, patch = self.locate(run_id)
         if patch is None or patch.compile.status != "queued":
             raise JobError(410, "RUN_STALE", "This compile run is no longer current")
         try:
@@ -453,7 +453,7 @@ class CompileService:
 
     def finish(self, run_id: str, *, keep: bool = False, **fields):
         """Update the current run's check; ignored once the run is no longer current."""
-        job_id = run_id.split(".")[0]
+        job_id = run_id.split(".", maxsplit=1)[0]
 
         def change(record):
             patch = patch_of(record.job, RUN_ID.fullmatch(run_id).group(2))

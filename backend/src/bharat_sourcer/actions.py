@@ -122,10 +122,11 @@ def complete_refresh(job: Job, *, failed: bool = False) -> None:
         heading = "The approved seller refresh has finished."
         summary = f"Finished; {found} of {len(results)} parts have seller offers."
     text = " ".join(
-        [heading, *(_describe(r) for r in results)]
-        + [
+        [
+            heading,
+            *(_describe(r) for r in results),
             "Prices are published by sellers, not verified totals; tax, shipping and seller "
-            "trust are unverified. Review and select offers in the report."
+            "trust are unverified. Review and select offers in the report.",
         ]
     )
     job.messages.append(

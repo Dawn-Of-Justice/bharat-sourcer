@@ -1,5 +1,6 @@
 """Shared seller identity and conservative listing URL comparison. No network lookups."""
 
+import contextlib
 import json
 import re
 from dataclasses import dataclass
@@ -59,10 +60,8 @@ REGISTRY = json.loads((Path(__file__).parent / "known_sellers.json").read_text("
 def host_of(url_or_host: str) -> str:
     parts = urlsplit(url_or_host if "://" in url_or_host else "//" + url_or_host)
     host = (parts.hostname or "").lower().rstrip(".")
-    try:
+    with contextlib.suppress(UnicodeError, ValueError):
         host = host.encode("ascii").decode("idna")
-    except (UnicodeError, ValueError):
-        pass
     while host.split(".")[0] in {"www", "m", "amp"}:
         host = host.split(".", 1)[1] if "." in host else ""
     return host.casefold()

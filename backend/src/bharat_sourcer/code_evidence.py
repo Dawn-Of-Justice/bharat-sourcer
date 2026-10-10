@@ -67,14 +67,14 @@ def squash(text: str) -> str:
 def library_part(dependency: str) -> str | None:
     """Part for a PlatformIO/library.json dependency name, by its longest known fragment."""
     # Drop version pins, owners and URL paths: "adafruit/Adafruit BME280 Library@^2.2".
-    name = dependency.split("@")[0].strip().rstrip("/").removesuffix(".git")
+    name = dependency.split("@", maxsplit=1)[0].strip().rstrip("/").removesuffix(".git")
     name = squash(name.rsplit("/", 1)[-1])
     matches = [key for key in library_map()["libraries"] if key in name]
     return library_map()["libraries"][max(matches, key=len)] if matches else None
 
 
 def python_part(module: str) -> str | None:
-    return library_map()["python"].get(module.split(".")[0].casefold())
+    return library_map()["python"].get(module.split(".", maxsplit=1)[0].casefold())
 
 
 def requirement_part(line: str) -> str | None:

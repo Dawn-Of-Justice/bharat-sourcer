@@ -66,8 +66,7 @@ def normalise_text(text: str) -> str:
     text = re.sub(r"(?i)(\d)\s*micro\s*-?\s*(?=f)", r"\1u", text)
     text = re.sub(r"(?i)(?<=\d)\s*(?:mfd|mf)\b", "uF", text)
     text = re.sub(r"(?i)\bkilo\s*-?\s*ohms?\b", "kohm", text)
-    text = re.sub(r"(?i)\bmega\s*-?\s*ohms?\b", "Mohm", text)
-    return text
+    return re.sub(r"(?i)\bmega\s*-?\s*ohms?\b", "Mohm", text)
 
 
 NUMBER = r"(?<![\w.,/])(\d+(?:\.\d+)?(?:/\d+)?)"

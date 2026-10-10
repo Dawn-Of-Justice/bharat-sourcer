@@ -120,7 +120,6 @@ class Settings(BaseSettings):
     judge_model: str = Field(default="gemini-3.1-flash-lite", pattern=r"^[a-zA-Z0-9.-]+$")
     judge_thinking_level: Literal["low", "medium", "high"] | None = "low"
     judge_max_candidates: int = Field(default=8, ge=1, le=8)
-    judge_snippet_chars: int = Field(default=800, ge=200, le=1500)
     judge_cache_ttl_s: int = Field(default=7 * 86400, ge=0, le=30 * 86400)
     # AI buyer (sourcing/buyer.py): decides unstated part values from the circuit, and picks
     # what to buy (exact, substitute or kit) when no listing was accepted, with up to

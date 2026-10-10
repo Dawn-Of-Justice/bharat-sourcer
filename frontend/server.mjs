@@ -27,11 +27,12 @@ async function proxy(req, res, backendBase, integrationKey, fetchImpl) {
   // DELETE is needed to revoke share links (DELETE /v1/jobs/{id}/share).
   if (!['GET', 'POST', 'DELETE'].includes(req.method)) return send(res, 405, 'Method not allowed')
   const parsed = new URL(req.url, 'http://localhost')
-  const upstreamPath = parsed.pathname === '/api/healthz' || parsed.pathname === '/api/health'
-    ? '/health'
-    : parsed.pathname.startsWith('/api/v1/')
-      ? parsed.pathname.slice('/api'.length)
-      : null
+  const upstreamPath =
+    parsed.pathname === '/api/healthz' || parsed.pathname === '/api/health'
+      ? '/health'
+      : parsed.pathname.startsWith('/api/v1/')
+        ? parsed.pathname.slice('/api'.length)
+        : null
   if (!upstreamPath) return send(res, 404, 'Not found')
   if (upstreamPath === '/health' && req.method !== 'GET') return send(res, 405, 'Method not allowed')
 
@@ -77,7 +78,11 @@ async function staticFile(req, res, distDir) {
   if (!['GET', 'HEAD'].includes(req.method)) return send(res, 405, 'Method not allowed')
   const parsed = new URL(req.url, 'http://localhost')
   let pathname
-  try { pathname = decodeURIComponent(parsed.pathname) } catch { return send(res, 400, 'Invalid path') }
+  try {
+    pathname = decodeURIComponent(parsed.pathname)
+  } catch {
+    return send(res, 400, 'Invalid path')
+  }
   if (pathname.includes('\\') || pathname.includes('\0')) return send(res, 400, 'Invalid path')
   const filePath = path.resolve(distDir, '.' + pathname)
   if (filePath !== distDir && !filePath.startsWith(distDir + path.sep)) return send(res, 403, 'Forbidden')
@@ -115,13 +120,20 @@ export function createServer({ backendBase, integrationKey, distDir = defaultDis
         appId: process.env.FIREBASE_APP_ID,
       }
       const body = 'window.__BS_FIREBASE_CONFIG=' + JSON.stringify(config).replaceAll('<', '\\u003c') + ';'
-      res.writeHead(200, { 'Content-Type': 'text/javascript; charset=utf-8', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' })
+      res.writeHead(200, {
+        'Content-Type': 'text/javascript; charset=utf-8',
+        'Cache-Control': 'no-store',
+        'X-Content-Type-Options': 'nosniff',
+      })
       return res.end(body)
     }
     const work = req.url?.startsWith('/api/')
       ? proxy(req, res, backend, integrationKey, fetchImpl)
       : staticFile(req, res, root)
-    work.catch(() => { if (!res.headersSent) send(res, 500, 'Server error'); else res.destroy() })
+    work.catch(() => {
+      if (!res.headersSent) send(res, 500, 'Server error')
+      else res.destroy()
+    })
   })
 }
 

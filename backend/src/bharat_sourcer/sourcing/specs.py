@@ -142,7 +142,7 @@ def table_specs(html: str) -> list[tuple[str, object, str]]:
     """(field, value, label) from labelled spec rows on the page."""
     parser = SpecTables()
     parser.feed(html)
-    found = []
+    found: list[tuple[str, object, str]] = []
     for label, value in parser.rows:
         field = label_field(label)
         if field:

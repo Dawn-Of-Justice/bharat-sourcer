@@ -17,7 +17,7 @@ def post_with_retry(client: httpx.Client, url: str, **kwargs) -> httpx.Response:
         except (httpx.TimeoutException, httpx.NetworkError):
             if attempt == 2:
                 raise
-        delay = 2**attempt + random.uniform(0, 0.5)
+        delay = 2**attempt + random.uniform(0, 0.5)  # noqa: S311 - retry jitter, not crypto
         if response is not None:
             # Honor numeric Retry-After up to our wait budget; longer delays stop retries.
             retry_after = response.headers.get("retry-after")

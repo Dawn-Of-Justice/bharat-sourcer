@@ -65,14 +65,15 @@ def detect_platform(page: Page) -> StorePlatform:
         return "woocommerce"
     if any(marker in text for marker in MAGENTO_MARKERS):
         return "magento"
-    for platform, markers in {
+    hosted: dict[StorePlatform, tuple[str, ...]] = {
         "opencart": ("route=product/product", "catalog/view/theme"),
         "bigcommerce": ("cdn11.bigcommerce.com", "stencil"),
         "prestashop": ("prestashop", "/modules/ps_"),
         "wix": ("static.wixstatic.com",),
         "dukaan": ("mydukaan", "dukaan.app"),
         "instamojo": ("instamojo",),
-    }.items():
+    }
+    for platform, markers in hosted.items():
         if any(marker in text or marker in page.url for marker in markers):
             return platform
     return "jsonld" if product_jsonld(page) else "unknown"

@@ -29,14 +29,14 @@ def part(entry_id, source="test", **overrides) -> Side:
 
 def board(entry_id, **changes) -> Context:
     entry = load_catalog().get(entry_id)
-    values = dict(
-        controller=entry.name,
-        controller_logic_v=entry.logic_v,
-        controller_5v_tolerant=entry.io_5v_tolerant,
-        rails=tuple(entry.rails_v),
-        strapping_pins=tuple(entry.strapping_pins),
-        input_only_pins=tuple(entry.input_only_pins),
-    )
+    values = {
+        "controller": entry.name,
+        "controller_logic_v": entry.logic_v,
+        "controller_5v_tolerant": entry.io_5v_tolerant,
+        "rails": tuple(entry.rails_v),
+        "strapping_pins": tuple(entry.strapping_pins),
+        "input_only_pins": tuple(entry.input_only_pins),
+    }
     return Context(**(values | changes))
 
 

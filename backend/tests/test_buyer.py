@@ -3,6 +3,7 @@
 Pages, prices and model decisions below are invented test data, not real listings.
 """
 
+import contextlib
 import json
 
 import httpx
@@ -404,10 +405,8 @@ def test_a_challenge_behind_googles_redirect_blocks_only_the_seller():
             return challenge
 
     fetcher = politeness.wrap(Redirecting())
-    try:
+    with contextlib.suppress(BlockedError):
         fetcher.get("https://vertexaisearch.cloud.google.com/grounding-api-redirect/abc")
-    except BlockedError:
-        pass
     assert politeness.blocked_reason("www.digikey.in")
     assert not politeness.blocked_reason("vertexaisearch.cloud.google.com")
 

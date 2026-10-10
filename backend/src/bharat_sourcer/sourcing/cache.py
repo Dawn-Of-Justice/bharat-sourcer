@@ -172,7 +172,7 @@ class FirestoreCache:
                     return None
                 encoded = "".join(chunk["data"] for chunk in chunks)
             value = json.loads(encoded)
-        except Exception:  # noqa: BLE001 - the cache is advisory
+        except Exception:  # The cache is advisory
             log.warning("CACHE_READ_FAILED namespace=%s", _namespace(key), exc_info=True)
             return None
         if not isinstance(value, dict):
@@ -198,7 +198,7 @@ class FirestoreCache:
                     {"data": part, "expires_at": expires}
                 )
             self.collection.document(key).set(base | {"chunks": len(parts)})
-        except Exception:  # noqa: BLE001 - the cache is advisory
+        except Exception:  # The cache is advisory
             log.warning("CACHE_WRITE_FAILED namespace=%s", _namespace(key), exc_info=True)
 
 

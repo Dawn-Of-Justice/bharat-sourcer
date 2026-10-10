@@ -145,7 +145,7 @@ def web_risk_check(domain: str) -> None:
     Web Risk is a keyed, metered Google Cloud API, so it needs owner approval before use.
     Until then every signal reports `web_risk: not_checked` and no seller is blocked on it.
     """
-    return None
+    return
 
 
 def decide(signals: TrustSignals) -> SellerTrust:

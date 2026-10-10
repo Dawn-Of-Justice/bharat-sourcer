@@ -194,7 +194,7 @@ def test_auth_mode_share_is_public_and_free(monkeypatch):
     client = TestClient(app, base_url="https://testserver")
     client.headers["X-Requested-With"] = "BharatSourcer"
     alice = {"Authorization": "Bearer alice"}
-    path, _, created = create_done_job(client, headers=alice)
+    path, _, _created = create_done_job(client, headers=alice)
     bob = {"Authorization": "Bearer bob"}
     assert client.get(f"{path}/export.pdf", headers=bob).status_code == 404
     assert client.post(f"{path}/share", headers=bob).status_code == 404

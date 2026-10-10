@@ -15,10 +15,16 @@ export default defineConfig(({ mode }) => {
         '/api': {
           target: backend,
           changeOrigin: true,
-          rewrite: path => path === '/api/healthz' ? (backend.startsWith('https:') ? '/health' : '/healthz') : path.replace(/^\/api/, ''),
-          configure: proxy => proxy.on('proxyReq', request => {
-            if (integrationKey) request.setHeader('X-Integration-Key', integrationKey)
-          }),
+          rewrite: path =>
+            path === '/api/healthz'
+              ? backend.startsWith('https:')
+                ? '/health'
+                : '/healthz'
+              : path.replace(/^\/api/, ''),
+          configure: proxy =>
+            proxy.on('proxyReq', request => {
+              if (integrationKey) request.setHeader('X-Integration-Key', integrationKey)
+            }),
         },
       },
     },

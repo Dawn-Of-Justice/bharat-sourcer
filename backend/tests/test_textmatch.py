@@ -1,6 +1,6 @@
 import pytest
 
-from bharat_sourcer.sourcing.textmatch import pack_size, title_gate, values
+from bharat_sourcer.sourcing.textmatch import title_gate, values
 
 
 @pytest.mark.parametrize(
@@ -55,8 +55,5 @@ def test_conflicts(query, title):
     assert not title_gate(query, title)
 
 
-def test_values_and_packs():
+def test_values_normalise_resistance():
     assert values("4K7 resistor")["resistance"] == values("4.7k resistor")["resistance"]
-    assert pack_size("Pack of 10") == 10
-    assert pack_size("10pcs") == 10
-    assert pack_size("x10") == 10

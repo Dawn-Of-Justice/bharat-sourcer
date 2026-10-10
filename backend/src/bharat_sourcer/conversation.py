@@ -296,9 +296,10 @@ class ConversationService:
                 self.jobs.prepare_refresh(claimed.model_copy(deep=True), reply.refresh)
             if reply.spec_update:
                 self.jobs.apply_spec_updates(claimed.job.model_copy(deep=True), reply.spec_update)
-            if reply.resistor_question:
-                if reply.resistor_question.line_id not in {i.line_id for i in claimed.job.items}:
-                    raise ValueError("Unknown resistor line")
+            if reply.resistor_question and reply.resistor_question.line_id not in {
+                i.line_id for i in claimed.job.items
+            }:
+                raise ValueError("Unknown resistor line")
         except Exception:
             error = ErrorDetail(
                 code="CHAT_FAILED",
@@ -458,13 +459,13 @@ class ConversationService:
 
     def recover(self, job_id: str | None = None, *, execute: bool = True) -> None:
         keys = [job_id] if job_id else self.store.pending()
-        for job_id in keys:
-            record = self.store.get(job_id)
+        for key in keys:
+            record = self.store.get(key)
             if record is None:
                 continue
             if record.job.chat_state == "queued":
                 if execute:
-                    self.process(job_id)
+                    self.process(key)
             elif record.job.chat_state == "thinking":
 
                 def expire(current):
@@ -480,4 +481,4 @@ class ConversationService:
                     )
                     current.job.updated_at = now()
 
-                self.store.mutate(job_id, expire)
+                self.store.mutate(key, expire)

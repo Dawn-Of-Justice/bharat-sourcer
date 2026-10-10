@@ -136,7 +136,7 @@ def test_cors_for_teammate(client):
 def test_confirmation_race_has_one_winner():
     service = JobService()
     job, token = service.create(CreateJob(url="https://example.com"))
-    service.extract_demo(job.job_id)
+    service.extract(job.job_id)
 
     def confirm():
         try:

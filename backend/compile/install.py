@@ -23,7 +23,10 @@ void loop() { delay(1000); }
 
 def cli(*args: str) -> str:
     result = subprocess.run(
-        ["arduino-cli", "--config-file", str(CONFIG), *args], capture_output=True, text=True
+        ["arduino-cli", "--config-file", str(CONFIG), *args],
+        capture_output=True,
+        text=True,
+        check=False,
     )
     if result.returncode:
         raise SystemExit(f"arduino-cli {' '.join(args)} failed:\n{result.stdout}\n{result.stderr}")

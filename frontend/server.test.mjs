@@ -67,18 +67,22 @@ test('healthz uses the cloud-safe backend health route', async () => {
 })
 
 test('proxy rejects unlisted API routes without contacting the backend', async () => {
-  const base = await start(() => { throw new Error('unexpected backend call') })
+  const base = await start(() => {
+    throw new Error('unexpected backend call')
+  })
   const response = await fetch(base + '/api/admin')
   assert.equal(response.status, 404)
 })
 
 test('serves the frontend and a labelled dummy API response', async () => {
-  const base = await start(async () => Response.json({
-    job_id: 'dummy-job',
-    status: 'awaiting_confirmation',
-    demo: true,
-    items: [{ line_id: 'L01', raw_name: 'Sample board', qty: 1, evidence: [] }],
-  }))
+  const base = await start(async () =>
+    Response.json({
+      job_id: 'dummy-job',
+      status: 'awaiting_confirmation',
+      demo: true,
+      items: [{ line_id: 'L01', raw_name: 'Sample board', qty: 1, evidence: [] }],
+    }),
+  )
   const page = await fetch(base + '/')
   assert.equal(page.status, 200)
   assert.equal(page.headers.get('www-authenticate'), null)
@@ -118,9 +122,14 @@ test('proxy preserves separate cookies, quota delay, and no-store on identity re
 })
 
 test('proxy preserves an upstream Cache-Control policy', async () => {
-  const base = await start(async () => Response.json({ projects: [] }, {
-    headers: { 'Cache-Control': 'private, max-age=30' },
-  }))
+  const base = await start(async () =>
+    Response.json(
+      { projects: [] },
+      {
+        headers: { 'Cache-Control': 'private, max-age=30' },
+      },
+    ),
+  )
   const response = await fetch(base + '/api/v1/projects')
   assert.equal(response.status, 200)
   assert.equal(response.headers.get('cache-control'), 'private, max-age=30')
@@ -132,7 +141,10 @@ test('proxy forwards DELETE without a body so owners can revoke share links', as
     received = { url: url.toString(), options }
     return new Response(null, { status: 204 })
   })
-  const response = await fetch(base + '/api/v1/jobs/abc/share', { method: 'DELETE', headers: { 'X-Job-Token': 'job-token', 'X-Requested-With': 'BharatSourcer' } })
+  const response = await fetch(base + '/api/v1/jobs/abc/share', {
+    method: 'DELETE',
+    headers: { 'X-Job-Token': 'job-token', 'X-Requested-With': 'BharatSourcer' },
+  })
   assert.equal(response.status, 204)
   assert.equal(received.url, 'https://backend.example/v1/jobs/abc/share')
   assert.equal(received.options.method, 'DELETE')
