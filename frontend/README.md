@@ -156,3 +156,12 @@ Copy `.env.example` to an ignored local env file and supply the four public Fire
 Use `http://127.0.0.1:5173/?preview=1` for **no-API local testing**, even if `.env.local` points at a live backend. Firebase initialization is disabled and all API methods use local sample responses. Click Sign in → Try demo account → My projects → Open project. Also try Continue as guest → My projects → Save my projects → Try demo account → Save to my account. The demo account marker lasts for the current tab session; project contents are in-memory fixtures and reset on reload. No real account is created.
 
 Validation: `npm run build`, `npm run test:server`, `npm run test:preview`, and `npm run test:integration`. The preview test executes the real preview/auth/API modules with network access forbidden. The integration test exercises the API client against a local identity-aware fixture. Real Google login, two-account isolation, revoked users and cookie expiry still require live browser checks. Local browser checks cover the wide desktop layout, 390px mobile layout, card expansion, inline editing, build details, and new-message scrolling. Older unowned jobs can be claimed using their original browser-session token.
+
+### Circuit reference labels
+
+`raw_name` remains unchanged for saved jobs. Result rows and part detail headings
+use `partName` to show declared/user values and the buying-spec category alongside
+reference-only names, for example `10k ohm resistor (R1)`. Inferred values are not
+promoted into the display name. The source evidence and editable buying spec remain
+available in the detail panel. `SOURCING_LIMIT` is shown as “Not searched: run limit”,
+not as a missing seller. No API schema change is required.

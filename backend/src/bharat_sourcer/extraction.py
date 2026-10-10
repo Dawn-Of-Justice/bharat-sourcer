@@ -384,6 +384,8 @@ quantities, prices, compatibility, or citations. Use a descriptive name when ide
 is uncertain. Use null quantity when the count is not established; do not assume one.
 Each part needs a MM:SS timestamp and a short observation of what is visible or spoken.
 Do not count repeated views of the same physical part as extra parts.
+Use a readable component name with its evidenced value/model, keeping schematic
+references in parentheses: e.g. 10k ohm resistor (R1), not just R1. Never invent a value.
 """
     + """
 First understand the project as a whole: what it does, how it is powered, its main
@@ -447,6 +449,9 @@ Each part needs evidence entries with a quote and an observation. The quote must
 verbatim from page_text: a short contiguous passage (a few words up to one sentence) that
 names the part, with no paraphrasing, ellipses or added text. The observation briefly says
 what the quote establishes. Evidence whose quote is not found verbatim will be discarded.
+Use a readable component name with its evidenced value/model, keeping schematic
+references in parentheses: e.g. 10k ohm resistor (R1), not just R1. Never invent a value.
+When a table supplies the value, include the table row as evidence too.
 Do not list the same physical part twice. Ignore comments, advertisements, related projects
 and navigation text.
 First understand the project as a whole: what it does, how it is powered, its main

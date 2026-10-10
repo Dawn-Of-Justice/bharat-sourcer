@@ -92,7 +92,7 @@ class JobService:
         store: JobStore | None = None,
         lease_seconds: int = 600,
         sourcing: SourcingService | None = None,
-        sourcing_max_parts: int = 10,
+        sourcing_max_parts: int = 30,
         sourcing_lease_seconds: int = 1800,
         sourcing_parallelism: int = 1,
         seller_penalty_inr: Decimal = SELLER_PENALTY_INR,

@@ -383,7 +383,7 @@ GST, shipping and import estimates, import reference prices and cart plans: see
 
 Returns 202 `{"status":"resolving"}`. Resume polling the job until `done` or `failed`.
 Available for completed live sourcing reports and reports failed with `SOURCING_INTERRUPTED`.
-Select 1–30 distinct unowned lines, within the server's per-batch sourcing limit (default 10).
+Select 1–30 distinct unowned lines, within the server's per-batch sourcing limit (default 30).
 Demo jobs, extraction-only jobs, and active jobs cannot be refreshed.
 
 The confirmed BOM, evidence, quantities and specs stay unchanged. Selected lines immediately
@@ -495,3 +495,13 @@ Framework errors such as an unknown route retain FastAPI's default `detail` resp
 The local runner uses FastAPI's [background tasks](https://fastapi.tiangolo.com/tutorial/background-tasks/).
 The request schema uses Pydantic [discriminated unions](https://docs.pydantic.dev/latest/concepts/unions/#discriminated-unions)
 so each edit operation validates its own fields.
+
+### Schematic references in saved reports
+
+Circuit references are not seller model numbers. The backend removes explicit
+reference annotations from sourcing identity and uses guarded buying-spec values
+for reference-only lines. The frontend derives readable result headings from
+`item.raw_name` and `buyable_spec` while preserving original evidence. Distinguish
+`SOURCING_LIMIT` (not searched) from a completed search with no verified offer.
+Existing saved reports need a seller refresh to acquire new search results.
+No public schema or route changed.

@@ -85,7 +85,7 @@ class Settings(BaseSettings):
     # YouTube Data API v3 key (videos.list only); unset skips description intake (youtube_meta.py).
     youtube_api_key: SecretStr | None = None
     sourcing_enabled: bool = True
-    sourcing_max_parts: int = Field(default=10, ge=1, le=30)
+    sourcing_max_parts: int = Field(default=30, ge=1, le=30)
     sourcing_parallelism: int = Field(default=3, ge=1, le=4)
     sourcing_candidates_per_part: int = Field(default=5, ge=1, le=8)
     sourcing_lease_s: int = Field(default=1800, ge=600, le=7200)

@@ -10,6 +10,7 @@ import {
 } from './api'
 import { PartThumb, amountText, price } from './ReportBits'
 import { sellerName } from './SellerIdentity'
+import { partName } from './partName'
 
 type Status = { label: string; tone: 'ok' | 'input' | 'muted' }
 // Whole rupees in the list, matching the summary band; the part details keep paise.
@@ -27,6 +28,8 @@ const unsourcedStatus: Record<UnsourcedLine['reason'], string> = {
 // One status per row, the most important first: what the user has to do, then whose pick it is.
 export function statusOf(line: ReportLine, plan?: OrderPlanLine, unsourced?: UnsourcedLine): Status {
   if (line.item.user_has_it) return { label: 'You have it', tone: 'muted' }
+  if (line.sourcing_error?.code === 'SOURCING_LIMIT') return { label: 'Not searched: run limit', tone: 'input' }
+  if (line.sourcing_status === 'failed') return { label: 'Search failed', tone: 'input' }
   if (unsourced)
     return {
       label: unsourcedStatus[unsourced.reason],
@@ -81,7 +84,7 @@ function Row({
       >
         <PartThumb job={job} line={line} token={token} readOnly={readOnly} />
         <span className="pp-row-name">
-          <strong>{line.item.raw_name}</strong>
+          <strong>{partName(line.item, line.buyable_spec ?? line.item.buyable_spec)}</strong>
           {secondary && <small>{secondary}</small>}
         </span>
         <span className="pp-row-qty" aria-label={`Quantity ${line.item.qty ?? 'unknown'}`}>

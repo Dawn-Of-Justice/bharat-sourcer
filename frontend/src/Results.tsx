@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
+import { partName } from './partName'
 import {
   evidenceText,
   offersOf,
@@ -758,7 +759,9 @@ export default function Results({
   })
   if (!report) return null
   const refreshable = !readOnly && !job.demo && job.status === 'done' && (job.refresh_count ?? 0) < 2
-  const names = Object.fromEntries(report.lines.map(line => [line.item.line_id, line.item.raw_name]))
+  const names = Object.fromEntries(
+    report.lines.map(line => [line.item.line_id, partName(line.item, line.buyable_spec ?? line.item.buyable_spec)]),
+  )
   async function refresh() {
     setRefreshing(true)
     setError('')
@@ -895,7 +898,7 @@ export default function Results({
       <SidePanel
         id="pp-part"
         open={!!current}
-        title={shown?.item.raw_name ?? 'Part'}
+        title={shown ? partName(shown.item, shown.buyable_spec ?? shown.item.buyable_spec) : 'Part'}
         subtitle={
           shown && status ? (
             <>

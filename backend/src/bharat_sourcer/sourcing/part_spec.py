@@ -16,6 +16,7 @@ import re
 from dataclasses import dataclass
 from fractions import Fraction
 
+from bharat_sourcer.part_identity import sourcing_name
 from bharat_sourcer.schemas import BomItem, BuyableSpec, ProjectContext, SpecParam
 
 PREFIX = {"p": 1e-12, "n": 1e-9, "u": 1e-6, "m": 1e-3, "": 1.0, "k": 1e3, "K": 1e3, "M": 1e6}
@@ -467,11 +468,14 @@ def buyable_spec(item: BomItem, project: ProjectContext | None = None) -> Buyabl
     """The spec sourcing uses for a line: the item's AI/user spec, guarded, or a seed."""
     name = item.raw_name[:200]
     if item.buyable_spec is None:
-        spec = seed_spec(item).model_copy(update={"part_name": name})
+        spec = seed_spec(item)
+        name = sourcing_name(name, spec)
+        spec = spec.model_copy(update={"part_name": name})
         return with_seller_queries(spec, name)
     spec = guard_spec(item.buyable_spec, item_text(item), project_text(project, item))
     if not spec.queries:
         spec = spec.model_copy(update={"queries": seed_spec(item).queries})
+    name = sourcing_name(name, spec)
     return with_seller_queries(spec.model_copy(update={"part_name": name}), name)
 
 
