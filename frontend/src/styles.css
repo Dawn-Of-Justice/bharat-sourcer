@@ -3010,6 +3010,10 @@ svg {
   width: 18px;
   height: 18px;
 }
+.editable-project-title .pencil-button {
+  margin-left: 8px;
+  vertical-align: middle;
+}
 .editable-project-field:hover .pencil-button,
 .editable-project-field:focus-within .pencil-button {
   opacity: 1;
@@ -5361,7 +5365,9 @@ audio {
   border-radius: 999px;
   color: #fff;
   background: #0d2630;
-  box-shadow: 0 14px 34px rgba(13, 38, 48, 0.28);
+  box-shadow:
+    0 0 0 1px #fff,
+    0 14px 34px rgba(13, 38, 48, 0.28);
   font-size: 15px;
   font-weight: 800;
   transition:
@@ -6454,22 +6460,63 @@ button.pp-row-summary {
 }
 .pp-part .offers-list {
   display: grid;
-  gap: 0;
+  gap: 12px;
   margin: 0;
 }
 .pp-part .offer {
+  position: relative;
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  justify-content: stretch;
   gap: 10px;
-  padding: 14px 0;
-  border: 0;
-  border-top: 1px solid var(--pp-line);
-  border-radius: 0;
-  background: none;
+  padding: 14px;
+  border: 1px solid var(--pp-line);
+  border-radius: 16px;
+  background: var(--pp-paper);
   box-shadow: none;
 }
-.pp-part .offer:first-child {
-  border-top: 0;
-  padding-top: 2px;
+.pp-part .offer.is-interactive {
+  cursor: pointer;
+}
+.offer-card-toggle {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.pp-part .offer:has(.offer-card-toggle:focus-visible) {
+  outline: 3px solid #72b5a5;
+  outline-offset: 3px;
+}
+.pp-part .offer.is-selected {
+  border-color: var(--pp-teal);
+  background: #e8f2ec;
+  box-shadow: inset 0 0 0 1px var(--pp-teal);
+}
+.offer-card-status {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: #245d51;
+  font-size: 12px;
+  font-weight: 750;
+  line-height: 1.5;
+}
+.offer-card-status > span {
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #eef0ed;
+}
+.is-selected .offer-card-status > span {
+  background: var(--pp-teal);
+  color: #fff;
 }
 .pp-part .offer > div {
   display: grid;
@@ -6479,7 +6526,15 @@ button.pp-row-summary {
   justify-self: start;
   width: auto;
 }
-.pp-part .offer > a {
+.pp-part .offer-actions {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+}
+.pp-part .offer-actions > a {
   justify-self: start;
   color: var(--pp-teal);
   font-size: 14px;

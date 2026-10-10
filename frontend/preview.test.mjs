@@ -189,6 +189,28 @@ test('preview saves project details and serves a labelled part fallback without 
   assert.equal(requests, 0)
 })
 
+test('preview seller selection switches directly, clears and reselects without network', async () => {
+  const { planPreview, previewReportRequest } = load('./previewReport')
+  const fixture = planPreview(await api.getJob('ui-preview', 'dummy-token'))
+  const line = fixture.report.lines.find(line => line.item.line_id === 'L01')
+  const original = line.selected_offer_url
+  const alternate = line.offers.find(offer => offer.seller_name === 'Sample Seller C (dummy)').url
+  for (const offer_url of [alternate, original, null, alternate]) {
+    const result = previewReportRequest(
+      '/v1/jobs/ui-preview/selections',
+      { method: 'POST', body: JSON.stringify({ selections: [{ line_id: 'L01', offer_url }] }) },
+      fixture,
+    )
+    assert.equal(result.report.lines.find(line => line.item.line_id === 'L01').selected_offer_url, offer_url)
+    const picks = result.report.order_plan.sellers
+      .flatMap(seller => seller.lines)
+      .filter(line => line.line_id === 'L01')
+    assert.equal(picks.length, offer_url ? 1 : 0)
+    if (offer_url) assert.equal(picks[0].offer_url, offer_url)
+  }
+  assert.equal(requests, 0)
+})
+
 test('preview report endpoints (share, shared page, plans, exports) stay local and labelled', async () => {
   assert.equal((await api.getShare('ui-preview', 'dummy-token')).active, false)
   const link = await api.createShare('ui-preview', 'dummy-token')
