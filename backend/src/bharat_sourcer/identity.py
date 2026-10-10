@@ -74,10 +74,16 @@ class FirebaseVerifier:
 
 
 class GuestSessions:
-    cookie_name = "bs_guest"
+    # Firebase Hosting forwards only a cookie named `__session` to Cloud Run.
+    cookie_name = "__session"
+    # Read until sessions issued under the old name expire.
+    legacy_cookie_name = "bs_guest"
 
     def __init__(self, secret: str, lifetime: int):
         self.secret, self.lifetime = secret.encode(), lifetime
+
+    def cookie(self, request) -> str | None:
+        return request.cookies.get(self.cookie_name) or request.cookies.get(self.legacy_cookie_name)
 
     def signature(self, value):
         return hmac.new(self.secret, value.encode(), hashlib.sha256).hexdigest()

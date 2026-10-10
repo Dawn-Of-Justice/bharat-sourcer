@@ -66,6 +66,18 @@ An IAM administrator must enable direct browser access once:
 gcloud run services update bharat-sourcer-web --project=hackathon-510415 --region=asia-south1 --no-invoker-iam-check
 ```
 
+## Public address (Firebase Hosting)
+
+`https://bharatsource.web.app` is a Firebase Hosting site (`firebase.json`) that sends every
+request to the `bharat-sourcer-web` Cloud Run service; `hosting/` is intentionally empty. The
+Cloud Run URL keeps working. Firebase Hosting buffers responses and cuts them off after 60
+seconds, so live updates fall back to polling the job every 3 seconds when the stream sends
+nothing for 10 seconds (`src/stream.ts`). It forwards only a cookie named `__session`, which
+is the backend's guest cookie name. The address is in Firebase Auth's authorized domains and
+the backend's `BS_CORS_ORIGINS`. Redeploy the config with
+`npx firebase-tools deploy --only hosting` from `frontend/`; app changes need only the Cloud
+Run deploy.
+
 Google sign-in, guest sessions and saved-project UI are implemented. The deployed
 backend has authentication enabled. Real Google account and guest-claim browser checks
 remain outstanding. For local checks without a live backend, use `?preview=1`; its

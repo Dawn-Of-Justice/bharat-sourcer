@@ -25,9 +25,11 @@ Account/guest quotas, project ownership and revoked-account checks are active.
    The backend accepts verified Google-provider accounts for `BS_GCP_PROJECT`.
    Refresh the token with the Firebase SDK when it expires; never send a Google
    OAuth access token in its place.
-3. For guests, call `POST /v1/session/guest`. This sets `bs_guest`, a signed,
+3. For guests, call `POST /v1/session/guest`. This sets `__session`, a signed,
    Secure, HttpOnly, SameSite=Lax cookie lasting 14 days by default. JavaScript
-   does not read this cookie. Use HTTPS and a same-origin proxy.
+   does not read this cookie. Use HTTPS and a same-origin proxy. The name is the only
+   cookie Firebase Hosting forwards to Cloud Run (v0.31.1); cookies issued earlier as
+   `bs_guest` are still accepted until they expire.
 4. Create a project through the existing `POST /v1/jobs`. Its owner is recorded
    server-side. All existing job, chat, proposal and streaming routes use that owner.
 5. On a later visit, call `GET /v1/projects`, then `GET /v1/jobs/{job_id}` to reopen.

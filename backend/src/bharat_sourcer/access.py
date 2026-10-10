@@ -122,7 +122,7 @@ class Access:
                     raise ValueError("Invalid authorization")
                 principal = self.verifier.verify(token)
             else:
-                principal = self.sessions.verify(request.cookies.get(self.sessions.cookie_name))
+                principal = self.sessions.verify(self.sessions.cookie(request))
         except IdentityUnavailable as exc:
             raise JobError(
                 503, "IDENTITY_UNAVAILABLE", "Account verification unavailable; retry later"
@@ -235,7 +235,7 @@ def add_access_routes(app, access):
         access.enabled()
         access.csrf(request)
         try:
-            principal = access.sessions.verify(request.cookies.get(access.sessions.cookie_name))
+            principal = access.sessions.verify(access.sessions.cookie(request))
         except ValueError:
             access.charge(request, None, session=True)
             cookie = access.sessions.issue()
@@ -264,7 +264,8 @@ def add_access_routes(app, access):
     def logout(request: Request, response: Response):
         access.enabled()
         access.csrf(request)
-        response.delete_cookie(access.sessions.cookie_name, path="/", secure=True, httponly=True)
+        for name in (access.sessions.cookie_name, access.sessions.legacy_cookie_name):
+            response.delete_cookie(name, path="/", secure=True, httponly=True)
 
     @app.get("/v1/countries", response_model=CountryList, tags=["identity"])
     def countries():
@@ -345,7 +346,7 @@ def add_access_routes(app, access):
         access.csrf(request)
         access.service._validate_id(job_id)
         try:
-            guest = access.sessions.verify(request.cookies.get(access.sessions.cookie_name))
+            guest = access.sessions.verify(access.sessions.cookie(request))
         except ValueError:
             guest = None
 

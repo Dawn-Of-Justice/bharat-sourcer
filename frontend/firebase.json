@@ -1,0 +1,13 @@
+{
+  "hosting": {
+    "site": "bharatsource",
+    "public": "hosting",
+    "ignore": ["**/.*"],
+    "rewrites": [
+      {
+        "source": "**",
+        "run": { "serviceId": "bharat-sourcer-web", "region": "asia-south1" }
+      }
+    ]
+  }
+}
