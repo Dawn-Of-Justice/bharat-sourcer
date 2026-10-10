@@ -13,6 +13,7 @@ in httpx request logs, exception messages or any stored URL. Failures are logged
 category only and are never fatal to extraction.
 """
 
+import ipaddress
 import logging
 import re
 from dataclasses import dataclass, field
@@ -22,8 +23,9 @@ from urllib.parse import parse_qs, urlsplit
 
 import httpx
 
-from bharat_sourcer.project_pages import project_page_source
+from bharat_sourcer.project_pages import TUTORIAL_BLOGS, ProjectPageSource, project_page_source
 from bharat_sourcer.schemas import Job, JobVideoMeta, VideoLink
+from bharat_sourcer.sourcing.fetch import FetchError, validate_url
 
 log = logging.getLogger(__name__)
 
@@ -32,6 +34,27 @@ TIMEOUT_S = 5.0
 RETENTION = timedelta(days=30)
 MAX_LINKS = 20
 MAX_QUOTE = 300
+SOCIAL_HOSTS = frozenset(
+    {
+        "youtube.com",
+        "youtu.be",
+        "instagram.com",
+        "facebook.com",
+        "twitter.com",
+        "x.com",
+        "tiktok.com",
+        "discord.com",
+        "discord.gg",
+        "t.me",
+        "patreon.com",
+        "buymeacoffee.com",
+        "linkedin.com",
+        "pinterest.com",
+        "bit.ly",
+        "tinyurl.com",
+        "linktr.ee",
+    }
+)
 DESCRIPTION_SOURCE = "youtube_description"
 LINK = re.compile(r"https?://[^\s<>\"'(){}\[\]]+", re.IGNORECASE)
 # Store and affiliate hosts: listed for display, never followed as project sources.
@@ -109,15 +132,61 @@ def host_matches(host: str, hosts: frozenset[str]) -> bool:
     return any(host == known or host.endswith("." + known) for known in hosts)
 
 
+def description_page_source(url: str) -> ProjectPageSource | None:
+    """Recognise linked or submitted creator pages; SafeFetcher checks DNS later.
+
+    Follow one page, never crawl its links. Known platforms retain their stricter parsers.
+    Keep query parameters (some personal sites use them to identify the project).
+    """
+    known = project_page_source(url)
+    if known is not None:
+        return known
+    try:
+        parsed = urlsplit(url)
+        if parsed.scheme == "http" and parsed.port is None:
+            url = parsed._replace(scheme="https").geturl()
+        host, _ = validate_url(url)
+    except (ValueError, FetchError):
+        return None
+    platforms = (
+        frozenset(
+            {
+                "github.com",
+                "instructables.com",
+                "hackster.io",
+                "learn.adafruit.com",
+                "raw.githubusercontent.com",
+            }
+        )
+        | TUTORIAL_BLOGS
+    )
+    if host_matches(host, STORE_HOSTS | SOCIAL_HOSTS | platforms):
+        return None
+    if any(known + "." in host for known in platforms | SOCIAL_HOSTS):
+        return None
+    if "." not in host or host.endswith((".localhost", ".local", ".internal")):
+        return None
+    try:
+        ipaddress.ip_address(host)
+    except ValueError:
+        pass
+    else:
+        return None
+    parsed = urlsplit(url)
+    canonical = parsed._replace(fragment="").geturl()
+    bare = host.removeprefix("www.")
+    return ProjectPageSource("blog", canonical, (canonical,), frozenset({bare, "www." + bare}))
+
+
 def classify_link(url: str) -> tuple[Literal["project_source", "video", "store", "other"], str]:
     """Kind and canonical URL of one description link.
 
-    Supported project pages (Instructables, Hackster, GitHub, Adafruit Learn, listed blogs)
-    become extra sources; videos, stores, affiliate links and everything else are listed only.
+    Project pages and personal blogs become extra sources. Known videos, stores, affiliate
+    links and social profiles are listed only.
     """
     from bharat_sourcer.extraction import ExtractionError, youtube_url
 
-    source = project_page_source(url)
+    source = description_page_source(url)
     if source is not None:
         return "project_source", source.url
     try:

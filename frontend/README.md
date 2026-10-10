@@ -1,5 +1,22 @@
 # Bharat Sourcer frontend
 
+## Background tab status
+
+On an open job page, switching tabs shows the latest job state in the tab title:
+reading, preparing parts, finding sellers, ready to review, results ready, paused or failed.
+Returning shows the project title; leaving the job page restores the original site title.
+This uses existing job snapshots with no extra API requests or notification permissions.
+Updates require the tab to remain open; browsers may delay updates when a tab is suspended.
+Connection problems show “Updates interrupted” rather than an outdated completion label.
+
+## Project links
+
+The Project links field and extra-source fields accept public personal blogs as well as
+the existing project platforms. The backend validates URLs and reads available page text;
+login-only, blocked or JavaScript-only content may not be readable. YouTube descriptions
+can contribute up to three linked project sources, including personal blogs; see
+[multi-source intake](../docs/contracts/multi-source-intake.md).
+
 React + TypeScript + Vite app for the landing page and the first local job flow. This workspace owns its own dependencies and commands.
 
 ## Run locally

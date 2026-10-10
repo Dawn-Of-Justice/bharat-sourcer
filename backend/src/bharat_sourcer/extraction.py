@@ -15,7 +15,6 @@ from bharat_sourcer.project_pages import (
     ProjectPageSource,
     document_text,
     normalise,
-    project_page_source,
     quote_found,
 )
 from bharat_sourcer.resilience import post_with_retry
@@ -40,6 +39,7 @@ from bharat_sourcer.youtube_meta import (
     DESCRIPTION_SOURCE,
     MAX_QUOTE,
     VideoMeta,
+    description_page_source,
     fetch_description,
     job_video_meta,
     video_id,
@@ -72,7 +72,7 @@ def youtube_url(url: str) -> str:
 
 UNSUPPORTED_MESSAGE = (
     "Use a public YouTube video, Instructables or Hackster project, GitHub repository, "
-    "Adafruit Learn guide or supported tutorial blog URL"
+    "Adafruit Learn guide or public personal blog/project page URL"
 )
 
 
@@ -82,7 +82,7 @@ def supported_source(url: str) -> tuple[Literal["video", "project_page"], str]:
         return "video", youtube_url(url)
     except ExtractionError:
         pass
-    source = project_page_source(url)
+    source = description_page_source(url)
     if source is None:
         raise ExtractionError("UNSUPPORTED_URL", UNSUPPORTED_MESSAGE)
     return "project_page", source.url
@@ -511,7 +511,7 @@ class GeminiExtractor:
     def extract(self, url: str) -> ExtractionResult:
         kind, canonical = supported_source(url)
         if kind == "project_page":
-            return self._extract_page(project_page_source(url))
+            return self._extract_page(description_page_source(url))
         return self._extract_video(canonical)
 
     def _generate(self, parts: list[dict], prompt: str, model: type[Model], noun: str):
@@ -633,7 +633,9 @@ class GeminiExtractor:
                 )
         if dropped:
             log.info("Discarded %d unverified video or description evidence entries", dropped)
-        if not items:
+        if not items and not (
+            stored and any(link.kind == "project_source" for link in stored.links)
+        ):
             raise ExtractionError("NO_BOM", "No supported parts found; check the public video URL")
         return ExtractionResult(
             items=items, project=project_context(bom.project), video_meta=stored

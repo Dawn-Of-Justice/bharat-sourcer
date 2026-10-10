@@ -19,9 +19,8 @@ from bharat_sourcer.extraction import (
     supported_source,
 )
 from bharat_sourcer.fusion import fuse
-from bharat_sourcer.project_pages import project_page_source
 from bharat_sourcer.schemas import ErrorDetail, JobVideoMeta, SourceReport
-from bharat_sourcer.youtube_meta import DESCRIPTION_SOURCE
+from bharat_sourcer.youtube_meta import DESCRIPTION_SOURCE, description_page_source
 
 MAX_EXTRA_SOURCES = 3
 
@@ -44,7 +43,7 @@ def validate_sources(urls: list[str]) -> list[tuple[str, str, str]]:
 
 
 def report_kind(kind: str, canonical: str) -> str:
-    return "video" if kind == "video" else project_page_source(canonical).kind
+    return "video" if kind == "video" else description_page_source(canonical).kind
 
 
 class IntakeResult(ExtractionResult):
@@ -81,12 +80,13 @@ def add_description_links(
     for link in meta.links:
         if link.kind != "project_source":
             continue
-        try:
-            kind, canonical = supported_source(link.url)
-        except ExtractionError:
+        source = description_page_source(link.url)
+        if source is None:
             continue
+        canonical = source.url
+        kind = "project_page"
         known = any(seen == canonical for _, seen, _ in sources)
-        if not known and kind == "project_page" and len(sources) <= MAX_EXTRA_SOURCES:
+        if not known and len(sources) <= MAX_EXTRA_SOURCES:
             sources.append((kind, canonical, canonical))
             linked.add(canonical)
             known = True

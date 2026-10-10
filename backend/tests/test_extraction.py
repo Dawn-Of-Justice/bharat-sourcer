@@ -139,7 +139,7 @@ def test_live_api_infers_missing_quantity_and_confirms():
     )
     with TestClient(app) as client:
         assert client.get("/healthz").json()["mode"] == "live"
-        rejected = client.post("/v1/jobs", json={"url": "https://example.com"})
+        rejected = client.post("/v1/jobs", json={"url": "https://127.0.0.1"})
         assert rejected.status_code == 400
         created = client.post("/v1/jobs", json={"url": URL}).json()
         assert created["demo"] is False

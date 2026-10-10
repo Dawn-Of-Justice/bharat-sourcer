@@ -292,8 +292,10 @@ BS_EXTRACTION_TIMEOUT_S=120
 ```
 
 Optional: with `BS_YOUTUBE_API_KEY` (a YouTube Data API v3 key) set, the same Gemini call
-also reads the video's description. Links in it to supported project pages are added as
-extra sources, and short server-checked description quotes are served for 30 days; see
+also reads the video's description. Links to GitHub, recognised project pages and public
+personal blogs are added as extra sources (at most three, including submitted extras).
+Personal blogs can also be submitted directly. Pages use safe fetching and checked quotes;
+blocked extras are reported and skipped. Short description quotes are served for 30 days; see
 [multi-source intake §8](../docs/contracts/multi-source-intake.md#8-youtube-description-intake).
 Without it, video extraction is unchanged.
 
