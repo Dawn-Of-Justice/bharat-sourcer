@@ -43,7 +43,7 @@ const statuses: Record<string, [string, Tone]> = {
 
 const trashIcon = <svg viewBox="0 0 24 24" aria-hidden="true" {...stroke}><path d="M4 7h16" /><path d="M10 11v6" /><path d="M14 11v6" /><path d="M6 7l1 13h10l1-13" /><path d="M9 7V4h6v3" /></svg>
 
-export function projectTitle(project: Project) {
+function projectTitle(project: Project) {
   if (project.title) return project.title
   try { return new URL(project.url).hostname + ' project' } catch { return 'Saved project' }
 }

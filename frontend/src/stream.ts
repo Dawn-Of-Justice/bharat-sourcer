@@ -1,7 +1,7 @@
 import { auth } from './auth'
 import type { Job } from './api'
 
-export interface WatchJobOptions {
+interface WatchJobOptions {
   jobId: string
   token: string
   signal: AbortSignal

@@ -12,7 +12,7 @@ export function stepOf(job: Job): number {
   return job.report ? 2 : job.items.length ? 1 : 0
 }
 
-export function stageNote(job: Job, reading: string): string {
+function stageNote(job: Job, reading: string): string {
   if (job.status === 'queued') return 'Waiting to start'
   if (job.status === 'extracting') return reading
   if (job.status === 'awaiting_confirmation') return 'Waiting for you'

@@ -8,7 +8,7 @@ const originLabel: Record<BuyableSpec['origin'], string> = { ai_inferred: 'AI-in
 const operatorLabel: Record<SpecParam['operator'], string> = { equals: '', at_least: 'at least ', at_most: 'at most ', between: '' }
 const valueCategories = ['resistor', 'ldr', 'capacitor_electrolytic', 'capacitor_ceramic']
 
-export const paramText = (param: SpecParam) => `${operatorLabel[param.operator]}${param.value}${param.operator === 'between' && param.value_max ? ` – ${param.value_max}` : ''}`
+const paramText = (param: SpecParam) => `${operatorLabel[param.operator]}${param.value}${param.operator === 'between' && param.value_max ? ` – ${param.value_max}` : ''}`
 
 function OriginTag({ origin, reason }: { origin?: string; reason?: string | null }) {
   if (origin === 'inferred') return <><span className="inferred-tag">inferred</span>{reason ? <small> {reason}</small> : null}</>

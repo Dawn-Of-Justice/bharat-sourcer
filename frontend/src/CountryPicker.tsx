@@ -16,7 +16,7 @@ const flags: Record<string, ReactNode> = {
   </svg>,
 }
 
-export function Flag({ code }: { code: string }) {
+function Flag({ code }: { code: string }) {
   return <span className="flag">{flags[code] ?? <span className="flag-code">{code}</span>}</span>
 }
 
