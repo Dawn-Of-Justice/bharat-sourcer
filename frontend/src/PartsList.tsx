@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import {
   offersOf,
   reportOf,
@@ -70,6 +70,7 @@ function Row({
     .filter(Boolean)
     .join(', ')
   const status = statusOf(line, plan, unsourced)
+  const safetyFlag = job.safety_flags?.find(flag => flag.line_ids.includes(line.item.line_id))
   return (
     <div id={`line-${line.item.line_id}`} className={`pp-row${active ? ' is-active' : ''}`}>
       <button
@@ -83,6 +84,7 @@ function Row({
         <span className="pp-row-name">
           <strong>{line.item.raw_name}</strong>
           {secondary && <small>{secondary}</small>}
+          {safetyFlag && <small className="pp-part-safety">Safety check: {safetyFlag.title}</small>}
         </span>
         <span className="pp-row-qty" aria-label={`Quantity ${line.item.qty ?? 'unknown'}`}>
           ×{line.item.qty ?? '?'}
@@ -124,12 +126,14 @@ export default function PartsList({
   readOnly,
   openLine,
   onOpen,
+  attention,
 }: {
   job: Job
   token: string
   readOnly: boolean
   openLine: string | null
   onOpen: (lineId: string) => void
+  attention?: ReactNode
 }) {
   const report = reportOf(job)
   const [grouping, setGrouping] = useState<'seller' | 'part'>('seller')
@@ -193,9 +197,12 @@ export default function PartsList({
   return (
     <section className="pp-parts" aria-labelledby="pp-parts-title">
       <header className="pp-parts-head">
-        <h2 id="pp-parts-title">
-          Your parts <span>{report.lines.length}</span>
-        </h2>
+        <div className="pp-parts-heading">
+          <h2 id="pp-parts-title">
+            Your parts <span>{report.lines.length}</span>
+          </h2>
+          {attention}
+        </div>
         <div className="pp-switch" role="group" aria-label="Group parts">
           <button type="button" aria-pressed={grouping === 'seller'} onClick={() => setGrouping('seller')}>
             By seller

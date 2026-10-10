@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react'
-import { offersOf, reportOf, type Job, type SafetyFlag, type UnsourcedLine } from './api'
+import { offersOf, reportOf, type Job, type SafetyFlag } from './api'
 import { amountText } from './ReportBits'
 
 // The results stage's headline: what the plan costs, how many parts it covers, from how many
@@ -77,12 +77,6 @@ function ago(time: number) {
   return `${days} ${days === 1 ? 'day' : 'days'} ago`
 }
 
-const unsourcedText: Partial<Record<UnsourcedLine['reason'], string>> = {
-  needs_value: 'choose a value',
-  no_offers: 'no seller found yet',
-  no_acceptable_offer: 'no offer fits yet',
-  needs_quantity: 'set a quantity',
-}
 const flagOrder: SafetyFlag['code'][] = ['MAINS', 'LIPO', 'HIGH_CURRENT', 'LEVEL_SHIFT']
 
 export type Need = {
@@ -132,14 +126,28 @@ export function safetyNeeds(job: Job, onShowLine: (lineId: string) => void): Nee
 }
 
 // The list itself: one row per need, with one action or an expandable explanation.
-export function NeedsList({ needs, initiallyOpen = null }: { needs: Need[]; initiallyOpen?: string | null }) {
+export function NeedsList({
+  needs,
+  initiallyOpen = null,
+  showHeading = true,
+}: {
+  needs: Need[]
+  initiallyOpen?: string | null
+  showHeading?: boolean
+}) {
   const [open, setOpen] = useState<string | null>(initiallyOpen)
   if (!needs.length) return null
   return (
-    <section className="pp-needs" aria-labelledby="pp-needs-title">
-      <h2 id="pp-needs-title">
-        Needs you <span>{needs.length}</span>
-      </h2>
+    <section
+      className="pp-needs"
+      aria-labelledby={showHeading ? 'pp-needs-title' : undefined}
+      aria-label={showHeading ? undefined : 'Attention items'}
+    >
+      {showHeading && (
+        <h2 id="pp-needs-title">
+          Needs you <span>{needs.length}</span>
+        </h2>
+      )}
       <ul>
         {needs.map(need => {
           const expanded = open === need.key
@@ -177,87 +185,5 @@ export function NeedsList({ needs, initiallyOpen = null }: { needs: Need[]; init
         })}
       </ul>
     </section>
-  )
-}
-
-// Everything that needs a decision, in one list: safety checks, parts without a seller,
-// selections waiting for confirmation and chat suggestions waiting for approval.
-export function NeedsYou({
-  job,
-  readOnly,
-  onShowLine,
-  onOpenChat,
-}: {
-  job: Job
-  readOnly: boolean
-  onShowLine: (lineId: string) => void
-  onOpenChat?: () => void
-}) {
-  const report = reportOf(job)
-  const names = Object.fromEntries(job.items.map(item => [item.line_id, item.raw_name]))
-  const needs: Need[] = safetyNeeds(job, onShowLine)
-  if (!readOnly && report) {
-    const plan = report.order_plan
-    const unsourced: { line_id: string; reason: UnsourcedLine['reason']; message?: string }[] =
-      plan?.unsourced ??
-      report.lines
-        .filter(line => !line.item.user_has_it && ['no_verified_offers', 'failed'].includes(line.sourcing_status))
-        .map(line => ({
-          line_id: line.item.line_id,
-          reason: 'no_offers' as const,
-          message: line.sourcing_error?.message,
-        }))
-    for (const entry of unsourced) {
-      const text = unsourcedText[entry.reason]
-      if (text)
-        needs.push({
-          key: `unsourced-${entry.line_id}`,
-          tone: 'input',
-          title: `${names[entry.line_id] ?? entry.line_id}: ${text}`,
-          detail: entry.message,
-          action: { label: 'Open part', onClick: () => onShowLine(entry.line_id) },
-        })
-    }
-    const pending = plan
-      ? (plan.sellers ?? [])
-          .flatMap(seller => seller.lines ?? [])
-          .filter(line => line.selected === false)
-          .map(line => ({ id: line.line_id, reason: line.blocked_reason }))
-      : report.lines
-          .filter(line => line.recommendation?.blocked_reason && !line.selected_offer_url)
-          .map(line => ({ id: line.item.line_id, reason: line.recommendation?.blocked_reason }))
-    for (const entry of pending) {
-      const reason =
-        entry.reason ?? report.lines.find(line => line.item.line_id === entry.id)?.recommendation?.blocked_reason
-      needs.push({
-        key: `pending-${entry.id}`,
-        tone: 'input',
-        title: `${names[entry.id] ?? entry.id}: confirm the seller`,
-        detail: reason ?? undefined,
-        action: { label: 'Open part', onClick: () => onShowLine(entry.id) },
-      })
-    }
-    const suggestions = job.messages.filter(
-      message =>
-        message.proposal?.status === 'pending' ||
-        message.refresh_proposal?.status === 'pending' ||
-        message.spec_proposal?.status === 'pending',
-    ).length
-    if (suggestions && onOpenChat)
-      needs.push({
-        key: 'chat',
-        tone: 'input',
-        title:
-          suggestions === 1
-            ? 'A suggested change is waiting for your approval'
-            : `${suggestions} suggested changes are waiting for your approval`,
-        action: { label: 'Review in chat', onClick: onOpenChat },
-      })
-  }
-  return (
-    <NeedsList
-      needs={needs}
-      initiallyOpen={job.safety_flags?.some(flag => flag.code === 'MAINS') ? 'flag-MAINS' : null}
-    />
   )
 }

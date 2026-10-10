@@ -109,7 +109,7 @@ export function StageSteps({
 }
 
 // A panel on the right: docked beside the page on wide screens (the page makes room through
-// .sheet-open), full screen on small ones. It starts below the site header so the header stays
+// .sheet-open), inset from the screen edges on small ones. It starts below the site header so the header stays
 // usable, closes on Esc and returns focus to whatever opened it. Children stay mounted while
 // closed, so drafts and scroll positions survive.
 export function SidePanel({
@@ -207,11 +207,12 @@ export function ChatDrawer({
       <button
         type="button"
         className="pp-chat-launcher"
+        aria-label="Ask about this build"
         aria-expanded={open}
         aria-controls="pp-chat"
         onClick={() => onOpenChange(!open)}
       >
-        <ChatIcon /> <span>Ask about this build</span>
+        <ChatIcon /> <span className="pp-chat-launcher-label">Ask about this build</span>
         {waiting > 0 && (
           <b
             className="pp-chat-badge"
