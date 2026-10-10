@@ -282,18 +282,22 @@ function RequirementReview({
 }
 
 // The offer picker, also used by the order plan's Change action. Choosing posts /selections and makes it the user's choice.
+type SelectionNotice = { title: string; message: string; refresh: boolean }
+
 function OfferList({
   job,
   line,
   token,
   onJob,
   readOnly,
+  onNotice,
 }: {
   job: Job
   line: ReportLine
   token: string
   onJob: (job: Job) => void
   readOnly: boolean
+  onNotice: (notice: SelectionNotice | null) => void
 }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -367,11 +371,27 @@ function OfferList({
         const canToggle =
           editable && !busy && (selected || (eligible && (!(changeNeeded || aiChoice || needsValue) || acknowledged)))
         const toggleSelection = () => {
-          if (canToggle) void (selected ? choose(null) : choose(offer.url, changeNeeded, aiChoice))
+          if (!editable || busy) return
+          if (canToggle) {
+            onNotice(null)
+            void (selected ? choose(null) : choose(offer.url, changeNeeded, aiChoice))
+            return
+          }
+          onNotice({
+            title: !fresh ? 'Quote expired' : 'Can’t select this offer',
+            refresh: !fresh || offer.stock !== 'in_stock',
+            message: !fresh
+              ? 'This quote is over 24 hours old. Refresh seller quotes to select it.'
+              : offer.stock !== 'in_stock'
+                ? 'This seller hasn’t confirmed stock. Choose an in-stock offer or refresh the seller quotes.'
+                : !eligible
+                  ? 'This offer can’t be selected until its compatibility is resolved. Review the research notes or choose another seller.'
+                  : 'Check the review box on this card before selecting this offer.',
+          })
         }
         return (
           <article
-            className={`offer${selected ? ' is-selected' : ''}${canToggle ? ' is-interactive' : ''}`}
+            className={`offer${selected ? ' is-selected' : ''}${editable && !busy ? ' is-interactive' : ''}`}
             key={offer.url}
             onClick={event => {
               const control = (event.target as Element).closest('a, button, input, label, select, textarea, details')
@@ -385,7 +405,7 @@ function OfferList({
                 className="offer-card-toggle"
                 aria-label={`Select offer from ${offer.seller_name || offer.seller}: ${offer.title}`}
                 aria-pressed={selected}
-                disabled={!canToggle}
+                disabled={busy}
                 onClick={toggleSelection}
               />
             )}
@@ -471,15 +491,6 @@ function OfferList({
                   </button>
                 </>
               )}
-              {!eligible && editable && !selected && (
-                <small>
-                  {!fresh
-                    ? 'Quote is older than 24 hours; refresh before selection.'
-                    : grade === 'C' || grade === 'D' || grade === 'X'
-                      ? 'Grade C, D and X offers can’t be selected yet.'
-                      : 'Selection unavailable until stock and compatibility are resolved.'}
-                </small>
-              )}
             </div>
             <footer className="offer-actions">
               {secureLink(offer.url) && (
@@ -522,6 +533,7 @@ function PartDetail({
   readOnly,
   unsourced,
   refreshControl,
+  onRefreshRequest,
 }: {
   job: Job
   line: ReportLine
@@ -530,6 +542,7 @@ function PartDetail({
   readOnly: boolean
   unsourced?: UnsourcedLine
   refreshControl?: ReactNode
+  onRefreshRequest?: () => void
 }) {
   const offers = offersOf(line)
   const chosen = offers.find(offer => offer.url === line.selected_offer_url)
@@ -537,177 +550,209 @@ function PartDetail({
   const blocked =
     line.recommendation?.blocked_reason && !line.selected_offer_url ? line.recommendation.blocked_reason : null
   const [offersOpen, setOffersOpen] = useState(() => !chosen || !!blocked)
+  const [notice, setNotice] = useState<SelectionNotice | null>(null)
   const live = !job.demo && !readOnly
   return (
-    <div className="pp-part">
-      {line.item.user_has_it ? (
-        <div className="pp-part-callout">
-          <strong>You already have this part.</strong>
-          <p>It is not part of the order.</p>
-        </div>
-      ) : chosen ? (
-        <div className="pp-part-pick">
-          <p className="pp-part-price">
-            {price(chosen.price_inr)}
-            <small>
-              {(chosen.pack_qty ?? chosen.match?.pack_qty)
-                ? `pack of ${chosen.pack_qty ?? chosen.match?.pack_qty}`
-                : 'each'}
-            </small>
-          </p>
-          <SellerIdentity offer={chosen} compact />
-          <p className="pp-part-title">{chosen.title}</p>
-          <p className="pp-part-meta">
-            {chosen.stock.replaceAll('_', ' ')}, checked {checkedAgo(chosen.checked_at)}
-          </p>
-          <div className="plan-chips">
-            <GradeChip compatibility={chosen.compatibility} match={chosen.match} />
-          </div>
-          {secureLink(chosen.url) && (
-            <a className="primary-button pp-part-open" href={chosen.url} target="_blank" rel="noopener noreferrer">
-              Open seller page ↗
-            </a>
-          )}
-        </div>
-      ) : (
-        (unsourced || !(blocked || spec?.needs_value)) && (
+    <div className="pp-part-layout">
+      <div className="pp-part">
+        {line.item.user_has_it ? (
           <div className="pp-part-callout">
-            {unsourced ? (
-              <>
-                <strong>{unsourced.message}</strong>
-                {!!unsourced.next_steps?.length && (
+            <strong>You already have this part.</strong>
+            <p>It is not part of the order.</p>
+          </div>
+        ) : chosen ? (
+          <div className="pp-part-pick">
+            <p className="pp-part-price">
+              {price(chosen.price_inr)}
+              <small>
+                {(chosen.pack_qty ?? chosen.match?.pack_qty)
+                  ? `pack of ${chosen.pack_qty ?? chosen.match?.pack_qty}`
+                  : 'each'}
+              </small>
+            </p>
+            <SellerIdentity offer={chosen} compact />
+            <p className="pp-part-title">{chosen.title}</p>
+            <p className="pp-part-meta">
+              {chosen.stock.replaceAll('_', ' ')}, checked {checkedAgo(chosen.checked_at)}
+            </p>
+            <div className="plan-chips">
+              <GradeChip compatibility={chosen.compatibility} match={chosen.match} />
+            </div>
+            {secureLink(chosen.url) && (
+              <a className="primary-button pp-part-open" href={chosen.url} target="_blank" rel="noopener noreferrer">
+                Open seller page ↗
+              </a>
+            )}
+          </div>
+        ) : (
+          (unsourced || !(blocked || spec?.needs_value)) && (
+            <div className="pp-part-callout">
+              {unsourced ? (
+                <>
+                  <strong>{unsourced.message}</strong>
+                  {!!unsourced.next_steps?.length && (
+                    <ul>
+                      {unsourced.next_steps.map((step, index) => (
+                        <li key={index}>{step}</li>
+                      ))}
+                    </ul>
+                  )}
+                </>
+              ) : (
+                <>
+                  <strong>{offers.length ? 'Pick a seller below.' : 'No verified seller offer yet.'}</strong>
+                  {line.sourcing_error?.message && <p>{line.sourcing_error.message}</p>}
+                </>
+              )}
+            </div>
+          )
+        )}
+        {line.buyer?.value && (
+          <div className="pp-part-callout">
+            <strong>Value decided by AI: {line.buyer.value.replace(/^[a-z_]+:\s*/i, '')}</strong>
+            <p>
+              {line.buyer.value_reason}
+              {line.buyer.value_confidence ? ` (${line.buyer.value_confidence} confidence)` : ''} The video does not
+              state it; change it under Specs and requirements if you know better.
+            </p>
+          </div>
+        )}
+        {line.buyer?.fit && chosen && line.buyer.offer_url === chosen.url && (
+          <div className="pp-part-callout">
+            <strong>
+              {line.buyer.fit === 'substitute'
+                ? 'AI-suggested substitute'
+                : line.buyer.fit === 'kit'
+                  ? 'AI-suggested kit'
+                  : 'Chosen by the AI buyer'}
+            </strong>
+            <p>{line.buyer.reason}</p>
+            {!!line.buyer.changes?.length && (
+              <ul>
+                {line.buyer.changes.map((change, index) => (
+                  <li key={index}>{change}</li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
+        {blocked && (
+          <div className="pp-part-callout pp-part-callout-input">
+            <strong>Confirm the seller</strong>
+            <p>{blocked}</p>
+          </div>
+        )}
+        {spec?.needs_value && (
+          <div className="pp-part-callout pp-part-callout-input">
+            <strong>This part needs a value</strong>
+            <p>
+              {spec.needs_value_reason || 'The source did not state the value for this part.'} Add the exact value to
+              the part name, then search sellers again.
+            </p>
+          </div>
+        )}
+        {!line.item.user_has_it && (
+          <details className="pp-section" open={offersOpen} onToggle={event => setOffersOpen(event.currentTarget.open)}>
+            <summary>
+              Seller offers <span>{offers.length}</span>
+            </summary>
+            <div className="pp-section-body">
+              <OfferList job={job} line={line} token={token} onJob={onJob} readOnly={readOnly} onNotice={setNotice} />
+            </div>
+          </details>
+        )}
+        {live && <CodePatchView job={job} line={line} token={token} onJob={onJob} />}
+        {line.item.evidence.length > 0 && (
+          <details className="pp-section">
+            <summary>Why this part is in the list</summary>
+            <div className="pp-section-body">
+              <ul className="pp-evidence">
+                {line.item.evidence.map((entry, i) => (
+                  <li key={i}>{evidenceText(entry)}</li>
+                ))}
+              </ul>
+              <small>Reported by reading the project source. Check it there.</small>
+            </div>
+          </details>
+        )}
+        <details className="pp-section">
+          <summary>Specs and requirements</summary>
+          <div className="pp-section-body">
+            <BuyingSpec spec={spec} warning={false} />
+            {live && (
+              <RequirementReview
+                key={JSON.stringify(line.item.requirements ?? [])}
+                job={job}
+                line={line}
+                token={token}
+                onJob={onJob}
+              />
+            )}
+          </div>
+        </details>
+        {(line.research ||
+          offers.some(offer => offer.match) ||
+          (!!line.recommendation?.reasons?.length && line.selected_offer_url === line.recommendation.offer_url)) && (
+          <details className="pp-section">
+            <summary>Research notes</summary>
+            <div className="pp-section-body">
+              {!!line.recommendation?.reasons?.length && line.selected_offer_url === line.recommendation.offer_url && (
+                <div className="pp-pick-reasons">
+                  <strong>Why this pick</strong>
                   <ul>
-                    {unsourced.next_steps.map((step, index) => (
-                      <li key={index}>{step}</li>
+                    {line.recommendation.reasons.map((reason, index) => (
+                      <li key={index}>{reason}</li>
                     ))}
                   </ul>
-                )}
-              </>
-            ) : (
-              <>
-                <strong>{offers.length ? 'Pick a seller below.' : 'No verified seller offer yet.'}</strong>
-                {line.sourcing_error?.message && <p>{line.sourcing_error.message}</p>}
-              </>
-            )}
-          </div>
-        )
-      )}
-      {line.buyer?.value && (
-        <div className="pp-part-callout">
-          <strong>Value decided by AI: {line.buyer.value.replace(/^[a-z_]+:\s*/i, '')}</strong>
-          <p>
-            {line.buyer.value_reason}
-            {line.buyer.value_confidence ? ` (${line.buyer.value_confidence} confidence)` : ''} The video does not state
-            it; change it under Specs and requirements if you know better.
-          </p>
-        </div>
-      )}
-      {line.buyer?.fit && chosen && line.buyer.offer_url === chosen.url && (
-        <div className="pp-part-callout">
-          <strong>
-            {line.buyer.fit === 'substitute'
-              ? 'AI-suggested substitute'
-              : line.buyer.fit === 'kit'
-                ? 'AI-suggested kit'
-                : 'Chosen by the AI buyer'}
-          </strong>
-          <p>{line.buyer.reason}</p>
-          {!!line.buyer.changes?.length && (
-            <ul>
-              {line.buyer.changes.map((change, index) => (
-                <li key={index}>{change}</li>
-              ))}
-            </ul>
-          )}
-        </div>
-      )}
-      {blocked && (
-        <div className="pp-part-callout pp-part-callout-input">
-          <strong>Confirm the seller</strong>
-          <p>{blocked}</p>
-        </div>
-      )}
-      {spec?.needs_value && (
-        <div className="pp-part-callout pp-part-callout-input">
-          <strong>This part needs a value</strong>
-          <p>
-            {spec.needs_value_reason || 'The source did not state the value for this part.'} Add the exact value to the
-            part name, then search sellers again.
-          </p>
-        </div>
-      )}
-      {!line.item.user_has_it && (
-        <details className="pp-section" open={offersOpen} onToggle={event => setOffersOpen(event.currentTarget.open)}>
-          <summary>
-            Seller offers <span>{offers.length}</span>
-          </summary>
-          <div className="pp-section-body">
-            <OfferList job={job} line={line} token={token} onJob={onJob} readOnly={readOnly} />
-          </div>
-        </details>
-      )}
-      {live && <CodePatchView job={job} line={line} token={token} onJob={onJob} />}
-      {line.item.evidence.length > 0 && (
-        <details className="pp-section">
-          <summary>Why this part is in the list</summary>
-          <div className="pp-section-body">
-            <ul className="pp-evidence">
-              {line.item.evidence.map((entry, i) => (
-                <li key={i}>{evidenceText(entry)}</li>
-              ))}
-            </ul>
-            <small>Reported by reading the project source. Check it there.</small>
-          </div>
-        </details>
-      )}
-      <details className="pp-section">
-        <summary>Specs and requirements</summary>
-        <div className="pp-section-body">
-          <BuyingSpec spec={spec} warning={false} />
-          {live && (
-            <RequirementReview
-              key={JSON.stringify(line.item.requirements ?? [])}
-              job={job}
-              line={line}
-              token={token}
-              onJob={onJob}
-            />
-          )}
-        </div>
-      </details>
-      {(line.research ||
-        offers.some(offer => offer.match) ||
-        (!!line.recommendation?.reasons?.length && line.selected_offer_url === line.recommendation.offer_url)) && (
-        <details className="pp-section">
-          <summary>Research notes</summary>
-          <div className="pp-section-body">
-            {!!line.recommendation?.reasons?.length && line.selected_offer_url === line.recommendation.offer_url && (
-              <div className="pp-pick-reasons">
-                <strong>Why this pick</strong>
-                <ul>
-                  {line.recommendation.reasons.map((reason, index) => (
-                    <li key={index}>{reason}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
-            {offers
-              .filter(offer => offer.match)
-              .map(offer => (
-                <div className="pp-research-match" key={offer.url}>
-                  <strong>
-                    {offer.seller_name || offer.seller}
-                    {offer.url === chosen?.url ? ' · Selected offer' : ''}
-                  </strong>
-                  <p>{offer.title}</p>
-                  <MatchChip match={offer.match} showExplanation={false} />
                 </div>
-              ))}
-            <Research line={line} />
+              )}
+              {offers
+                .filter(offer => offer.match)
+                .map(offer => (
+                  <div className="pp-research-match" key={offer.url}>
+                    <strong>
+                      {offer.seller_name || offer.seller}
+                      {offer.url === chosen?.url ? ' · Selected offer' : ''}
+                    </strong>
+                    <p>{offer.title}</p>
+                    <MatchChip match={offer.match} showExplanation={false} />
+                  </div>
+                ))}
+              <Research line={line} />
+            </div>
+          </details>
+        )}
+        {refreshControl}
+      </div>
+      {notice && (
+        <aside className="offer-selection-notice" aria-label="Seller selection notice">
+          <span className="offer-notice-icon" aria-hidden="true">
+            i
+          </span>
+          <div>
+            <div role="status">
+              <strong>{notice.title}</strong>
+              <p>{notice.message}</p>
+            </div>
+            <div className="offer-notice-actions">
+              {notice.refresh && onRefreshRequest && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setNotice(null)
+                    onRefreshRequest()
+                  }}
+                >
+                  Refresh quotes
+                </button>
+              )}
+              <button type="button" onClick={() => setNotice(null)}>
+                Dismiss
+              </button>
+            </div>
           </div>
-        </details>
+        </aside>
       )}
-      {refreshControl}
     </div>
   )
 }
@@ -738,6 +783,7 @@ export default function Results({
   const readOnly = !!shareToken
   const [refreshIds, setRefreshIds] = useState<string[]>([])
   const [refreshing, setRefreshing] = useState(false)
+  const refreshControls = useRef<HTMLDivElement>(null)
   const [error, setError] = useState('')
   // The page (JobPage) owns which part is open so it can close the chat; the shared page does not.
   const [localPart, setLocalPart] = useState<string | null>(null)
@@ -869,7 +915,7 @@ export default function Results({
       </SidePanel>
       <div className="pp-after-list">
         {refreshable && (
-          <div className="refresh-controls">
+          <div className="refresh-controls" ref={refreshControls}>
             <p>
               New seller search may use paid analysis. Selected parts lose their old quotes; other parts stay saved.{' '}
               {2 - (job.refresh_count ?? 0)} of 2 refresh batches remain.
@@ -918,6 +964,18 @@ export default function Results({
             onJob={onJob}
             readOnly={readOnly}
             unsourced={unsourcedLines.get(shown.item.line_id)}
+            onRefreshRequest={
+              refreshable
+                ? () => {
+                    setRefreshIds(ids => (ids.includes(shown.item.line_id) ? ids : [...ids, shown.item.line_id]))
+                    setOpenLine(null)
+                    requestAnimationFrame(() => {
+                      refreshControls.current?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+                      refreshControls.current?.querySelector('button')?.focus({ preventScroll: true })
+                    })
+                  }
+                : undefined
+            }
             refreshControl={
               // eslint-disable-next-line react-hooks/refs -- keeps the last opened part rendered while the side panel closes
               refreshable && !shown.item.user_has_it ? (
