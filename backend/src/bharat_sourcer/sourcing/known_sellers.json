@@ -35,8 +35,8 @@
      "enabled": false, "search": {"adapter": "html_template", "host": "www.flyrobo.in", "template": "https://www.flyrobo.in/index.php?route=product/search&search={query}"},
      "robots": {"checked_on": "2026-10-07", "search_allowed": false, "finding": "OpenCart robots.txt (www.flyrobo.in) disallows /*?route=product/search and /*?keyword for *; Crawl-delay: 1."}},
     {"domain": "robu.in", "name": "Robu.in", "platform": "custom", "established": true,
-     "enabled": false, "search": null, "access": "blocked_by_bot_protection",
-     "robots": {"checked_on": "2026-10-07", "search_allowed": null, "finding": "robots.txt disallows /api/ except /api/proxy/graphql for *. The home page answers HTTP 403 with a Cloudflare 'Just a moment...' challenge (cf-mitigated: challenge) to our user agent, so no search endpoint was probed. Not circumvented."}},
+     "enabled": true, "search": {"adapter": "robu_graphql"},
+     "robots": {"checked_on": "2026-10-10", "search_allowed": true, "finding": "robots.txt disallows /api/ except /api/proxy/graphql for * (its comment: product and category pages fetch their data client-side through it). HTML pages answer a Cloudflare challenge (cf-mitigated: challenge), so only the GraphQL proxy is read: productSearch for search, productdetails for product pages (robu.py). /api/search/ is disallowed and not used. Challenges are not circumvented."}},
     {"domain": "thingbits.in", "name": "Thingbits", "platform": "custom", "established": true,
      "enabled": false, "search": null,
      "robots": {"checked_on": null, "search_allowed": null, "finding": "Not reviewed for catalogue search."}}

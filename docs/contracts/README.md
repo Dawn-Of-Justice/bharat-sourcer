@@ -1,4 +1,9 @@
-# Implemented API contract — v0.30.3
+# Implemented API contract — v0.31.0
+
+v0.31.0: robu.in is searched and verified again. Its pages answer a Cloudflare challenge, so
+they are never requested; search (`productSearch`) and product data (`productdetails`) come
+from the GraphQL proxy its robots.txt allows for all agents. Those offers carry
+`offers[].verification: seller_product_api`. See [seller search](seller-search.md).
 
 v0.30.3: bulk packs. A pack at least 20× the quantity needed, costing at least ₹100 and
 5× a cheaper usable listing on the same line, is never selected automatically

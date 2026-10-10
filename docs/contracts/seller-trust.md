@@ -42,8 +42,9 @@ is disabled, or if the step failed). Shape:
 
 `offers[].seller_trust` is unchanged (always `unverified`) for compatibility. Use `trust`.
 
-`offers[].verification` gains two values besides `seller_structured_data`:
-`shopify_storefront_json` and `woocommerce_store_api` (see the fast path below).
+`offers[].verification` gains three values besides `seller_structured_data`:
+`shopify_storefront_json` and `woocommerce_store_api` (see the fast path below), and
+`seller_product_api` (robu.in read through its GraphQL proxy, v0.31.0).
 
 ## Rules
 

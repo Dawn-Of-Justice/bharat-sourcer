@@ -23,6 +23,7 @@ from html.parser import HTMLParser
 from pathlib import Path
 from urllib.parse import quote, quote_plus, urljoin, urlsplit
 
+from bharat_sourcer.sourcing import robu
 from bharat_sourcer.sourcing.fetch import FetchError, Page, SafeFetcher
 from bharat_sourcer.sourcing.politeness import (
     BLOCKED,
@@ -262,6 +263,24 @@ def woo_store_api(fetch: Fetch, seller: dict, query: str, limit: int) -> list[Ca
     return found[:limit]
 
 
+def robu_graphql(fetch: Fetch, seller: dict, query: str, limit: int) -> list[Candidate]:
+    """robu.in catalogue search through its GraphQL proxy (`productSearch`), see robu.py.
+
+    With no close match robu's search returns unrelated products; a hit that shares no word
+    with the query never takes a fetch slot (the judge still decides relevance).
+    """
+    return [
+        Candidate(
+            url=hit["url"],
+            seller=seller["domain"],
+            title=hit["title"],
+            price_hint=money_hint(hit["price"]),
+        )
+        for hit in robu.search_results(fetch(robu.search_url(query)))
+        if overlap(query, hit["title"]) > 0
+    ][:limit]
+
+
 class ProductLinks(HTMLParser):
     """Collect anchors inside (or carrying) a configured product-link class."""
 
@@ -333,6 +352,7 @@ ADAPTERS = {
     "bigcommerce_html": bigcommerce_html,
     "magento_html": magento_html,
     "html_template": html_template,
+    "robu_graphql": robu_graphql,
 }
 
 

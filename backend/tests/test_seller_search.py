@@ -109,14 +109,15 @@ def test_registry_records_a_dated_robots_review_for_every_enabled_seller():
     for entry in REGISTRY:
         if entry.get("enabled"):
             assert entry["robots"]["search_allowed"] is True
-            assert entry["robots"]["checked_on"] == "2026-10-07"
+            assert entry["robots"]["checked_on"] in {"2026-10-07", "2026-10-10"}
             assert entry["search"]["adapter"] in seller_search.ADAPTERS
         if entry.get("robots", {}).get("search_allowed") is False:
             assert not entry["enabled"]
     domains = {e["domain"] for e in searchable(REGISTRY)}
-    assert {"robocraze.com", "quartzcomponents.com", "zbotic.in"} <= domains
-    # Disallowed by robots.txt or blocked by bot protection: never searched.
-    assert not domains & {"evelta.com", "probots.co.in", "electronicscomp.com", "robu.in"}
+    # robu.in is searched only through the GraphQL proxy its robots.txt allows (robu.py).
+    assert {"robocraze.com", "quartzcomponents.com", "zbotic.in", "robu.in"} <= domains
+    # Search disallowed by robots.txt: never searched.
+    assert not domains & {"evelta.com", "probots.co.in", "electronicscomp.com"}
 
 
 def test_seller_search_setting_defaults_on_and_can_be_disabled():
@@ -275,7 +276,7 @@ def test_search_runs_registry_sellers_and_reports_blocked_and_disallowed_hosts()
     assert statuses["robocraze.com"] == statuses["quartzcomponents.com"] == "ok"
     assert len(result.candidates) <= 12
     assert {c.seller for c in result.candidates} >= {"robocraze.com", "quartzcomponents.com"}
-    assert "robu.in" in result.blocked() and "thinkrobotics.com" in result.blocked()
+    assert "thinkrobotics.com" in result.blocked() and "robu.in" not in result.blocked()
     assert "blocked automated access" in result.message()
     # The blocked host is skipped (no request) on the next search during the cooldown.
     before = len(fetcher.calls)

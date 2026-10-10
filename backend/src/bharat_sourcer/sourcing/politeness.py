@@ -18,8 +18,9 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from urllib.parse import urlsplit
 
+from bharat_sourcer.sourcing import robu
 from bharat_sourcer.sourcing.cache import TTL, cache_key
-from bharat_sourcer.sourcing.fetch import FetchError, Page, SafeFetcher
+from bharat_sourcer.sourcing.fetch import ApiRoute, FetchError, Page, SafeFetcher
 
 BLOCKED = "blocked_by_bot_protection"
 
@@ -317,4 +318,12 @@ class PoliteFetcher:
         self.politeness = politeness or Politeness()
 
     def get(self, url: str, **kwargs) -> Page:
-        return self.politeness.get(self.fetcher, url, kind="page", **kwargs)
+        if not robu.handles(url):
+            try:
+                return self.politeness.get(self.fetcher, url, kind="page", **kwargs)
+            except ApiRoute as route:
+                # A search redirect that lands on robu.in: read the product through its API.
+                url = route.url
+        return robu.product_page(
+            lambda api: self.politeness.get(self.fetcher, api, kind="page", **kwargs), url
+        )
