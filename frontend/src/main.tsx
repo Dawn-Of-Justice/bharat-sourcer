@@ -6,6 +6,8 @@ import './styles.css'
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <AccountProvider><App /></AccountProvider>
+    <AccountProvider>
+      <App />
+    </AccountProvider>
   </React.StrictMode>,
 )

@@ -25,6 +25,18 @@ Restart Vite after editing this file. Vite's development proxy injects `X-Integr
 
 Run `npm run build` before delivery. `npm run preview` serves the built frontend locally.
 
+## Checks
+
+Node 24 or newer (`.nvmrc`). CI runs lint, format check, build, `test:server` and `test:preview`.
+
+| Command                                        | What it does                                                                          |
+| ---------------------------------------------- | ------------------------------------------------------------------------------------- |
+| `npm run lint` / `npm run lint:fix`            | ESLint (type-aware TypeScript, React hooks, React Refresh); fails on any warning      |
+| `npm run format` / `npm run format:check`      | Prettier (`.prettierrc.json`: no semicolons, single quotes, 120 columns)              |
+| `npm run typecheck`                            | `tsc --noEmit` (also part of `npm run build`)                                         |
+| `npm run test:server` / `npm run test:preview` | Server proxy tests; preview modules with network access forbidden (no backend needed) |
+| `npm run test:integration`                     | API client against a local identity-aware fixture                                     |
+
 ## Cloud Run team preview
 
 The production build sends same-origin requests to `/api`. The Node server in
@@ -96,7 +108,6 @@ Run npm run dev and open http://localhost:5173/?preview=1. The preview toolbar s
 ## Responsive layout
 
 Every screen is checked for zero horizontal scroll at 320, 375, 414, 768, 1024, 1280, 1440 and 1920px. Main breakpoints in `styles.css`: 1000px (chat panel moves below the report), 600px (phone layout: stacked cards, wrapping totals) and 380–420px (narrow phones: account dialog, review fields, hero chips). Single-column grids use `minmax(0, 1fr)` so long seller names and prices wrap instead of widening the page. On touch screens (`pointer: coarse`) buttons, form fields, disclosure summaries and plan action links get a 44px hit area; small report chips grow to about 30px. The account dialog's close button stays visible while a long panel scrolls on phones.
-
 
 ## Accounts and saved projects (5 October 2026)
 
