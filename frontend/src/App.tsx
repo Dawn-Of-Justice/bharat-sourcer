@@ -792,8 +792,7 @@ function ProjectCard({ project }: { project?: Job['project'] }) {
     ['Interfaces', (project.interfaces ?? []).join(', ')],
   ].filter(([, value]) => value)
   return (
-    <details className="build-overview">
-      <summary>Build overview</summary>
+    <div className="build-overview">
       <div>
         <p>{project.summary}</p>
         {facts.length > 0 && (
@@ -817,7 +816,7 @@ function ProjectCard({ project }: { project?: Job['project'] }) {
           </>
         )}
       </div>
-    </details>
+    </div>
   )
 }
 function jobSourceCopy(job: Job) {
@@ -1530,16 +1529,30 @@ function JobPage({ id }: { id: string }) {
   const [revision, setRevision] = useState(0)
   const [actionBusy, setActionBusy] = useState(false)
   const [actionError, setActionError] = useState('')
-  // One side panel at a time: the chat, or one part's details.
+  // One side panel at a time: chat, attention, or one part's details.
   const [chatOpen, setChatOpenState] = useState(false)
+  const [attentionOpen, setAttentionOpen] = useState(false)
   const [openPart, setOpenPartState] = useState<string | null>(null)
   function setChatOpen(open: boolean) {
     setChatOpenState(open)
-    if (open) setOpenPartState(null)
+    if (open) {
+      setOpenPartState(null)
+      setAttentionOpen(false)
+    }
   }
   function setOpenPart(lineId: string | null) {
     setOpenPartState(lineId)
-    if (lineId) setChatOpenState(false)
+    if (lineId) {
+      setChatOpenState(false)
+      setAttentionOpen(false)
+    }
+  }
+  function setAttention(open: boolean) {
+    setAttentionOpen(open)
+    if (open) {
+      setChatOpenState(false)
+      setOpenPartState(null)
+    }
   }
   // null follows the live stage; a number is an earlier step the user chose to look at.
   const [viewStep, setViewStep] = useState<number | null>(null)
@@ -1617,6 +1630,7 @@ function JobPage({ id }: { id: string }) {
   const viewing = viewStep ?? currentStep
   function view(step: number) {
     if (step === viewing) return
+    setAttentionOpen(false)
     setDirection(step < viewing ? 'back' : 'forward')
     setViewStep(step === currentStep ? null : step)
   }
@@ -1654,7 +1668,7 @@ function JobPage({ id }: { id: string }) {
     ) : undefined
 
   return (
-    <main id="main" className={`job-page project-page${chatOpen || openPart ? ' sheet-open' : ''}`}>
+    <main id="main" className={`job-page project-page${chatOpen || openPart || attentionOpen ? ' sheet-open' : ''}`}>
       <div className="container job-container pp-container">
         {!job && (
           <div className="job-hero">
@@ -1780,6 +1794,8 @@ function JobPage({ id }: { id: string }) {
                   ) : null}
                   {job.status === 'done' ? (
                     <Results
+                      attentionOpen={attentionOpen}
+                      onAttentionChange={setAttention}
                       job={job}
                       token={token}
                       onJob={applySnapshot}

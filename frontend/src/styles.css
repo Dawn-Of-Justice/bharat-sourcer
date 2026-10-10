@@ -3022,7 +3022,7 @@ svg {
   color: #254c43;
 }
 .build-overview > div {
-  padding: 0 20px 20px;
+  padding: 20px;
   font-size: 14px;
   line-height: 1.75;
 }
@@ -5320,9 +5320,9 @@ audio {
   z-index: 30;
   display: inline-flex;
   align-items: center;
-  gap: 10px;
+  gap: 0;
   min-height: 52px;
-  padding: 0 22px 0 18px;
+  padding: 0 16px;
   border: 0;
   border-radius: 999px;
   color: #fff;
@@ -5339,8 +5339,32 @@ audio {
   transform: translateY(-2px);
 }
 .pp-chat-launcher svg {
+  flex-shrink: 0;
   width: 20px;
   height: 20px;
+}
+.pp-chat-launcher-label {
+  max-width: 0;
+  overflow: hidden;
+  opacity: 0;
+  white-space: nowrap;
+  transition:
+    max-width 0.2s ease,
+    margin-left 0.2s ease,
+    opacity 0.2s ease;
+}
+.pp-chat-launcher:hover .pp-chat-launcher-label,
+.pp-chat-launcher:focus-visible .pp-chat-launcher-label {
+  max-width: 200px;
+  margin-left: 10px;
+  opacity: 1;
+}
+.pp-chat-launcher > .pp-chat-badge,
+.pp-chat-launcher > .pp-live {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  margin: 0;
 }
 .pp-chat-launcher[aria-expanded='true'] {
   opacity: 0;
@@ -5363,16 +5387,18 @@ audio {
 }
 .pp-drawer {
   position: fixed;
-  top: var(--pp-drawer-top, 0px);
-  right: 0;
-  bottom: 0;
+  top: calc(var(--pp-drawer-top, 0px) + 12px);
+  right: 12px;
+  bottom: 12px;
   z-index: 40;
   display: flex;
   flex-direction: column;
-  width: min(460px, 100%);
-  border-left: 1px solid var(--pp-line);
+  width: min(436px, calc(100% - 24px));
+  overflow: hidden;
+  border: 1px solid #dce4dc;
+  border-radius: 22px;
   background: var(--pp-paper);
-  box-shadow: -24px 0 60px rgba(13, 38, 48, 0.14);
+  box-shadow: 0 12px 48px rgba(13, 38, 48, 0.16);
   transform: translateX(104%);
   visibility: hidden;
   transition:
@@ -5386,17 +5412,25 @@ audio {
 }
 .pp-drawer-head {
   display: flex;
+  flex-shrink: 0;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 18px 20px 18px 24px;
+  padding: 22px 18px;
+  background: #f1f5ef;
   border-bottom: 1px solid var(--pp-line);
 }
 .pp-drawer-head h2 {
   margin: 0;
   color: var(--pp-ink);
   font-size: 20px;
-  letter-spacing: -0.03em;
+  line-height: 1.25;
+  letter-spacing: -0.025em;
+}
+.pp-drawer-head .pp-icon-button {
+  flex-shrink: 0;
+  border-color: transparent;
+  border-radius: 12px;
 }
 .pp-icon-button {
   display: grid;
@@ -5416,6 +5450,95 @@ audio {
   display: flex;
   flex: 1;
   min-height: 0;
+}
+#pp-attention .pp-drawer-head {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) 40px;
+  flex-shrink: 0;
+  padding: 22px 18px;
+  background: #f1f5ef;
+}
+#pp-attention .pp-drawer-head::before {
+  content: '!';
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  background: var(--pp-ink);
+  color: #fff;
+  font-size: 20px;
+  font-weight: 750;
+}
+#pp-attention .pp-drawer-title {
+  grid-column: 2;
+  text-align: left;
+}
+#pp-attention .pp-drawer-title h2 {
+  font-size: 20px;
+  line-height: 1.25;
+  letter-spacing: -0.025em;
+}
+#pp-attention .pp-drawer-title p {
+  margin: 6px 0 0;
+  color: var(--pp-muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+#pp-attention .pp-icon-button {
+  border-color: transparent;
+  border-radius: 12px;
+}
+#pp-attention .pp-drawer-body {
+  display: block;
+  overflow-y: auto;
+  padding: 24px;
+}
+#pp-attention .pp-needs {
+  width: 100%;
+  max-width: 420px;
+  margin: 0 auto;
+}
+#pp-attention .pp-needs h2 {
+  justify-content: center;
+}
+#pp-attention .pp-needs > ul {
+  border-top: 0;
+}
+#pp-attention .pp-need {
+  column-gap: 12px;
+  padding: 20px 0;
+}
+#pp-attention .pp-need-text,
+#pp-attention .pp-need-body {
+  text-align: left;
+}
+#pp-attention .pp-need-body ul {
+  text-align: left;
+}
+@media (max-width: 480px) {
+  .pp-drawer {
+    top: 8px;
+    right: 8px;
+    bottom: 8px;
+    width: calc(100% - 16px);
+    border-radius: 18px;
+  }
+  .pp-drawer .pp-drawer-head {
+    gap: 8px;
+    padding: 18px 12px;
+  }
+  #pp-attention .pp-drawer-body {
+    padding: 20px 16px;
+  }
+  #pp-attention .pp-need {
+    grid-template-columns: 12px minmax(0, 1fr);
+    row-gap: 12px;
+  }
+  #pp-attention .pp-need-action {
+    grid-column: 2;
+    justify-self: start;
+  }
 }
 .pp-drawer .chat-panel {
   position: static;
@@ -5448,13 +5571,10 @@ audio {
   .project-page.sheet-open .pp-chat-launcher {
     right: 488px;
   }
-  .pp-drawer {
-    box-shadow: -10px 0 30px rgba(13, 38, 48, 0.06);
-  }
 }
-@media (max-width: 1099px) {
+@media (min-width: 481px) and (max-width: 1099px) {
   .pp-drawer {
-    top: 0;
+    top: 12px;
   }
 }
 @media (max-width: 760px) {
@@ -5492,18 +5612,15 @@ audio {
     right: 16px;
     bottom: 16px;
     min-height: 48px;
-    padding: 0 18px 0 15px;
+    padding: 0 14px;
     font-size: 14px;
-  }
-  .pp-drawer {
-    width: 100%;
-    border-left: 0;
   }
 }
 @media (prefers-reduced-motion: reduce) {
   .pp-drawer,
   .pp-drawer.is-open,
   .pp-chat-launcher,
+  .pp-chat-launcher-label,
   .project-page,
   .pp-step-node,
   .pp-step::after,
@@ -5766,11 +5883,61 @@ audio {
   margin: 0 0 32px;
 }
 .pp-parts-head {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  padding: 12px 0;
+  background: #f8f7f2;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
   margin: 0 0 6px;
+}
+.pp-parts-heading {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  min-width: 0;
+}
+.pp-attention-button {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 1px solid #d6b77c;
+  border-radius: 999px;
+  background: #fff7e8;
+  color: #805515;
+  font-size: 12px;
+  font-weight: 750;
+  cursor: pointer;
+}
+.pp-attention-button .pp-need-dot {
+  background: currentColor;
+}
+.pp-attention-button b {
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: #f2e2c4;
+}
+.pp-attention-button.has-danger {
+  border-color: #d9a29b;
+  color: #a2372c;
+  background: #fff2ef;
+}
+.pp-attention-button small {
+  font-size: 11px;
+}
+.pp-row-name .pp-part-safety {
+  color: #a2372c;
+}
+.pp-attention-button:hover,
+.pp-attention-button[aria-expanded='true'] {
+  box-shadow: 0 0 0 2px currentColor;
 }
 .pp-parts-head h2 {
   display: flex;

@@ -19,7 +19,8 @@ import { PlanCompare } from './OrderPlan'
 import PartsList, { statusOf } from './PartsList'
 import { SidePanel } from './ProjectFrame'
 import { ExportButtons, ShareControl } from './ReportActions'
-import { NeedsYou, SummaryBand } from './ReportSummary'
+import { NeedsList, SummaryBand } from './ReportSummary'
+import { orderNeeds } from './orderNeeds'
 import CodePatchView from './CodePatch'
 import { SellerIdentity } from './SellerIdentity'
 
@@ -713,6 +714,8 @@ export default function Results({
   onOpenChat,
   openPart,
   onOpenPart,
+  attentionOpen,
+  onAttentionChange,
 }: {
   job: Job
   token: string
@@ -721,6 +724,8 @@ export default function Results({
   onOpenChat?: () => void
   openPart?: string | null
   onOpenPart?: (lineId: string | null) => void
+  attentionOpen?: boolean
+  onAttentionChange?: (open: boolean) => void
 }) {
   const report = reportOf(job)
   const readOnly = !!shareToken
@@ -729,8 +734,15 @@ export default function Results({
   const [error, setError] = useState('')
   // The page (JobPage) owns which part is open so it can close the chat; the shared page does not.
   const [localPart, setLocalPart] = useState<string | null>(null)
+  const [localAttention, setLocalAttention] = useState(false)
+  const showingAttention = attentionOpen ?? localAttention
+  const setAttention = onAttentionChange ?? setLocalAttention
   const openLine = onOpenPart ? (openPart ?? null) : localPart
-  const setOpenLine = onOpenPart ?? setLocalPart
+  const updateOpenLine = onOpenPart ?? setLocalPart
+  const setOpenLine = (lineId: string | null) => {
+    if (lineId) setAttention(false)
+    updateOpenLine(lineId)
+  }
   const lastLine = useRef<ReportLine | null>(null)
   useEffect(() => {
     function show(event: Event) {
@@ -761,6 +773,18 @@ export default function Results({
     }
   }
   const showLine = (lineId: string) => setOpenLine(lineId)
+  const needs = orderNeeds({
+    job,
+    readOnly,
+    onShowLine: showLine,
+    onOpenChat: onOpenChat
+      ? () => {
+          setAttention(false)
+          onOpenChat()
+        }
+      : undefined,
+  })
+  const safetyChecks = needs.filter(need => need.tone === 'danger').length
   const plan = report.order_plan
   const planLines = new Map(
     (plan?.sellers ?? []).flatMap(seller => (seller.lines ?? []).map(entry => [entry.line_id, entry] as const)),
@@ -791,14 +815,51 @@ export default function Results({
           </>
         }
       />
-      <NeedsYou job={job} readOnly={readOnly} onShowLine={showLine} onOpenChat={onOpenChat} />
       <PartsList
         job={job}
         token={token}
         readOnly={readOnly}
         openLine={openLine}
         onOpen={id => setOpenLine(openLine === id ? null : id)}
+        attention={
+          needs.length > 0 && (
+            <button
+              type="button"
+              className={`pp-attention-button${safetyChecks ? ' has-danger' : ''}`}
+              aria-controls="pp-attention"
+              aria-expanded={showingAttention}
+              onClick={() => {
+                setOpenLine(null)
+                setAttention(!showingAttention)
+              }}
+            >
+              <span className="pp-need-dot" aria-hidden="true" />
+              Needs your Attention <b>{needs.length}</b>
+              {safetyChecks > 0 && (
+                <small>
+                  {safetyChecks} safety {safetyChecks === 1 ? 'check' : 'checks'}
+                </small>
+              )}
+            </button>
+          )
+        }
       />
+      <SidePanel
+        id="pp-attention"
+        open={showingAttention}
+        title="Needs your Attention"
+        onClose={() => setAttention(false)}
+      >
+        {needs.length ? (
+          <NeedsList
+            needs={needs}
+            showHeading={false}
+            initiallyOpen={job.safety_flags?.some(flag => flag.code === 'MAINS') ? 'flag-MAINS' : null}
+          />
+        ) : (
+          <p>Nothing needs your attention right now.</p>
+        )}
+      </SidePanel>
       <div className="pp-after-list">
         {refreshable && (
           <div className="refresh-controls">
