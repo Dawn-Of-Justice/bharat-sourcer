@@ -723,17 +723,19 @@ function ProjectHeading({ job, token, onJob }: { job: Job; token: string; onJob:
           </div>
         </form>
       ) : (
-        <div className="editable-project-field">
-          <h1>{project?.title || jobSourceCopy(job).title}</h1>
-          <button
-            type="button"
-            className="pencil-button"
-            aria-label="Edit project title"
-            title="Edit project title"
-            onClick={() => edit('title')}
-          >
-            <PencilIcon />
-          </button>
+        <div className="editable-project-field editable-project-title">
+          <h1>
+            {project?.title || jobSourceCopy(job).title}
+            <button
+              type="button"
+              className="pencil-button"
+              aria-label="Edit project title"
+              title="Edit project title"
+              onClick={() => edit('title')}
+            >
+              <PencilIcon />
+            </button>
+          </h1>
         </div>
       )}
       {editing === 'description' ? (

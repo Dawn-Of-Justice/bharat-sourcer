@@ -364,9 +364,38 @@ function OfferList({
           editable && offer.stock === 'in_stock' && fresh && (grade === 'A' || changeNeeded || judged || aiChoice)
         const acknowledged = acknowledge[offer.url] ?? false
         const recommended = line.recommendation?.offer_url === offer.url
+        const canToggle =
+          editable && !busy && (selected || (eligible && (!(changeNeeded || aiChoice || needsValue) || acknowledged)))
+        const toggleSelection = () => {
+          if (canToggle) void (selected ? choose(null) : choose(offer.url, changeNeeded, aiChoice))
+        }
         return (
-          <article className="offer" key={offer.url}>
+          <article
+            className={`offer${selected ? ' is-selected' : ''}${canToggle ? ' is-interactive' : ''}`}
+            key={offer.url}
+            onClick={event => {
+              const control = (event.target as Element).closest('a, button, input, label, select, textarea, details')
+              if (control && event.currentTarget.contains(control)) return
+              toggleSelection()
+            }}
+          >
+            {editable && (
+              <button
+                type="button"
+                className="offer-card-toggle"
+                aria-label={`Select offer from ${offer.seller_name || offer.seller}: ${offer.title}`}
+                aria-pressed={selected}
+                disabled={!canToggle}
+                onClick={toggleSelection}
+              />
+            )}
             <div>
+              {(recommended || selected) && (
+                <div className="offer-card-status">
+                  <span aria-hidden="true">{selected ? '✓' : '★'}</span>
+                  {selected ? (recommended ? 'Selected · Recommended' : 'Selected') : 'Recommended'}
+                </div>
+              )}
               <SellerIdentity offer={offer} compact />
               <span className="offer-title">
                 {offer.title}
@@ -377,7 +406,6 @@ function OfferList({
               </span>
               <div className="plan-chips">
                 <GradeChip compatibility={offer.compatibility} match={offer.match} />
-                {recommended && <span className="report-chip choice-recommended">★ Recommended</span>}
               </div>
               {offer.spec_conflicts?.length ? (
                 <details className="spec-conflicts">
@@ -408,19 +436,6 @@ function OfferList({
                 </p>
               )}
               {offer.research_assessment && <Assessment value={offer.research_assessment} />}
-              {selected && (
-                <strong>
-                  {line.selection_source === 'user'
-                    ? line.copied_choice
-                      ? '⧉ Copied choice, made by the person who shared this project'
-                      : '✓ Your choice'
-                    : line.selection_source === 'recommended'
-                      ? '★ Recommended pick, applied automatically'
-                      : line.research_accepted
-                        ? 'Selected with your AI assessment acknowledgement'
-                        : 'Selected quote'}
-                </strong>
-              )}
               {eligible && !selected && (changeNeeded || aiChoice || needsValue) && (
                 <label className="offer-ack">
                   <input
@@ -435,11 +450,6 @@ function OfferList({
                       ? 'the required changes'
                       : 'the AI assessment, conditions and unknowns'}
                 </label>
-              )}
-              {editable && selected && (
-                <button type="button" className="nav-cta" disabled={busy} onClick={() => void choose(null)}>
-                  Clear selection
-                </button>
               )}
               {editable && selected && changeNeeded && line.selection_source !== 'user' && !line.changes_accepted && (
                 <>
@@ -461,16 +471,6 @@ function OfferList({
                   </button>
                 </>
               )}
-              {eligible && !selected && (
-                <button
-                  type="button"
-                  className="nav-cta"
-                  disabled={busy || ((changeNeeded || aiChoice || needsValue) && !acknowledged)}
-                  onClick={() => void choose(offer.url, changeNeeded, aiChoice)}
-                >
-                  Select quote
-                </button>
-              )}
               {!eligible && editable && !selected && (
                 <small>
                   {!fresh
@@ -481,11 +481,13 @@ function OfferList({
                 </small>
               )}
             </div>
-            {secureLink(offer.url) && (
-              <a href={offer.url} target="_blank" rel="noopener noreferrer">
-                Seller page ↗
-              </a>
-            )}
+            <footer className="offer-actions">
+              {secureLink(offer.url) && (
+                <a href={offer.url} target="_blank" rel="noopener noreferrer">
+                  Seller page ↗
+                </a>
+              )}
+            </footer>
           </article>
         )
       })}
@@ -534,6 +536,7 @@ function PartDetail({
   const spec = line.buyable_spec ?? line.item.buyable_spec
   const blocked =
     line.recommendation?.blocked_reason && !line.selected_offer_url ? line.recommendation.blocked_reason : null
+  const [offersOpen, setOffersOpen] = useState(() => !chosen || !!blocked)
   const live = !job.demo && !readOnly
   return (
     <div className="pp-part">
@@ -634,7 +637,7 @@ function PartDetail({
         </div>
       )}
       {!line.item.user_has_it && (
-        <details className="pp-section" open={!chosen || !!blocked}>
+        <details className="pp-section" open={offersOpen} onToggle={event => setOffersOpen(event.currentTarget.open)}>
           <summary>
             Seller offers <span>{offers.length}</span>
           </summary>
