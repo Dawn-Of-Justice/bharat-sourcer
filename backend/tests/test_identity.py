@@ -77,6 +77,18 @@ def test_saved_project_reopens_with_identity_and_never_runs_extraction_again():
     )
 
 
+def test_guest_cookie_is_named_for_firebase_hosting_and_the_old_name_still_works():
+    client, _app = setup()
+    session = client.post("/v1/session/guest")
+    # Firebase Hosting forwards only `__session` to Cloud Run.
+    assert session.headers["set-cookie"].startswith("__session=")
+    value = client.cookies.get("__session")
+    client.cookies.clear()
+    client.cookies.set("bs_guest", value)
+    assert client.get("/v1/session").json()["kind"] == "guest"
+    assert client.post("/v1/session/guest").headers.get("set-cookie") is None
+
+
 def test_guest_cookie_security_claim_and_old_guest_access_revoked():
     client, _app = setup()
     session = client.post("/v1/session/guest")

@@ -1,4 +1,8 @@
-# Implemented API contract — v0.31.0
+# Implemented API contract — v0.31.1
+
+v0.31.1: the guest session cookie is now `__session` (the only cookie Firebase Hosting
+forwards, for `https://bharatsource.web.app`); `bs_guest` cookies are still read until they
+expire. See [authentication](authentication.md).
 
 v0.31.0: robu.in is searched and verified again. Its pages answer a Cloudflare challenge, so
 they are never requested; search (`productSearch`) and product data (`productdetails`) come
