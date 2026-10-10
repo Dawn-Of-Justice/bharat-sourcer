@@ -159,7 +159,16 @@ Validation: `npm run build`, `npm run test:server`, `npm run test:preview`, and 
 
 ### Circuit reference labels
 
-`raw_name` remains unchanged for saved jobs. Result rows and part detail headings
+Plan comparison is a compact, collapsed control below the cost summary and above
+the parts list. Opening it loads the plans; selecting a plan previews it, and Apply
+remains an explicit action. The full comparison no longer sits below all parts.
+
+`raw_name` remains unchanged for saved jobs. For coded parts with a selected offer,
+result rows and part detail headings use the selected seller's full title with the
+circuit reference appended, for example `10uF 16V Electrolytic Capacitor - ELITE (C2)`.
+This works for old jobs without buying specs and updates when the selection changes.
+Seller suffixes are preserved because they can contain useful model or package details.
+Without a selected offer, result rows and part detail headings
 use `partName` to show declared/user values and the buying-spec category alongside
 reference-only names, for example `10k ohm resistor (R1)`. Inferred values are not
 promoted into the display name. The source evidence and editable buying spec remain

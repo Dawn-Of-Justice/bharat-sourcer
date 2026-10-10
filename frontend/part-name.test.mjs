@@ -10,6 +10,28 @@ const exports = {}
 new Function('exports', outputText)(exports)
 const { partName } = exports
 
+test('coded result rows and detail headings use the selected listing, even on legacy jobs without specs', () => {
+  const line = {
+    item: { raw_name: 'C2' },
+    selected_offer_url: 'https://seller.example/capacitor',
+    offers: [
+      { url: 'https://seller.example/other', title: 'Wrong unselected listing' },
+      { url: 'https://seller.example/capacitor', title: '10uF 16V Electrolytic Capacitor - ELITE' },
+    ],
+  }
+  assert.equal(exports.reportPartName(line), '10uF 16V Electrolytic Capacitor - ELITE (C2)')
+  line.item.raw_name = 'C1, C3'
+  assert.equal(exports.reportPartName(line), '10uF 16V Electrolytic Capacitor - ELITE (C1, C3)')
+  line.item.raw_name = 'BC548 (T1)'
+  line.offers[1].title = 'BC548 NPN Transistor'
+  assert.equal(exports.reportPartName(line), 'BC548 NPN Transistor (T1)')
+  line.item.raw_name = 'Arduino Uno R3'
+  assert.equal(exports.reportPartName(line), 'Arduino Uno R3')
+  line.item.raw_name = 'C2'
+  line.selected_offer_url = null
+  assert.equal(exports.reportPartName(line), 'C2')
+})
+
 test('old saved schematic references get readable names without promoting inferred values', () => {
   const spec = {
     category: 'resistor',

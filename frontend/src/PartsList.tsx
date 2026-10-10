@@ -10,7 +10,7 @@ import {
 } from './api'
 import { PartThumb, amountText, price } from './ReportBits'
 import { sellerName } from './SellerIdentity'
-import { partName } from './partName'
+import { reportPartName } from './partName'
 
 type Status = { label: string; tone: 'ok' | 'input' | 'muted' }
 // Whole rupees in the list, matching the summary band; the part details keep paise.
@@ -84,7 +84,7 @@ function Row({
       >
         <PartThumb job={job} line={line} token={token} readOnly={readOnly} />
         <span className="pp-row-name">
-          <strong>{partName(line.item, line.buyable_spec ?? line.item.buyable_spec)}</strong>
+          <strong>{reportPartName(line)}</strong>
           {secondary && <small>{secondary}</small>}
         </span>
         <span className="pp-row-qty" aria-label={`Quantity ${line.item.qty ?? 'unknown'}`}>

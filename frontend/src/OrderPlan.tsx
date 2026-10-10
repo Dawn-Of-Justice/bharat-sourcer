@@ -66,7 +66,9 @@ export function PlanCompare({
         if ((event.target as HTMLDetailsElement).open && !plans && !busy) void load()
       }}
     >
-      <summary>Compare other plans (cheapest, fewest sellers)</summary>
+      <summary>
+        Compare plans <span className="plan-compare-hint">Cheapest · Fewest sellers</span>
+      </summary>
       {busy && !plans && <p role="status">Loading plans…</p>}
       {plans && (
         <>
@@ -82,7 +84,6 @@ export function PlanCompare({
                   setAcknowledged(false)
                 }}
               >
-                {kind === entry.kind ? '● ' : '○ '}
                 {planNames[entry.kind]}
               </button>
             ))}
