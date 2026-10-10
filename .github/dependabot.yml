@@ -1,16 +1,23 @@
 version: 2
 updates:
+  # Major versions of app dependencies need code changes and are upgraded by hand.
   - package-ecosystem: pip
     directory: /backend
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+    ignore:
+      - dependency-name: '*'
+        update-types: [version-update:semver-major]
 
   - package-ecosystem: npm
     directory: /frontend
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+    ignore:
+      - dependency-name: '*'
+        update-types: [version-update:semver-major]
     groups:
       minor-and-patch:
         update-types:
