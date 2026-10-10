@@ -146,7 +146,7 @@ def compile_sketch(
         started = time.monotonic()
         try:
             result = subprocess.run(
-                command, capture_output=True, text=True, timeout=timeout, cwd=work
+                command, capture_output=True, text=True, timeout=timeout, cwd=work, check=False
             )
         except subprocess.TimeoutExpired as exc:
             output = (exc.stdout or "") + (exc.stderr or "")
@@ -187,7 +187,7 @@ def main() -> int:
         return 1
     try:
         result = compile_sketch(bundle)
-    except Exception as exc:  # noqa: BLE001 - report any runner failure to the API
+    except Exception as exc:  # Report any runner failure to the API
         result = {"status": "error", "detail": f"Runner failed: {type(exc).__name__}"}
     result = {k: v for k, v in result.items() if v is not None}
     status, _ = call(

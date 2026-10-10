@@ -146,7 +146,7 @@ def page_images(page: Page, query: str) -> list[PartImage]:
         return []
     products, parser = page_products(page)
     meta = parser.meta_images if len(products) == 1 else ()
-    images = []
+    images: list[PartImage] = []
     for product in products:
         if title_matches(query, str(product.get("name", ""))):
             url = product_image_url(product, page.url, meta)
@@ -448,13 +448,13 @@ def reject_reason(page: Page) -> str:
 def page_products(page: Page) -> tuple[list[dict], ProductScripts]:
     parser = ProductScripts()
     parser.feed(page.body.decode("utf-8", errors="replace"))
-    products = []
+    products: list[dict] = []
     for script in parser.scripts[:30]:
         try:
             products.extend(node for node in nodes(load_script(script)) if is_product(node))
         except (ValueError, RecursionError):
             continue
-    unique = {}
+    unique: dict[str, dict] = {}
     for product in products:
         identity = product.get("@id") or product.get("url")
         key = (

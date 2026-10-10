@@ -8,7 +8,9 @@ import ssl
 import time
 from dataclasses import dataclass
 from urllib.parse import urljoin, urlsplit
-from urllib.robotparser import RobotFileParser, RuleLine
+
+# RuleLine and RobotFileParser.entries are undocumented stdlib internals missing from typeshed.
+from urllib.robotparser import RobotFileParser, RuleLine  # type: ignore[attr-defined]
 
 USER_AGENT = "BharatSourcer/0.4 (+product-data-verification)"
 
@@ -21,7 +23,8 @@ def public_addresses(host: str) -> list[str]:
     try:
         addresses = list(
             dict.fromkeys(
-                answer[4][0] for answer in socket.getaddrinfo(host, 443, type=socket.SOCK_STREAM)
+                str(answer[4][0])
+                for answer in socket.getaddrinfo(host, 443, type=socket.SOCK_STREAM)
             )
         )
     except OSError as exc:
@@ -81,7 +84,8 @@ def robots_parser(text: str) -> RobotFileParser:
     lines = [line for line in text.splitlines() if line.split("#", 1)[0].strip()]
     parser = RobotFileParser()
     parser.parse(lines)
-    entries = [*parser.entries, *([parser.default_entry] if parser.default_entry else [])]
+    default = parser.default_entry  # type: ignore[attr-defined]
+    entries = [*parser.entries, *([default] if default else [])]  # type: ignore[attr-defined]
     for entry in entries:
         rules = [PatternRule(rule) for rule in entry.rulelines]
         entry.rulelines = sorted(rules, key=lambda rule: (-len(rule.path), not rule.allowance))
@@ -90,14 +94,15 @@ def robots_parser(text: str) -> RobotFileParser:
 
 class PinnedHTTPSConnection(http.client.HTTPSConnection):
     def __init__(self, host: str, address: str, timeout: float):
-        super().__init__(host, timeout=timeout, context=ssl.create_default_context())
+        self.tls_context = ssl.create_default_context()
+        super().__init__(host, timeout=timeout, context=self.tls_context)
         self.address = address
 
     def connect(self):
         # Connect to the checked address while preserving TLS hostname validation.
         sock = socket.create_connection((self.address, 443), self.timeout)
         try:
-            self.sock = self._context.wrap_socket(sock, server_hostname=self.host)
+            self.sock = self.tls_context.wrap_socket(sock, server_hostname=self.host)
         except Exception:
             sock.close()
             raise
@@ -181,7 +186,8 @@ class SafeFetcher:
         if rate and rate.seconds / rate.requests > 1:
             return False
         # Skip long-delay sites rather than holding workers open.
-        return delay <= 1
+        # typeshed declares crawl_delay as str | None; CPython returns an int.
+        return float(delay) <= 1
 
     def get(self, url: str, *, robots: bool = True, max_bytes: int = 2_000_000) -> Page:
         for _ in range(6):

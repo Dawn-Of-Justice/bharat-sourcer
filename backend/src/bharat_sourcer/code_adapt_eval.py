@@ -536,7 +536,7 @@ def gate_failures(
     require_coverage: bool = True,
 ) -> list[str]:
     """Reasons the report misses its thresholds (default: every gated rate 1.0)."""
-    wanted = {name: 1.0 for name in RATES} | (thresholds or {})
+    wanted = dict.fromkeys(RATES, 1.0) | (thresholds or {})
     unknown = set(wanted) - set(RATES)
     if unknown:
         raise ValueError(f"Unknown metric(s): {', '.join(sorted(unknown))}")

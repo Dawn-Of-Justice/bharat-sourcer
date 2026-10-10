@@ -430,7 +430,7 @@ class MarketsService:
 
         try:
             self.jobs.store.mutate(job_id, save)
-        except Exception:  # noqa: BLE001 - accounting must never fail the lookup
+        except Exception:  # Accounting must never fail the lookup
             log.warning("MARKETS_COST_NOT_SAVED job_id=%s", job_id, exc_info=True)
 
 

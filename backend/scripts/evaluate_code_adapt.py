@@ -78,7 +78,7 @@ except (OSError, ValueError) as exc:
     sys.exit(f"Cannot load {args.cases}: {exc}")
 
 report = evaluate(cases, min_cases_per_edge=args.min_cases_per_edge)
-thresholds = {name: args.min_rate for name in RATES} | dict(args.min)
+thresholds = dict.fromkeys(RATES, args.min_rate) | dict(args.min)
 failures = gate_failures(report, thresholds, require_coverage=not args.no_coverage_gate)
 
 if report.synthetic:

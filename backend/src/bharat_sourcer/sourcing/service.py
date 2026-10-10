@@ -374,8 +374,9 @@ class SourcingService:
             entry = self._recent.get(key)
             # The same line again is a refresh, not a duplicate: always source it fresh.
             owner = entry is None or entry[2] == item.line_id
-            if owner:
-                future: Future = Future()
+            future: Future
+            if entry is None or owner:
+                future = Future()
                 self._recent[key] = (clock, future, item.line_id)
             else:
                 future = entry[1]
@@ -432,7 +433,7 @@ class SourcingService:
         project: ProjectContext | None,
         spec: BuyableSpec,
     ) -> ReportLine:
-        attempted = set()
+        attempted: set[str] = set()
         fetcher = self.politeness.wrap(self.fetcher or SafeFetcher())
         first = self._source_attempt(item, project_items, fetcher, attempted, "", spec, project)
         if not (self.followup_enabled and needs_followup(first)):
@@ -440,9 +441,11 @@ class SourcingService:
         # One additional discovery, never a recursive retry. Existing per-call budgets apply.
         domains = sorted(
             {
-                urlsplit(str(s.url)).hostname
+                host
                 for s in first.research.sources
-                if urlsplit(str(s.url)).hostname != "vertexaisearch.cloud.google.com"
+                # Source URLs are validated HttpUrls, so every one has a hostname.
+                if (host := urlsplit(str(s.url)).hostname)
+                and host != "vertexaisearch.cloud.google.com"
             }
         )
         followup = (

@@ -407,8 +407,8 @@ def mains_rules(items, project_text, user_level, out: Collector) -> None:
             matched = search(MAINS, text) or (ac[0].matched if ac else None)
         if matched:
             out.add("MAINS", text, matched)
-    relays = [(item, RELAY.search(identity(item))) for item in items]
-    relays = [(item, match.group(0)) for item, match in relays if match]
+    relay_hits = [(item, RELAY.search(identity(item))) for item in items]
+    relays = [(item, match.group(0)) for item, match in relay_hits if match]
     context = project_text + [
         Text(i.line_id, "raw_name", i.raw_name)
         for i in items

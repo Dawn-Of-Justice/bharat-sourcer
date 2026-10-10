@@ -15,15 +15,15 @@ from bharat_sourcer.schemas import BomItem, ChatReply, ResistorInputs
 def inputs(**changes):
     return ResistorInputs(
         **(
-            dict(
-                line_id="L01",
-                purpose="led_series",
-                supply_max_v=3.3,
-                led_forward_min_v=2,
-                target_max_ma=5,
-                driver_limit_ma=8,
-                confirmed=True,
-            )
+            {
+                "line_id": "L01",
+                "purpose": "led_series",
+                "supply_max_v": 3.3,
+                "led_forward_min_v": 2,
+                "target_max_ma": 5,
+                "driver_limit_ma": 8,
+                "confirmed": True,
+            }
             | changes
         )
     )

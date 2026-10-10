@@ -554,7 +554,7 @@ class GeminiExtras:
         ).hexdigest()
         cached = self.audio.get(key)
         hit = cached is not None
-        if not hit:
+        if cached is None:
             self._charge("explain", job_id)
             cached = self._speak(script, language)
             self.audio.put(key, cached)

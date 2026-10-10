@@ -361,7 +361,7 @@ def retain(entry: CandidateDraft, document: dict, item: BomItem) -> ResearchCand
     ):
         assessment.status = "needs_information"
         assessment.conditions = (
-            ["Confirm missing identity or requirement evidence."] + assessment.conditions
+            ["Confirm missing identity or requirement evidence.", *assessment.conditions]
         )[:10]
     if not item.requirements and not assessment.questions:
         assessment.questions.append("What must this part do in your project?")
@@ -405,7 +405,8 @@ class GeminiResearch:
         self.settings, self.transport, self.cache = settings, transport, cache
 
     def _documents(self, pages, source_records) -> list[dict]:
-        documents, budget = [], self.settings.research_total_chars
+        documents: list[dict] = []
+        budget = self.settings.research_total_chars
         for page in pages:
             if len(documents) >= self.settings.research_pages_per_part or budget < 500:
                 break
@@ -570,13 +571,13 @@ class GeminiResearch:
                 )
             )
             found, seen = [], set()
-            for entry in draft.candidates:
-                if entry.source_id >= len(documents) or entry.source_id in seen:
+            for drafted in draft.candidates:
+                if drafted.source_id >= len(documents) or drafted.source_id in seen:
                     continue
-                retained = retain(entry, documents[entry.source_id], item)
+                retained = retain(drafted, documents[drafted.source_id], item)
                 if retained is None:
                     continue
-                seen.add(entry.source_id)
+                seen.add(drafted.source_id)
                 found.append(retained)
             self._store(key, found, model)
             return PartResearch(

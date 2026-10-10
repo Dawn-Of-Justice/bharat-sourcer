@@ -399,7 +399,7 @@ class SellerSearch:
             query = str(rung)
             with lock:
                 diagnostic.queries.append(query)
-            pages = []
+            pages: list[tuple[str, Page]] = []
             try:
                 found = adapter(self._fetcher_for(seller, query, pages), seller, query, limit)
                 for url, page in pages:
@@ -467,7 +467,7 @@ class SellerSearch:
             else:
                 sellers.append(seller)
         pool = ThreadPoolExecutor(max_workers=min(self.max_workers, max(1, len(sellers))))
-        progress = {
+        progress: dict[str, tuple[list, SellerDiagnostic, threading.Lock, threading.Event]] = {
             seller["domain"]: (
                 [],
                 SellerDiagnostic(seller["domain"], "no_results"),

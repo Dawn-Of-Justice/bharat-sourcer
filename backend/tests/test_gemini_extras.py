@@ -252,7 +252,7 @@ def test_zoom_reads_clip_and_creates_reviewable_proposal():
     assert body["clip"] == {"start": "03:07", "end": "03:22"}
     assert body["evidence"]["timestamp"] == "03:15"
     assert body["marking"] == "ATMEGA328P" and body["demo"] is False
-    [(path, payload)] = calls
+    [(_path, payload)] = calls
     video = payload["contents"][0]["parts"][0]
     assert video["fileData"]["fileUri"] == "https://www.youtube.com/watch?v=abcdefghijk"
     assert video["videoMetadata"]["startOffset"] == "187s"
@@ -329,7 +329,7 @@ def test_scan_suggests_owned_parts_through_a_proposal_and_never_stores_photo():
         ("L02", True, [100, 120, 400, 520]),
         ("L01", False, None),
     ]
-    [(path, payload)] = calls
+    [(_path, payload)] = calls
     sent = payload["contents"][0]["parts"][0]["inlineData"]
     assert sent["mimeType"] == "image/jpeg"
     assert base64.b64decode(sent["data"]).startswith(b"\xff\xd8\xff")

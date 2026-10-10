@@ -632,19 +632,23 @@ def rule_measures(run: Run) -> None:
 def rule_display(run: Run) -> None:
     required = run.need("required", "display_controller")
     offered = run.need("offered", "display_controller")
-    if required and offered and required != offered:
-        if not any(f.rule == "curated_substitute" for f in run.findings):
-            libs = run.off.get("libraries") or []
-            run.add(
-                "display_controller",
-                "B",
-                "code",
-                f"Display controller differs ({required} → {offered})",
-                f"Switch to a library that supports {offered}"
-                + (f" ({libs[0]})" if libs else "")
-                + "; check the constructor and colour constants.",
-                ("required.display_controller", "offered.display_controller"),
-            )
+    if (
+        required
+        and offered
+        and required != offered
+        and not any(f.rule == "curated_substitute" for f in run.findings)
+    ):
+        libs = run.off.get("libraries") or []
+        run.add(
+            "display_controller",
+            "B",
+            "code",
+            f"Display controller differs ({required} → {offered})",
+            f"Switch to a library that supports {offered}"
+            + (f" ({libs[0]})" if libs else "")
+            + "; check the constructor and colour constants.",
+            ("required.display_controller", "offered.display_controller"),
+        )
     required = run.need("required", "display_resolution")
     offered = run.need("offered", "display_resolution")
     if required and offered and required != offered:

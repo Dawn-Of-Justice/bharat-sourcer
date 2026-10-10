@@ -21,7 +21,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["httpx>=0.28,<1", "pytest>=8.3,<10", "ruff>=0.11,<1"]
+dev = ["httpx>=0.28,<1", "mypy>=1.15,<3", "pytest>=8.3,<10", "ruff>=0.11,<1"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
@@ -39,4 +39,64 @@ target-version = "py312"
 line-length = 100
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "UP", "B"]
+select = [
+    "E", "F", "I", "UP", "B",
+    "SIM", "C4", "PIE", "RET", "RUF", "PERF",
+    "PLE", "PLW", "PLR", "PLC",
+    "S", "T20", "DTZ", "LOG", "G", "ASYNC", "FAST",
+]
+ignore = [
+    # Rupee sign, multiplication sign and dashes are legitimate in sourcing text.
+    "RUF001", "RUF002", "RUF003",
+    # Complexity thresholds: pipeline and parsing functions are long by nature; refactoring
+    # them only to satisfy a counter risks behaviour changes.
+    "PLR0911", "PLR0912", "PLR0913", "PLR0915", "PLR0917",
+    # Domain thresholds (prices, sizes, retry counts) read clearer inline than as constants.
+    "PLR2004",
+    # Deferred imports keep optional cloud/PDF dependencies off the import path and break cycles.
+    "PLC0415",
+    # Long word lists written as "a b c".split() read better than wrapped list literals.
+    "SIM905",
+    # Normalising a loop variable in place (`value = value.strip()`) is a deliberate idiom here.
+    "PLW2901",
+    # Conditional appends inside nested loops read clearer than extend(generator) and the
+    # lists here are tiny; the rewrite would cost readability for no measurable gain.
+    "PERF401",
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Tests: asserts, fixture token arguments and subprocess runs of our own scripts.
+"tests/**" = ["S101", "S106", "S603"]
+# Operator scripts print to the console, assert live-check outcomes and shell out to
+# gcloud/git on purpose.
+"scripts/**" = ["T201", "S101", "S603", "S607"]
+# Compile-runner container: logs to stdout for Cloud Run Jobs, invokes arduino-cli and
+# calls fixed https/metadata URLs built from its own configuration.
+"compile/**" = ["T201", "S603", "S607", "S310"]
+# Evaluation sketches are sample user programs (MicroPython/CircuitPython) that print.
+"evaluation/**" = ["T201"]
+
+[tool.mypy]
+python_version = "3.12"
+files = ["src"]
+mypy_path = "src"
+plugins = ["pydantic.mypy"]
+check_untyped_defs = true
+no_implicit_optional = true
+strict_equality = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_unused_configs = true
+# Baseline: these codes still report (2026-10-10) 89 union-attr, 53 arg-type and 35 assignment
+# errors, mostly Optional narrowing the code guarantees by invariant and str-vs-Literal
+# assignments on pydantic models. Remove a code from this list once its errors are fixed.
+disable_error_code = ["union-attr", "arg-type", "assignment"]
+
+[[tool.mypy.overrides]]
+# WeasyPrint ships no type information.
+module = ["weasyprint"]
+ignore_missing_imports = true
+
+[tool.pydantic-mypy]
+init_forbid_extra = true
+warn_required_dynamic_aliases = true

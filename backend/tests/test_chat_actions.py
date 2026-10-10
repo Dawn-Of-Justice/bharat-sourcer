@@ -95,7 +95,7 @@ def results(job, message):
 
 
 def test_refresh_completion_message_summarizes_outcome_once():
-    jobs, chat, source, key, token, message = setup()
+    jobs, chat, _source, key, token, message = setup()
     accept(chat, key, token, message)
     jobs.finish(key)
     job = jobs.get(key, token)
@@ -138,7 +138,7 @@ def test_refresh_completion_message_summarizes_outcome_once():
 
 
 def test_redelivered_one_line_work_completes_once():
-    jobs, chat, source, key, token, message = setup()
+    jobs, chat, _source, key, token, message = setup()
     accept(chat, key, token, message)
     work = Work(job_id=key, kind="workflow")
     deliveries = 0
@@ -171,7 +171,7 @@ def test_duplicate_result_message_is_linked_not_repeated():
 
 
 def test_interrupted_refresh_records_failure_message():
-    jobs, chat, source, key, token, message = setup()
+    jobs, chat, _source, key, token, message = setup()
     accept(chat, key, token, message)
 
     def interrupt(record):
@@ -192,7 +192,7 @@ def test_interrupted_refresh_records_failure_message():
 
 
 def test_direct_refresh_does_not_complete_old_proposal():
-    jobs, chat, source, key, token, message = setup()
+    jobs, chat, _source, key, token, message = setup()
     accept(chat, key, token, message)
     jobs.finish(key)
     jobs.refresh_offers(key, token, RefreshOffers(line_ids=["L03"]))
@@ -253,7 +253,7 @@ def test_draft_edit_history_accept_and_reject():
 
 
 def test_history_is_bounded_and_fits_storage():
-    jobs, chat, _, key, token, _ = setup()
+    jobs, _chat, _, key, token, _ = setup()
 
     def flood(record):
         for index in range(MAX_ACTIONS + 10):

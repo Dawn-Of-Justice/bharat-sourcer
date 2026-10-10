@@ -2,7 +2,7 @@ import asyncio
 import logging
 import os
 import secrets
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 from datetime import timedelta
 
 from fastapi import BackgroundTasks, FastAPI, Request
@@ -161,10 +161,8 @@ def create_app(
                     await asyncio.to_thread(service.recover)
                 except Exception as exc:
                     logging.getLogger(__name__).error("Recovery failed: %s", type(exc).__name__)
-                try:
+                with suppress(TimeoutError):
                     await asyncio.wait_for(stop.wait(), settings.recovery_interval_s)
-                except TimeoutError:
-                    pass
 
         async def chat_recovery():
             while not stop.is_set():
@@ -174,10 +172,8 @@ def create_app(
                     logging.getLogger(__name__).error(
                         "Chat recovery failed: %s", type(exc).__name__
                     )
-                try:
+                with suppress(TimeoutError):
                     await asyncio.wait_for(stop.wait(), settings.recovery_interval_s)
-                except TimeoutError:
-                    pass
 
         task = asyncio.create_task(recovery())
         chat_task = asyncio.create_task(chat_recovery())

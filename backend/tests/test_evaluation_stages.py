@@ -56,8 +56,12 @@ def test_quantity_exact_for_pieces_and_ten_percent_for_lengths():
     )
     result = evaluate_case(
         case,
-        [item("L1", "74LS00", 3), item("L2", "Tubing", 33), item("L3", "Wire", 89)]
-        + [item("L4", "Strip", 2)],
+        [
+            item("L1", "74LS00", 3),
+            item("L2", "Tubing", 33),
+            item("L3", "Wire", 89),
+            item("L4", "Strip", 2),
+        ],
     )
     assert [m.qty_correct for m in result.matches] == [False, True, False, True]
     assert [m.qty_rule for m in result.matches] == [

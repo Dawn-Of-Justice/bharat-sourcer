@@ -26,8 +26,7 @@ def compact(text: str) -> str:
 def _text(text: str) -> str:
     text = unicodedata.normalize("NFKC", text).replace("μ", "u").replace("µ", "u")
     text = re.sub(r"(?i)\bmfd\b", "uF", text)
-    text = re.sub(r"(?i)(\d)\s*(?:′′|″|”|\"|inches\b|inch\b|in\.)", r"\1 inch", text)
-    return text
+    return re.sub(r"(?i)(\d)\s*(?:′′|″|”|\"|inches\b|inch\b|in\.)", r"\1 inch", text)
 
 
 def model_numbers(text: str) -> list[str]:

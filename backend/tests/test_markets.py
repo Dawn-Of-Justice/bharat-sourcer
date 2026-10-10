@@ -274,7 +274,7 @@ def test_validation_errors_and_empty_bom():
 
 
 def test_ungrounded_text_is_not_shown_and_bad_output_fails():
-    client, job_id, calls, replies, _ = setup()
+    client, job_id, _calls, replies, _ = setup()
     replies.append(maps_reply(chunks=[]))
     body = client.get(f"/v1/jobs/{job_id}/markets", params={"city": "Bengaluru"}).json()
     assert body["summary"] is None and body["places"] == []

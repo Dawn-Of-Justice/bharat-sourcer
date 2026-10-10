@@ -12,6 +12,7 @@ from datetime import date
 from decimal import ROUND_HALF_UP, Decimal
 from functools import cache, lru_cache
 from importlib import resources
+from typing import cast
 from urllib.parse import urlsplit
 
 from bharat_sourcer.schemas import (
@@ -334,7 +335,8 @@ def import_baseline(lines: list[ReportLine]) -> ImportBaseline | None:
     rates = load("tax_rates.json")
     duty, fx, courier = rates["import"], rates["fx"], rates["courier"]
     rate = Decimal(fx["usd_inr"])
-    goods_usd = sum((Decimal(ref.price_usd) * line.item.qty for line, ref in refs), ZERO)
+    # `refs` keeps only lines with a quantity; mypy cannot narrow through the tuple.
+    goods_usd = sum((Decimal(ref.price_usd) * cast(int, line.item.qty) for line, ref in refs), ZERO)
     goods = (goods_usd * rate).quantize(CENT, ROUND_HALF_UP)
     freight = (Decimal(courier["usd_per_order"]) * rate).quantize(CENT, ROUND_HALF_UP)
     assessable = goods + freight

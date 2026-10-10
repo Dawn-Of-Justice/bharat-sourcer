@@ -20,7 +20,7 @@ import json
 import re
 from dataclasses import dataclass
 from html.parser import HTMLParser
-from typing import Literal
+from typing import ClassVar, Literal
 from urllib.parse import quote, urlsplit
 
 from bharat_sourcer.sourcing.fetch import Page
@@ -233,7 +233,7 @@ class ReadableText(HTMLParser):
     "You might also like" are dropped up to the next heading of the same or higher level.
     """
 
-    SKIP = {
+    SKIP: ClassVar[set[str]] = {
         "aside",
         "button",
         "dialog",
@@ -248,7 +248,7 @@ class ReadableText(HTMLParser):
         "svg",
         "template",
     }
-    BLOCK = {
+    BLOCK: ClassVar[set[str]] = {
         "address",
         "article",
         "br",
@@ -275,7 +275,7 @@ class ReadableText(HTMLParser):
         "tr",
         "ul",
     }
-    HEADINGS = {"h1": 1, "h2": 2, "h3": 3, "h4": 4, "h5": 5, "h6": 6}
+    HEADINGS: ClassVar[dict[str, int]] = {"h1": 1, "h2": 2, "h3": 3, "h4": 4, "h5": 5, "h6": 6}
 
     def __init__(self):
         super().__init__(convert_charrefs=True)
@@ -331,9 +331,12 @@ class ReadableText(HTMLParser):
             if span[1] == tag:
                 span[2] += 1
         rank = self._content_rank(tag, attrs)
-        if rank is not None and rank not in self.spans:
-            if all(span[0] != rank for span in self.open_spans):
-                self.open_spans.append([rank, tag, 1, len(self.parts)])
+        if (
+            rank is not None
+            and rank not in self.spans
+            and all(span[0] != rank for span in self.open_spans)
+        ):
+            self.open_spans.append([rank, tag, 1, len(self.parts)])
         level = self.HEADINGS.get(tag)
         if level is not None:
             if self.drop_level is not None and level <= self.drop_level:

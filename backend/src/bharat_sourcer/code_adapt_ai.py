@@ -122,7 +122,7 @@ def _apply(original: str, diff: str, path: str | None) -> tuple[str, list[_Chang
     index, headers = 0, {}
     while index < len(diff_lines) and not diff_lines[index].startswith("@@"):
         line = diff_lines[index]
-        if line.startswith("--- ") or line.startswith("+++ "):
+        if line.startswith(("--- ", "+++ ")):
             key = line[:3]
             if key in headers:
                 raise PatchError("diff covers more than one file")
@@ -470,7 +470,7 @@ def draft_patch(
     for attempt in (1, 2):
         try:
             response = generate(prompt, RESPONSE_SCHEMA)
-        except Exception as exc:  # noqa: BLE001 - any model failure means no draft
+        except Exception as exc:  # Any model failure means no draft
             errors = [*errors, f"model call failed ({type(exc).__name__})"]
             return DraftResult(
                 ok=False, reason="ai_failed_validation", errors=errors, calls=attempt
@@ -529,7 +529,7 @@ def repair_after_compile(
     )
     try:
         response = generate(prompt, RESPONSE_SCHEMA)
-    except Exception as exc:  # noqa: BLE001 - any model failure means no revision
+    except Exception as exc:  # Any model failure means no revision
         return DraftResult(
             ok=False,
             reason="ai_failed_validation",

@@ -205,7 +205,8 @@ class CodePatchService:
         original, substitute = catalog.get(from_id), catalog.get(to_id)
         marks = markers(original)
         relevant = {path: text for path, (text, _) in read.items() if any(m in text for m in marks)}
-        chosen, size = {}, 0
+        chosen: dict[str, str] = {}
+        size = 0
         for path, text in relevant.items():
             if len(chosen) == AI_MAX_FILES or size + len(text.encode()) > AI_MAX_BYTES:
                 break
@@ -283,7 +284,7 @@ class CodePatchService:
         )
 
     # -- accepting and downloading ----------------------------------------------
-    def accept(self, job_id: str, line_id: str, token) -> CodePatch:
+    def accept(self, job_id: str, line_id: str, token) -> CodePatch | None:
         def change(record):
             job = self.jobs._authorized(record, token)
             patch = self.line(job, line_id).code_patch

@@ -1,4 +1,5 @@
 from datetime import timedelta
+from typing import ClassVar
 from unittest.mock import patch
 
 import httpx
@@ -62,7 +63,7 @@ def client_report(grade="A", stock="in_stock", age=0):
 
 
 def test_selection_decimal_totals_clear_and_token():
-    client, service, job_id, headers = client_report()
+    client, _service, job_id, headers = client_report()
     path = f"/v1/jobs/{job_id}/selections"
     body = {"selections": [{"line_id": "L01", "offer_url": URL}]}
     assert client.post(path, json=body).status_code == 404
@@ -121,9 +122,11 @@ def test_bounded_http_retries(codes, count):
         calls.append(request)
         return httpx.Response(codes[len(calls) - 1])
 
-    with httpx.Client(transport=httpx.MockTransport(respond)) as client:
-        with patch("bharat_sourcer.resilience.time.sleep"):
-            response = post_with_retry(client, URL, json={})
+    with (
+        httpx.Client(transport=httpx.MockTransport(respond)) as client,
+        patch("bharat_sourcer.resilience.time.sleep"),
+    ):
+        response = post_with_retry(client, URL, json={})
     assert len(calls) == count
     assert response.status_code == codes[-1]
 
@@ -155,7 +158,7 @@ def test_recovery_resumes_checkpoint_without_repeating_completed_search():
             return [BomItem(line_id=f"L0{i}", raw_name="Test") for i in [1, 2]]
 
     class Source:
-        calls = []
+        calls: ClassVar[list] = []
 
         def source(self, item):
             self.calls.append(item.line_id)

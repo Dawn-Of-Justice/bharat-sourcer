@@ -18,19 +18,8 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from urllib.parse import urlsplit
 
+from bharat_sourcer.sourcing.cache import TTL, cache_key
 from bharat_sourcer.sourcing.fetch import FetchError, Page, SafeFetcher
-
-try:  # Shared cache from the cost stream (merged on the integration branch).
-    from bharat_sourcer.sourcing.cache import TTL, cache_key
-except ImportError:  # pragma: no cover - local shim until the branches are merged
-    TTL: dict[str, float] = {}
-
-    def cache_key(*parts: str) -> str:
-        return ":".join(parts)
-
-    def normalise_part(text: str) -> str:
-        return " ".join(text.lower().split())
-
 
 BLOCKED = "blocked_by_bot_protection"
 

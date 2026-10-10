@@ -23,6 +23,7 @@ def command(*args, data=None, optional=False):
         text=True,
         encoding="utf-8",
         errors="replace",
+        check=False,
     )
     if result.returncode and not optional:
         # Commands never contain secret values; secret payloads go only through stdin.

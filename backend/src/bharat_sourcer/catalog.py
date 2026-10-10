@@ -80,7 +80,8 @@ class CatalogEntry(Strict):
     # Shared terms that only ever produce an ambiguous candidate list.
     generic: list[str] = Field(default_factory=list)
     supply_v: Range | None = None
-    logic_v: Literal[3.3, 5.0] | None = None
+    # Float literals are valid for pydantic (enum in OpenAPI) but not in the typing spec.
+    logic_v: Literal[3.3, 5.0] | None = None  # type: ignore[valid-type]
     logic_follows_supply: bool = False
     io_5v_tolerant: bool | None = None
     input_3v3_ok: bool | None = None
@@ -212,7 +213,7 @@ class Resolution:
 
 class Catalog:
     def __init__(self, entries: list[CatalogEntry]):
-        self.entries = {}
+        self.entries: dict[str, CatalogEntry] = {}
         for entry in entries:
             if entry.id in self.entries:
                 raise ValueError(f"Duplicate catalogue id {entry.id}")

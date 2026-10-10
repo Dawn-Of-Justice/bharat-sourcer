@@ -13,17 +13,17 @@ from bharat_sourcer.sourcing.listings import verify_page
 
 
 def oled(**changes):
-    values = dict(
-        family="oled",
-        controller="ssd1306",
-        interface="i2c",
-        resolution="128x64",
-        logic_v=3.3,
-        supply_min_v=3.3,
-        supply_max_v=5.0,
-        pinout="GND,VCC,SCL,SDA",
-        i2c_address="0x3c",
-    )
+    values = {
+        "family": "oled",
+        "controller": "ssd1306",
+        "interface": "i2c",
+        "resolution": "128x64",
+        "logic_v": 3.3,
+        "supply_min_v": 3.3,
+        "supply_max_v": 5.0,
+        "pinout": "GND,VCC,SCL,SDA",
+        "i2c_address": "0x3c",
+    }
     return PartSpecs(**(values | changes))
 
 
@@ -86,17 +86,17 @@ def test_pro_micro_voltage_variant_mismatch():
 
 
 def test_sensor_output_mode_and_polarity_must_match():
-    values = dict(
-        family="ttp223",
-        controller="ttp223",
-        logic_v=3.3,
-        interface="digital",
-        supply_min_v=2.0,
-        supply_max_v=5.5,
-        pinout="GND,IO,VCC",
-        output_mode="momentary",
-        active_level="high",
-    )
+    values = {
+        "family": "ttp223",
+        "controller": "ttp223",
+        "logic_v": 3.3,
+        "interface": "digital",
+        "supply_min_v": 2.0,
+        "supply_max_v": 5.5,
+        "pinout": "GND,IO,VCC",
+        "output_mode": "momentary",
+        "active_level": "high",
+    }
     required = PartSpecs(**values)
     assert assess(required, PartSpecs(**values)).grade == "A"
     assert assess(required, PartSpecs(**(values | {"output_mode": "toggle"}))).grade == "X"
@@ -104,7 +104,12 @@ def test_sensor_output_mode_and_polarity_must_match():
 
 
 def test_charge_only_cable_cannot_replace_data_cable():
-    values = dict(family="usb_cable", connector_a="usb_a", connector_b="micro_b", data_support=True)
+    values = {
+        "family": "usb_cable",
+        "connector_a": "usb_a",
+        "connector_b": "micro_b",
+        "data_support": True,
+    }
     assert assess(PartSpecs(**values), PartSpecs(**(values | {"data_support": False}))).grade == "X"
     assert assess(PartSpecs(**values), PartSpecs(**(values | {"data_support": None}))).grade is None
 

@@ -918,9 +918,10 @@ Frontend code belongs in `../frontend/`. Shared contracts belong in `../docs/con
 ## Checks (from backend/)
 
 ```powershell
+.venv/Scripts/python -m ruff check .            # lint (add --fix for safe autofixes)
+.venv/Scripts/python -m ruff format --check .   # formatting (drop --check to apply)
+.venv/Scripts/python -m mypy                    # type check src/ (config in pyproject.toml)
 .venv/Scripts/python -m pytest
-.venv/Scripts/python -m ruff check .
-.venv/Scripts/python -m ruff format --check .
 .venv/Scripts/python scripts/export_openapi.py --check
 ```
 

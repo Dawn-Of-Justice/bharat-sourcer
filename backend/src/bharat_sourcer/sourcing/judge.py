@@ -8,7 +8,6 @@ stock and URLs never come from the model: they come from the page's structured d
 Verdicts are cached per (spec, candidate URL, listing content).
 """
 
-import hashlib
 import json
 import logging
 import re
@@ -30,6 +29,7 @@ from bharat_sourcer.schemas import (
     ProjectContext,
     VerifiedOffer,
 )
+from bharat_sourcer.sourcing.cache import cache_key, stable_hash
 from bharat_sourcer.sourcing.matching import (
     Candidate,
     excluded_terms,
@@ -46,20 +46,8 @@ from bharat_sourcer.sourcing.research import clean
 from bharat_sourcer.sourcing.textmatch import title_gate
 from bharat_sourcer.usage import record_usage
 
-# Shims for the shared cost-control helpers (cache, budget, per-site generation settings),
+# Shims for the shared cost-control helpers (budget, per-site generation settings),
 # which live on another branch; the real modules replace these once merged.
-try:
-    from bharat_sourcer.sourcing.cache import cache_key, stable_hash
-except ImportError:  # pragma: no cover - replaced by sourcing/cache.py
-
-    def stable_hash(value: str | bytes) -> str:
-        data = value.encode() if isinstance(value, str) else value
-        return hashlib.sha256(data).hexdigest()[:32]
-
-    def cache_key(*parts: str) -> str:
-        return ":".join(str(part) for part in parts)
-
-
 try:
     from bharat_sourcer.usage import BUDGET_MESSAGE, paid_allowed
 except ImportError:  # pragma: no cover - replaced by usage.py budget helpers
@@ -298,9 +286,13 @@ def checked_verdict(
             note = "The value is not known; a kit covering it is compatible, not exact."
             reasons = [note, *reasons][:6]
     pack = None
-    if draft.pack_qty and draft.pack_quote and quoted(draft.pack_quote, text):
-        if str(draft.pack_qty) in draft.pack_quote:
-            pack = draft.pack_qty
+    if (
+        draft.pack_qty
+        and draft.pack_quote
+        and quoted(draft.pack_quote, text)
+        and str(draft.pack_qty) in draft.pack_quote
+    ):
+        pack = draft.pack_qty
     pack = pack or pack_quantity(candidate.title)
     variant = None
     names = candidate.variant_names()

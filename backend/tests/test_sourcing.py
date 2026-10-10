@@ -117,9 +117,11 @@ def test_unsafe_url_rejected(url):
 
 @pytest.mark.parametrize("address", ["127.0.0.1", "10.1.2.3", "169.254.169.254", "::1"])
 def test_private_dns_rejected(address):
-    with patch("socket.getaddrinfo", return_value=[(0, 0, 0, "", (address, 443))]):
-        with pytest.raises(FetchError):
-            public_addresses("seller.example")
+    with (
+        patch("socket.getaddrinfo", return_value=[(0, 0, 0, "", (address, 443))]),
+        pytest.raises(FetchError),
+    ):
+        public_addresses("seller.example")
 
 
 def test_redirect_rechecks_robots_before_fetching_destination():

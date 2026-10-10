@@ -92,7 +92,7 @@ def identity_and_registry() -> None:
             "iam",
             "service-accounts",
             "create",
-            RUNNER.split("@")[0],
+            RUNNER.split("@", maxsplit=1)[0],
             "--display-name=Bharat Sourcer compile runner (no roles)",
         )
     if missing("artifacts", "repositories", "describe", REPOSITORY, f"--location={REGION}"):

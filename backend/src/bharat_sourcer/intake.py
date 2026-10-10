@@ -97,7 +97,7 @@ def extract_sources(extractor: Extractor, urls: list[str]) -> IntakeResult:
     """Extract every source and fuse the per-source BOMs into one (see fusion.py)."""
     sources = validate_sources(urls)
     groups, reports, project, first_error = [], [], None, None
-    video_meta, linked = None, set()
+    video_meta, linked = None, set[str]()
     index = 0
     while index < len(sources):  # Description links may append sources while reading.
         kind, canonical, submitted = sources[index]

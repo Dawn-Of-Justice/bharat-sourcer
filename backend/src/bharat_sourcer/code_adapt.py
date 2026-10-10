@@ -77,7 +77,7 @@ def code_mask(text: str, python: bool) -> list[bool]:
     while i < n:
         two = text[i : i + 2]
         char = text[i]
-        if not python and two == "//" or python and char == "#":
+        if (not python and two == "//") or (python and char == "#"):
             end = text.find("\n", i)
             end = n if end == -1 else end
         elif not python and two == "/*":

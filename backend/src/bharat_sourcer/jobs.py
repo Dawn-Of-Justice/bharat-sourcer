@@ -226,7 +226,7 @@ class JobService:
         """The account's saved country, or the default when unset or unreadable."""
         try:
             saved = self.store.get_account(principal.owner)
-        except Exception:  # noqa: BLE001 - a preference must never block a new project
+        except Exception:  # A preference must never block a new project
             log.warning("ACCOUNT_SETTINGS_UNREADABLE", exc_info=True)
             saved = None
         return saved.country if saved else DEFAULT_COUNTRY
@@ -340,16 +340,16 @@ class JobService:
 
     def recover(self, job_id: str | None = None, *, execute: bool = True) -> None:
         keys = [job_id] if job_id else self.store.pending()
-        for job_id in keys:
-            record = self.store.get(job_id)
+        for key in keys:
+            record = self.store.get(key)
             if record is None:
                 continue
             if record.job.status == "queued":
                 if execute:
-                    self.extract(job_id)
+                    self.extract(key)
             elif record.job.status == "resolving":
                 if execute:
-                    self.finish(job_id)
+                    self.finish(key)
             elif record.job.status in {"extracting", "sourcing"}:
 
                 def expire(current: StoredJob):
@@ -384,7 +384,7 @@ class JobService:
                         complete_refresh(current.job, failed=True)
                     self._transition(current.job, "failed", current.job.error.message)
 
-                self.store.mutate(job_id, expire)
+                self.store.mutate(key, expire)
 
     def _pause_at_checkpoint(self, record: StoredJob) -> None:
         record.run_id = None
@@ -578,14 +578,14 @@ class JobService:
                 if line.research:
                     line.research.status = "stale"
                     line.research.summary = "Project requirements changed; refresh to reassess."
-                    for candidate in line.research.candidates:
-                        candidate.assessment.status = "stale"
-                        candidate.assessment.explanation = (
+                    for researched in line.research.candidates:
+                        researched.assessment.status = "stale"
+                        researched.assessment.explanation = (
                             "Project context changed. Refresh for a new AI assessment."
                         )
-                        candidate.assessment.conditions = []
-                        candidate.assessment.checks = check_requirements(
-                            line.item.requirements, candidate.facts
+                        researched.assessment.conditions = []
+                        researched.assessment.checks = check_requirements(
+                            line.item.requirements, researched.facts
                         )
                 for offer in line.offers:
                     if offer.research_assessment:
