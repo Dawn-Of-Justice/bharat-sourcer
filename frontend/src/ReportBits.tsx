@@ -123,7 +123,7 @@ export function GstChip({ offer }: { offer: ReportOffer }) {
 }
 
 const matchText = { exact: '✓ Exact', compatible: '≈ Compatible', partial: '◐ Partial', mismatch: '⛔ Mismatch' }
-export function MatchChip({ match }: { match?: OfferMatch | null }) {
+export function MatchChip({ match, showExplanation = true }: { match?: OfferMatch | null; showExplanation?: boolean }) {
   if (!match) return null
   const method = match.method === 'deterministic_shortcut' ? 'Spec match' : 'AI match'
   return (
@@ -152,11 +152,13 @@ export function MatchChip({ match }: { match?: OfferMatch | null }) {
         ) : null}
         {match.missing?.length ? <p>Not stated: {match.missing.map(words).join(', ')}</p> : null}
         {match.conflicts?.length ? <p>Conflicts: {match.conflicts.map(words).join(', ')}</p> : null}
-        <small>
-          {match.method === 'deterministic_shortcut'
-            ? 'Every spec value was found in the listing’s structured data.'
-            : 'AI judgement of the listing text; quotes were found in the listing. Check before ordering.'}
-        </small>
+        {showExplanation && (
+          <small>
+            {match.method === 'deterministic_shortcut'
+              ? 'Every spec value was found in the listing’s structured data.'
+              : 'AI judgement of the listing text; quotes were found in the listing. Check before ordering.'}
+          </small>
+        )}
       </div>
     </details>
   )

@@ -14,7 +14,7 @@ import {
   type UnsourcedLine,
 } from './api'
 import Requirements, { requirementPayload, validRequirements } from './Requirements'
-import { GradeChip, GstChip, MatchChip, PackPrice, price, secureLink } from './ReportBits'
+import { GradeChip, MatchChip, PackPrice, price, secureLink } from './ReportBits'
 import { PlanCompare } from './OrderPlan'
 import PartsList, { statusOf } from './PartsList'
 import { SidePanel } from './ProjectFrame'
@@ -196,8 +196,7 @@ function BuyingSpec({ spec, warning = true }: { spec?: BuyableSpec | null; warni
           exact value to the part name before refreshing seller search.
         </p>
       )}
-      <details>
-        <summary>Buying spec used for seller search</summary>
+      <div>
         <p>
           {origin}
           {spec.part_name ? ` · ${spec.part_name}` : ''}
@@ -225,7 +224,7 @@ function BuyingSpec({ spec, warning = true }: { spec?: BuyableSpec | null; warni
             </div>
           ))}
         </dl>
-      </details>
+      </div>
     </div>
   )
 }
@@ -245,7 +244,6 @@ function RequirementReview({
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const original = JSON.stringify(line.item.requirements ?? [])
-  const inferred = (line.item.requirements ?? []).filter(item => item.origin === 'inferred').length
   async function save(event: FormEvent) {
     event.preventDefault()
     if (!validRequirements(requirements)) {
@@ -263,13 +261,9 @@ function RequirementReview({
     }
   }
   return (
-    <details className="requirements-after">
-      <summary>
-        Review or change build requirements ({line.item.requirements?.length ?? 0}
-        {inferred ? `, ${inferred} AI-inferred` : ''})
-      </summary>
+    <div className="requirements-after">
       <form onSubmit={save}>
-        <Requirements value={requirements} onChange={setRequirements} disabled={busy} />
+        <Requirements value={requirements} onChange={setRequirements} disabled={busy} inline />
         <p>
           Changing requirements may make AI assessments stale and clear affected selections. Refresh is a separate
           action.
@@ -283,7 +277,7 @@ function RequirementReview({
           </p>
         )}
       </form>
-    </details>
+    </div>
   )
 }
 
@@ -373,7 +367,7 @@ function OfferList({
         return (
           <article className="offer" key={offer.url}>
             <div>
-              <SellerIdentity offer={offer} />
+              <SellerIdentity offer={offer} compact />
               <span className="offer-title">
                 {offer.title}
                 {offer.match?.variant ? ` · Variant: ${offer.match.variant}` : ''}
@@ -382,9 +376,7 @@ function OfferList({
                 <PackPrice offer={offer} />, {offer.stock.replaceAll('_', ' ')}, checked {checkedAgo(offer.checked_at)}
               </span>
               <div className="plan-chips">
-                <MatchChip match={offer.match} />
                 <GradeChip compatibility={offer.compatibility} match={offer.match} />
-                <GstChip offer={offer} />
                 {recommended && <span className="report-chip choice-recommended">★ Recommended</span>}
               </div>
               {offer.spec_conflicts?.length ? (
@@ -560,15 +552,13 @@ function PartDetail({
                 : 'each'}
             </small>
           </p>
-          <SellerIdentity offer={chosen} />
+          <SellerIdentity offer={chosen} compact />
           <p className="pp-part-title">{chosen.title}</p>
           <p className="pp-part-meta">
             {chosen.stock.replaceAll('_', ' ')}, checked {checkedAgo(chosen.checked_at)}
           </p>
           <div className="plan-chips">
-            <MatchChip match={chosen.match} />
             <GradeChip compatibility={chosen.compatibility} match={chosen.match} />
-            <GstChip offer={chosen} />
           </div>
           {secureLink(chosen.url) && (
             <a className="primary-button pp-part-open" href={chosen.url} target="_blank" rel="noopener noreferrer">
@@ -649,16 +639,6 @@ function PartDetail({
             Seller offers <span>{offers.length}</span>
           </summary>
           <div className="pp-section-body">
-            {!!line.recommendation?.reasons?.length && line.selected_offer_url === line.recommendation.offer_url && (
-              <details className="plan-reasons">
-                <summary>Why this pick</summary>
-                <ul>
-                  {line.recommendation.reasons.map((reason, index) => (
-                    <li key={index}>{reason}</li>
-                  ))}
-                </ul>
-              </details>
-            )}
             <OfferList job={job} line={line} token={token} onJob={onJob} readOnly={readOnly} />
           </div>
         </details>
@@ -692,10 +672,34 @@ function PartDetail({
           )}
         </div>
       </details>
-      {line.research && (
+      {(line.research ||
+        offers.some(offer => offer.match) ||
+        (!!line.recommendation?.reasons?.length && line.selected_offer_url === line.recommendation.offer_url)) && (
         <details className="pp-section">
           <summary>Research notes</summary>
           <div className="pp-section-body">
+            {!!line.recommendation?.reasons?.length && line.selected_offer_url === line.recommendation.offer_url && (
+              <div className="pp-pick-reasons">
+                <strong>Why this pick</strong>
+                <ul>
+                  {line.recommendation.reasons.map((reason, index) => (
+                    <li key={index}>{reason}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {offers
+              .filter(offer => offer.match)
+              .map(offer => (
+                <div className="pp-research-match" key={offer.url}>
+                  <strong>
+                    {offer.seller_name || offer.seller}
+                    {offer.url === chosen?.url ? ' · Selected offer' : ''}
+                  </strong>
+                  <p>{offer.title}</p>
+                  <MatchChip match={offer.match} showExplanation={false} />
+                </div>
+              ))}
             <Research line={line} />
           </div>
         </details>
