@@ -283,7 +283,7 @@ function RequirementReview({
 }
 
 // The offer picker, also used by the order plan's Change action. Choosing posts /selections and makes it the user's choice.
-type SelectionNotice = { title: string; message: string; refresh: boolean }
+type SelectionNotice = { title: string; message: string }
 
 function OfferList({
   job,
@@ -380,14 +380,13 @@ function OfferList({
           }
           onNotice({
             title: !fresh ? 'Quote expired' : 'Can’t select this offer',
-            refresh: !fresh || offer.stock !== 'in_stock',
             message: !fresh
-              ? 'This quote is over 24 hours old. Refresh seller quotes to select it.'
+              ? 'This quote is over 24 hours old. Refresh the quote to select this seller.'
               : offer.stock !== 'in_stock'
-                ? 'This seller hasn’t confirmed stock. Choose an in-stock offer or refresh the seller quotes.'
+                ? 'Stock is not confirmed for this offer. Please choose an in-stock option.'
                 : !eligible
-                  ? 'This offer can’t be selected until its compatibility is resolved. Review the research notes or choose another seller.'
-                  : 'Check the review box on this card before selecting this offer.',
+                  ? 'Compatibility is unresolved. Review the research notes or choose another offer.'
+                  : 'Please tick the review checkbox before selecting this offer.',
           })
         }
         return (
@@ -534,7 +533,6 @@ function PartDetail({
   readOnly,
   unsourced,
   refreshControl,
-  onRefreshRequest,
 }: {
   job: Job
   line: ReportLine
@@ -543,7 +541,6 @@ function PartDetail({
   readOnly: boolean
   unsourced?: UnsourcedLine
   refreshControl?: ReactNode
-  onRefreshRequest?: () => void
 }) {
   const offers = offersOf(line)
   const chosen = offers.find(offer => offer.url === line.selected_offer_url)
@@ -552,6 +549,16 @@ function PartDetail({
     line.recommendation?.blocked_reason && !line.selected_offer_url ? line.recommendation.blocked_reason : null
   const [offersOpen, setOffersOpen] = useState(() => !chosen || !!blocked)
   const [notice, setNotice] = useState<SelectionNotice | null>(null)
+  const [fadingNotice, setFadingNotice] = useState<SelectionNotice | null>(null)
+  useEffect(() => {
+    if (!notice) return
+    const fadeTimer = window.setTimeout(() => setFadingNotice(notice), 5000)
+    const dismissTimer = window.setTimeout(() => setNotice(null), 5300)
+    return () => {
+      window.clearTimeout(fadeTimer)
+      window.clearTimeout(dismissTimer)
+    }
+  }, [notice])
   const live = !job.demo && !readOnly
   return (
     <div className="pp-part-layout">
@@ -726,7 +733,10 @@ function PartDetail({
         {refreshControl}
       </div>
       {notice && (
-        <aside className="offer-selection-notice" aria-label="Seller selection notice">
+        <aside
+          className={`offer-selection-notice${fadingNotice === notice ? ' is-fading' : ''}`}
+          aria-label="Seller selection notice"
+        >
           <span className="offer-notice-icon" aria-hidden="true">
             i
           </span>
@@ -734,22 +744,6 @@ function PartDetail({
             <div role="status">
               <strong>{notice.title}</strong>
               <p>{notice.message}</p>
-            </div>
-            <div className="offer-notice-actions">
-              {notice.refresh && onRefreshRequest && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setNotice(null)
-                    onRefreshRequest()
-                  }}
-                >
-                  Refresh quotes
-                </button>
-              )}
-              <button type="button" onClick={() => setNotice(null)}>
-                Dismiss
-              </button>
             </div>
           </div>
         </aside>
@@ -784,7 +778,6 @@ export default function Results({
   const readOnly = !!shareToken
   const [refreshIds, setRefreshIds] = useState<string[]>([])
   const [refreshing, setRefreshing] = useState(false)
-  const refreshControls = useRef<HTMLDivElement>(null)
   const [error, setError] = useState('')
   // The page (JobPage) owns which part is open so it can close the chat; the shared page does not.
   const [localPart, setLocalPart] = useState<string | null>(null)
@@ -921,7 +914,7 @@ export default function Results({
       </SidePanel>
       <div className="pp-after-list">
         {refreshable && (
-          <div className="refresh-controls" ref={refreshControls}>
+          <div className="refresh-controls">
             <p>
               New seller search may use paid analysis. Selected parts lose their old quotes; other parts stay saved.{' '}
               {2 - (job.refresh_count ?? 0)} of 2 refresh batches remain.
@@ -967,18 +960,6 @@ export default function Results({
             onJob={onJob}
             readOnly={readOnly}
             unsourced={unsourcedLines.get(shown.item.line_id)}
-            onRefreshRequest={
-              refreshable
-                ? () => {
-                    setRefreshIds(ids => (ids.includes(shown.item.line_id) ? ids : [...ids, shown.item.line_id]))
-                    setOpenLine(null)
-                    requestAnimationFrame(() => {
-                      refreshControls.current?.scrollIntoView({ block: 'center', behavior: 'smooth' })
-                      refreshControls.current?.querySelector('button')?.focus({ preventScroll: true })
-                    })
-                  }
-                : undefined
-            }
             refreshControl={
               // eslint-disable-next-line react-hooks/refs -- keeps the last opened part rendered while the side panel closes
               refreshable && !shown.item.user_has_it ? (

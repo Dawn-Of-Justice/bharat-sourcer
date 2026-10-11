@@ -189,6 +189,24 @@ function planLines(): Record<string, Omit<Partial<ReportLine>, 'offers'> & { off
             },
           },
         ),
+        offer('controller-expired', sellerA, 'Sample controller board, expired quote (dummy listing)', '339.00', {
+          checked_at: new Date(Date.now() - 25 * 60 * 60 * 1000).toISOString(),
+          match: {
+            status: 'exact',
+            score: 0.95,
+            method: 'llm_judge',
+            reasons: ['Dummy: compatible controller, but the saved quote is over 24 hours old.'],
+          },
+        }),
+        offer('controller-stock-unknown', sellerB, 'Sample controller, stock unconfirmed (dummy listing)', '359.00', {
+          stock: 'unknown',
+          match: {
+            status: 'exact',
+            score: 0.95,
+            method: 'llm_judge',
+            reasons: ['Dummy: matching controller; the sample listing does not confirm availability.'],
+          },
+        }),
       ],
       selected_offer_url: url('controller-a'),
       selection_source: 'recommended',
@@ -209,6 +227,13 @@ function planLines(): Record<string, Omit<Partial<ReportLine>, 'offers'> & { off
       },
     },
     L02: {
+      buyer: {
+        fit: 'substitute',
+        offer_url: url('sensor-b'),
+        reason: 'Dummy AI suggestion: this alternate sensor uses the same interface but needs a library change.',
+        changes: ['Dummy: use the alternate sensor library and check its pinout before connecting it.'],
+        searched: ['Dummy alternate sensor module'],
+      },
       line_image: {
         url: svg('Dummy photo'),
         kind: 'selected_offer',
@@ -320,6 +345,12 @@ function planLines(): Record<string, Omit<Partial<ReportLine>, 'offers'> & { off
       },
     },
     L03: {
+      buyer: {
+        value: '20 cm (dummy suggestion)',
+        value_reason: 'Dummy: the source gives no length; 20 cm is an illustrative suggestion for a small build.',
+        value_confidence: 'low',
+        searched: ['Dummy jumper wires 20 cm'],
+      },
       line_image: { url: svg('Dummy art'), kind: 'category', label: 'Dummy category illustration' },
       buyable_spec: {
         origin: 'ai_inferred',
@@ -544,7 +575,15 @@ export function planPreview(job: Job): Job {
         'Dummy preview plan: invented sellers and prices. Picks are recommendations; check each seller page before ordering.',
     },
   }
-  return { ...job, demo: false, items, report, cost_estimate: { total_usd: 0.0123, calls: 9 } }
+  return {
+    ...job,
+    status: 'done',
+    demo: false,
+    refresh_count: 1,
+    items,
+    report,
+    cost_estimate: { total_usd: 0.0123, calls: 9 },
+  }
 }
 
 let shareActive = false

@@ -134,6 +134,13 @@ The YouTube player and PWA share target remain future frontend work. The impleme
 
 ## Local UI preview without API calls
 
+Results and Order plan both use the full interactive sample report. The controller has fresh, expired,
+sold-out and stock-unconfirmed offers, plus a grade B offer requiring acknowledgement. The sensor
+shows a dummy AI-suggested substitute and the wires show a dummy AI-suggested value. These scenarios
+reflect current app features; they are invented fixtures, not copied production projects or verified quotes.
+The sample includes one completed refresh, leaving one batch available in the UI; refresh execution
+is not simulated. Click an unavailable offer to preview the local selection notice, which fades after five seconds.
+
 Run npm run dev and open http://localhost:5173/?preview=1. The preview toolbar switches between landing, review, parallel progress, and results. API actions use in-memory dummy responses; the sample image is a local labelled illustration. Preview mode is development-only and requires preview=1 in the URL. Normal URLs retain the configured backend connection.
 
 ## Responsive layout

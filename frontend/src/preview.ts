@@ -201,8 +201,8 @@ if (status === 'done') {
     },
   ]
 }
-// Report v0.21 preview: stage=plan shows a dummy (non-demo) order plan; report endpoints are served by previewReport.ts.
-if (phase === 'plan') job = planPreview(job)
+// Both completed stages use the current interactive report fixtures; preview requests stay local.
+if (status === 'done') job = planPreview(job)
 
 // Preview callers always send a JSON string body; JSON.parse coerces its argument to a string itself.
 function jsonBody<T>(options: RequestInit): T {

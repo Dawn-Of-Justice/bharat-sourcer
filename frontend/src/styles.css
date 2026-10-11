@@ -6486,6 +6486,8 @@ button.pp-row-summary {
   cursor: pointer;
 }
 .offer-selection-notice {
+  opacity: 1;
+  transition: opacity 300ms ease;
   flex-shrink: 0;
   margin: 0 14px 14px;
   display: flex;
@@ -6518,23 +6520,13 @@ button.pp-row-summary {
   font-size: 13px;
   color: #263e38;
 }
-.offer-notice-actions {
-  display: flex;
-  gap: 16px;
-  margin-top: 10px;
+.offer-selection-notice.is-fading {
+  opacity: 0;
 }
-.offer-notice-actions button {
-  padding: 0;
-  border: 0;
-  border-radius: 6px;
-  background: transparent;
-  color: inherit;
-  font-size: 12px;
-  font-weight: 700;
-  min-height: 28px;
-}
-.offer-notice-actions button:first-child:not(:last-child) {
-  color: var(--pp-teal);
+@media (prefers-reduced-motion: reduce) {
+  .offer-selection-notice {
+    transition: none;
+  }
 }
 .offer-card-toggle {
   position: absolute;

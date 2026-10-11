@@ -114,6 +114,32 @@ test('plan preview includes a labelled sample code patch without contacting the 
   assert.equal(requests, 0)
 })
 
+test('completed preview covers current buyer decisions and offer selection notices without network', () => {
+  const { previewRequest } = load('./preview')
+  const { planPreview } = load('./previewReport')
+  const job = planPreview(previewRequest('/v1/jobs/ui-preview', {}))
+  assert.equal(job.status, 'done')
+  assert.equal(job.demo, false) // Enables interactions; the preview toolbar and fixtures label all data as dummy.
+  assert.equal(job.refresh_count, 1)
+  const controller = job.report.lines.find(line => line.item.line_id === 'L01')
+  const expired = controller.offers.find(offer => offer.url.endsWith('controller-expired'))
+  assert.ok(Date.now() - Date.parse(expired.checked_at) > 24 * 60 * 60 * 1000)
+  assert.equal(expired.stock, 'in_stock')
+  assert.equal(expired.match.status, 'exact')
+  assert.ok(controller.offers.some(offer => offer.stock === 'unknown'))
+  assert.ok(controller.offers.some(offer => offer.stock === 'out_of_stock'))
+  assert.ok(controller.offers.some(offer => offer.compatibility?.grade === 'B'))
+  assert.ok(controller.offers.every(offer => /dummy/.test(offer.title)))
+  const sensor = job.report.lines.find(line => line.item.line_id === 'L02')
+  assert.equal(sensor.buyer.fit, 'substitute')
+  assert.equal(sensor.buyer.offer_url, sensor.selected_offer_url)
+  assert.match(sensor.buyer.reason, /Dummy/)
+  const wires = job.report.lines.find(line => line.item.line_id === 'L03')
+  assert.match(wires.buyer.value, /dummy/)
+  assert.match(wires.buyer.value_reason, /Dummy/)
+  assert.equal(requests, 0)
+})
+
 test('evidence text renders code, description, page and video evidence without null placeholders', () => {
   assert.equal(
     api.evidenceText({
