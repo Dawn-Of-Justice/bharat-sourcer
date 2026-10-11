@@ -114,6 +114,32 @@ test('plan preview includes a labelled sample code patch without contacting the 
   assert.equal(requests, 0)
 })
 
+test('completed preview covers current buyer decisions and offer selection notices without network', () => {
+  const { previewRequest } = load('./preview')
+  const { planPreview } = load('./previewReport')
+  const job = planPreview(previewRequest('/v1/jobs/ui-preview', {}))
+  assert.equal(job.status, 'done')
+  assert.equal(job.demo, false) // Enables interactions; the preview toolbar and fixtures label all data as dummy.
+  assert.equal(job.refresh_count, 1)
+  const controller = job.report.lines.find(line => line.item.line_id === 'L01')
+  const expired = controller.offers.find(offer => offer.url.endsWith('controller-expired'))
+  assert.ok(Date.now() - Date.parse(expired.checked_at) > 24 * 60 * 60 * 1000)
+  assert.equal(expired.stock, 'in_stock')
+  assert.equal(expired.match.status, 'exact')
+  assert.ok(controller.offers.some(offer => offer.stock === 'unknown'))
+  assert.ok(controller.offers.some(offer => offer.stock === 'out_of_stock'))
+  assert.ok(controller.offers.some(offer => offer.compatibility?.grade === 'B'))
+  assert.ok(controller.offers.every(offer => /dummy/.test(offer.title)))
+  const sensor = job.report.lines.find(line => line.item.line_id === 'L02')
+  assert.equal(sensor.buyer.fit, 'substitute')
+  assert.equal(sensor.buyer.offer_url, sensor.selected_offer_url)
+  assert.match(sensor.buyer.reason, /Dummy/)
+  const wires = job.report.lines.find(line => line.item.line_id === 'L03')
+  assert.match(wires.buyer.value, /dummy/)
+  assert.match(wires.buyer.value_reason, /Dummy/)
+  assert.equal(requests, 0)
+})
+
 test('evidence text renders code, description, page and video evidence without null placeholders', () => {
   assert.equal(
     api.evidenceText({
@@ -232,6 +258,86 @@ test('preview report endpoints (share, shared page, plans, exports) stay local a
   assert.match(
     await (await api.exportBlob('/v1/jobs/ui-preview/export.pdf', 'dummy-token')).text(),
     /^%PDF[\s\S]*DEMO JOB/,
+  )
+  assert.equal(requests, 0)
+})
+
+test('seller retry separates missing details and available offers from retryable parts', async () => {
+  const { planPreview } = load('./previewReport')
+  const { sellerSearchOutcomes } = load('./sellerSearch')
+  const fixture = planPreview(await api.getJob('ui-preview', 'dummy-token'))
+  const rows = sellerSearchOutcomes(fixture)
+  assert.deepEqual(
+    rows.filter(row => row.kind === 'ready').map(row => row.item.line_id),
+    ['L01', 'L02'],
+  )
+  assert.deepEqual(
+    rows.filter(row => row.kind === 'details').map(row => row.item.line_id),
+    ['L03', 'L04'],
+  )
+  assert.deepEqual(
+    rows.filter(row => row.kind === 'retry').map(row => row.item.line_id),
+    ['L05', 'L06'],
+  )
+  const controller = fixture.report.lines.find(line => line.item.line_id === 'L01')
+  controller.offers = [controller.offers.find(offer => offer.url.endsWith('controller-expired'))]
+  assert.equal(sellerSearchOutcomes(fixture)[0].reason, 'Quotes expired')
+  fixture.items[0].user_has_it = true
+  assert.equal(sellerSearchOutcomes(fixture)[0].kind, 'owned')
+})
+
+test('seller-search completion stays on Find sellers while reopening a completed job keeps its order plan', () => {
+  const { sellerSearchViewAfterUpdate } = load('./sellerSearch')
+  for (const status of ['resolving', 'sourcing', 'paused'])
+    assert.equal(sellerSearchViewAfterUpdate(status, 'done', false), 1)
+  assert.equal(sellerSearchViewAfterUpdate(undefined, 'done', false), null)
+  assert.equal(sellerSearchViewAfterUpdate(undefined, 'done', true), 1)
+  assert.equal(sellerSearchViewAfterUpdate('done', 'sourcing', false), null)
+})
+
+test('local retry progresses, preserves untouched parts, and enforces batch and retry limits without network', async () => {
+  const { planPreview, previewReportRequest } = load('./previewReport')
+  const { sellerSearchOutcomes } = load('./sellerSearch')
+  const fixture = planPreview(await api.getJob('ui-preview', 'dummy-token'))
+  const original = structuredClone(fixture.report.lines.slice(0, 4))
+  const post = ids =>
+    previewReportRequest(
+      '/v1/jobs/ui-preview/refresh',
+      {
+        method: 'POST',
+        body: JSON.stringify({ line_ids: ids }),
+      },
+      fixture,
+    )
+  for (const ids of [[], ['L05', 'L05'], ['missing'], Array.from({ length: 11 }, (_, i) => `L${i}`)])
+    assert.throws(
+      () => post(ids),
+      error => error.status === 422,
+    )
+  post(['L05', 'L06'])
+  assert.equal(fixture.status, 'sourcing')
+  assert.equal(fixture.refresh_count, 2)
+  assert.equal(fixture.report.lines.find(line => line.item.line_id === 'L06').sourcing_status, 'not_run')
+  assert.throws(
+    () => post(['L05']),
+    error => error.status === 409,
+  )
+  const originalNow = Date.now
+  const later = originalNow() + 4000
+  try {
+    Date.now = () => later
+    previewReportRequest('/v1/jobs/ui-preview', {}, fixture)
+  } finally {
+    Date.now = originalNow
+  }
+  assert.equal(fixture.status, 'done')
+  assert.deepEqual(fixture.report.lines.slice(0, 4), original)
+  const outcomes = sellerSearchOutcomes(fixture)
+  assert.equal(outcomes.find(row => row.item.line_id === 'L06').kind, 'ready')
+  assert.equal(outcomes.find(row => row.item.line_id === 'L05').kind, 'retry')
+  assert.throws(
+    () => post(['L05']),
+    error => error.status === 409,
   )
   assert.equal(requests, 0)
 })
