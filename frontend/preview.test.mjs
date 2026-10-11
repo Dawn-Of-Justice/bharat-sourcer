@@ -261,3 +261,83 @@ test('preview report endpoints (share, shared page, plans, exports) stay local a
   )
   assert.equal(requests, 0)
 })
+
+test('seller retry separates missing details and available offers from retryable parts', async () => {
+  const { planPreview } = load('./previewReport')
+  const { sellerSearchOutcomes } = load('./sellerSearch')
+  const fixture = planPreview(await api.getJob('ui-preview', 'dummy-token'))
+  const rows = sellerSearchOutcomes(fixture)
+  assert.deepEqual(
+    rows.filter(row => row.kind === 'ready').map(row => row.item.line_id),
+    ['L01', 'L02'],
+  )
+  assert.deepEqual(
+    rows.filter(row => row.kind === 'details').map(row => row.item.line_id),
+    ['L03', 'L04'],
+  )
+  assert.deepEqual(
+    rows.filter(row => row.kind === 'retry').map(row => row.item.line_id),
+    ['L05', 'L06'],
+  )
+  const controller = fixture.report.lines.find(line => line.item.line_id === 'L01')
+  controller.offers = [controller.offers.find(offer => offer.url.endsWith('controller-expired'))]
+  assert.equal(sellerSearchOutcomes(fixture)[0].reason, 'Quotes expired')
+  fixture.items[0].user_has_it = true
+  assert.equal(sellerSearchOutcomes(fixture)[0].kind, 'owned')
+})
+
+test('seller-search completion stays on Find sellers while reopening a completed job keeps its order plan', () => {
+  const { sellerSearchViewAfterUpdate } = load('./sellerSearch')
+  for (const status of ['resolving', 'sourcing', 'paused'])
+    assert.equal(sellerSearchViewAfterUpdate(status, 'done', false), 1)
+  assert.equal(sellerSearchViewAfterUpdate(undefined, 'done', false), null)
+  assert.equal(sellerSearchViewAfterUpdate(undefined, 'done', true), 1)
+  assert.equal(sellerSearchViewAfterUpdate('done', 'sourcing', false), null)
+})
+
+test('local retry progresses, preserves untouched parts, and enforces batch and retry limits without network', async () => {
+  const { planPreview, previewReportRequest } = load('./previewReport')
+  const { sellerSearchOutcomes } = load('./sellerSearch')
+  const fixture = planPreview(await api.getJob('ui-preview', 'dummy-token'))
+  const original = structuredClone(fixture.report.lines.slice(0, 4))
+  const post = ids =>
+    previewReportRequest(
+      '/v1/jobs/ui-preview/refresh',
+      {
+        method: 'POST',
+        body: JSON.stringify({ line_ids: ids }),
+      },
+      fixture,
+    )
+  for (const ids of [[], ['L05', 'L05'], ['missing'], Array.from({ length: 11 }, (_, i) => `L${i}`)])
+    assert.throws(
+      () => post(ids),
+      error => error.status === 422,
+    )
+  post(['L05', 'L06'])
+  assert.equal(fixture.status, 'sourcing')
+  assert.equal(fixture.refresh_count, 2)
+  assert.equal(fixture.report.lines.find(line => line.item.line_id === 'L06').sourcing_status, 'not_run')
+  assert.throws(
+    () => post(['L05']),
+    error => error.status === 409,
+  )
+  const originalNow = Date.now
+  const later = originalNow() + 4000
+  try {
+    Date.now = () => later
+    previewReportRequest('/v1/jobs/ui-preview', {}, fixture)
+  } finally {
+    Date.now = originalNow
+  }
+  assert.equal(fixture.status, 'done')
+  assert.deepEqual(fixture.report.lines.slice(0, 4), original)
+  const outcomes = sellerSearchOutcomes(fixture)
+  assert.equal(outcomes.find(row => row.item.line_id === 'L06').kind, 'ready')
+  assert.equal(outcomes.find(row => row.item.line_id === 'L05').kind, 'retry')
+  assert.throws(
+    () => post(['L05']),
+    error => error.status === 409,
+  )
+  assert.equal(requests, 0)
+})

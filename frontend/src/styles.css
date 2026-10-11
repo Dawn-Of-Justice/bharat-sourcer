@@ -6501,6 +6501,52 @@ button.pp-row-summary {
   box-shadow: 0 4px 18px rgba(13, 38, 48, 0.12);
   cursor: default;
 }
+.seller-retry-options {
+  min-width: 0;
+  margin: 20px 0;
+  padding: 18px;
+  border: 1px solid var(--pp-line);
+  border-radius: 16px;
+}
+.seller-retry-options legend,
+.seller-retry-details h3 {
+  color: var(--pp-ink);
+  font-size: 18px;
+  font-weight: 700;
+}
+.seller-retry-option {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  min-height: 48px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--pp-line);
+  overflow-wrap: anywhere;
+}
+.seller-retry-option > strong,
+.seller-retry-option > div {
+  flex: 1;
+  min-width: 140px;
+}
+.seller-retry-option input {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--pp-teal);
+}
+.seller-retry-option span,
+.seller-retry-option p,
+.seller-retry-note {
+  color: #53615d;
+  font-size: 14px;
+}
+.seller-retry-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+  margin: 20px 0;
+}
 .offer-selection-notice p {
   margin: 4px 0 0;
   font-size: 13px;

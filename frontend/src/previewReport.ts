@@ -9,6 +9,7 @@ import type {
   ReportOffer,
   SharedProject,
 } from './api'
+import { ApiError } from './api'
 
 export const previewCities = ['Bengaluru', 'Chennai', 'Delhi', 'Kochi', 'Mumbai', 'Pune']
 
@@ -472,7 +473,7 @@ const planLine = (
 export function planPreview(job: Job): Job {
   const extras = planLines()
   const items = [
-    ...job.items,
+    ...job.items.filter(item => !['L04', 'L05', 'L06'].includes(item.line_id)),
     {
       line_id: 'L04',
       raw_name: 'Resistor (dummy, value missing)',
@@ -482,6 +483,10 @@ export function planPreview(job: Job): Job {
       evidence: [],
       clarifications: [],
     },
+    ...[
+      { line_id: 'L05', raw_name: 'Sample display module (dummy, no offers)' },
+      { line_id: 'L06', raw_name: 'Sample battery holder (dummy, out of stock)' },
+    ].map(item => ({ ...item, qty: 1, user_has_it: false, user_edited: false, evidence: [], clarifications: [] })),
   ]
   const name = (id: string) => items.find(item => item.line_id === id)?.raw_name ?? id
   const lines: ReportLine[] = items.map(
@@ -511,12 +516,28 @@ export function planPreview(job: Job): Job {
       next_steps: ['Which resistor value do you need?'],
     },
   }
+  lines[4] = {
+    ...lines[4],
+    sourcing_status: 'no_verified_offers',
+    line_image: { url: svg('Dummy art'), kind: 'placeholder', label: 'Dummy display illustration' },
+    sourcing_error: { code: 'NO_VERIFIED_OFFERS', message: 'Dummy: no seller listing passed the checks.' },
+  }
+  lines[5] = {
+    ...lines[5],
+    line_image: { url: svg('Dummy art'), kind: 'category', label: 'Dummy battery holder illustration' },
+    offers: [
+      offer('holder-a', sellerA, 'Sample battery holder (dummy listing)', '49.00', {
+        stock: 'out_of_stock',
+        match: { status: 'exact', score: 0.95, method: 'llm_judge', reasons: ['Dummy: matching holder, sold out.'] },
+      }),
+    ] as unknown as ReportLine['offers'],
+  }
   const report: Report = {
     summary: 'Dummy preview order plan',
     lines,
     selected_parts_subtotal_inr: '548.00',
     parts_subtotal_inr: null,
-    unselected_line_ids: ['L03', 'L04'],
+    unselected_line_ids: ['L03', 'L04', 'L05', 'L06'],
     costing: costing('selected_offers'),
     order_plan: {
       sellers: [
@@ -559,6 +580,14 @@ export function planPreview(job: Job): Job {
         },
       ],
       unsourced: [
+        ...['L05', 'L06'].map(line_id => ({
+          line_id,
+          name: name(line_id),
+          reason: 'no_offers' as const,
+          message:
+            line_id === 'L05' ? 'Dummy: no verified seller offer yet.' : 'Dummy: the only offer is out of stock.',
+          next_steps: ['Try finding sellers again.'],
+        })),
         {
           line_id: 'L04',
           name: 'Resistor (dummy, value missing)',
@@ -587,9 +616,64 @@ export function planPreview(job: Job): Job {
 }
 
 let shareActive = false
+const pendingRefreshes = new WeakMap<Job, { finishAt: number; lines: ReportLine[] }>()
 export function previewReportRequest(path: string, options: RequestInit, job: Job): unknown {
   const method = options.method ?? 'GET'
   const base = '/v1/jobs/ui-preview'
+  const pending = pendingRefreshes.get(job)
+  if (path === base && method === 'GET' && pending && Date.now() >= pending.finishAt && job.status !== 'paused') {
+    const report = job.report as Report
+    for (const previous of pending.lines) {
+      const index = report.lines.findIndex(line => line.item.line_id === previous.item.line_id)
+      const offers = previous.offers.map(offer => ({
+        ...offer,
+        checked_at: now(),
+        stock: 'in_stock',
+      }))
+      report.lines[index] = {
+        ...previous,
+        selected_offer_url: null,
+        user_offer_url: null,
+        selection_source: null,
+        offers,
+        sourcing_status: offers.length ? 'offers_found' : 'no_verified_offers',
+        sourcing_error: offers.length
+          ? null
+          : { code: 'NO_VERIFIED_OFFERS', message: 'Dummy retry: still no verified offers.' },
+      }
+      if (offers.length && report.order_plan)
+        report.order_plan.unsourced = report.order_plan.unsourced?.filter(row => row.line_id !== previous.item.line_id)
+    }
+    job.status = 'done'
+    job.updated_at = now()
+    pendingRefreshes.delete(job)
+  }
+  if (path === base + '/refresh' && method === 'POST') {
+    const { line_ids } = JSON.parse(options.body as string) as { line_ids: string[] }
+    if (job.status !== 'done' || job.demo || (job.refresh_count ?? 0) >= 2)
+      throw new ApiError('Dummy preview: no retry is available for this project.', 409, 'INVALID_STATE')
+    const report = job.report as Report
+    if (
+      !Array.isArray(line_ids) ||
+      !line_ids.length ||
+      line_ids.length > 10 ||
+      new Set(line_ids).size !== line_ids.length ||
+      line_ids.some(id => !report.lines.some(line => line.item.line_id === id && !line.item.user_has_it))
+    )
+      throw new ApiError('Select between 1 and 10 different parts.', 422, 'INVALID_EDIT')
+    const lines = structuredClone(report.lines.filter(line => line_ids.includes(line.item.line_id)))
+    pendingRefreshes.set(job, { finishAt: Date.now() + 3500, lines })
+    for (const line of report.lines.filter(line => line_ids.includes(line.item.line_id))) {
+      line.offers = []
+      line.selected_offer_url = null
+      line.sourcing_status = 'not_run'
+      line.sourcing_error = null
+    }
+    job.refresh_count = (job.refresh_count ?? 0) + 1
+    job.status = 'sourcing'
+    job.updated_at = now()
+    return { status: 'resolving' }
+  }
   if (path === base + '/share') {
     if (method === 'POST') {
       shareActive = true

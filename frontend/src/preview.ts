@@ -58,7 +58,11 @@ const project: ProjectUnderstanding = {
 }
 const phase = new URLSearchParams(window.location.search).get('stage')
 const status: JobStatus =
-  phase === 'done' || phase === 'plan' ? 'done' : phase === 'sourcing' ? 'sourcing' : 'awaiting_confirmation'
+  phase === 'done' || phase === 'plan' || phase === 'search-results'
+    ? 'done'
+    : phase === 'sourcing'
+      ? 'sourcing'
+      : 'awaiting_confirmation'
 const lines = items.map(item => ({
   item,
   sourcing_status: 'offers_found' as const,
