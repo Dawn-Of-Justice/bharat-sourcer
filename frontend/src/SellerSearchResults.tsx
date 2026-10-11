@@ -116,12 +116,7 @@ export default function SellerSearchResults({
       )}
       <div className="seller-retry-actions">
         {!!retryable.length && !job.demo && remaining > 0 && (
-          <button
-            type="button"
-            className="nav-cta"
-            disabled={!canRetry || !ids.length}
-            onClick={() => void retry()}
-          >
+          <button type="button" className="nav-cta" disabled={!canRetry || !ids.length} onClick={() => void retry()}>
             {busy ? 'Starting seller search…' : `Try again for ${ids.length} ${ids.length === 1 ? 'part' : 'parts'}`}
           </button>
         )}
