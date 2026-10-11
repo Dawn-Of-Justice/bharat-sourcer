@@ -1,9 +1,8 @@
-import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { reportPartName } from './partName'
 import {
   evidenceText,
   offersOf,
-  refreshOffers,
   reportOf,
   selectOffer,
   updateRequirements,
@@ -532,7 +531,6 @@ function PartDetail({
   onJob,
   readOnly,
   unsourced,
-  refreshControl,
 }: {
   job: Job
   line: ReportLine
@@ -540,7 +538,6 @@ function PartDetail({
   onJob: (job: Job) => void
   readOnly: boolean
   unsourced?: UnsourcedLine
-  refreshControl?: ReactNode
 }) {
   const offers = offersOf(line)
   const chosen = offers.find(offer => offer.url === line.selected_offer_url)
@@ -730,7 +727,6 @@ function PartDetail({
             </div>
           </details>
         )}
-        {refreshControl}
       </div>
       {notice && (
         <aside
@@ -776,9 +772,6 @@ export default function Results({
 }) {
   const report = reportOf(job)
   const readOnly = !!shareToken
-  const [refreshIds, setRefreshIds] = useState<string[]>([])
-  const [refreshing, setRefreshing] = useState(false)
-  const [error, setError] = useState('')
   // The page (JobPage) owns which part is open so it can close the chat; the shared page does not.
   const [localPart, setLocalPart] = useState<string | null>(null)
   const [localAttention, setLocalAttention] = useState(false)
@@ -800,25 +793,7 @@ export default function Results({
     return () => window.removeEventListener('bharat-sourcer:show-line', show)
   })
   if (!report) return null
-  const refreshable = !readOnly && !job.demo && job.status === 'done' && (job.refresh_count ?? 0) < 2
   const names = Object.fromEntries(report.lines.map(line => [line.item.line_id, reportPartName(line)]))
-  async function refresh() {
-    setRefreshing(true)
-    setError('')
-    try {
-      await refreshOffers(job.job_id, token, refreshIds)
-      setRefreshIds([])
-      onJob(await import('./api').then(api => api.getJob(job.job_id, token)))
-    } catch (cause) {
-      setError(
-        cause instanceof Error
-          ? cause.message
-          : 'Could not start a seller refresh. Check the saved job before retrying.',
-      )
-    } finally {
-      setRefreshing(false)
-    }
-  }
   const showLine = (lineId: string) => setOpenLine(lineId)
   const needs = orderNeeds({
     job,
@@ -912,31 +887,6 @@ export default function Results({
           <p>Nothing needs your attention right now.</p>
         )}
       </SidePanel>
-      <div className="pp-after-list">
-        {refreshable && (
-          <div className="refresh-controls">
-            <p>
-              New seller search may use paid analysis. Selected parts lose their old quotes; other parts stay saved.{' '}
-              {2 - (job.refresh_count ?? 0)} of 2 refresh batches remain.
-            </p>
-            <button
-              className="nav-cta"
-              disabled={!refreshIds.length || refreshIds.length > 10 || refreshing}
-              onClick={() => void refresh()}
-            >
-              {refreshing
-                ? 'Starting search…'
-                : `Refresh ${refreshIds.length} selected ${refreshIds.length === 1 ? 'part' : 'parts'}`}
-            </button>
-            {refreshIds.length > 10 && <p>Select at most 10 parts per batch.</p>}
-            {error && (
-              <p className="form-error" role="alert">
-                {error}
-              </p>
-            )}
-          </div>
-        )}
-      </div>
       <SidePanel
         id="pp-part"
         open={!!current}
@@ -960,25 +910,6 @@ export default function Results({
             onJob={onJob}
             readOnly={readOnly}
             unsourced={unsourcedLines.get(shown.item.line_id)}
-            refreshControl={
-              // eslint-disable-next-line react-hooks/refs -- keeps the last opened part rendered while the side panel closes
-              refreshable && !shown.item.user_has_it ? (
-                <label className="refresh-check">
-                  <input
-                    type="checkbox"
-                    checked={refreshIds.includes(shown.item.line_id)}
-                    onChange={event =>
-                      setRefreshIds(ids =>
-                        event.target.checked
-                          ? [...ids, shown.item.line_id]
-                          : ids.filter(id => id !== shown.item.line_id),
-                      )
-                    }
-                  />{' '}
-                  Include in the next seller search
-                </label>
-              ) : undefined
-            }
           />
         )}
       </SidePanel>
