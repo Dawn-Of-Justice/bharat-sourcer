@@ -292,8 +292,10 @@ BS_EXTRACTION_TIMEOUT_S=120
 ```
 
 Optional: with `BS_YOUTUBE_API_KEY` (a YouTube Data API v3 key) set, the same Gemini call
-also reads the video's description. Links in it to supported project pages are added as
-extra sources, and short server-checked description quotes are served for 30 days; see
+also reads the video's description. Links to GitHub, recognised project pages and public
+personal blogs are added as extra sources (at most three, including submitted extras).
+Personal blogs can also be submitted directly. Pages use safe fetching and checked quotes;
+blocked extras are reported and skipped. Short description quotes are served for 30 days; see
 [multi-source intake §8](../docs/contracts/multi-source-intake.md#8-youtube-description-intake).
 Without it, video extraction is unchanged.
 
@@ -547,7 +549,7 @@ whole recipe on code it cannot change safely, such as humidity readings.
 
 New live jobs source confirmed parts by default. Set `BS_SOURCING_ENABLED=false` to keep
 new jobs extraction-only. Existing jobs retain the sourcing flag recorded at creation.
-Demo jobs never call search or fetch sellers. Up to ten unowned parts are searched per
+Demo jobs never call search or fetch sellers. Up to thirty unowned parts are searched per
 job (`BS_SOURCING_MAX_PARTS`), with five candidate pages per part by default.
 
 Sourcing is staged to save cost. First, curated Indian sellers' own catalogues are searched
@@ -946,3 +948,13 @@ the [Cloud Run guide](infra/cloud-run.md) for the shared frontend integration en
 - Add seller trust checks and broader compatibility rules with module data; verify the import
   duty, courier and seller-policy assumptions used by costing.
 - Extend the shared contract with the frontend teammate as those features become available.
+
+### Schematic component names and sourcing limits
+
+Sourcing separates schematic references such as `R1`, `VR1` and `(IC1)` from
+seller model numbers. Guarded buying specs supply the value and category for
+reference-only lines; inferred diode models are not promoted to required identities.
+New extraction asks for readable names with the reference retained in parentheses.
+The default sourcing limit is 30 unowned lines; explicit runtime overrides, guest
+limits and paid-call budgets still apply. Existing reports are snapshots: refresh
+selected lines after deployment to replace old sourcing results.

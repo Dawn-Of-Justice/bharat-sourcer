@@ -3,6 +3,7 @@
 import re
 import unicodedata
 
+from bharat_sourcer.part_identity import without_reference
 from bharat_sourcer.sourcing.textmatch import compact, model_numbers
 
 
@@ -56,8 +57,11 @@ JUNK = set(
 
 def route_queries(spec, raw_name: str, resolution_query: str) -> list[Rung]:
     """Model spellings, spec queries, cleaned names, value/category, then synonyms."""
-    part_terms = raw_name or resolution_query or getattr(spec, "part_name", "")
-    names = [raw_name, resolution_query, getattr(spec, "part_name", "")]
+    raw_name = without_reference(raw_name)
+    resolution_query = without_reference(resolution_query)
+    spec_name = without_reference(getattr(spec, "part_name", "") or "")
+    part_terms = raw_name or spec_name or resolution_query
+    names = [raw_name, resolution_query, spec_name]
     proposals = []
     for name in names:
         for model in model_numbers(clean_name(name)):

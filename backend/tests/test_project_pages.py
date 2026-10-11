@@ -147,7 +147,6 @@ def test_github_readme_candidates_use_raw_host():
 @pytest.mark.parametrize(
     "url",
     [
-        "https://example.com/project",
         "https://www.instructables.com/",
         "https://instructables.com.evil.test/Synthetic/",
         "https://user:pw@www.instructables.com/Synthetic/",
@@ -405,7 +404,7 @@ def test_live_api_accepts_project_page_and_rejects_other_hosts():
         extractor(fetcher, lambda request: gemini([ESP32])),
     )
     with TestClient(app) as client:
-        rejected = client.post("/v1/jobs", json={"url": "https://example.com/project"})
+        rejected = client.post("/v1/jobs", json={"url": "https://127.0.0.1/project"})
         assert rejected.status_code == 400
         assert rejected.json()["error"]["code"] == "UNSUPPORTED_URL"
         assert "GitHub repository" in rejected.json()["error"]["message"]

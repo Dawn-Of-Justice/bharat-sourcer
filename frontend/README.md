@@ -1,5 +1,22 @@
 # Bharat Sourcer frontend
 
+## Background tab status
+
+On an open job page, switching tabs shows the latest job state in the tab title:
+reading, preparing parts, finding sellers, ready to review, results ready, paused or failed.
+Returning shows the project title; leaving the job page restores the original site title.
+This uses existing job snapshots with no extra API requests or notification permissions.
+Updates require the tab to remain open; browsers may delay updates when a tab is suspended.
+Connection problems show “Updates interrupted” rather than an outdated completion label.
+
+## Project links
+
+The Project links field and extra-source fields accept public personal blogs as well as
+the existing project platforms. The backend validates URLs and reads available page text;
+login-only, blocked or JavaScript-only content may not be readable. YouTube descriptions
+can contribute up to three linked project sources, including personal blogs; see
+[multi-source intake](../docs/contracts/multi-source-intake.md).
+
 React + TypeScript + Vite app for the landing page and the first local job flow. This workspace owns its own dependencies and commands.
 
 ## Run locally
@@ -139,3 +156,21 @@ Copy `.env.example` to an ignored local env file and supply the four public Fire
 Use `http://127.0.0.1:5173/?preview=1` for **no-API local testing**, even if `.env.local` points at a live backend. Firebase initialization is disabled and all API methods use local sample responses. Click Sign in → Try demo account → My projects → Open project. Also try Continue as guest → My projects → Save my projects → Try demo account → Save to my account. The demo account marker lasts for the current tab session; project contents are in-memory fixtures and reset on reload. No real account is created.
 
 Validation: `npm run build`, `npm run test:server`, `npm run test:preview`, and `npm run test:integration`. The preview test executes the real preview/auth/API modules with network access forbidden. The integration test exercises the API client against a local identity-aware fixture. Real Google login, two-account isolation, revoked users and cookie expiry still require live browser checks. Local browser checks cover the wide desktop layout, 390px mobile layout, card expansion, inline editing, build details, and new-message scrolling. Older unowned jobs can be claimed using their original browser-session token.
+
+### Circuit reference labels
+
+Plan comparison is a compact, collapsed control below the cost summary and above
+the parts list. Opening it loads the plans; selecting a plan previews it, and Apply
+remains an explicit action. The full comparison no longer sits below all parts.
+
+`raw_name` remains unchanged for saved jobs. For coded parts with a selected offer,
+result rows and part detail headings use the selected seller's full title with the
+circuit reference appended, for example `10uF 16V Electrolytic Capacitor - ELITE (C2)`.
+This works for old jobs without buying specs and updates when the selection changes.
+Seller suffixes are preserved because they can contain useful model or package details.
+Without a selected offer, result rows and part detail headings
+use `partName` to show declared/user values and the buying-spec category alongside
+reference-only names, for example `10k ohm resistor (R1)`. Inferred values are not
+promoted into the display name. The source evidence and editable buying spec remain
+available in the detail panel. `SOURCING_LIMIT` is shown as “Not searched: run limit”,
+not as a missing seller. No API schema change is required.

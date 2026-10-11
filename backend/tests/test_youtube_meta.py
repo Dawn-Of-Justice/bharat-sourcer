@@ -37,6 +37,7 @@ from bharat_sourcer.youtube_meta import (
     apply_retention,
     classify_link,
     description_links,
+    description_page_source,
     fetch_description,
     job_video_meta,
     video_id,
@@ -127,6 +128,118 @@ def test_description_links_and_classification():
     assert kinds["https://www.instagram.com/synthetic.maker/"] == "other"
     # Trailing punctuation is not part of a link.
     assert description_links("See https://github.com/a/b.") == ["https://github.com/a/b"]
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https://127.0.0.1/project",
+        "https://[::1]/project",
+        "https://localhost/project",
+        "https://maker.local/project",
+        "https://user:secret@maker.example/project",
+        "https://maker.example:8443/project",
+        "ftp://maker.example/project",
+        "https://instagram.com/maker",
+        "https://bit.ly/project",
+        "https://amzn.to/item",
+    ],
+)
+def test_creator_pages_reject_unsafe_or_non_project_links(url):
+    assert description_page_source(url) is None
+
+
+def test_personal_blog_accepted_directly_and_in_description():
+    from bharat_sourcer.extraction import supported_source
+
+    url = "http://maker.example/?project=weather#parts"
+    canonical = "https://maker.example/?project=weather"
+    assert supported_source(url) == ("project_page", canonical)
+    assert classify_link(url) == ("project_source", canonical)
+
+
+@pytest.mark.parametrize("failed_page", [False, True])
+def test_creator_description_page_is_read_with_quotes_and_failure_is_nonfatal(failed_page):
+    from bharat_sourcer.sourcing.fetch import FetchError, Page
+
+    url = "https://maker.example/weather"
+    body = youtube_body()
+    body["items"][0]["snippet"]["description"] = "Build details: " + url
+    calls = []
+
+    class CreatorFetcher:
+        def get(self, address, **kwargs):
+            calls.append(address)
+            if failed_page:
+                raise FetchError("Robots policy prevents verification")
+            return Page(
+                address,
+                200,
+                {"content-type": "text/html"},
+                b"<article><p>Synthetic 830 point breadboard</p></article>",
+            )
+
+    def generate(request):
+        payload = json.loads(request.content)
+        if "fileData" in payload["contents"][0]["parts"][0]:
+            return gemini(
+                {
+                    "items": [
+                        {
+                            "raw_name": "Jumper wires",
+                            "qty": 1,
+                            "evidence": [
+                                {
+                                    "source": "video",
+                                    "timestamp": "00:10",
+                                    "observation": "Synthetic video",
+                                }
+                            ],
+                        }
+                    ]
+                }
+            )
+        return gemini(
+            {
+                "items": [
+                    {
+                        "raw_name": "Breadboard",
+                        "qty": 1,
+                        "evidence": [
+                            {"quote": "830 point breadboard", "observation": "Synthetic page"}
+                        ],
+                    }
+                ]
+            }
+        )
+
+    reader = extractor(generate, lambda request: httpx.Response(200, json=body))
+    reader.fetcher = CreatorFetcher()
+    result = extract_sources(reader, [VIDEO])
+    assert calls == [url]
+    report = result.sources[-1]
+    assert (report.kind, report.found_in) == ("blog", "youtube_description")
+    assert report.status == ("failed" if failed_page else "read")
+    assert result.video_meta.links[0].followed
+    if not failed_page:
+        evidence = result.items[-1].evidence[0]
+        assert str(evidence.url) == url and evidence.quote == "830 point breadboard"
+        direct = reader.extract(url)
+        assert str(direct.items[0].evidence[0].url) == url
+
+
+def test_empty_video_can_use_parts_from_description_link():
+    reader = extractor(lambda request: gemini({"items": []}), ok_youtube())
+    result = reader.extract(VIDEO)
+    assert result.items == [] and result.video_meta.links
+    fake = SourceExtractor(
+        {
+            VIDEO: result,
+            REPO: ExtractionResult(items=[line("Breadboard", [page_ev("830 point breadboard")])]),
+            INSTRUCTABLES: ExtractionError("SOURCE_UNAVAILABLE", "Synthetic failure"),
+        }
+    )
+    assert extract_sources(fake, [VIDEO]).items[0].raw_name == "Breadboard"
 
 
 # --- fetch_description --------------------------------------------------------------

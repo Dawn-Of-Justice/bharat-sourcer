@@ -141,6 +141,8 @@ candidate listings from Indian sellers. Judge every candidate:
 Normalise units yourself (22uF = 22 µF = 22 mfd; 33K = 33 kΩ = 33000 ohm; 1/4 W = 0.25 W).
 Synonyms count (LDR = photoresistor = light dependent resistor; a clear LED may be listed
 as water clear, transparent or white; elko = electrolytic).
+Schematic references such as R1, C2, IC1 and VR1 are drawing labels, not seller model
+numbers. Never require a listing to contain those references.
 `part_name` is what the maker asked for: honour every meaningful word in it. A listing that
 contradicts a stated property (colour, lens, finish, bare vs insulated, size, value) is at
 most partial, and a mismatch when the difference matters for the build (a blue LED for a
@@ -334,8 +336,8 @@ class GeminiJudge:
     def cache_key(self, spec: BuyableSpec, candidate: Candidate) -> str:
         # The listing JSON is a deterministic function of the page body (and bounded).
         listing = json.dumps(candidate.listing(0), sort_keys=True, ensure_ascii=False)
-        # "v2": verdicts cached before the measure and needs_value checks are not reused.
-        return cache_key("judge", "v2", spec_hash(spec), candidate.url[:500], stable_hash(listing))
+        # v3 also distinguishes schematic references from seller part numbers.
+        return cache_key("judge", "v3", spec_hash(spec), candidate.url[:500], stable_hash(listing))
 
     @staticmethod
     def cached_value(verdict: OfferMatch) -> dict:

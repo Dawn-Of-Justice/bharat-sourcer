@@ -278,6 +278,25 @@ def test_sourcing_assesses_seller_properties_and_preserves_evidence(mode, grade)
     assert result.grade is None
 
 
+def test_default_limit_sources_all_thirteen_parts():
+    class Extractor:
+        def extract(self, url):
+            return [BomItem(line_id=f"L{i:02d}", raw_name="TTP223") for i in range(1, 14)]
+
+    discovery = Discovery()
+    service = JobService(Extractor(), sourcing=SourcingService(discovery, Fetcher()))
+    assert Settings(_env_file=None).sourcing_max_parts == 30
+    job, token = service.create(CreateJob(url="https://youtu.be/abcdefghijk"))
+    service.extract(job.job_id)
+    service.confirm(job.job_id, token, ConfirmJob())
+    service.finish(job.job_id)
+    result = service.get(job.job_id, token)
+    assert len(result.report.lines) == 13
+    assert all(line.sourcing_status == "offers_found" for line in result.report.lines)
+    # Identical fixture parts share a discovery result, but all 13 lines must be processed.
+    assert discovery.calls == 1
+
+
 def test_job_sourcing_limit_checkpoints_and_recovery():
     class Extractor:
         def extract(self, url):

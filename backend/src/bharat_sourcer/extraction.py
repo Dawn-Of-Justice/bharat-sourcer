@@ -15,7 +15,6 @@ from bharat_sourcer.project_pages import (
     ProjectPageSource,
     document_text,
     normalise,
-    project_page_source,
     quote_found,
 )
 from bharat_sourcer.resilience import post_with_retry
@@ -40,6 +39,7 @@ from bharat_sourcer.youtube_meta import (
     DESCRIPTION_SOURCE,
     MAX_QUOTE,
     VideoMeta,
+    description_page_source,
     fetch_description,
     job_video_meta,
     video_id,
@@ -72,7 +72,7 @@ def youtube_url(url: str) -> str:
 
 UNSUPPORTED_MESSAGE = (
     "Use a public YouTube video, Instructables or Hackster project, GitHub repository, "
-    "Adafruit Learn guide or supported tutorial blog URL"
+    "Adafruit Learn guide or public personal blog/project page URL"
 )
 
 
@@ -82,7 +82,7 @@ def supported_source(url: str) -> tuple[Literal["video", "project_page"], str]:
         return "video", youtube_url(url)
     except ExtractionError:
         pass
-    source = project_page_source(url)
+    source = description_page_source(url)
     if source is None:
         raise ExtractionError("UNSUPPORTED_URL", UNSUPPORTED_MESSAGE)
     return "project_page", source.url
@@ -384,6 +384,8 @@ quantities, prices, compatibility, or citations. Use a descriptive name when ide
 is uncertain. Use null quantity when the count is not established; do not assume one.
 Each part needs a MM:SS timestamp and a short observation of what is visible or spoken.
 Do not count repeated views of the same physical part as extra parts.
+Use a readable component name with its evidenced value/model, keeping schematic
+references in parentheses: e.g. 10k ohm resistor (R1), not just R1. Never invent a value.
 """
     + """
 First understand the project as a whole: what it does, how it is powered, its main
@@ -447,6 +449,9 @@ Each part needs evidence entries with a quote and an observation. The quote must
 verbatim from page_text: a short contiguous passage (a few words up to one sentence) that
 names the part, with no paraphrasing, ellipses or added text. The observation briefly says
 what the quote establishes. Evidence whose quote is not found verbatim will be discarded.
+Use a readable component name with its evidenced value/model, keeping schematic
+references in parentheses: e.g. 10k ohm resistor (R1), not just R1. Never invent a value.
+When a table supplies the value, include the table row as evidence too.
 Do not list the same physical part twice. Ignore comments, advertisements, related projects
 and navigation text.
 First understand the project as a whole: what it does, how it is powered, its main
@@ -511,7 +516,7 @@ class GeminiExtractor:
     def extract(self, url: str) -> ExtractionResult:
         kind, canonical = supported_source(url)
         if kind == "project_page":
-            return self._extract_page(project_page_source(url))
+            return self._extract_page(description_page_source(url))
         return self._extract_video(canonical)
 
     def _generate(self, parts: list[dict], prompt: str, model: type[Model], noun: str):
@@ -633,7 +638,9 @@ class GeminiExtractor:
                 )
         if dropped:
             log.info("Discarded %d unverified video or description evidence entries", dropped)
-        if not items:
+        if not items and not (
+            stored and any(link.kind == "project_source" for link in stored.links)
+        ):
             raise ExtractionError("NO_BOM", "No supported parts found; check the public video URL")
         return ExtractionResult(
             items=items, project=project_context(bom.project), video_meta=stored

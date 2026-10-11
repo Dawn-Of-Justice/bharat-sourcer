@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
+import { reportPartName } from './partName'
 import {
   evidenceText,
   offersOf,
@@ -807,7 +808,7 @@ export default function Results({
   })
   if (!report) return null
   const refreshable = !readOnly && !job.demo && job.status === 'done' && (job.refresh_count ?? 0) < 2
-  const names = Object.fromEntries(report.lines.map(line => [line.item.line_id, line.item.raw_name]))
+  const names = Object.fromEntries(report.lines.map(line => [line.item.line_id, reportPartName(line)]))
   async function refresh() {
     setRefreshing(true)
     setError('')
@@ -868,6 +869,11 @@ export default function Results({
           </>
         }
       />
+      {report.order_plan && !readOnly && !job.demo && (
+        <div className="pp-plan-tools">
+          <PlanCompare job={job} token={token} onJob={onJob} names={names} />
+        </div>
+      )}
       <PartsList
         job={job}
         token={token}
@@ -937,14 +943,11 @@ export default function Results({
             )}
           </div>
         )}
-        {report.order_plan && !readOnly && !job.demo && (
-          <PlanCompare job={job} token={token} onJob={onJob} names={names} />
-        )}
       </div>
       <SidePanel
         id="pp-part"
         open={!!current}
-        title={shown?.item.raw_name ?? 'Part'}
+        title={shown ? reportPartName(shown) : 'Part'}
         subtitle={
           shown && status ? (
             <>

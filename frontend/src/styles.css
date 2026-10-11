@@ -6163,6 +6163,61 @@ audio {
   display: grid;
   gap: 14px;
 }
+.pp-plan-tools {
+  margin: 0 0 16px;
+  border-bottom: 1px solid #e0e8de;
+}
+.pp-plan-tools .plan-compare {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+.pp-plan-tools .plan-compare > summary {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  width: fit-content;
+  min-height: 44px;
+  padding: 8px 0;
+  list-style: none;
+  font-size: 13px;
+  font-weight: 600;
+}
+.pp-plan-tools .plan-compare > summary::-webkit-details-marker {
+  display: none;
+}
+.pp-plan-tools .plan-compare > summary::after {
+  content: '+';
+  font-size: 18px;
+  font-weight: 400;
+}
+.pp-plan-tools .plan-compare[open] > summary::after {
+  content: '−';
+}
+.plan-compare-hint {
+  color: #71867a;
+  font-size: 12px;
+  font-weight: 400;
+}
+.pp-plan-tools .plan-compare[open] {
+  padding-bottom: 18px;
+}
+.pp-plan-tools .plan-toggle .nav-cta {
+  min-height: 40px;
+  padding: 8px 14px;
+  border-radius: 6px;
+  font-size: 13px;
+}
+.pp-plan-tools .plan-preview {
+  max-width: 800px;
+}
+@media (max-width: 480px) {
+  .plan-compare-hint {
+    display: none;
+  }
+}
 @media (max-width: 760px) {
   .pp-parts-head {
     align-items: flex-start;

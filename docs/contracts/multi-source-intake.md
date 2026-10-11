@@ -15,22 +15,29 @@ hints, look-alike tables and confidence are deterministic rules over extracted e
 | `hackster` | `hackster.io/<user>/<project>` | page HTML (Hackster blocks automated access; usually `SOURCE_UNAVAILABLE`) |
 | `github` | `github.com/<owner>/<repo>` | README **plus code files** (section 2) |
 | `adafruit` | `learn.adafruit.com/<guide>`, `/<guide>/<page>`, `/<guide>.md` | the whole guide as Markdown, `https://learn.adafruit.com/<guide>.md?view=all` |
-| `blog` | an article path on a listed tutorial blog | the article's main content only |
+| `blog` | public personal blogs and project websites, plus the recognised tutorial blogs | readable article/main content, falling back to page text |
 
 **Adafruit Learn.** Images, link targets, HTML comments and the shop widgets repeated under
 every product ("Buy Now", "In Stock", "Featured", "Related Guides to the Product") are
 removed before the text goes to the model. Evidence cites the all-pages HTML view,
 `https://learn.adafruit.com/<guide>?view=all`.
 
-**Tutorial blogs.** Only these hosts are accepted (with or without `www.`):
+**Tutorial blogs and personal websites.** These hosts have canonical URL handling (with or without `www.`):
 randomnerdtutorials.com, dronebotworkshop.com, lastminuteengineers.com, circuitdigest.com,
 howtomechatronics.com, makerguides.com, microcontrollerslab.com, eater.net,
 circuitbasics.com, electronicshub.org. Text is taken from the first non-empty main-content
 container, best first: an element with class `entry-content`, `post-content`,
 `article-content`, `post-body` or `td-post-content`, then `<article>`, then `<main>`, else
 the whole page. The existing chrome stripping still applies (nav, footer, aside, forms,
-hidden elements, `#comments`, "Related posts"/"Comments" sections). Any other host returns
-400 `UNSUPPORTED_URL` (the message lists the supported kinds).
+hidden elements, `#comments`, "Related posts"/"Comments" sections). Other public personal
+blogs and project pages use the same text reader and are accepted both directly and as
+extra sources. Query parameters are preserved for sites that identify posts by query.
+HTTP links without an explicit port are upgraded to HTTPS. Known social, shop, affiliate
+and shortener hosts are excluded, as are credentials, IP literals and local hostnames.
+DNS and redirect destinations are checked by `SafeFetcher`; the final page must remain
+on the requested host (with or without `www.`). This reads one page, without recursive
+crawling or JavaScript rendering. Login-only or blocked pages may return `SOURCE_UNAVAILABLE`;
+pages without quoted parts return `NO_BOM`.
 
 All fetches go through `SafeFetcher` (HTTPS, public-address pinning, robots.txt, size
 limits). Page quotes are still checked verbatim against the text the model saw; unverified
@@ -230,7 +237,7 @@ line is `likely` ("One source: a quote checked in the video description."). In `
 
 | `kind` | Rule | Followed? |
 | --- | --- | --- |
-| `project_source` | a supported project page (Instructables, Hackster, GitHub, Adafruit Learn, listed blogs), stored as its canonical URL | yes, as an extra source |
+| `project_source` | a recognised project page or public personal blog/project website, stored as its canonical URL | yes, as an extra source |
 | `video` | another YouTube video | no (one video per job) |
 | `store` | store or affiliate hosts (Amazon, amzn.to, Flipkart, robu.in, Robocraze, AliExpress, Adafruit shop and others) | no |
 | `other` | anything else (social media, link shorteners) | no |
@@ -240,6 +247,13 @@ with the usual dedupe by canonical URL and the limit of **3 extra sources** in t
 (submitted ones first). They are extracted and fused like submitted sources, and their
 `source_reports[]` entries have `found_in: "youtube_description"`. A failing link source is
 reported and skipped.
+
+Creator websites use `kind: "blog"` in source reports, so no new response fields are needed.
+`video_meta.links[].followed` means the source was scheduled, not that it succeeded; check
+the matching source report for its result. If video extraction yields no parts but returns
+description project links, intake still tries those links before deciding there is no BOM.
+URL discovery and classification are deterministic; page extraction uses the existing
+model call and server-side quote checks. The three-extra-source cap includes creator sites.
 
 **Reports and metadata.** `source_reports[]` gets an entry after the video with
 `kind: "youtube_description"`, `role: "additional"`, the video URL, `status` and

@@ -2,6 +2,7 @@ import Results from './Results'
 import YoutubeJourney from './YoutubeJourney'
 import SharedReport from './SharedReport'
 import { watchJob } from './stream'
+import { useJobTitle } from './useJobTitle'
 import { useAccount, Projects } from './Account'
 import { useEffect, useLayoutEffect, useRef, useState, type FormEvent } from 'react'
 import {
@@ -125,27 +126,14 @@ const sourceFields: Record<LinkSource, { label: string; placeholder: string }> =
   github: { label: 'Paste a GitHub repository link', placeholder: 'https://github.com/creator/project' },
 }
 
-// Hosts the backend reads (docs/contracts/multi-source-intake.md §1). Hackster refuses automated access.
-const blogHosts = [
-  'randomnerdtutorials.com',
-  'dronebotworkshop.com',
-  'lastminuteengineers.com',
-  'circuitdigest.com',
-  'howtomechatronics.com',
-  'makerguides.com',
-  'microcontrollerslab.com',
-  'eater.net',
-  'circuitbasics.com',
-  'electronicshub.org',
-]
-const articleHosts = ['instructables.com', 'learn.adafruit.com', ...blogHosts]
 const bareHost = (url: URL) => url.hostname.toLowerCase().replace(/^www\./, '')
 function linkKind(url: URL): LinkSource | 'hackster' | null {
   const host = bareHost(url)
   if (['youtube.com', 'm.youtube.com', 'youtu.be'].includes(host)) return 'youtube'
   if (host === 'github.com') return 'github'
   if (host === 'hackster.io') return 'hackster'
-  return articleHosts.includes(host) ? 'article' : null
+  // Public personal blogs are accepted too; the backend validates and safely fetches them.
+  return host.includes('.') && !url.username && !url.password ? 'article' : null
 }
 const hacksterMessage =
   'Hackster blocks automated reading, so its projects cannot be read yet. Try the project’s GitHub repository or video instead.'
@@ -205,7 +193,7 @@ function Landing({ onCreated }: { onCreated: (id: string) => void }) {
       setError(
         linkKind(parsed) === 'hackster'
           ? hacksterMessage
-          : 'Use a GitHub repository, Instructables project, Adafruit Learn guide or a supported maker blog (listed below the field).',
+          : 'Use a public project page, personal blog or GitHub repository link.',
       )
       return
     }
@@ -230,9 +218,7 @@ function Landing({ onCreated }: { onCreated: (id: string) => void }) {
         return
       }
       if (!kind) {
-        setError(
-          `Extra source ${index + 1}: use a YouTube video, GitHub repository, Instructables project, Adafruit Learn guide or supported maker blog.`,
-        )
+        setError(`Extra source ${index + 1}: use a YouTube video, GitHub repository or public project/blog page.`)
         return
       }
       sources.push(url.toString())
@@ -379,9 +365,9 @@ function Landing({ onCreated }: { onCreated: (id: string) => void }) {
                   </div>
                   {source === 'article' ? (
                     <p className="source-note">
-                      GitHub repositories, Instructables projects, Adafruit Learn guides and these maker blogs:{' '}
-                      {blogHosts.join(', ')}. Parts cite source text or code; review the list before sourcing. Hackster
-                      pages cannot be read yet.
+                      Paste a public personal blog, project page or GitHub repository. We read the available text and
+                      cite it in your parts list. Pages that require login or block automated access may not be
+                      readable.
                     </p>
                   ) : source === 'github' ? (
                     <p className="source-note">
@@ -1344,6 +1330,7 @@ function JobPage({ id }: { id: string }) {
   const [job, setJob] = useState<Job | null>(null)
   const [fatalError, setFatalError] = useState('')
   const [connectionIssue, setConnectionIssue] = useState('')
+  useJobTitle(job, fatalError, connectionIssue)
   const [revision, setRevision] = useState(0)
   const [actionBusy, setActionBusy] = useState(false)
   const [actionError, setActionError] = useState('')

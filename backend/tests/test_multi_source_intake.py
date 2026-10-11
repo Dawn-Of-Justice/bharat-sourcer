@@ -132,7 +132,6 @@ def test_adafruit_guide_urls_use_markdown_view(url):
         "https://learn.adafruit.com/guides/latest",
         "https://randomnerdtutorials.com/",
         "https://randomnerdtutorials.com.evil.test/post/",
-        "https://example-blog.test/esp32-bme280/",
     ],
 )
 def test_unlisted_or_non_article_pages_stay_unsupported(url):
@@ -533,7 +532,7 @@ def test_create_rejects_two_videos_and_unsupported_extra_sources():
     service = JobService(SourceExtractor({}))
     for sources, code in [
         (["https://youtu.be/bbbbbbbbbbb"], "UNSUPPORTED_SOURCES"),
-        (["https://example-blog.test/post/"], "UNSUPPORTED_URL"),
+        (["https://127.0.0.1/post/"], "UNSUPPORTED_URL"),
     ]:
         with pytest.raises(JobError) as captured:
             service.create(CreateJob(url=VIDEO, sources=sources))
