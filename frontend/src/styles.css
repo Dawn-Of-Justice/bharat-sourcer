@@ -1,5 +1,5 @@
 :root {
-  font-family: 'Aptos', 'Segoe UI Variable', 'Segoe UI', sans-serif;
+  font-family: 'Source Sans 3 Variable', sans-serif;
   color: #143039;
   background: #f8f7f2;
   font-synthesis: none;
@@ -18,7 +18,9 @@ body {
   min-width: 0;
 }
 button,
-input {
+input,
+select,
+textarea {
   font: inherit;
 }
 button,
@@ -6381,6 +6383,41 @@ button.pp-row-summary {
   display: grid;
   gap: 8px;
   padding-bottom: 6px;
+}
+@media (max-width: 600px) {
+  .pp-drawer-body {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+  .pp-part {
+    min-width: 0;
+    grid-template-columns: minmax(0, 1fr);
+    padding: 18px 16px 32px;
+    overflow-wrap: anywhere;
+  }
+  .pp-part > *,
+  .pp-part .offer > div {
+    min-width: 0;
+    max-width: 100%;
+  }
+  .pp-part-pick {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .pp-part pre {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+  .pp-part .nav-cta,
+  .pp-part .primary-button,
+  .pp-part .report-chip,
+  .pp-part .grade-chip > summary {
+    max-width: 100%;
+    white-space: normal;
+  }
+  .pp-part-price,
+  .pp-drawer-title p {
+    flex-wrap: wrap;
+  }
 }
 .pp-part .build-details-heading {
   margin: 0;
