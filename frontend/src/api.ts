@@ -302,6 +302,7 @@ export interface Job {
   status: JobStatus
   pause_requested?: boolean
   refresh_count?: number
+  refresh_limit?: number | null
   updated_at: string
   demo: boolean
   input: { url: string; country?: string }

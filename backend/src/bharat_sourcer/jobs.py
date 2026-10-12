@@ -97,7 +97,11 @@ class JobService:
         sourcing_parallelism: int = 1,
         seller_penalty_inr: Decimal = SELLER_PENALTY_INR,
         gemini_budget_usd: float | None = None,
+        refresh_unlimited_uids: str = "",
     ):
+        self.refresh_unlimited_owners = frozenset(
+            "user:" + uid.strip() for uid in refresh_unlimited_uids.split(",") if uid.strip()
+        )
         # Per-sourcing-run ceiling on estimated Gemini spend; None disables the guard.
         self.gemini_budget_usd = gemini_budget_usd
         self.extractor = extractor
@@ -241,12 +245,17 @@ class JobService:
                 raise JobError(401, "IDENTITY_EXPIRED", "Session expired; refresh your credentials")
             if record is None or record.owner_id != token.owner:
                 raise JobError(404, "JOB_NOT_FOUND", "Project not found")
+            record.job.refresh_limit = self.refresh_limit(record)
             return record.job
         if record is not None and record.owner_id is not None:
             raise JobError(404, "JOB_NOT_FOUND", "Project not found")
         if record is None or not secrets.compare_digest(record.token_hash, self._hash(token)):
             raise JobError(404, "JOB_NOT_FOUND", "Job not found or token invalid")
+        record.job.refresh_limit = 2
         return record.job
+
+    def refresh_limit(self, record: StoredJob) -> int | None:
+        return None if record.owner_id in self.refresh_unlimited_owners else 2
 
     def get(self, job_id: str, token: str | None) -> Job:
         self._validate_id(job_id)
@@ -461,7 +470,9 @@ class JobService:
             )
         if self.sourcing is None:
             raise JobError(503, "SOURCING_UNAVAILABLE", "Sourcing is unavailable on this worker")
-        if job.refresh_count >= 2:
+        limit = self.refresh_limit(record)
+        job.refresh_limit = limit
+        if limit is not None and job.refresh_count >= limit:
             raise JobError(409, "REFRESH_LIMIT", "Two refresh batches have already been used")
         wanted = set(request.line_ids)
         items = {item.line_id: item for item in job.items}

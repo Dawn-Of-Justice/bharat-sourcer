@@ -1356,6 +1356,9 @@ class Job(Model):
     sourcing_enabled: bool = False
     recovery_attempts: int = Field(default=0, ge=0)
     refresh_count: int = Field(default=0, ge=0)
+    refresh_limit: int | None = Field(
+        default=2, ge=0, description="Seller refresh batch limit; null for exempt testing accounts."
+    )
     pause_requested: bool = False
     messages: list[ChatMessage] = Field(default_factory=list)
     chat_state: Literal["idle", "queued", "thinking", "failed"] = "idle"
