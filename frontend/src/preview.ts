@@ -58,7 +58,11 @@ const project: ProjectUnderstanding = {
 }
 const phase = new URLSearchParams(window.location.search).get('stage')
 const status: JobStatus =
-  phase === 'done' || phase === 'plan' ? 'done' : phase === 'sourcing' ? 'sourcing' : 'awaiting_confirmation'
+  phase === 'done' || phase === 'plan' || phase === 'search-results'
+    ? 'done'
+    : phase === 'sourcing'
+      ? 'sourcing'
+      : 'awaiting_confirmation'
 const lines = items.map(item => ({
   item,
   sourcing_status: 'offers_found' as const,
@@ -201,8 +205,8 @@ if (status === 'done') {
     },
   ]
 }
-// Report v0.21 preview: stage=plan shows a dummy (non-demo) order plan; report endpoints are served by previewReport.ts.
-if (phase === 'plan') job = planPreview(job)
+// Both completed stages use the current interactive report fixtures; preview requests stay local.
+if (status === 'done') job = planPreview(job)
 
 // Preview callers always send a JSON string body; JSON.parse coerces its argument to a string itself.
 function jsonBody<T>(options: RequestInit): T {

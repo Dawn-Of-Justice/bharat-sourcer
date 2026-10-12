@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { getPlans, selectOffers, type CartPlans, type Job } from './api'
 import { amountText, price } from './ReportBits'
 
@@ -17,23 +17,27 @@ export function PlanCompare({
   onJob: (job: Job) => void
   names: Record<string, string>
 }) {
-  const [plans, setPlans] = useState<CartPlans | null>(null)
+  const [loaded, setLoaded] = useState<{ job: Job; plans: CartPlans } | null>(null)
+  const plans = loaded?.job === job ? loaded.plans : null
   const [kind, setKind] = useState<'recommended' | 'cheapest' | 'fewest_sellers'>('cheapest')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [acknowledged, setAcknowledged] = useState(false)
-  async function load() {
-    setBusy(true)
-    setError('')
-    try {
-      setPlans(await getPlans(job.job_id, token))
-    } catch (cause) {
-      setError(errorText(cause, 'Could not load plans.'))
-    } finally {
-      setBusy(false)
+  useEffect(() => {
+    let cancelled = false
+    void getPlans(job.job_id, token)
+      .then(result => {
+        if (!cancelled) setLoaded({ job, plans: result })
+      })
+      .catch(() => {
+        // Keep comparison hidden when available options cannot be confirmed.
+        if (!cancelled) setLoaded(null)
+      })
+    return () => {
+      cancelled = true
     }
-  }
-  const plan = plans?.plans?.find(entry => entry.kind === kind)
+  }, [job, token])
+  const plan = plans?.plans?.find(entry => entry.kind === kind) ?? plans?.plans?.[0]
   const picks = plan?.picks ?? []
   const needsChanges = picks.some(pick => pick.changes_required)
   async function apply() {
@@ -51,7 +55,6 @@ export function PlanCompare({
           })),
         ),
       )
-      setPlans(null)
       setAcknowledged(false)
     } catch (cause) {
       setError(errorText(cause, 'Could not apply the plan.'))
@@ -59,17 +62,12 @@ export function PlanCompare({
       setBusy(false)
     }
   }
+  if ((plans?.plans?.length ?? 0) < 2) return null
   return (
-    <details
-      className="plan-compare"
-      onToggle={event => {
-        if ((event.target as HTMLDetailsElement).open && !plans && !busy) void load()
-      }}
-    >
+    <details className="plan-compare">
       <summary>
         Compare plans <span className="plan-compare-hint">Cheapest · Fewest sellers</span>
       </summary>
-      {busy && !plans && <p role="status">Loading plans…</p>}
       {plans && (
         <>
           <div className="plan-toggle" role="group" aria-label="Plan">
@@ -78,7 +76,7 @@ export function PlanCompare({
                 key={entry.kind}
                 type="button"
                 className="nav-cta"
-                aria-pressed={kind === entry.kind}
+                aria-pressed={plan?.kind === entry.kind}
                 onClick={() => {
                   setKind(entry.kind)
                   setAcknowledged(false)
@@ -131,16 +129,6 @@ export function PlanCompare({
                   </button>
                 </>
               )}
-              {plans.rules?.length ? (
-                <details>
-                  <summary>How plans are built</summary>
-                  <ul>
-                    {plans.rules.map((rule, index) => (
-                      <li key={index}>{rule}</li>
-                    ))}
-                  </ul>
-                </details>
-              ) : null}
             </div>
           ) : (
             <p>This plan is not available.</p>

@@ -120,7 +120,7 @@ One column in the landing page's style (`App.tsx` `JobPage`, `ProjectFrame.tsx`)
 - **Needs you** (`ReportSummary.tsx`): one list of decisions. Safety checks from `job.safety_flags` expand in place (mains open by default) and are labelled as automatic checks, not a guarantee. The review stage adds conflicting sources, unclear parts and the guest part limit; results add parts without a seller (`order_plan.unsourced`), selections waiting for confirmation (`selected: false` with `blocked_reason`) and chat suggestions waiting for approval.
 - **Review:** rows with inline quantity and "I have it". The part panel holds the name, quantity (with the reason for a suggested quantity), build details (requirements with plain-language labels), the buying spec (category, mount, params, a **Needs value** prompt; edits are sent as `buyable_spec` in the confirm `update`), conflict values, look-alike warnings, evidence (Video, Page quote, Code `file:line`, Video description) with the confidence chip, and Remove/Undo. "Where these came from" holds the build overview and Sources read (`source_reports`, plus `video_meta.links`; store links are marked unverified and nothing is followed). The confirm button names how many parts will be searched; guests are held to their part limit.
 - **Seller search:** one row per part with a single status and a progress bar.
-- **Results:** a dark summary band with the parts price in whole rupees (`order_plan.costing`, else `report.costing`), how many parts it covers from how many sellers, what is still unknown (shipping, GST) and when prices were checked, plus Download PDF and Share. The parts list (`PartsList.tsx`) groups by seller (subtotal and one shipping line; then Not bought yet and You already have) or by part, with one status per row. Thumbnails (`PartThumb`) try `line_image`, seller photos and `image_candidates`, then the image endpoint; broken photos are reported for an optional generated illustration. Compare plans (`GET /plans`; Apply posts `/selections`) and seller refresh (up to 10 parts per batch, 2 batches) follow the list. Seller prices are snapshots; tax, shipping and the final payable total are not known, and demo data is labelled.
+- **Results:** a dark summary band with the parts price in whole rupees (`order_plan.costing`, else `report.costing`), how many parts it covers from how many sellers, what is still unknown (shipping, GST) and when prices were checked, plus Download PDF and Share. The parts list (`PartsList.tsx`) groups by seller (subtotal and one shipping line; then Not bought yet and You already have) or by part, with one status per row. Thumbnails (`PartThumb`) try `line_image`, seller photos and `image_candidates`, then the image endpoint; broken photos are reported for an optional generated illustration. Compare plans (`GET /plans`; Apply posts `/selections`) is available in the order plan; seller retries are available in Find sellers (up to 10 parts per batch, 2 batches). Seller prices are snapshots; tax, shipping and the final payable total are not known, and demo data is labelled.
 - **Part panel:** the chosen offer first (price, seller with trust label, listing title, stock and check time, match, grade and GST chips, Open seller page) or what is missing, then callouts for confirming a seller or adding a value, then sections: Seller offers (selection posts `/selections`; grade B picks need `accept_changes`, judge-confirmed offers are selectable, recommendation reasons under "Why this pick"), Code changes, Why this part is in the list, Specs and requirements (the buying spec used for seller search and requirement edits) and Research notes, with "Include in the next seller search".
 - **Code changes:** a selected catalogue substitute shows code diffs, origin and compile labels (Not compiled / Compiles for <board> / Did not compile), and wiring/power/verification notes. AI drafts need explicit acceptance before ZIP download; shared and demo reports hide this control.
 - **Compile check** (backend v0.29.0): when `GET /v1/compile/boards` reports `enabled`, a ready patch offers a board picker ("From the parts list" by default) and "Check it compiles". A queued check polls the job every 8 s until it settles, then shows the board, core and size ("compile only: not tested on hardware"), the compiler output, or the reason it could not compile. `FQBN_REQUIRED` highlights the board picker. After an AI repair round the panel asks for the revised draft to be accepted again.
@@ -133,6 +133,30 @@ One column in the landing page's style (`App.tsx` `JobPage`, `ProjectFrame.tsx`)
 The YouTube player and PWA share target remain future frontend work. The implemented API is documented in [docs/contracts](../docs/contracts/README.md); the broader [frontend architecture](../docs/02-architecture/09-frontend-and-ux.md) is a target design.
 
 ## Local UI preview without API calls
+
+Results and Order plan both use the full interactive sample report. The controller has fresh, expired,
+sold-out and stock-unconfirmed offers, plus a grade B offer requiring acknowledgement. The sensor
+shows a dummy AI-suggested substitute and the wires show a dummy AI-suggested value. These scenarios
+reflect current app features; they are invented fixtures, not copied production projects or verified quotes.
+The sample includes one completed refresh, leaving one batch available. Click an unavailable offer
+to preview the local selection notice, which fades after five seconds.
+
+### Retry from Find sellers
+
+When an active seller search finishes, Find sellers stays open with a completion summary. Parts with
+no verified offers, failed searches, expired quotes or unavailable stock are selected for retry by default
+(up to 10). Missing values and compatibility questions appear separately with links to the part details.
+Users can untick parts, retry through the existing refresh API, or continue to the order plan. Successful
+parts are not included in the retry. The UI shows the two-batch limit and warns that the chosen parts'
+quotes are replaced and paid analysis may be used. Saved completed projects still open at the order plan;
+the Find sellers step lets users return to this summary. Seller retry controls are available in Find sellers only;
+the order plan has no refresh button or per-part search checkbox.
+
+For a local check, open `/job/ui-preview?preview=1&stage=search-results` or click **Search complete** in
+the preview toolbar. The display and battery holder start selected. A simulated retry takes a few seconds:
+the holder becomes available, the display still has no verified offers, and no retry batches remain.
+All responses stay in memory with no API calls; reloading resets the simulation. Missing-value parts
+stay separate, and Continue to order plan works before or after the retry.
 
 Run npm run dev and open http://localhost:5173/?preview=1. The preview toolbar switches between landing, review, parallel progress, and results. API actions use in-memory dummy responses; the sample image is a local labelled illustration. Preview mode is development-only and requires preview=1 in the URL. Normal URLs retain the configured backend connection.
 

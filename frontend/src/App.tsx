@@ -1,4 +1,6 @@
 import Results from './Results'
+import SellerSearchResults from './SellerSearchResults'
+import { sellerSearchViewAfterUpdate } from './sellerSearch'
 import YoutubeJourney from './YoutubeJourney'
 import SharedReport from './SharedReport'
 import { watchJob } from './stream'
@@ -19,6 +21,7 @@ import {
   claimProject,
   pauseJob,
   resumeJob,
+  refreshOffers,
   confirmJob,
   createJob,
   getJob,
@@ -1363,11 +1366,15 @@ function JobPage({ id }: { id: string }) {
   const [viewStep, setViewStep] = useState<number | null>(null)
   // Which way the content slides in: back to an earlier step, or forward.
   const [direction, setDirection] = useState<'back' | 'forward'>('forward')
+  const previousStatus = useRef<Job['status'] | undefined>(undefined)
+  const previewSearchResults =
+    localPreview && new URLSearchParams(window.location.search).get('stage') === 'search-results'
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- resets local state when the effect inputs change; restructuring would change render timing
-    setViewStep(null)
+    if (!job?.status) return
+    setViewStep(sellerSearchViewAfterUpdate(previousStatus.current, job.status, previewSearchResults))
     setDirection('forward')
-  }, [job?.status])
+    previousStatus.current = job.status
+  }, [job?.status, previewSearchResults])
 
   function applySnapshot(next: Job) {
     setJob(previous => (previous && Date.parse(next.updated_at) < Date.parse(previous.updated_at) ? previous : next))
@@ -1574,6 +1581,24 @@ function JobPage({ id }: { id: string }) {
               {viewing !== currentStep ? (
                 viewing === 0 ? (
                   <ConfirmedParts job={job} back={back} />
+                ) : job.status === 'done' ? (
+                  <SellerSearchResults
+                    job={job}
+                    onContinue={() => view(2)}
+                    onDetails={lineId => {
+                      view(2)
+                      setOpenPart(lineId)
+                    }}
+                    onRetry={async ids => {
+                      await refreshOffers(id, token, ids)
+                      setOpenPart(null)
+                      setChatOpen(false)
+                      setAttention(false)
+                      setViewStep(1)
+                      setJob(previous => (previous ? { ...previous, status: 'resolving' } : previous))
+                      setRevision(value => value + 1)
+                    }}
+                  />
                 ) : (
                   <AnalysisProgress job={job} back={back} />
                 )
@@ -1650,6 +1675,7 @@ export default function App() {
           <a href="/projects?preview=1">My projects</a>
           <a href="/job/ui-preview?preview=1">Review</a>
           <a href="/job/ui-preview?preview=1&stage=sourcing">Parallel progress</a>
+          <a href="/job/ui-preview?preview=1&stage=search-results">Search complete</a>
           <a href="/job/ui-preview?preview=1&stage=done">Results</a>
           <a href="/job/ui-preview?preview=1&stage=plan">Order plan</a>
           <a href="/shared/ui-preview.dummy?preview=1">Shared link</a>
