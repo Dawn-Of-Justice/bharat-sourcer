@@ -1459,10 +1459,24 @@ class OverviewJudge(Model):
     disputed: int = Field(default=0, ge=0)
 
 
+class ResolvedSpec(Model):
+    """An open spec question the drawing settled, so the maker is not asked it."""
+
+    line_id: str
+    field: str = Field(max_length=40)
+    value: str = Field(max_length=200)
+    reason: str | None = Field(default=None, max_length=300)
+    # drawing: read off the drawn pin headers; wiring: decided by the wiring call from the
+    # code, the wires it drew and the project context.
+    source: Literal["drawing", "wiring"]
+
+
 class ProjectOverview(Model):
     """AI-inferred drawing of the project; never verified against the physical board."""
 
     status: Literal["pending", "ready", "failed", "stale"]
+    # While pending, what is being drawn; parts (then wires) already drawn are included.
+    stage: Literal["parts", "wiring", "checking"] | None = None
     message: str | None = Field(default=None, max_length=300)
     generated_at: datetime | None = None
     items_hash: str | None = Field(default=None, max_length=64)
@@ -1473,6 +1487,8 @@ class ProjectOverview(Model):
     notes: list[Annotated[str, Field(min_length=1, max_length=300)]] = Field(
         default_factory=list, max_length=10
     )
+    # Applied to the lines (BomItem.ai_specs) when the drawing is saved; those questions go.
+    resolved: list[ResolvedSpec] = Field(default_factory=list, max_length=120)
 
 
 class Job(Model):

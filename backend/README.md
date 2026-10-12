@@ -1,5 +1,30 @@
 # Backend
 
+v0.33.0 makes the project overview fast and progressive, and lets it answer questions.
+Parts are drawn by parallel calls (site `overview`, two lines each, up to 8 at once, low
+thinking) and each group is saved on `job.overview` as soon as it lands
+(`status: "pending"`, `stage: "parts"`), so the review page fills in part by part; each
+group is judged at once in the background. When every part is drawn one call (new site
+`overview_wiring`, low thinking) wires them by pin name (`stage: "wiring"`), then the wires
+are judged (`stage: "checking"`). A grouped call that fails or times out (40 s) is redrawn
+one line per call, and a call whose model stays overloaded (429/5xx) gets one try on
+`BS_OVERVIEW_FALLBACK_MODEL` (default `gemini-3.5-flash-lite`). The live Desk Buddy check
+showed all 7 parts at 13 s and finished in 41 s (was 48 s with nothing shown until the end).
+The drawing also settles open spec questions (`overview.resolved`): a part's pinout is read
+off its drawn pin headers and the wiring call answers others (logic voltage, I2C address,
+output mode, ...) only when the code, wires or datasheet facts decide them. On save the
+values become AI specs on the line and those clarifications are dropped, so the maker is
+only asked what stays genuinely unknown. Disputed parts settle nothing.
+Overview calls now go to Vertex AI (`gemini_api.py`; `aiplatform.googleapis.com`, location
+`global`) when `BS_GCP_PROJECT` is set: same models, billed to the project, authorised by
+the service account's Application Default Credentials (it needs `roles/aiplatform.user`),
+on a separate capacity pool from the API key, which kept answering 503 "overloaded".
+`BS_GEMINI_VERTEX_SITES` (default `overview`, `overview_wiring`, `overview_judge`) picks
+the sites and `BS_VERTEX_LOCATION` the location; a Vertex refusal (401/403/404 or missing
+credentials) falls back to the API key. Part checks still running 20 s after the wire check
+count as not reviewed instead of holding the save. Live Desk Buddy on Vertex: all parts at
+10 s, done at 25 s, no retries.
+
 v0.32.0 adds the project overview (`overview.py`): when extraction reaches
 `awaiting_confirmation`, one Gemini call (site `overview`) draws every physical part
 (body size and colour, main chip, screen/LED/button features, connectors and silkscreen pin

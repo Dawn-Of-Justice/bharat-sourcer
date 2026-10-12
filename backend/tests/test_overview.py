@@ -5,6 +5,7 @@ output. The repository files are synthetic and served by a fake fetcher; no netw
 """
 
 import json
+import threading
 from datetime import timedelta
 
 import httpx
@@ -220,32 +221,60 @@ def reply(body, finish="STOP"):
     )
 
 
-class Gemini:
-    """Answers the drawing call and the judge call; records what was sent."""
+def kind(body):
+    prompt = body["systemInstruction"]["parts"][0]["text"]
+    if "skeptical" in prompt:
+        return "judge_wires" if "verdict for EVERY wire" in prompt else "judge_parts"
+    return "wire" if prompt.startswith("You wire") else "draw"
 
-    def __init__(self, generated=None, judged=None, generation_status=200):
+
+class Gemini:
+    """Answers the part, wiring and judge calls (any order, in parallel); records what was sent."""
+
+    def __init__(self, generated=None, judged=None, generation_status=200, wiring_status=200):
         self.generated = GENERATED if generated is None else generated
         self.judged = JUDGED if judged is None else judged
         self.generation_status = generation_status
+        self.wiring_status = wiring_status
+        self.grouped_status = False  # True: calls with more than one line fail (overload)
         self.sent: list[dict] = []
+        self.urls: list[str] = []
+        self.lock = threading.Lock()
 
     def __call__(self, request):
         body = json.loads(request.content)
-        self.sent.append(body)
-        if "skeptical" in body["systemInstruction"]["parts"][0]["text"]:
-            return reply(self.judged) if self.judged != "fail" else httpx.Response(400)
-        if self.generation_status != 200:
-            return httpx.Response(self.generation_status)
-        return reply(self.generated)
+        with self.lock:
+            self.sent.append(body)
+            self.urls.append(str(request.url))
+        match kind(body):
+            case "judge_parts" | "judge_wires" if self.judged == "fail":
+                return httpx.Response(400)
+            case "judge_parts":
+                return reply({"parts": self.judged.get("parts", [])})
+            case "judge_wires":
+                return reply({"wires": self.judged.get("wires", [])})
+            case "wire":
+                if self.wiring_status != 200:
+                    return httpx.Response(self.wiring_status)
+                return reply(
+                    {
+                        "wiring": self.generated["wiring"],
+                        "notes": self.generated["notes"],
+                        "answers": self.generated.get("answers", []),
+                    }
+                )
+        lines = json.loads(body["contents"][0]["parts"][0]["text"])["lines"]
+        if self.generation_status != 200 or (self.grouped_status and len(lines) > 1):
+            return httpx.Response(self.generation_status if not self.grouped_status else 503)
+        # Like the model, a part call may also answer lines it was not given; those are dropped.
+        return reply({"parts": self.generated["parts"]})
 
     def sites(self):
-        return [
-            "judge" if "skeptical" in b["systemInstruction"]["parts"][0]["text"] else "draw"
-            for b in self.sent
-        ]
+        return sorted(kind(b) for b in self.sent)
 
-    def document(self, index=0):
-        return json.loads(self.sent[index]["contents"][0]["parts"][0]["text"])
+    def document(self, which="draw"):
+        body = next(b for b in self.sent if kind(b) == which)
+        return json.loads(body["contents"][0]["parts"][0]["text"])
 
 
 def setup(gemini=None, files=None, cache=None, **settings):
@@ -438,22 +467,31 @@ def test_generation_with_fake_gemini_validates_judges_and_records_cost():
     assert result["judge"]["status"] == "issues"
     assert result["notes"][0] == ov.AI_NOTICE
     assert "Assumed the 4-pin I2C version of the OLED." in result["notes"]
-    assert gemini.sites() == ["draw", "judge"]
-    sent = gemini.document(0)
+    # Two parallel part calls (two lines each), a judge per group, the wiring, its judge.
+    assert gemini.sites() == ["draw", "draw", "judge_parts", "judge_parts", "judge_wires", "wire"]
+    sent = gemini.document("draw")
     assert sent["code"][0]["path"] == "buddy.ino" and "11:   Wire.begin" in sent["code"][0]["text"]
     assert {"name": "TOUCH_PIN", "pin": 7, "role": "input"}.items() <= next(
         p for p in sent["code_pins"] if p["role"] == "input"
     ).items()
-    assert "untrusted data" in gemini.sent[0]["systemInstruction"]["parts"][0]["text"]
-    assert gemini.document(1)["drawing"]["wires"][0]["id"] == "W01"
+    assert len(sent["lines"]) == 2 and sent["other_parts"]
+    assert all("untrusted data" in b["systemInstruction"]["parts"][0]["text"] for b in gemini.sent)
+    wiring = gemini.document("wire")
+    assert [p["line_id"] for p in wiring["parts"]] == ["L01", "L02", "L03"]
+    assert "11:   Wire.begin" in wiring["code"][0]["text"]
+    assert gemini.document("judge_wires")["drawing"]["wires"][0]["id"] == "W01"
     job = client.get(f"/v1/jobs/{job_id}").json()
-    assert job["overview"]["status"] == "ready"
-    assert job["cost_estimate"]["calls_by_site"] == {"overview": 1, "overview_judge": 1}
+    assert job["overview"]["status"] == "ready" and job["overview"]["stage"] is None
+    assert job["cost_estimate"]["calls_by_site"] == {
+        "overview": 2,
+        "overview_judge": 3,
+        "overview_wiring": 1,
+    }
     assert job["cost_estimate"]["run_usd"] == 0  # the sourcing run budget is untouched
     stored = app.state.job_service.store.get(job_id)
     assert stored.overview_run_id is None and stored.overview_lease_until is None
     again = client.post(f"/v1/jobs/{job_id}/overview").json()
-    assert again["status"] == "ready" and len(gemini.sent) == 2  # a ready one is returned
+    assert again["status"] == "ready" and len(gemini.sent) == 6  # a ready one is returned
 
 
 def test_cached_by_items_and_code_and_judge_failure_leaves_everything_unverified():
@@ -464,7 +502,7 @@ def test_cached_by_items_and_code_and_judge_failure_leaves_everything_unverified
     skipped = client.get(f"/v1/jobs/{job_id}/overview").json()
     assert skipped["status"] == "ready" and skipped["judge"]["status"] == "skipped"
     assert {p["verdict"] for p in skipped["parts"]} == {"unverified"}
-    assert gemini.sites() == ["draw", "judge"]
+    assert gemini.sites() == ["draw", "draw", "judge_parts", "judge_parts", "judge_wires", "wire"]
     # A judged drawing is cached; an unjudged one is not, so this job draws again.
     good = Gemini()
     second, _, job2 = setup(good, cache=cache)
@@ -526,7 +564,7 @@ def test_draft_edits_make_a_drawing_stale_and_redraw_restarts_it():
     stale = client.get(f"/v1/jobs/{job_id}/overview").json()
     assert stale["status"] == "stale" and stale["message"] == ov.STALE and stale["parts"]
     client.post(f"/v1/jobs/{job_id}/overview")
-    assert gemini.sites() == ["draw", "judge", "draw", "judge"]
+    assert len(gemini.sent) == 12  # two full drawings of six calls each
     assert client.get(f"/v1/jobs/{job_id}/overview").json()["status"] == "ready"
 
 
@@ -535,8 +573,8 @@ def test_result_for_an_edited_list_is_saved_stale_and_expired_leases_fail():
     service, overviews = app.state.job_service, app.state.overview_service
     original = overviews.build
 
-    def edit_meanwhile(job, ledger):
-        result = original(job, ledger)
+    def edit_meanwhile(job, ledger, **kwargs):
+        result = original(job, ledger, **kwargs)
 
         def rename(record):
             record.job.items[0].raw_name = "ESP32-S3 board"
@@ -585,7 +623,7 @@ def test_extraction_starts_the_drawing_and_work_once_runs_overview_tasks():
         assert job["status"] == "awaiting_confirmation"
         assert job["overview"]["status"] == "ready"
         assert job["overview"]["parts"][0]["verdict"] == "unverified"  # judge reviewed nothing
-        assert gemini.sites() == ["draw", "judge"]
+        assert gemini.sites() == ["draw", "judge_parts", "wire"]
     service, overviews = app.state.job_service, app.state.overview_service
     job_id = created["job_id"]
 
@@ -598,7 +636,7 @@ def test_extraction_starts_the_drawing_and_work_once_runs_overview_tasks():
     saved = service.store.get(job_id).job
     assert saved.overview.status == "ready"
     # Same lines and code: the shared cache answers without another model call.
-    assert gemini.sites() == ["draw", "judge"]
+    assert gemini.sites() == ["draw", "judge_parts", "wire"]
     assert saved.cost_estimate.cache_hits == {"overview": 1}
 
 
@@ -641,3 +679,80 @@ def test_routes_are_owner_only_and_need_a_parts_list():
     response = client.post(f"/v1/jobs/{queued.job_id}/overview", headers={"X-Job-Token": token})
     assert response.status_code == 409 and response.json()["error"]["code"] == "INVALID_STATE"
     assert client.post(f"/v1/jobs/{job_id}/overview").status_code == 200
+
+
+def test_the_drawing_settles_open_spec_questions_it_can_answer():
+    answers = [
+        {"line_id": "L03", "field": "logic_v", "value": "3.3", "reason": "VCC wired to 3.3."},
+        {"line_id": "L03", "field": "output_mode", "value": "sometimes", "reason": "Bad value."},
+        {"line_id": "L02", "field": "i2c_address", "value": "0x3c", "reason": "Not asked."},
+    ]
+    gemini = Gemini(generated=GENERATED | {"answers": answers})
+    client, app, job_id = setup(gemini)
+    service = app.state.job_service
+
+    def ask(record):
+        for item in record.job.items:
+            item.clarifications = ov.resolve_part(item).clarifications
+
+    service.store.mutate(job_id, ask)
+    client.post(f"/v1/jobs/{job_id}/overview")
+    result = client.get(f"/v1/jobs/{job_id}/overview").json()
+    settled = {(r["line_id"], r["field"]): r for r in result["resolved"]}
+    # The touch pad's pins come off its drawing; the disputed OLED answers nothing.
+    assert settled[("L03", "pinout")]["value"] == "GND,I/O,VCC"
+    assert settled[("L03", "pinout")]["source"] == "drawing"
+    assert settled[("L03", "logic_v")]["value"] == "3.3"
+    assert ("L02", "pinout") not in settled and ("L02", "i2c_address") not in settled
+    assert ("L03", "output_mode") not in settled  # not an allowed value
+    touch = service.store.get(job_id).job.items[2]
+    assert touch.ai_specs.pinout == "GND,I/O,VCC" and touch.ai_specs.logic_v == 3.3
+    assert [c.field for c in touch.clarifications] == ["output_mode", "active_level"]
+    asked = gemini.document("wire")["open_questions"]
+    assert {"line_id": "L03", "field": "logic_v", "allowed": [3.3, 5.0]} in asked
+    assert not any(q["field"] == "pinout" for q in asked)
+
+
+def test_a_failed_group_is_redrawn_one_line_per_call(monkeypatch):
+    monkeypatch.setattr("bharat_sourcer.resilience.time.sleep", lambda _: None)
+    gemini = Gemini()
+    gemini.grouped_status = True
+    client, _, job_id = setup(gemini)
+    client.post(f"/v1/jobs/{job_id}/overview")
+    result = client.get(f"/v1/jobs/{job_id}/overview").json()
+    assert result["status"] == "ready"
+    assert [p["line_id"] for p in result["parts"]] == ["L01", "L02", "L03"]
+    assert not any("could not be drawn" in note for note in result["notes"])
+    draws = [b for b in gemini.sent if kind(b) == "draw"]
+    # Two groups, each tried twice and once on the fallback model, then four single-line calls.
+    assert len(draws) == 10
+    fallback = [r for r in gemini.urls if "gemini-3.5-flash-lite" in r]
+    assert len(fallback) == 2
+
+
+def test_overview_calls_go_to_vertex_and_fall_back_to_the_api_key(monkeypatch):
+    monkeypatch.setattr("bharat_sourcer.gemini_api.vertex_token", lambda: "vertex-token")
+    gemini = Gemini()
+    client, _, job_id = setup(gemini, gcp_project="demo-project")
+    client.post(f"/v1/jobs/{job_id}/overview")
+    assert client.get(f"/v1/jobs/{job_id}/overview").json()["status"] == "ready"
+    assert gemini.urls and all(
+        url.startswith(
+            "https://aiplatform.googleapis.com/v1/projects/demo-project/locations/global/"
+        )
+        for url in gemini.urls
+    )
+
+    class Refusing(Gemini):
+        def __call__(self, request):
+            if "aiplatform" in str(request.url):
+                with self.lock:
+                    self.urls.append(str(request.url))
+                return httpx.Response(403)
+            return super().__call__(request)
+
+    refusing = Refusing()
+    second, _, other = setup(refusing, gcp_project="demo-project")
+    second.post(f"/v1/jobs/{other}/overview")
+    assert second.get(f"/v1/jobs/{other}/overview").json()["status"] == "ready"
+    assert any("generativelanguage" in url for url in refusing.urls)

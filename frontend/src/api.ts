@@ -1158,8 +1158,19 @@ export interface OverviewJudge {
   unverified: number
   disputed: number
 }
+// An open spec question the drawing settled (pins read off the drawing, or decided by the wiring call); the
+// backend fills it in on the line and drops that question.
+export interface ResolvedSpec {
+  line_id: string
+  field: string
+  value: string
+  reason: string | null
+  source: 'drawing' | 'wiring'
+}
 export interface ProjectOverview {
   status: 'pending' | 'ready' | 'failed' | 'stale'
+  // While pending: what is being drawn. Parts already drawn (then wires) are included as they land.
+  stage?: 'parts' | 'wiring' | 'checking' | null
   message: string | null
   generated_at: string | null
   items_hash: string | null
@@ -1168,6 +1179,7 @@ export interface ProjectOverview {
   wiring: WireConnection[]
   judge: OverviewJudge
   notes: string[]
+  resolved?: ResolvedSpec[]
 }
 export interface Job {
   overview?: ProjectOverview | null

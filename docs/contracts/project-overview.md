@@ -1,4 +1,4 @@
-# Project overview (v0.32.0)
+# Project overview (v0.33.0)
 
 After extraction finishes (`awaiting_confirmation`), the backend reconstructs the project
 for the review step: a drawable description of every part and the wiring between them.
@@ -14,7 +14,10 @@ release); the shape below is unchanged from the draft.
 
 ## Pipeline
 
-1. **Generate** (Gemini, site `overview`, one structured call): input is the project
+v0.33.0 splits generation into parallel calls and saves progress (see **Progressive
+drawing** below); the inputs, validation and judging rules here are unchanged.
+
+1. **Generate** (Gemini; v0.33.0: parts by site `overview`, wiring by site `overview_wiring`): input is the project
    context (the model's own summary, power, controller, interfaces and assumptions; an
    owner-edited title or description is not sent), the draft BOM lines (id, name, count,
    specs, requirements, up to four evidence quotes each) and the code text of the
@@ -85,6 +88,64 @@ job budget. Judged results are cached for 7 days in the shared cache (namespace 
 by (prompt version, model, items hash, code hash); a cache hit makes no model call. The
 live Desk Buddy check (6 parts, 12 wires) cost about $0.054 for both calls and took 48 s.
 
+## Progressive drawing (v0.33.0)
+
+- **Parts**: the lines are split into groups of two and drawn by parallel calls (site
+  `overview`, up to 8 at once, low thinking, 40 s timeout). Each call gets the project
+  context, its own lines, the names of the other parts, the pin facts and the first 16,000
+  characters of numbered code, and may only draw its own lines. As each group lands the
+  stored overview is updated: `status: "pending"`, `stage: "parts"`, `parts` = everything
+  drawn so far in parts-list order, all `unverified`, `judge.status: "pending"`.
+  Each group is judged at once by its own judge call (parts and pin headers only).
+- A grouped call that fails or times out after one retry is redrawn one line per call. A
+  call whose model stays overloaded (429/5xx or timeouts after its retries) gets one try on
+  `BS_OVERVIEW_FALLBACK_MODEL` (default `gemini-3.5-flash-lite`; empty turns it off).
+  Lines that still fail are left out with the note "Some parts could not be drawn; try
+  Redraw." If no part could be drawn at all, the drawing fails (`GENERATION_FAILED`).
+- **Wiring**: when every part call is back, `stage: "wiring"`, and one call (site
+  `overview_wiring`, low thinking) gets the full numbered code (60,000 characters), the pin
+  facts, the drawn parts with their pin headers and `open_questions` (below), and returns
+  the wires, notes and answers. If it fails the overview is still `ready` with the parts,
+  no wires and the note "The wiring could not be drawn; try Redraw."
+- **Checking**: the validator runs, then `stage: "checking"` is stored with the wires, and
+  one judge call reviews the wires (given the parts' pins, which it does not re-judge).
+- **Done**: verdicts from all judge calls are applied together (the rules above), `stage`
+  becomes null and `status` `ready`. If every judge call failed, `judge.status: "skipped"`;
+  if only some failed, the unreviewed items are `unverified` ("Not reviewed by the
+  checker."). Only a complete drawing (no failed part, wiring or judge call) is cached.
+- Clients poll `GET /v1/jobs/{id}/overview` (the web app every 1.5 s) or read
+  `job.overview` from the job stream while `pending`, and show verdict pills only once it
+  is no longer `pending`.
+
+The live Desk Buddy check (7 lines) showed all parts at 13 s, wires at 27 s and finished in
+41 s for about $0.034 (was one 48 s call with nothing shown until the end).
+
+Overview calls are served by Vertex AI (location `global`) when the server has a GCP
+project, falling back to the Gemini API key when Vertex refuses; the request and response
+shapes are the same. On Vertex the Desk Buddy drawing showed all parts at 10 s and finished
+in 25 s.
+
+### Settled questions (`resolved`)
+
+Lines often carry clarifications ("Confirm pinout for this part") for spec fields the parts
+list could not fill. The drawing answers what it can:
+
+- `pinout`: read off the part's drawn pin headers (names in header order, comma-separated,
+  at most 200 characters), `source: "drawing"`.
+- other `PartSpecs` fields asked by a line (`logic_v`, `i2c_address`, `supply_min_v`,
+  `output_mode`, `active_level`, ...): sent to the wiring call as
+  `open_questions: [{line_id, field, allowed}]`; it answers only when the code, the wires it
+  drew, the drawn pins, the project context or well-known datasheet facts for that exact
+  module decide it, with a reason; `source: "wiring"`. Answers for questions that were not
+  asked, with values outside the field's allowed values, or for a part the judge disputed
+  are dropped.
+
+When the drawing is saved `ready` while the job is `awaiting_confirmation`, each settled
+value is filled in as the line's `ai_specs` (gaps only, like spec fill; values that
+conflict with known specs are dropped) and the line's `clarifications` are recomputed, so
+answered questions disappear. Owner-declared specs always win. `ai_specs` and
+`clarifications` are not part of `items_hash`, so this never makes the drawing stale.
+
 ## API
 
 - `GET /v1/jobs/{job_id}/overview` → `ProjectOverview` (owner, or the job token when
@@ -124,6 +185,7 @@ model default).
 ```text
 ProjectOverview {
   status: "pending" | "ready" | "failed" | "stale"
+  stage: "parts" | "wiring" | "checking" | null   // v0.33.0: progress while pending
   message: string | null              // human-readable reason for failed/stale
   generated_at: datetime | null
   items_hash: string | null           // SHA-256 of the lines the drawing was made from
@@ -132,6 +194,15 @@ ProjectOverview {
   wiring: WireConnection[]            // ≤ 120
   judge: OverviewJudge
   notes: string[]                     // ≤ 10, each ≤ 300, e.g. "Code uses GPIO 3 but no wire connects it"
+  resolved: ResolvedSpec[]            // v0.33.0, ≤ 120: open spec questions the drawing settled
+}
+
+ResolvedSpec {
+  line_id: string
+  field: string                       // a PartSpecs field, e.g. "pinout", "logic_v"
+  value: string                       // ≤ 200, e.g. "GND,VCC,SCL,SDA", "3.3"
+  reason: string | null               // ≤ 300
+  source: "drawing" | "wiring"
 }
 
 OverviewJudge {

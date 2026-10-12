@@ -1,4 +1,12 @@
-# Implemented API contract — v0.32.0
+# Implemented API contract — v0.33.0
+
+v0.33.0: the [project overview](project-overview.md) is drawn by parallel calls and saved
+as it goes. A `pending` overview now carries the parts drawn so far (then the wires) and a
+new `stage` (`parts`, `wiring`, `checking`; null once settled), so clients render each part
+as it lands; verdicts are final only once `status` leaves `pending`. New
+`overview.resolved` lists open spec questions the drawing settled (pinouts from the drawn
+pins, other fields from the wiring call); the backend fills them in as the line's
+`ai_specs` and drops those `clarifications`. Cost sites gain `overview_wiring`.
 
 v0.32.0 adds the [project overview](project-overview.md): after extraction the backend
 draws every part (body, chip, features, connectors, pin headers) and the wiring with
