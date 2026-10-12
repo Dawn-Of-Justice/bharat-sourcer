@@ -102,26 +102,6 @@ export function ConflictNotes({ item }: { item: BomItem }) {
   )
 }
 
-// Warnings only, never suggested substitutes.
-export function LookalikeNotes({ item }: { item: BomItem }) {
-  if (!item.lookalikes?.length) return null
-  return (
-    <div className="lookalike-note">
-      <span aria-hidden="true">⇄</span>
-      <div>
-        {item.lookalikes.map((entry, index) => (
-          <p key={index}>
-            Often confused with <b>{entry.name}</b>
-            {entry.origin === 'ai' && <span className="inferred-tag">AI-suggested</span>}
-            {entry.note ? ` — ${entry.note}` : ''}
-          </p>
-        ))}
-        <small>Check the exact part before ordering. These are warnings, not substitutes.</small>
-      </div>
-    </div>
-  )
-}
-
 const kindLabel: Record<SourceReport['kind'], string> = {
   video: 'YouTube video',
   instructables: 'Instructables project',

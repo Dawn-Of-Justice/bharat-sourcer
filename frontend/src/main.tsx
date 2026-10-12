@@ -2,6 +2,7 @@ import { AccountProvider } from './Account'
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App'
+import '@fontsource-variable/source-sans-3'
 import './styles.css'
 
 ReactDOM.createRoot(document.getElementById('root')!).render(

@@ -1,5 +1,5 @@
 :root {
-  font-family: 'Aptos', 'Segoe UI Variable', 'Segoe UI', sans-serif;
+  font-family: 'Source Sans 3 Variable', sans-serif;
   color: #143039;
   background: #f8f7f2;
   font-synthesis: none;
@@ -18,7 +18,9 @@ body {
   min-width: 0;
 }
 button,
-input {
+input,
+select,
+textarea {
   font: inherit;
 }
 button,
@@ -3768,7 +3770,7 @@ svg {
 }
 .spec-facts {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(190px, 100%), 1fr));
   gap: 8px 14px;
   margin: 12px 0 0;
 }
@@ -3836,16 +3838,52 @@ svg {
   font: inherit;
   font-size: 12px;
 }
-.spec-required {
+.spec-editor .spec-required {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
   align-self: center;
   margin-top: 18px;
+  cursor: pointer;
+}
+.spec-editor .spec-required input[type='checkbox'] {
+  flex: 0 0 20px;
+  width: 20px;
+  height: 20px;
+  min-height: 20px;
+  margin: 0;
+  padding: 0;
+  accent-color: #19766d;
 }
 .spec-editor-actions {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
+  align-items: stretch;
   gap: 12px;
   margin: 13px 0 8px;
+}
+.spec-editor-actions .add-requirement,
+.spec-editor-actions .spec-done-button {
+  display: inline-flex;
+  flex: 1 1 140px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 48px;
+  margin: 0;
+  padding: 10px 12px;
+  font-size: 14px;
+  font-weight: 750;
+  line-height: 1.4;
+  border-radius: 8px;
+  white-space: normal;
+  box-shadow: none;
+}
+.spec-editor-actions .spec-done-button:hover,
+.spec-editor-actions .spec-done-button:active {
+  box-shadow: none;
+  transform: none;
 }
 .spec-editor > small {
   color: #657a70;
@@ -5741,7 +5779,7 @@ audio {
   }
 }
 
-/* --- Project page redesign: results summary and "Needs you" (part 2) ---------------------- */
+/* --- Project page redesign: results summary and attention items (part 2) ----------------- */
 .project-page .report-panel {
   padding: 0;
   border: 0;
@@ -6382,6 +6420,41 @@ button.pp-row-summary {
   gap: 8px;
   padding-bottom: 6px;
 }
+@media (max-width: 600px) {
+  .pp-drawer-body {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+  .pp-part {
+    min-width: 0;
+    grid-template-columns: minmax(0, 1fr);
+    padding: 18px 16px 32px;
+    overflow-wrap: anywhere;
+  }
+  .pp-part > *,
+  .pp-part .offer > div {
+    min-width: 0;
+    max-width: 100%;
+  }
+  .pp-part-pick {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .pp-part pre {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+  .pp-part .nav-cta,
+  .pp-part .primary-button,
+  .pp-part .report-chip,
+  .pp-part .grade-chip > summary {
+    max-width: 100%;
+    white-space: normal;
+  }
+  .pp-part-price,
+  .pp-drawer-title p {
+    flex-wrap: wrap;
+  }
+}
 .pp-part .build-details-heading {
   margin: 0;
   padding: 14px;
@@ -6389,7 +6462,7 @@ button.pp-row-summary {
   font-size: 14px;
 }
 .pp-part .build-details-content {
-  padding: 0 14px 14px;
+  padding: 14px;
 }
 .pp-part .build-details-help {
   font-size: 12px;
@@ -6412,6 +6485,40 @@ button.pp-row-summary {
 }
 .pp-part .requirement-origin {
   grid-column: 1 / -1;
+}
+@media (max-width: 600px) {
+  .requirements-editor,
+  .spec-panel,
+  .requirement-row > * {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+  .spec-heading {
+    flex-wrap: wrap;
+  }
+  .requirements-editor input,
+  .requirements-editor select,
+  .spec-editor input,
+  .spec-editor select {
+    min-height: 44px;
+    font-size: 16px;
+  }
+  .pp-review-row .pp-review-have {
+    min-height: 44px;
+    white-space: normal;
+  }
+  .pp-review-open strong {
+    overflow-wrap: anywhere;
+  }
+  .pp-review-row .pp-review-edit {
+    width: 40px;
+    height: 44px;
+  }
+}
+@media (max-width: 380px) {
+  .pp-part .requirement-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 .pp-research-match,
 .pp-pick-reasons {
@@ -6819,7 +6926,7 @@ button.pp-row-summary {
   grid-template-columns: minmax(0, 1fr) 104px 108px 40px;
   align-items: center;
   column-gap: 14px;
-  padding: 8px 4px;
+  padding: 12px 18px;
   border-radius: 10px;
   transition: background 0.2s;
 }

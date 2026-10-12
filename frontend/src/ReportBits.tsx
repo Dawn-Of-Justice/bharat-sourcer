@@ -113,15 +113,6 @@ export function amountText(amount: CostAmount) {
   return amount.partial_inr ? `at least ${price(amount.partial_inr)} + unknown` : 'Unknown'
 }
 
-export function GstChip({ offer }: { offer: ReportOffer }) {
-  const text = offer.tax_included === true ? '✓ GST included' : offer.tax_included === false ? '+ GST' : '? GST unclear'
-  return (
-    <span className="report-chip" title={offer.tax_evidence ?? 'No GST declaration found on the seller page'}>
-      {text}
-    </span>
-  )
-}
-
 const matchText = { exact: '✓ Exact', compatible: '≈ Compatible', partial: '◐ Partial', mismatch: '⛔ Mismatch' }
 export function MatchChip({ match, showExplanation = true }: { match?: OfferMatch | null; showExplanation?: boolean }) {
   if (!match) return null
