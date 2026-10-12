@@ -67,6 +67,14 @@ function ArrowIcon({ diagonal = false }: { diagonal?: boolean }) {
 
 function Header({ onHome, isHome, onProjects }: { onHome: () => void; isHome: boolean; onProjects: () => void }) {
   const account = useAccount()
+  const [menuOpen, setMenuOpen] = useState(false)
+  const menuButton = useRef<HTMLButtonElement>(null)
+  const accountLabel =
+    account.identity && account.identity !== 'legacy'
+      ? account.identity.kind === 'guest'
+        ? 'Guest account'
+        : 'Account'
+      : 'Sign in'
   return (
     <header className="site-header">
       <div className="container header-inner">
@@ -75,6 +83,7 @@ function Header({ onHome, isHome, onProjects }: { onHome: () => void; isHome: bo
           href="/"
           onClick={event => {
             event.preventDefault()
+            setMenuOpen(false)
             onHome()
           }}
           aria-label="Bharat Sourcer home"
@@ -96,12 +105,59 @@ function Header({ onHome, isHome, onProjects }: { onHome: () => void; isHome: bo
             My projects
           </button>
           <button className="account-link" onClick={account.open}>
-            {account.identity && account.identity !== 'legacy'
-              ? account.identity.kind === 'guest'
-                ? 'Guest account'
-                : 'Account'
-              : 'Sign in'}
+            {accountLabel}
           </button>
+        </div>
+        <div
+          className="mobile-navigation"
+          onBlur={event => {
+            if (!event.currentTarget.contains(event.relatedTarget)) setMenuOpen(false)
+          }}
+          onKeyDown={event => {
+            if (event.key === 'Escape') {
+              setMenuOpen(false)
+              menuButton.current?.focus()
+            }
+          }}
+        >
+          <button
+            ref={menuButton}
+            type="button"
+            className="mobile-menu-toggle"
+            aria-label={menuOpen ? 'Close navigation' : 'Open navigation'}
+            aria-expanded={menuOpen}
+            aria-controls="mobile-navigation-links"
+            onClick={() => setMenuOpen(open => !open)}
+          >
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path
+                d={menuOpen ? 'M6 6l12 12M6 18 18 6' : 'M4 6h16M4 12h16M4 18h16'}
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+              />
+            </svg>
+          </button>
+          <nav id="mobile-navigation-links" className="mobile-menu" aria-label="Mobile navigation" hidden={!menuOpen}>
+            <button
+              type="button"
+              onClick={() => {
+                setMenuOpen(false)
+                onProjects()
+              }}
+            >
+              My projects
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setMenuOpen(false)
+                account.open()
+              }}
+            >
+              {accountLabel}
+            </button>
+          </nav>
         </div>
       </div>
     </header>
