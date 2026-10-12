@@ -31,7 +31,11 @@ with the repository LICENSE. See [code patches](../docs/contracts/code-adapt.md)
 
 v0.27.0 improves parts routing and seller offer reading. Searches use a bounded query
 ladder and score results against the requested part, preserve partial seller results,
-and continue free catalogue searches after the AI budget is spent. Offer parsing handles
+and continue free catalogue searches after the AI budget is spent. When no matching in-stock
+offer is found, one bounded catalogue recovery pass checks additional candidates before
+grounded discovery. Refresh also searches again when known listings only have unknown stock,
+preorders or unavailable stock. Acceptable in-stock recommendations take priority over
+cheaper listings with unconfirmed availability. Offer parsing handles
 Indian price grouping, additional structured product shapes and tracking URLs. Optional
 seller identity fields distinguish direct stores, hosted stores and marketplaces;
 marketplace reputation is never credited to an unknown merchant. Failed paid searches

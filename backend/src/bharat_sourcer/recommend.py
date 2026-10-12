@@ -564,7 +564,10 @@ def build_basket(report: Report, penalty: Decimal = SELLER_PENALTY_INR) -> Baske
         # Prefer offers that can be selected automatically: a cheaper listing that can only be
         # recommended must not displace a selectable one.
         selectable = [s for s in good if eligible(line, s.offer)]
-        good = selectable or good
+        # Even when freshness/spec review prevents automatic selection, a cheaper
+        # unknown-stock listing must not displace an acceptable in-stock listing.
+        stocked = [s for s in good if s.offer.stock == "in_stock"]
+        good = selectable or stocked or good
         band = [s for s in good if s.score >= good[0].score - SCORE_BAND]
         per_seller: dict[str, OfferScore] = {}
         for entry in band:  # already best-first: keep each seller's best listing

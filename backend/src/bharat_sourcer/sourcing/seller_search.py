@@ -400,7 +400,9 @@ class SellerSearch:
 
         return fetch
 
-    def _search_one(self, seller: dict, queries: list[str], limit: int, progress=None):
+    def _search_one(
+        self, seller: dict, queries: list[str], limit: int, progress=None, broaden: bool = False
+    ):
         adapter = ADAPTERS[seller["search"]["adapter"]]
         collected, diagnostic, lock, stopped = progress or (
             [],
@@ -453,8 +455,10 @@ class SellerSearch:
                     candidate.score = relevance(part, candidate.title or "")
                     collected.append(candidate)
                 diagnostic.candidates = len(collected)
-            if (getattr(rung, "kind", "") == "model" or len(query.split()) >= 2) and any(
-                c.score >= 0.8 for c in found
+            if (
+                not broaden
+                and (getattr(rung, "kind", "") == "model" or len(query.split()) >= 2)
+                and any(c.score >= 0.8 for c in found)
             ):
                 break
         with lock:
@@ -464,7 +468,13 @@ class SellerSearch:
         return collected, diagnostic
 
     def search(
-        self, queries: list[str], limit_per_seller: int = 5, total_budget: int = 12
+        self,
+        queries: list[str],
+        limit_per_seller: int = 5,
+        total_budget: int = 12,
+        *,
+        exclude_urls: set[str] | None = None,
+        broaden: bool = False,
     ) -> SearchResult:
         queries = list(
             dict.fromkeys(q if isinstance(q, Rung) else q.strip() for q in queries if q.strip())
@@ -499,7 +509,12 @@ class SellerSearch:
         try:
             futures = {
                 pool.submit(
-                    self._search_one, seller, queries, limit_per_seller, progress[seller["domain"]]
+                    self._search_one,
+                    seller,
+                    queries,
+                    limit_per_seller,
+                    progress[seller["domain"]],
+                    broaden,
                 ): seller
                 for seller in sellers
             }
@@ -529,7 +544,12 @@ class SellerSearch:
                 per_seller.append(found)
         finally:
             pool.shutdown(wait=False, cancel_futures=True)
-        result.candidates = merge(per_seller, total_budget)
+        # Previously fetched listings must not consume the recovery fetch budget.
+        excluded = {url_key(url) for url in (exclude_urls or ())}
+        result.candidates = merge(
+            [[c for c in found if url_key(c.url) not in excluded] for found in per_seller],
+            total_budget,
+        )
         logging.getLogger(__name__).info(
             "SELLER_SEARCH queries=%s candidates=%s statuses=%s",
             len(queries),
