@@ -6,7 +6,9 @@ new `stage` (`parts`, `wiring`, `checking`; null once settled), so clients rende
 as it lands; verdicts are final only once `status` leaves `pending`. New
 `overview.resolved` lists open spec questions the drawing settled (pinouts from the drawn
 pins, other fields from the wiring call); the backend fills them in as the line's
-`ai_specs` and drops those `clarifications`. Cost sites gain `overview_wiring`.
+`ai_specs` and drops those `clarifications`. Cost sites gain `overview_wiring`. Source extraction and overview calls run on Vertex AI
+when the server has a GCP project (API-key fallback), and an extraction whose output is cut
+off or invalid is retried once before the job fails with `INVALID_EXTRACTION`.
 
 v0.32.0 adds the [project overview](project-overview.md): after extraction the backend
 draws every part (body, chip, features, connectors, pin headers) and the wiring with

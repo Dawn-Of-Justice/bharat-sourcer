@@ -154,7 +154,7 @@ class Settings(BaseSettings):
     # billed to the project, authorised by the service account (roles/aiplatform.user), on
     # a separate capacity pool from the API key. Refusals fall back to the API key.
     gemini_vertex_sites: list[str] = Field(
-        default_factory=lambda: ["overview", "overview_wiring", "overview_judge"]
+        default_factory=lambda: ["extraction", "overview", "overview_wiring", "overview_judge"]
     )
     vertex_location: str = Field(default="global", pattern=r"^[a-z0-9-]+$")
     # Opt-in Gemini extras (gemini_extras.py); each has its own per-owner daily quota.

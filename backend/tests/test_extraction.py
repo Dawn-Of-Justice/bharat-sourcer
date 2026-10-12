@@ -196,3 +196,46 @@ def test_polling_during_extraction_does_not_wait_for_provider():
         finally:
             release.set()
         extraction.result(timeout=5)
+
+
+def test_vertex_reads_the_video_and_an_overloaded_vertex_falls_back_to_the_api_key(monkeypatch):
+    monkeypatch.setattr("bharat_sourcer.gemini_api.vertex_token", lambda: "vertex-token")
+    monkeypatch.setattr("bharat_sourcer.resilience.time.sleep", lambda _: None)
+    hosts: list[str] = []
+    overloaded = {"on": False}
+
+    def handle(request):
+        hosts.append(request.url.host)
+        if request.url.host == "aiplatform.googleapis.com":
+            assert request.headers["authorization"] == "Bearer vertex-token"
+            assert "/projects/demo-project/locations/global/" in request.url.path
+            if overloaded["on"]:
+                return httpx.Response(503)
+        return result([PART])
+
+    extractor = GeminiExtractor(
+        Settings(_env_file=None, demo_mode=False, gemini_api_key="k", gcp_project="demo-project"),
+        transport=httpx.MockTransport(handle),
+    )
+    assert extractor.extract(URL).items[0].raw_name == "ESP32 board"
+    assert hosts == ["aiplatform.googleapis.com"]
+    hosts.clear()
+    overloaded["on"] = True
+    assert extractor.extract(URL).items[0].raw_name == "ESP32 board"
+    assert hosts == ["aiplatform.googleapis.com"] * 2 + ["generativelanguage.googleapis.com"]
+
+
+def test_a_cut_off_answer_is_retried_once():
+    calls = []
+
+    def handle(request):
+        calls.append(1)
+        if len(calls) == 1:
+            return httpx.Response(
+                200,
+                json={"candidates": [{"finishReason": "MAX_TOKENS", "content": {"parts": []}}]},
+            )
+        return result([PART])
+
+    assert provider(handle).extract(URL).items[0].raw_name == "ESP32 board"
+    assert len(calls) == 2
