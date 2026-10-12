@@ -15,22 +15,36 @@ Shopify/WooCommerce JSON fast path). Prices in `offers[]` are always the verifie
 ## Staged, cost-aware order per line
 
 1. **`seller_search`** (free): search enabled sellers concurrently, then fetch and verify the
-   top candidates (`BS_SELLER_SEARCH_FETCH_BUDGET`, default 8). Fetching stops early once
-   there are 3 in-stock verified offers from at least 2 sellers.
-2. **`judge`**: `SourcingService.judge(spec, offers)` runs once on the verified offers. The
-   default is a stub (no model call) that treats any verified INR offer as `compatible`; the
-   matching stream supplies the real judge. `SourcingService.accepts(match, offer)` decides
-   whether a match ends the line: verdict `exact` or `compatible` **and** stock `in_stock`.
-3. **`grounded`** (paid, one Gemini call): Gemini grounded discovery runs **only** if step 2
-   accepted nothing. Its URLs keep Google's order; URLs already fetched are skipped. A second
+   top candidates (`BS_SELLER_SEARCH_FETCH_BUDGET`, default 8). Without a spec judge,
+   fetching stops early at 3 in-stock title-matched offers from at least 2 sellers.
+   With a judge, the bounded candidate batch is fetched before deciding relevance.
+2. **`judge`**: when configured, `review_candidates` evaluates the verified candidates.
+   `accepted_offer` ends the catalogue stage only for an `exact` or `compatible` verdict
+   **and** stock `in_stock`. Without an available judge, the legacy title gate is used;
+   an unjudged offer still needs explicit in-stock evidence to stop searching.
+3. **Catalogue recovery:** if no matching in-stock offer was accepted, search once more
+   without the high-title-score early stop, keeping the same per-seller query limit and
+   deadline. Already attempted URLs are excluded before allocating a second fetch batch
+   (at most `BS_SELLER_SEARCH_FETCH_BUDGET` additional candidates). New candidates pass
+   through the same verifier and judge. Catalogue recovery also runs after the paid budget
+   is spent; any model calls remain subject to that budget.
+4. **`grounded`** (paid, one Gemini call): Gemini grounded discovery runs **only** if catalogue
+   recovery also accepted nothing. The query requests other in-stock sellers while retaining
+   the part identity and lists already checked URLs. Its URLs keep Google's order;
+   URLs already fetched are skipped. A further
    `judge` stage then sees the new offers only.
-4. **`research`** (paid, unchanged): runs when research is enabled, as before.
-5. **`followup`** (paid, unchanged): the existing one-time follow-up discovery when research
+5. **`research`** (paid, unchanged): runs when research is enabled, as before.
+6. **`followup`** (paid, unchanged): the existing one-time follow-up discovery when research
    found no evidence and there are no offers. It is grounded-only.
 
 `judge` is recorded only when there was at least one offer to judge.
 
 Other behaviour:
+- Refreshing known URLs falls back to full sourcing unless a matching **in-stock** offer
+  remains. Unknown stock, preorder and out-of-stock offers do not end that search.
+- Among acceptable recommendations, automatically selectable offers take priority, then
+  in-stock offers, then other listings needing review. Stock is seller-specific: failure
+  to find stock in this bounded search does not establish market-wide unavailability.
 - Lines with `user_has_it` are `already_owned`; nothing is searched.
 - Identical parts in one job (same normalised name, specs and requirements) are sourced once;
   the other lines get a copy (`gemini_calls: 0`). Sourcing the same line again (refresh) is

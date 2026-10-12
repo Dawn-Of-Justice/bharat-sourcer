@@ -511,7 +511,7 @@ class SourcingService:
     ) -> ReportLine | None:
         """Refresh without rediscovery: re-fetch known offer pages (free) for price and stock.
 
-        Returns None when every known page is gone or out of stock; the caller then runs
+        Returns None when no matching in-stock offer remains; the caller then runs
         full sourcing. Research runs only after the probe keeps the line, so a fallback
         never pays for a review twice.
         """
@@ -537,7 +537,7 @@ class SourcingService:
                 return polite.get(url, bypass_cache=True, **kwargs)
 
         line = probe._source_attempt(item, project_items, RefreshFetcher(), set())
-        if not any(offer.stock != "out_of_stock" for offer in line.offers):
+        if not any(accepted_offer(offer) for offer in line.offers):
             return None
         if self.researcher and captured:
             try:
@@ -604,6 +604,35 @@ class SourcingService:
                     [c.url for c in search.candidates], resolution, fetcher, attempted, state
                 )
                 accepted = self._review(spec, project, resolution, new, state, stages)
+            if not accepted:
+                # A matching title is not proof of stock. Try the remaining catalogue
+                # rungs and candidates once, even when the paid AI budget is exhausted.
+                try:
+                    more = self.seller_search.search(
+                        route_queries(spec, item.raw_name, resolution.query),
+                        self.seller_limit,
+                        self.seller_fetch_budget,
+                        exclude_urls=attempted,
+                        broaden=True,
+                    )
+                except Exception:
+                    logging.getLogger(__name__).warning("SELLER_RECOVERY_FAILED", exc_info=True)
+                else:
+                    if search is None:
+                        search = more
+                    else:
+                        search.candidates.extend(more.candidates)
+                        search.queries = list(dict.fromkeys([*search.queries, *more.queries]))
+                        diagnostics = {d.seller: d for d in search.diagnostics}
+                        diagnostics.update({d.seller: d for d in more.diagnostics})
+                        search.diagnostics = list(diagnostics.values())
+                        search.known_blocked = list(
+                            dict.fromkeys([*search.known_blocked, *more.known_blocked])
+                        )
+                    new = self._verify_urls(
+                        [c.url for c in more.candidates], resolution, fetcher, attempted, state
+                    )
+                    accepted = self._review(spec, project, resolution, new, state, stages)
         attribution = None
         discovery_failed = False
         budget_note = None
@@ -630,6 +659,16 @@ class SourcingService:
                     query += " Requirements: " + json.dumps(
                         [r.model_dump() for r in item.requirements], ensure_ascii=False
                     )
+                if not free_discovery:
+                    query += (
+                        " Find in-stock purchasable listings of this exact part from other "
+                        "Indian sellers. Preserve the board/model and required specifications; "
+                        "a bare chip is not a development board. Verify stock on each seller page."
+                    )
+                    if attempted:
+                        query += " Already checked URLs; find different listings: " + json.dumps(
+                            sorted(attempted)[:20]
+                        )
                 attribution = self.discovery.discover(query)
             except DiscoveryError:
                 discovery_failed = True
@@ -858,7 +897,7 @@ class SourcingService:
             # Per stage: rejected earlier offers must not stop the next stage from fetching.
             # Variant groups have no single offer until the judge picks a variant.
             offers = [c.offer if isinstance(c, Candidate) else c for c in new]
-            if enough_offers([offer for offer in offers if offer is not None]):
+            if not self.judge and enough_offers([offer for offer in offers if offer is not None]):
                 break
             try:
                 url = canonical_url(url)
