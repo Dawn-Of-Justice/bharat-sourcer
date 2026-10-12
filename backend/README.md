@@ -24,6 +24,12 @@ the sites and `BS_VERTEX_LOCATION` the location; a Vertex refusal (401/403/404 o
 credentials) falls back to the API key. Part checks still running 20 s after the wire check
 count as not reviewed instead of holding the save. Live Desk Buddy on Vertex: all parts at
 10 s, done at 25 s, no retries.
+Extraction (video and project-page reads, site `extraction`) uses Vertex AI too: a live
+video job had failed after the API key hung for the full 120 s timeout and then answered
+503. On Vertex the same video reads in about 45 s. Video references now carry
+`mimeType: "video/*"` (Vertex requires it). A Vertex 400/401/403/404, 429/5xx after two
+tries, or a timeout falls back to the API key. An output that is cut off (MAX_TOKENS: video
+reads sometimes loop on repeated text) or invalid is retried once before the job fails.
 
 v0.32.0 adds the project overview (`overview.py`): when extraction reaches
 `awaiting_confirmation`, one Gemini call (site `overview`) draws every physical part

@@ -11,6 +11,7 @@ from pydantic import Field, ValidationError
 
 from bharat_sourcer.code_evidence import read_code
 from bharat_sourcer.config import Settings
+from bharat_sourcer.gemini_api import VertexUnavailable, endpoint, uses_vertex
 from bharat_sourcer.project_pages import (
     ProjectPageSource,
     document_text,
@@ -519,12 +520,39 @@ class GeminiExtractor:
             return self._extract_page(description_page_source(url))
         return self._extract_video(canonical)
 
+    def _post(self, client: httpx.Client, payload: dict) -> httpx.Response:
+        """Vertex AI first when enabled for site `extraction` (gemini_api.py), then the API key.
+
+        The API key is used when Vertex refuses (401/403/404, no credentials) and also when
+        Vertex stays overloaded or times out, since the two run on separate capacity.
+        """
+        model = self.settings.gemini_model
+        if uses_vertex(self.settings, "extraction"):
+            try:
+                url, headers = endpoint(self.settings, "extraction", model)
+                response = post_with_retry(client, url, headers=headers, json=payload, attempts=2)
+                # 400 too: Vertex is stricter about request shape than the API key route.
+                if response.status_code not in {400, 401, 403, 404, 429, 500, 502, 503, 504}:
+                    return response
+                log.warning("EXTRACTION_VERTEX_FALLBACK http_status=%s", response.status_code)
+            except (VertexUnavailable, httpx.TimeoutException, httpx.NetworkError) as exc:
+                log.warning("EXTRACTION_VERTEX_FALLBACK reason=%s", type(exc).__name__)
+        url, headers = endpoint(self.settings, "extraction", model, vertex=False)
+        return post_with_retry(client, url, headers=headers, json=payload)
+
     def _generate(self, parts: list[dict], prompt: str, model: type[Model], noun: str):
+        """One structured call, retried once when the output is cut off or invalid: video
+        reads sometimes loop on repeated text until MAX_TOKENS (about 1 in 3 live tries)."""
+        try:
+            return self._generate_once(parts, prompt, model, noun)
+        except ExtractionError as exc:
+            if exc.code != "INVALID_EXTRACTION":
+                raise
+            log.warning("EXTRACTION_RETRY_INVALID noun=%s", noun)
+            return self._generate_once(parts, prompt, model, noun)
+
+    def _generate_once(self, parts: list[dict], prompt: str, model: type[Model], noun: str):
         """Run one structured generateContent call and validate the output with `model`."""
-        endpoint = (
-            "https://generativelanguage.googleapis.com/v1beta/models/"
-            f"{self.settings.gemini_model}:generateContent"
-        )
         payload = {
             "systemInstruction": {"parts": [{"text": prompt}]},
             "contents": [{"role": "user", "parts": parts}],
@@ -540,12 +568,7 @@ class GeminiExtractor:
                 transport=self.transport,
                 follow_redirects=False,
             ) as client:
-                response = post_with_retry(
-                    client,
-                    endpoint,
-                    headers={"x-goog-api-key": self.settings.gemini_api_key.get_secret_value()},
-                    json=payload,
-                )
+                response = self._post(client, payload)
             if response.status_code == 429:
                 raise ExtractionError("UPSTREAM_QUOTA", "Gemini quota exceeded; try again later")
             if response.is_error:
@@ -583,7 +606,12 @@ class GeminiExtractor:
         stored = job_video_meta(meta, set()) if meta else None
         if meta is not None and meta.description.strip():
             return self._extract_described_video(canonical, meta, stored)
-        bom = self._generate([{"fileData": {"fileUri": canonical}}], PROMPT, ExtractedBom, "video")
+        bom = self._generate(
+            [{"fileData": {"fileUri": canonical, "mimeType": "video/*"}}],
+            PROMPT,
+            ExtractedBom,
+            "video",
+        )
         if not bom.items:
             raise ExtractionError("NO_BOM", "No supported parts found; check the public video URL")
         items = [
@@ -614,7 +642,10 @@ class GeminiExtractor:
             }
         }
         bom = self._generate(
-            [{"fileData": {"fileUri": canonical}}, {"text": json.dumps(context)}],
+            [
+                {"fileData": {"fileUri": canonical, "mimeType": "video/*"}},
+                {"text": json.dumps(context)},
+            ],
             PROMPT + DESCRIPTION_PROMPT,
             ExtractedDescribedBom,
             "video",

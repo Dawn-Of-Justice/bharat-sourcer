@@ -379,7 +379,7 @@ def test_description_is_extra_context_in_the_single_video_call():
     result = extractor(handler, ok_youtube()).extract("https://youtu.be/abcdefghijk")
     (payload,) = requests  # No extra Gemini call for the description.
     parts = payload["contents"][0]["parts"]
-    assert parts[0] == {"fileData": {"fileUri": VIDEO}}
+    assert parts[0] == {"fileData": {"fileUri": VIDEO, "mimeType": "video/*"}}
     context = json.loads(parts[1]["text"])["youtube_description"]
     assert "BME280 temperature" in context["description"]
     assert DESCRIPTION_PROMPT.strip() in payload["systemInstruction"]["parts"][0]["text"]
@@ -436,7 +436,9 @@ def test_without_key_the_video_prompt_is_unchanged():
         return gemini(plain)
 
     result = extractor(handler, key=None).extract(VIDEO)
-    assert requests[0]["contents"][0]["parts"] == [{"fileData": {"fileUri": VIDEO}}]
+    assert requests[0]["contents"][0]["parts"] == [
+        {"fileData": {"fileUri": VIDEO, "mimeType": "video/*"}}
+    ]
     assert DESCRIPTION_PROMPT.strip() not in requests[0]["systemInstruction"]["parts"][0]["text"]
     assert result.video_meta is None and not result.description_failed
 
