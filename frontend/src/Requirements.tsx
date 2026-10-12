@@ -1,19 +1,16 @@
-import { useId, useState } from 'react'
 import type { PartRequirement } from './api'
 
 export default function Requirements({
   value,
   onChange,
   disabled = false,
-  inline = false,
+  showHeading = true,
 }: {
   value: PartRequirement[]
   onChange: (value: PartRequirement[]) => void
   disabled?: boolean
-  inline?: boolean
+  showHeading?: boolean
 }) {
-  const [open, setOpen] = useState(false)
-  const detailsId = useId()
   // An edited row becomes the user's own: drop origin/reason so the backend defaults it to 'user'.
   function patch(index: number, change: Partial<PartRequirement>) {
     onChange(
@@ -25,33 +22,9 @@ export default function Requirements({
     )
   }
   return (
-    <div className={`requirements-editor ${open || inline ? 'is-open' : ''}`}>
-      {inline ? (
-        <h4 className="build-details-heading">Build details</h4>
-      ) : (
-        <button
-          type="button"
-          className="build-details-button"
-          aria-expanded={open}
-          aria-controls={detailsId}
-          disabled={disabled}
-          onClick={() => setOpen(current => !current)}
-        >
-          <span className="details-button-icon" aria-hidden="true">
-            ≡
-          </span>
-          <span>
-            Build details{' '}
-            <small>
-              {value.length
-                ? `${value.length} ${value.length === 1 ? 'detail' : 'details'} to check`
-                : 'Optional · size, voltage & more'}
-            </small>
-          </span>
-          <span className="disclosure-chevron" aria-hidden="true" />
-        </button>
-      )}
-      <div id={detailsId} hidden={!open && !inline} className="build-details-content">
+    <div className="requirements-editor is-open">
+      {showHeading && <h4 className="build-details-heading">Build details</h4>}
+      <div className="build-details-content">
         <p className="build-details-help">
           Tell us what this part needs to do so we can check seller matches. You can keep the suggested details, change
           them, or leave this empty if you’re unsure.

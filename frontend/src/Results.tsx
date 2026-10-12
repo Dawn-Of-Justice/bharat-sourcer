@@ -263,7 +263,7 @@ function RequirementReview({
   return (
     <div className="requirements-after">
       <form onSubmit={save}>
-        <Requirements value={requirements} onChange={setRequirements} disabled={busy} inline />
+        <Requirements value={requirements} onChange={setRequirements} disabled={busy} />
         <p>
           Changing requirements may make AI assessments stale and clear affected selections. Refresh is a separate
           action.
@@ -501,9 +501,7 @@ function OfferList({
           </article>
         )
       })}
-      <small className="offers-note">
-        Prices are what each seller's page showed when checked. Shipping depends on the seller.
-      </small>
+      <small className="offers-note">Prices are what each seller's page showed when checked.</small>
       {error && (
         <p className="form-error" role="alert">
           {error}
@@ -861,7 +859,7 @@ export default function Results({
               }}
             >
               <span className="pp-need-dot" aria-hidden="true" />
-              Needs your Attention <b>{needs.length}</b>
+              Needs your attention <b>{needs.length}</b>
               {safetyChecks > 0 && (
                 <small>
                   {safetyChecks} safety {safetyChecks === 1 ? 'check' : 'checks'}
@@ -874,7 +872,7 @@ export default function Results({
       <SidePanel
         id="pp-attention"
         open={showingAttention}
-        title="Needs your Attention"
+        title="Needs your attention"
         onClose={() => setAttention(false)}
       >
         {needs.length ? (

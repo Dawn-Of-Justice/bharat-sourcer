@@ -462,10 +462,7 @@ function RefreshResults({ job, message }: { job: Job; message: ChatMessage }) {
           </li>
         ))}
       </ul>
-      <p>
-        Snapshot when the approved batch ended. Tax, shipping and final payable totals are not known; select offers in
-        the report.
-      </p>
+      <p>Snapshot when the approved batch ended. Select offers in the order plan.</p>
       {message.completes_message_id ? (
         <div className="citation-detail">
           {origin ? (

@@ -35,7 +35,7 @@ import { ChatDrawer, SidePanel, StageSteps, stepOf } from './ProjectFrame'
 import { NeedsList, safetyNeeds, type Need } from './ReportSummary'
 import Requirements, { requirementPayload, validRequirements } from './Requirements'
 import SpecPanel, { specPayload, validSpec } from './SpecPanel'
-import { ConfidenceChip, ConflictNotes, EvidenceList, LookalikeNotes, SourcesCard } from './ReviewDetails'
+import { ConfidenceChip, ConflictNotes, EvidenceList, SourcesCard } from './ReviewDetails'
 
 function BrandMark() {
   return <img className="brand-mark" src="/brand-mark.svg" width="44" height="44" alt="" />
@@ -846,7 +846,7 @@ type ReviewRow = {
 function reviewNote(row: ReviewRow) {
   if (row.removed) return 'Removed from this build'
   if (row.item.conflicts?.length) return 'Sources disagree'
-  if (row.item.clarifications.length) return 'Something is unclear'
+  if (row.item.clarifications.length) return 'Details need confirmation'
   if (row.spec?.needs_value) return 'Needs a value'
   if (row.item.qty_source === 'inferred' && row.qty === (row.item.qty?.toString() ?? '')) return 'Suggested quantity'
   if (row.item.confidence === 'check') return 'Check this part'
@@ -910,11 +910,11 @@ function ReviewPartPanel({ row, update }: { row: ReviewRow; update: (id: string,
         </div>
       )}
       <ConflictNotes item={row.item} />
-      <LookalikeNotes item={row.item} />
       <details className="pp-section">
         <summary>Build details</summary>
         <div className="pp-section-body">
           <Requirements
+            showHeading={false}
             value={row.requirements}
             disabled={row.removed}
             onChange={requirements => update(id, { requirements })}
@@ -973,6 +973,11 @@ function Review({
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const lastRow = useRef<ReviewRow | null>(null)
+  const [attentionOpen, setAttentionOpen] = useState(false)
+  function showReviewPart(id: string) {
+    setAttentionOpen(false)
+    onOpenPart(id)
+  }
 
   function update(id: string, patch: Partial<ReviewRow>) {
     setRows(current => current.map(row => (row.item.line_id === id ? { ...row, ...patch } : row)))
@@ -1061,7 +1066,8 @@ function Review({
   const toSource = kept.filter(row => !row.owned).length
   const guest =
     account.identity && account.identity !== 'legacy' && account.identity.kind === 'guest' ? account.identity : null
-  const needs: Need[] = safetyNeeds(job, id => onOpenPart(id))
+  const needs: Need[] = safetyNeeds(job, showReviewPart)
+  const safetyChecks = job.safety_flags?.length ?? 0
   for (const row of rows) {
     if (row.removed) continue
     if (row.item.conflicts?.length)
@@ -1070,15 +1076,15 @@ function Review({
         tone: 'input',
         title: `${row.name}: sources disagree`,
         detail: row.item.conflicts[0].message,
-        action: { label: 'Check part', onClick: () => onOpenPart(row.item.line_id) },
+        action: { label: 'Check part', onClick: () => showReviewPart(row.item.line_id) },
       })
     else if (row.item.clarifications.length)
       needs.push({
         key: `unclear-${row.item.line_id}`,
         tone: 'input',
-        title: `${row.name}: something is unclear`,
+        title: `${row.name}: confirm the details`,
         detail: row.item.clarifications[0].question,
-        action: { label: 'Check part', onClick: () => onOpenPart(row.item.line_id) },
+        action: { label: 'Check part', onClick: () => showReviewPart(row.item.line_id) },
       })
   }
   if (guest && toSource > guest.part_limit)
@@ -1120,15 +1126,47 @@ function Review({
           )}
         </p>
       )}
-      <NeedsList
-        needs={needs}
-        initiallyOpen={job.safety_flags?.some(flag => flag.code === 'MAINS') ? 'flag-MAINS' : null}
-      />
+      <SidePanel
+        id="pp-attention"
+        open={attentionOpen && !openPart}
+        title="Needs your attention"
+        onClose={() => setAttentionOpen(false)}
+      >
+        {needs.length ? (
+          <NeedsList
+            needs={needs}
+            showHeading={false}
+            initiallyOpen={job.safety_flags?.some(flag => flag.code === 'MAINS') ? 'flag-MAINS' : null}
+          />
+        ) : (
+          <p>Nothing needs your attention right now.</p>
+        )}
+      </SidePanel>
       <form onSubmit={submit}>
         <div className="pp-parts-head">
           <h2>
             Your parts <span>{kept.length}</span>
           </h2>
+          {needs.length > 0 && (
+            <button
+              type="button"
+              className={`pp-attention-button${safetyChecks ? ' has-danger' : ''}`}
+              aria-controls="pp-attention"
+              aria-expanded={attentionOpen && !openPart}
+              onClick={() => {
+                onOpenPart(null)
+                setAttentionOpen(open => !open)
+              }}
+            >
+              <span className="pp-need-dot" aria-hidden="true" />
+              Needs your attention <b>{needs.length}</b>
+              {safetyChecks > 0 && (
+                <small>
+                  {safetyChecks} safety {safetyChecks === 1 ? 'check' : 'checks'}
+                </small>
+              )}
+            </button>
+          )}
         </div>
         <ul className="pp-rows pp-review-rows">
           {rows.map(row => {

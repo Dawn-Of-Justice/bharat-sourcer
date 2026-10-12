@@ -25,11 +25,6 @@ const mountLabel: Record<BuyableSpec['mount'], string> = {
   smd: 'Surface-mount (SMD)',
   any: 'Any mount',
 }
-const originLabel: Record<BuyableSpec['origin'], string> = {
-  ai_inferred: 'AI-inferred buying spec — check it',
-  seed: 'Built from the part name only',
-  user: 'Your buying spec',
-}
 const operatorLabel: Record<SpecParam['operator'], string> = {
   equals: '',
   at_least: 'at least ',
@@ -102,14 +97,7 @@ export default function SpecPanel({
     <div className="spec-panel">
       <div className="spec-heading">
         <div>
-          <strong>Buying spec</strong>{' '}
-          <span className={spec.origin === 'user' ? 'spec-tag' : 'inferred-tag'}>{originLabel[spec.origin]}</span>
-          <p>
-            What we search sellers for.{' '}
-            {spec.origin === 'user'
-              ? 'Saved as yours when you confirm.'
-              : 'Correct anything that is wrong before confirming.'}
-          </p>
+          <strong>Buying spec</strong>
         </div>
         {!editing && (
           <button
@@ -267,7 +255,7 @@ export default function SpecPanel({
                     checked={param.required !== false}
                     onChange={event => patch(index, { required: event.target.checked })}
                   />{' '}
-                  Required
+                  Must match
                 </label>
               )}
               <button
@@ -297,7 +285,7 @@ export default function SpecPanel({
               </span>
               <span>Add a spec value</span>
             </button>
-            <button type="button" className="remove-button" onClick={() => setEditing(false)}>
+            <button type="button" className="primary-button spec-done-button" onClick={() => setEditing(false)}>
               Done editing
             </button>
           </div>

@@ -57,13 +57,12 @@ export function SellerIdentity({ offer, compact = false }: { offer: ReportOffer;
         <details className="trust-why">
           <summary>Why this trust label?</summary>
           <ul>
-            {(trust.reasons ?? []).map((reason, index) => (
-              <li key={index}>{reason}</li>
-            ))}
-            <li>
-              Computed from public signals; GSTIN checks validate the number's format, not the business with the GST
-              portal.
-            </li>
+            {(trust.reasons ?? [])
+              .filter(reason => !/\bgst(?:in)?\b/i.test(reason))
+              .map((reason, index) => (
+                <li key={index}>{reason}</li>
+              ))}
+            <li>Computed from public signals; this is not a guarantee of the seller's reliability.</li>
             {checkedAt && <li>Checked {checkedAt}</li>}
           </ul>
         </details>

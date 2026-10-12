@@ -25,10 +25,6 @@ export function SummaryBand({ job, actions }: { job: Job; actions?: ReactNode })
         .map(offer => Date.parse(offer.checked_at)),
     )
     .filter(Number.isFinite)
-  const unknown = [
-    costing?.shipping.status === 'unknown' && 'shipping',
-    costing?.gst.status === 'unknown' && 'GST',
-  ].filter(Boolean) as string[]
   // Whole rupees read better in the headline; paise stay in the detailed rows.
   const amount = costing ? amountText(costing.parts).replace(/\.00(?!\d)/g, '') : null
   return (
@@ -52,13 +48,10 @@ export function SummaryBand({ job, actions }: { job: Job; actions?: ReactNode })
           </>
         )}
         <p className="pp-band-note">
-          {costing?.total.status === 'known' && costing.total.amount_inr
-            ? `Total with shipping and GST: ${amountText(costing.total)}.`
-            : unknown.length
-              ? `${unknown.join(' and ')} not known yet, so this is the parts price only.`.replace(/^./, c =>
-                  c.toUpperCase(),
-                )
-              : 'Parts price only.'}
+          Parts price only.
+          {costing && costing.shipping.status !== 'unknown' && Number(costing.shipping.amount_inr) > 0
+            ? ` Shipping ${costing.shipping.status === 'estimated' ? 'about ' : ''}${amountText(costing.shipping)}.`
+            : ''}
           {checked.length ? ` Prices checked ${ago(Math.min(...checked))}.` : ''}
         </p>
       </div>
@@ -145,7 +138,7 @@ export function NeedsList({
     >
       {showHeading && (
         <h2 id="pp-needs-title">
-          Needs you <span>{needs.length}</span>
+          Needs your attention <span>{needs.length}</span>
         </h2>
       )}
       <ul>

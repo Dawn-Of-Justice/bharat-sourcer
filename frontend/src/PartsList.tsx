@@ -109,11 +109,9 @@ function sellerTitle(seller: OrderPlanSeller, lines: Map<string, ReportLine>) {
 }
 
 function shippingNote(seller: OrderPlanSeller) {
-  const shipping =
-    seller.shipping.status === 'unknown'
-      ? 'Shipping not known'
-      : `Shipping ${seller.shipping.status === 'estimated' ? 'about ' : ''}${amountText(seller.shipping)}`
-  return seller.free_shipping_gap_inr
+  if (seller.shipping.status === 'unknown' || !(Number(seller.shipping.amount_inr) > 0)) return undefined
+  const shipping = `Shipping ${seller.shipping.status === 'estimated' ? 'about ' : ''}${amountText(seller.shipping)}`
+  return seller.free_shipping_gap_inr && Number(seller.free_shipping_gap_inr) > 0
     ? `${shipping}. Add ${rupees(seller.free_shipping_gap_inr)} more for free shipping.`
     : `${shipping}.`
 }

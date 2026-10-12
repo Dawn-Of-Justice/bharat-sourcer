@@ -15,7 +15,7 @@ export function stepOf(job: Job): number {
 function stageNote(job: Job, reading: string): string {
   if (job.status === 'queued') return 'Waiting to start'
   if (job.status === 'extracting') return reading
-  if (job.status === 'awaiting_confirmation') return 'Waiting for you'
+  if (job.status === 'awaiting_confirmation') return 'Ready for your review'
   if (job.status === 'resolving') return 'Preparing your parts'
   if (job.status === 'paused') return 'Paused'
   if (job.status === 'failed') return 'Stopped'
