@@ -30,6 +30,9 @@ video job had failed after the API key hung for the full 120 s timeout and then 
 `mimeType: "video/*"` (Vertex requires it). A Vertex 400/401/403/404, 429/5xx after two
 tries, or a timeout falls back to the API key. An output that is cut off (MAX_TOKENS: video
 reads sometimes loop on repeated text) or invalid is retried once before the job fails.
+Spec fill (site `spec_fill`) also uses Vertex through the shared
+`gemini_api.post_generate` (Vertex first, API key on refusal, overload or timeout), with a
+30 s timeout: on the API key it had held a live job for about 2 minutes of retries.
 
 v0.32.0 adds the project overview (`overview.py`): when extraction reaches
 `awaiting_confirmation`, one Gemini call (site `overview`) draws every physical part
