@@ -6726,6 +6726,20 @@
             "title": "Refresh Count",
             "default": 0
           },
+          "refresh_limit": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Refresh Limit",
+            "description": "Seller refresh batch limit; null for exempt testing accounts.",
+            "default": 2
+          },
           "pause_requested": {
             "type": "boolean",
             "title": "Pause Requested",

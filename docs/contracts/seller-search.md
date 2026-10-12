@@ -6,6 +6,16 @@ Implemented in `backend/src/bharat_sourcer/sourcing/seller_search.py` (adapters,
 
 ## What it does
 
+### Testing-account refresh exemption
+
+`Job.refresh_limit` is 2 by default and `null` for account-owned projects exempt from the
+per-job refresh cap. The server derives this from `BS_REFRESH_UNLIMITED_UIDS`, a comma-separated
+list of Firebase UIDs configured by the operator. Clients must use this field instead of a
+hard-coded two-batch cap. Omitted fields on older servers retain the default of 2.
+The refresh counter still increments. This does not bypass ownership checks, daily quotas,
+batch size limits, demo restrictions or paid-call budgets. Removing the UID restores the cap
+using the existing counter. Existing jobs receive the current policy when read.
+
 For each unowned line, the backend searches curated Indian sellers' own catalogues before any
 paid call. Adapters return candidate product URLs with optional title, price and image
 **hints**. Hints only order candidates. They are never offers: every candidate is fetched and

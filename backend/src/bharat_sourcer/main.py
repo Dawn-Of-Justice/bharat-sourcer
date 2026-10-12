@@ -105,6 +105,7 @@ def create_app(
         settings.gemini_model if live_extractor else None,
         store,
         max(settings.extraction_lease_s, int(3 * settings.extraction_timeout_s + 60)),
+        refresh_unlimited_uids=settings.refresh_unlimited_uids,
         sourcing=(
             SourcingService(
                 GeminiDiscovery(settings),

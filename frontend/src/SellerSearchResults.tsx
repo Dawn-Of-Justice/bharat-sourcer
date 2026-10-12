@@ -22,7 +22,9 @@ export default function SellerSearchResults({
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const submitting = useRef(false)
-  const remaining = Math.max(0, 2 - (job.refresh_count ?? 0))
+  const unlimited = job.refresh_limit === null
+  const limit = job.refresh_limit ?? 2
+  const remaining = unlimited ? Infinity : Math.max(0, limit - (job.refresh_count ?? 0))
   const ids = selected.filter(id => retryable.some(row => row.item.line_id === id))
   const canRetry = !job.demo && remaining > 0 && !busy
 
@@ -104,9 +106,11 @@ export default function SellerSearchResults({
         <p className="seller-retry-note">
           {job.demo
             ? 'Seller searches are unavailable for this demo project.'
-            : remaining
-              ? `${remaining} of 2 retry batches remaining. Select up to 10 parts. Searching again replaces their saved quotes and may use paid analysis.`
-              : 'No retry batches remaining. You can continue with the available results.'}
+            : unlimited
+              ? 'Testing account: no seller retry batch limit. Select up to 10 parts. Daily usage and spending limits still apply.'
+              : remaining
+                ? `${remaining} of ${limit} retry batches remaining. Select up to 10 parts. Searching again replaces their saved quotes and may use paid analysis.`
+                : 'No retry batches remaining. You can continue with the available results.'}
         </p>
       )}
       {error && (
