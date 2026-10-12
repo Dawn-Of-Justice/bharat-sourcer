@@ -42,6 +42,7 @@ def report_fingerprint(job: Job) -> str:
         "bom": fingerprint(job),
         "report": job.report.model_dump(mode="json") if job.report else None,
         "refresh_count": job.refresh_count,
+        "refresh_limit": job.refresh_limit,
     }
     return sha256(json.dumps(data, sort_keys=True).encode()).hexdigest()
 
@@ -127,6 +128,7 @@ class GeminiAssistant:
             "status": job.status,
             "project": job.project.model_dump(mode="json") if job.project else None,
             "refresh_count": job.refresh_count,
+            "refresh_limit": job.refresh_limit,
             "sourcing_enabled": job.sourcing_enabled,
             "items": [item.model_dump(mode="json") for item in job.items],
             "report": [
@@ -172,7 +174,8 @@ class GeminiAssistant:
             "electrical specs from general knowledge. In any other status return edits: []. "
             "Questions alone do not authorize edits. No purchase or whole-circuit safety claims. "
             "When the user requests a new seller search for specific existing parts in a "
-            "completed live report with sourcing_enabled and refresh_count below 2, you may "
+            "completed live report with sourcing_enabled and refresh_count below refresh_limit "
+            "(or refresh_limit null for an exempt testing account), you may "
             "set refresh to {line_ids: [...]} for distinct unowned parts. This only proposes "
             "a refresh: explain that approval starts paid search and clears previous quotes "
             "and selections for those lines. Never claim a search has started or finished. "
