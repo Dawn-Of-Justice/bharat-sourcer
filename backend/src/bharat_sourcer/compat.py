@@ -100,17 +100,30 @@ def resolve_part(item: BomItem) -> PartResolution:
     inferred = parse_name(item.raw_name).model_dump(exclude_none=True)
     declared = item.specs.model_dump(exclude_none=True)
     catalogued = legacy_specs(entry) if entry else {}
+    # AI-inferred values only fill gaps; they never set the family.
+    ai = {k: v for k, v in item.ai_specs.model_dump(exclude_none=True).items() if k != "family"}
     try:
         specs = PartSpecs(**(catalogued | inferred | declared))
     except ValueError:
         # The name or the user disagrees with the catalogue: drop the catalogue values.
         specs = PartSpecs(**(inferred | declared))
+    used = set()
+    for field, value in ai.items() if specs.family is not None else ():
+        if getattr(specs, field) is not None:
+            continue
+        try:
+            specs = PartSpecs(**(specs.model_dump(exclude_none=True) | {field: value}))
+            used.add(field)
+        except ValueError:
+            continue  # An AI value that conflicts with known ones is dropped.
 
     def provenance(field: str) -> tuple[str, str]:
         if field in declared:
             return "user", f"bom:{item.line_id}"
         if field in inferred:
             return "part_name", f"bom:{item.line_id}"
+        if field in used:
+            return "ai_inferred", f"ai:{item.line_id}"
         return "catalog", f"catalog:{entry.id}"
 
     evidence = [
@@ -487,7 +500,10 @@ def assess_offer(
     found = resolve_name(resolution.query)
     entry = found.entry if found.status == "matched" else None
     if entry is None:
-        result = assess(resolution.specs, offer.specs)
+        # AI-inferred required values never block an offer; they count as unknown here.
+        guessed = {e.field: None for e in resolution.evidence if e.source == "ai_inferred"}
+        required = resolution.specs.model_copy(update=guessed) if guessed else resolution.specs
+        result = assess(required, offer.specs)
         result.references.append(str(offer.url))
         return result
     offered, offered_entry = offered_side(offer, entry)

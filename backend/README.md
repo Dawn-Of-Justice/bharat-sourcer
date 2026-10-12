@@ -1,5 +1,34 @@
 # Backend
 
+v0.32.0 adds the project overview (`overview.py`): when extraction reaches
+`awaiting_confirmation`, one Gemini call (site `overview`) draws every physical part
+(body size and colour, main chip, screen/LED/button features, connectors and silkscreen pin
+headers) and the wiring, from the parts list, the project context and the project's GitHub
+code (re-read like code evidence, with deterministically parsed pin facts such as
+`#define TOUCH_PIN 7` and `Wire.begin(8, 9)`). Rules then drop wires to unknown parts or
+pins and flag shorts, mixed supply voltages, 5 V into 3.3 V-only parts and wires that
+disagree with the code; a second call (site `overview_judge`) marks each part, pin header
+and wire confirmed, unverified or disputed, applied server-side (a disputed pin list
+disputes the part; the judge never adds anything). Stored on `job.overview`;
+`GET /v1/jobs/{id}/overview` reads it and the owner's `POST` redraws a failed or stale one.
+Draft edits make it stale. Demo jobs get a labelled fixture. Runs locally after extraction
+or as its own Cloud Task (`kind: "overview"`); both calls count toward the job's cost and
+are cached by parts list and code. Off with `BS_OVERVIEW_ENABLED=false`. See
+[project overview](../docs/contracts/project-overview.md).
+
+Unreleased (intake review): fewer questions the system can answer itself.
+A GitHub source with no README is still read: its code files are chosen from the
+repository tree (one `git/trees/HEAD` request) and the source report is `read` with the
+code parts found, or fails with a clear message when there is no README and no recognised
+code. After extraction one batched Gemini call (site `spec_fill`, `BS_SPEC_FILL_ENABLED`)
+decides missing required spec fields (pinout, logic voltage, I2C address...) from the
+project context and code quotes; they are saved as `items[].ai_specs`, labelled
+`ai_inferred` in spec evidence, never block an offer, and only fields still missing are
+asked. A look-alike alone now gives `likely` ("confirm the exact variant"), not `check`.
+A generic suggested line ("Rechargeable battery") beside the only other line in the same
+single-part role (battery, board) is folded into it. See
+[multi-source intake](../docs/contracts/multi-source-intake.md).
+
 v0.30.0 adds the AI buyer (`sourcing/buyer.py`): a part whose value the source does not
 state gets a value worked out from the whole project (power, other parts, the part's role)
 before searching, and a line with no accepted listing is decided from every fetched listing

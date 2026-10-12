@@ -7,6 +7,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import timedelta
 from decimal import Decimal
 from hashlib import sha256
+from typing import Protocol
 from uuid import UUID, uuid4
 
 from bharat_sourcer.actions import complete_refresh
@@ -49,6 +50,7 @@ from bharat_sourcer.schemas import (
 )
 from bharat_sourcer.sourcing.research import check_requirements
 from bharat_sourcer.sourcing.service import SourcingService
+from bharat_sourcer.spec_fill import SpecFiller, fill_missing_specs
 from bharat_sourcer.storage import JobStore, MemoryJobStore, StoredJob
 from bharat_sourcer.usage import JobLedger, attribute
 from bharat_sourcer.youtube_meta import apply_retention
@@ -76,6 +78,14 @@ def worth_rechecking(line: ReportLine) -> bool:
     )
 
 
+class OverviewHooks(Protocol):
+    """The project overview (overview.py) hooks into extraction without an import cycle."""
+
+    def prepare(self, record: StoredJob) -> None: ...
+
+    def after_extraction(self, job_id: str) -> None: ...
+
+
 class JobError(Exception):
     def __init__(self, status: int, code: str, message: str, retry_after: int = 60):
         self.status = status
@@ -98,7 +108,10 @@ class JobService:
         seller_penalty_inr: Decimal = SELLER_PENALTY_INR,
         gemini_budget_usd: float | None = None,
         refresh_unlimited_uids: str = "",
+        spec_filler: SpecFiller | None = None,
     ):
+        # Decides missing required spec fields after live extraction (spec_fill.py).
+        self.spec_filler = spec_filler
         self.refresh_unlimited_owners = frozenset(
             "user:" + uid.strip() for uid in refresh_unlimited_uids.split(",") if uid.strip()
         )
@@ -113,6 +126,8 @@ class JobService:
         self.sourcing_lease_seconds = sourcing_lease_seconds
         self.sourcing_parallelism = max(1, min(sourcing_parallelism, 4))
         self.seller_penalty_inr = Decimal(seller_penalty_inr)
+        # Draws the project overview once extraction completes (set by create_app).
+        self.overviews: OverviewHooks | None = None
 
     @staticmethod
     def _transition(job: Job, status: Status, message: str) -> None:
@@ -208,6 +223,10 @@ class JobService:
             source_reports=source.source_reports,
             video_meta=source.video_meta,
             copied_from=CopiedFrom(copied_at=now(), source_updated_at=source.updated_at),
+            # A finished drawing of the same parts list; an unfinished one is not copied.
+            overview=source.overview
+            if source.overview and source.overview.status in {"ready", "stale"}
+            else None,
         )
         self._transition(
             job,
@@ -314,6 +333,10 @@ class JobService:
                     )
                 items, project, reports = result.items, result.project, result.sources
                 video_meta = result.video_meta
+                # One batched call fills required spec fields from project context so they
+                # are not asked; saved on the items, so later draft edits reuse them.
+                with attribute(ledger):
+                    fill_missing_specs(self.spec_filler, items, project)
         except Exception as exc:
             error = (
                 exc
@@ -344,8 +367,13 @@ class JobService:
                     item.clarifications = resolve_part(item).clarifications
                 record.job.safety_flags = flags_for(record.job)
                 self._transition(record.job, "awaiting_confirmation", "Review parts and evidence.")
+                if self.overviews is not None:
+                    self.overviews.prepare(record)  # pending (or the demo drawing); no I/O
 
-        self.store.mutate(job_id, complete)
+        saved = self.store.mutate(job_id, complete)
+        if self.overviews is not None and saved and saved.job.status == "awaiting_confirmation":
+            # Runs after the review page is available; never fails the extraction.
+            self.overviews.after_extraction(job_id)
 
     def recover(self, job_id: str | None = None, *, execute: bool = True) -> None:
         keys = [job_id] if job_id else self.store.pending()
@@ -787,6 +815,8 @@ class JobService:
                         spec = items[edit.line_id].buyable_spec
                         if spec is not None and spec.origin != "user":
                             items[edit.line_id].buyable_spec = None
+                        # AI-filled spec values were decided for the old part too.
+                        items[edit.line_id].ai_specs = PartSpecs()
                     items[edit.line_id].raw_name = edit.raw_name
                 if edit.buyable_spec is not None:
                     items[edit.line_id].buyable_spec = edit.buyable_spec.model_copy(
@@ -829,6 +859,9 @@ class JobService:
                     422, "INVALID_SPECS", "Name and part specifications conflict"
                 ) from exc
         job.safety_flags = flags_for(job)
+        from bharat_sourcer.overview import mark_stale  # overview.py imports this module
+
+        mark_stale(job)  # a drawing of a different parts list is kept but marked stale
         if finalize:
             self._transition(job, "resolving", "Confirmed edits; preparing the report.")
         else:

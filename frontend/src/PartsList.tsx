@@ -214,18 +214,20 @@ export default function PartsList({
       {grouping === 'part' ? (
         <ul className="pp-rows">{report.lines.map(line => row(line, true))}</ul>
       ) : (
-        groups.map(group => (
-          <section key={group.key} className="pp-group" aria-label={group.title}>
-            <header className="pp-group-head">
-              <div>
-                <h3>{group.title}</h3>
-                {group.note && <p>{group.note}</p>}
-              </div>
-              {group.amount && <strong>{group.amount}</strong>}
-            </header>
-            <ul className="pp-rows">{group.lines.map(line => row(line, false))}</ul>
-          </section>
-        ))
+        <div className="pp-groups snap-row" tabIndex={0} role="group" aria-label="Order by seller">
+          {groups.map(group => (
+            <section key={group.key} className="pp-group" aria-label={group.title}>
+              <header className="pp-group-head">
+                <div>
+                  <h3>{group.title}</h3>
+                  {group.note && <p>{group.note}</p>}
+                </div>
+                {group.amount && <strong>{group.amount}</strong>}
+              </header>
+              <ul className="pp-rows">{group.lines.map(line => row(line, false))}</ul>
+            </section>
+          ))}
+        </div>
       )}
     </section>
   )

@@ -1,12 +1,20 @@
-import Results from './Results'
 import SellerSearchResults from './SellerSearchResults'
 import { sellerSearchViewAfterUpdate } from './sellerSearch'
 import YoutubeJourney from './YoutubeJourney'
-import SharedReport from './SharedReport'
 import { watchJob } from './stream'
 import { useJobTitle } from './useJobTitle'
 import { useAccount, Projects } from './Account'
-import { useEffect, useLayoutEffect, useRef, useState, type FormEvent } from 'react'
+import {
+  Suspense,
+  lazy,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type FormEvent,
+  type ReactNode,
+} from 'react'
 import {
   BagIcon,
   ChecklistIcon,
@@ -24,18 +32,43 @@ import {
   refreshOffers,
   confirmJob,
   createJob,
+  cachedJob,
   getJob,
+  prefetchProjects,
+  rememberJob,
   updateProject,
   type BomItem,
   type BuyableSpec,
   type Job,
 } from './api'
-import ChatPanel from './ChatPanel'
-import { ChatDrawer, SidePanel, StageSteps, stepOf } from './ProjectFrame'
+import { ChatDrawer, SidePanel, StageAnnouncer, StageSteps, stepOf } from './ProjectFrame'
 import { NeedsList, safetyNeeds, type Need } from './ReportSummary'
 import Requirements, { requirementPayload, validRequirements } from './Requirements'
 import SpecPanel, { specPayload, validSpec } from './SpecPanel'
-import { ConfidenceChip, ConflictNotes, EvidenceList, SourcesCard } from './ReviewDetails'
+import { AiSpecs, ConfidenceChip, ConflictNotes, EvidenceList, SourcesCard } from './ReviewDetails'
+import { JobSkeleton, ResultsSkeleton, Spinner } from './Skeleton'
+import { useOverview } from './useOverview'
+import { partInitials } from './partName'
+import { useToast } from './toastContext'
+import {
+  loadChatPanel,
+  loadProjectOverview,
+  loadResults,
+  loadSharedReport,
+  preload,
+  usePrefetch,
+  usePulse,
+  withViewTransition,
+} from './prefetch'
+
+// Views off the landing path load on demand; hovering the control that opens one preloads its chunk.
+const Results = lazy(loadResults)
+const SharedReport = lazy(loadSharedReport)
+const ChatPanel = lazy(loadChatPanel)
+const ProjectHero = lazy(() => loadProjectOverview().then(module => ({ default: module.ProjectHero })))
+const PartArt = lazy(() => loadProjectOverview().then(module => ({ default: module.PartArt })))
+const PartDetail = lazy(() => loadProjectOverview().then(module => ({ default: module.PartDetail })))
+const WiringSection = lazy(() => loadProjectOverview().then(module => ({ default: module.WiringSection })))
 
 function BrandMark() {
   return <img className="brand-mark" src="/brand-mark.svg" width="44" height="44" alt="" />
@@ -69,6 +102,10 @@ function Header({ onHome, isHome, onProjects }: { onHome: () => void; isHome: bo
   const account = useAccount()
   const [menuOpen, setMenuOpen] = useState(false)
   const menuButton = useRef<HTMLButtonElement>(null)
+  // Resting on "My projects" fetches the list so the page opens without a loading state.
+  const prefetchProjectsList = usePrefetch(() => {
+    if (account.identity && account.identity !== 'legacy') prefetchProjects()
+  })
   const accountLabel =
     account.identity && account.identity !== 'legacy'
       ? account.identity.kind === 'guest'
@@ -101,7 +138,7 @@ function Header({ onHome, isHome, onProjects }: { onHome: () => void; isHome: bo
           </nav>
         ) : null}
         <div className="header-account">
-          <button className="nav-cta" onClick={onProjects}>
+          <button className="nav-cta" onClick={onProjects} {...prefetchProjectsList}>
             My projects
           </button>
           <button className="account-link" onClick={account.open}>
@@ -141,6 +178,7 @@ function Header({ onHome, isHome, onProjects }: { onHome: () => void; isHome: bo
           <nav id="mobile-navigation-links" className="mobile-menu" aria-label="Mobile navigation" hidden={!menuOpen}>
             <button
               type="button"
+              {...prefetchProjectsList}
               onClick={() => {
                 setMenuOpen(false)
                 onProjects()
@@ -543,7 +581,7 @@ function Landing({ onCreated }: { onCreated: (id: string) => void }) {
               </h2>
             </div>
           </div>
-          <div className="how-grid">
+          <div className="how-grid snap-row" tabIndex={0} role="group" aria-label="How it works, three steps">
             <article className="how-card">
               <span className="how-number">01 / INPUT</span>
               <div className="how-icon video-icon">
@@ -645,8 +683,8 @@ function Landing({ onCreated }: { onCreated: (id: string) => void }) {
   )
 }
 
-function ProjectCard({ project }: { project?: Job['project'] }) {
-  if (!project) return null
+function ProjectCard({ project, assumptionsOnly = false }: { project?: Job['project']; assumptionsOnly?: boolean }) {
+  if (!project || (assumptionsOnly && !project.assumptions?.length)) return null
   const facts = [
     ['Power', project.power],
     ['Controller', project.controller],
@@ -655,8 +693,8 @@ function ProjectCard({ project }: { project?: Job['project'] }) {
   return (
     <div className="build-overview">
       <div>
-        <p>{project.summary}</p>
-        {facts.length > 0 && (
+        {!assumptionsOnly && <p>{project.summary}</p>}
+        {!assumptionsOnly && facts.length > 0 && (
           <dl>
             {facts.map(([label, value]) => (
               <div key={label}>
@@ -712,40 +750,63 @@ function PencilIcon() {
   )
 }
 
+type ProjectField = 'title' | 'description'
+
 function ProjectHeading({ job, token, onJob }: { job: Job; token: string; onJob: (job: Job) => void }) {
-  const [editing, setEditing] = useState<'title' | 'description' | null>(null)
+  const [editing, setEditing] = useState<ProjectField | null>(null)
   const [draft, setDraft] = useState('')
-  const [busy, setBusy] = useState(false)
+  // Optimistic edit: the new value shows at once while it saves, and the editor reopens with it if saving fails.
+  const [pending, setPending] = useState<{ field: ProjectField; value: string } | null>(null)
+  const [saved, setSaved] = useState<ProjectField | null>(null)
   const [error, setError] = useState('')
+  const toast = useToast()
   const project = job.project
-  function edit(field: 'title' | 'description') {
-    setDraft(project?.[field] ?? '')
+  const shown = (field: ProjectField) => (pending?.field === field ? pending.value : project?.[field])
+  function edit(field: ProjectField) {
+    setDraft(shown(field) ?? '')
     setError('')
     setEditing(field)
   }
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (!editing) return
+    if (!editing || pending) return
+    const field = editing
     const value = draft.trim()
     if (!value) {
-      setError(`${editing === 'title' ? 'Title' : 'Description'} cannot be blank.`)
+      setError(`${field === 'title' ? 'Title' : 'Description'} cannot be blank.`)
       return
     }
-    if (value === (project?.[editing] ?? '')) {
+    if (value === (project?.[field] ?? '')) {
       setEditing(null)
       return
     }
-    setBusy(true)
     setError('')
+    setSaved(null)
+    setPending({ field, value })
+    setEditing(null)
     try {
-      onJob(await updateProject(job.job_id, token, { [editing]: value }))
-      setEditing(null)
+      onJob(await updateProject(job.job_id, token, { [field]: value }))
+      setSaved(field)
+      window.setTimeout(() => setSaved(current => (current === field ? null : current)), 2000)
+      toast('Saved')
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Could not save project details.')
+      const message = cause instanceof Error ? cause.message : 'Could not save project details.'
+      setDraft(value)
+      setEditing(field)
+      setError(message)
+      toast(message, 'error')
     } finally {
-      setBusy(false)
+      setPending(null)
     }
   }
+  const status = (field: ProjectField) =>
+    pending?.field === field ? (
+      <Spinner />
+    ) : saved === field ? (
+      <span className="save-check" aria-hidden="true">
+        ✓
+      </span>
+    ) : null
   return (
     <section className="project-heading">
       {editing === 'title' ? (
@@ -759,10 +820,10 @@ function ProjectHeading({ job, token, onJob }: { job: Job; token: string; onJob:
             onChange={event => setDraft(event.target.value)}
           />
           <div>
-            <button className="nav-cta" type="submit" disabled={busy}>
-              {busy ? 'Saving…' : 'Save'}
+            <button className="nav-cta" type="submit">
+              Save
             </button>
-            <button className="remove-button" type="button" disabled={busy} onClick={() => setEditing(null)}>
+            <button className="remove-button" type="button" onClick={() => setEditing(null)}>
               Cancel
             </button>
           </div>
@@ -770,7 +831,8 @@ function ProjectHeading({ job, token, onJob }: { job: Job; token: string; onJob:
       ) : (
         <div className="editable-project-field editable-project-title">
           <h1>
-            {project?.title || jobSourceCopy(job).title}
+            {shown('title') || jobSourceCopy(job).title}
+            {status('title')}
             <button
               type="button"
               className="pencil-button"
@@ -794,17 +856,20 @@ function ProjectHeading({ job, token, onJob }: { job: Job; token: string; onJob:
             onChange={event => setDraft(event.target.value)}
           />
           <div>
-            <button className="nav-cta" type="submit" disabled={busy}>
-              {busy ? 'Saving…' : 'Save'}
+            <button className="nav-cta" type="submit">
+              Save
             </button>
-            <button className="remove-button" type="button" disabled={busy} onClick={() => setEditing(null)}>
+            <button className="remove-button" type="button" onClick={() => setEditing(null)}>
               Cancel
             </button>
           </div>
         </form>
       ) : (
         <div className="editable-project-field">
-          <p>{project?.description || 'Add a description'}</p>
+          <p>
+            {shown('description') || 'Add a description'}
+            {status('description')}
+          </p>
           <button
             type="button"
             className="pencil-button"
@@ -832,6 +897,36 @@ function ProjectHeading({ job, token, onJob }: { job: Job; token: string; onJob:
   )
 }
 
+// A quantity input that pulses briefly when its value changes (from typing, the spinner or the other copy of it).
+function QtyField({
+  className,
+  value,
+  disabled,
+  onChange,
+  children,
+}: {
+  className: string
+  value: string
+  disabled: boolean
+  onChange: (value: string) => void
+  children: ReactNode
+}) {
+  const pulse = usePulse(value)
+  return (
+    <label className={`${className} qty-field ${pulse}`}>
+      {children}
+      <input
+        type="number"
+        min="1"
+        max="10000"
+        value={value}
+        disabled={disabled}
+        onChange={event => onChange(event.target.value)}
+      />
+    </label>
+  )
+}
+
 type ReviewRow = {
   item: BomItem
   name: string
@@ -854,10 +949,19 @@ function reviewNote(row: ReviewRow) {
 }
 
 // One part's editable details in the side panel. Edits stay local until the list is confirmed.
-function ReviewPartPanel({ row, update }: { row: ReviewRow; update: (id: string, patch: Partial<ReviewRow>) => void }) {
+function ReviewPartPanel({
+  row,
+  update,
+  drawing,
+}: {
+  row: ReviewRow
+  update: (id: string, patch: Partial<ReviewRow>) => void
+  drawing?: ReactNode
+}) {
   const id = row.item.line_id
   return (
     <div className="pp-part">
+      {drawing}
       {row.removed && (
         <div className="pp-part-callout pp-part-callout-input">
           <strong>Removed from this build</strong>
@@ -877,17 +981,14 @@ function ReviewPartPanel({ row, update }: { row: ReviewRow; update: (id: string,
         </p>
       )}
       <div className="pp-field-row">
-        <label className="pp-field pp-field-qty">
+        <QtyField
+          className="pp-field pp-field-qty"
+          value={row.qty}
+          disabled={row.removed}
+          onChange={qty => update(id, { qty })}
+        >
           Quantity
-          <input
-            type="number"
-            min="1"
-            max="10000"
-            value={row.qty}
-            disabled={row.removed}
-            onChange={event => update(id, { qty: event.target.value })}
-          />
-        </label>
+        </QtyField>
         <label className="check-label">
           <input
             type="checkbox"
@@ -925,6 +1026,7 @@ function ReviewPartPanel({ row, update }: { row: ReviewRow; update: (id: string,
         <summary>Buying spec</summary>
         <div className="pp-section-body">
           <SpecPanel value={row.spec} disabled={row.removed} onChange={spec => update(id, { spec })} />
+          <AiSpecs specs={row.item.ai_specs} />
         </div>
       </details>
       {row.item.evidence.length > 0 && (
@@ -974,6 +1076,7 @@ function Review({
   const [busy, setBusy] = useState(false)
   const lastRow = useRef<ReviewRow | null>(null)
   const [attentionOpen, setAttentionOpen] = useState(false)
+  const drawing = useOverview(job, token)
   function showReviewPart(id: string) {
     setAttentionOpen(false)
     onOpenPart(id)
@@ -1102,17 +1205,34 @@ function Review({
   const shown = current ?? lastRow.current
   const reports = job.source_reports ?? []
   const skipped = reports.filter(report => report.status === 'failed').length
+  const { overview } = drawing
+  // Drawings come from the overview (one per physical part); a pending overview shows skeletons instead.
+  const visuals = new Map(
+    (overview && overview.status !== 'pending' ? overview.parts : []).map(part => [part.line_id, part]),
+  )
+  const safetyLines = new Set((job.safety_flags ?? []).flatMap(flag => flag.line_ids))
+  // At most one pill per card: safety > the review note > the drawing check (disputed, then unverified).
+  const cardStatus = (row: ReviewRow): { label: string; tone: 'danger' | 'input' | 'bad' | 'warn' } | null => {
+    if (row.removed) return null
+    if (safetyLines.has(row.item.line_id)) return { label: 'Safety check', tone: 'danger' }
+    const note = reviewNote(row)
+    if (note) return { label: note, tone: 'input' }
+    const verdict = visuals.get(row.item.line_id)?.verdict
+    if (verdict === 'disputed') return { label: 'Check this', tone: 'bad' }
+    if (verdict === 'unverified') return { label: 'Double-check pins', tone: 'warn' }
+    return null
+  }
+  const owned = kept.filter(row => row.owned).length
+  const drawAction = (label: string) => (
+    <button type="button" className="nav-cta" disabled={drawing.busy} onClick={() => void drawing.regenerate()}>
+      {drawing.busy && <Spinner />}
+      {drawing.busy ? 'Starting…' : label}
+    </button>
+  )
+  const shownVisual = shown ? visuals.get(shown.item.line_id) : undefined
 
   return (
     <section className="job-panel pp-stage">
-      <header className="pp-stage-head">
-        <h2>
-          We found {job.items.length} {job.items.length === 1 ? 'part' : 'parts'}.
-        </h2>
-        <p>
-          Check the names and quantities and mark what you already have. Sellers are searched only after you confirm.
-        </p>
-      </header>
       {job.copied_from && (
         <p className="pp-field-note" role="note">
           Copied from a shared project on {day(job.copied_from.copied_at)}.{' '}
@@ -1126,6 +1246,9 @@ function Review({
           )}
         </p>
       )}
+      <Suspense fallback={null}>
+        <ProjectHero job={job} />
+      </Suspense>
       <SidePanel
         id="pp-attention"
         open={attentionOpen && !openPart}
@@ -1144,7 +1267,7 @@ function Review({
       </SidePanel>
       <form onSubmit={submit}>
         <div className="pp-parts-head">
-          <h2>
+          <h2 id="pp-parts-title">
             Your parts <span>{kept.length}</span>
           </h2>
           {needs.length > 0 && (
@@ -1168,70 +1291,121 @@ function Review({
             </button>
           )}
         </div>
-        <ul className="pp-rows pp-review-rows">
-          {rows.map(row => {
-            const note = reviewNote(row)
+        <p className="pp-parts-help">Mark what you already have. We search sellers only after you confirm.</p>
+        {drawing.pending && (
+          <p className="visually-hidden" role="status">
+            Drawing your parts…
+          </p>
+        )}
+        {!overview && (
+          <div className="pp-draw-note">
+            <p>See every part drawn with its pins, and how they connect.</p>
+            {drawAction('Draw the project')}
+          </div>
+        )}
+        {overview?.status === 'failed' && (
+          <div className="pp-draw-note">
+            <p>
+              We couldn’t draw this project.{overview.message ? ' ' + overview.message : ''} You can still review and
+              confirm the parts.
+            </p>
+            {drawAction('Try again')}
+          </div>
+        )}
+        {overview?.status === 'stale' && (
+          <div className="pp-draw-note">
+            <p>You changed the parts list, so the drawings show the earlier list.</p>
+            {drawAction('Redraw')}
+          </div>
+        )}
+        {drawing.error && (
+          <p className="form-error" role="alert">
+            {drawing.error}
+          </p>
+        )}
+        <ul className="pp-cards" aria-busy={drawing.pending || undefined}>
+          {rows.map((row, index) => {
+            const status = cardStatus(row)
             const active = openPart === row.item.line_id
+            const visual = visuals.get(row.item.line_id)
+            const name = row.name || 'Unnamed part'
+            const have = row.owned && !row.removed
             return (
               <li
                 key={row.item.line_id}
                 id={`line-${row.item.line_id}`}
-                className={`pp-review-row${row.removed ? ' is-removed' : ''}${active ? ' is-active' : ''}`}
+                className={`pp-card${row.removed ? ' is-removed' : ''}${have ? ' is-owned' : ''}${active ? ' is-active' : ''}`}
+                style={{ '--i': index } as CSSProperties}
               >
                 <button
                   type="button"
-                  className="pp-review-open"
+                  className="pp-card-open"
                   aria-controls="pp-part"
                   aria-expanded={active}
+                  aria-label={[name, row.removed ? 'removed' : '', status?.label ?? '', have ? 'you have it' : '']
+                    .filter(Boolean)
+                    .join(', ')}
                   onClick={() => onOpenPart(active ? null : row.item.line_id)}
-                >
-                  <strong>{row.name || 'Unnamed part'}</strong>
-                  {note && <small className={row.removed ? '' : 'pp-review-attention'}>{note}</small>}
-                </button>
-                <label className="pp-review-qty">
-                  <span className="visually-hidden">Quantity of {row.name}</span>
-                  <span aria-hidden="true">×</span>
-                  <input
-                    type="number"
-                    min="1"
-                    max="10000"
-                    value={row.qty}
-                    disabled={row.removed}
-                    onChange={event => update(row.item.line_id, { qty: event.target.value })}
-                  />
-                </label>
-                <label className="pp-review-have">
-                  <input
-                    type="checkbox"
-                    checked={row.owned}
-                    disabled={row.removed}
-                    onChange={event => update(row.item.line_id, { owned: event.target.checked })}
-                  />{' '}
-                  I have it
-                </label>
+                />
+                <div className="pp-card-art" aria-hidden="true">
+                  {drawing.pending ? (
+                    <span className="sk pp-card-sk" />
+                  ) : visual ? (
+                    <Suspense fallback={<span className="sk pp-card-sk" />}>
+                      <PartArt part={visual} />
+                    </Suspense>
+                  ) : (
+                    <span className="part-placeholder">{partInitials(name)}</span>
+                  )}
+                  {have && <span className="pp-card-check" />}
+                </div>
+                <strong className="pp-card-name">{name}</strong>
                 {row.removed ? (
-                  <button
-                    type="button"
-                    className="pp-text-button pp-review-undo"
-                    onClick={() => update(row.item.line_id, { removed: false })}
-                  >
-                    Undo
-                  </button>
+                  <span className="pp-card-pill is-muted">Removed</span>
                 ) : (
-                  <button
-                    type="button"
-                    className="pp-review-edit"
-                    aria-label={`Edit ${row.name || 'part'}`}
-                    onClick={() => onOpenPart(active ? null : row.item.line_id)}
-                  >
-                    <span className="pp-row-chevron" aria-hidden="true" />
-                  </button>
+                  status && <span className={`pp-card-pill is-${status.tone}`}>{status.label}</span>
                 )}
+                <div className="pp-card-controls">
+                  {row.removed ? (
+                    <button
+                      type="button"
+                      className="pp-text-button pp-review-undo"
+                      onClick={() => update(row.item.line_id, { removed: false })}
+                    >
+                      Undo remove
+                    </button>
+                  ) : (
+                    <>
+                      <QtyField
+                        className="pp-review-qty"
+                        value={row.qty}
+                        disabled={false}
+                        onChange={qty => update(row.item.line_id, { qty })}
+                      >
+                        <span className="visually-hidden">Quantity of {name}</span>
+                        <span aria-hidden="true">×</span>
+                      </QtyField>
+                      <label className="pp-review-have">
+                        <input
+                          type="checkbox"
+                          checked={row.owned}
+                          onChange={event => update(row.item.line_id, { owned: event.target.checked })}
+                        />{' '}
+                        I have it
+                      </label>
+                    </>
+                  )}
+                </div>
               </li>
             )
           })}
         </ul>
-        {(job.project || reports.length > 0 || job.video_meta) && (
+        {overview && overview.status !== 'pending' && overview.status !== 'failed' && overview.wiring.length > 0 && (
+          <Suspense fallback={null}>
+            <WiringSection overview={overview} />
+          </Suspense>
+        )}
+        {(!!job.project?.assumptions?.length || reports.length > 0 || job.video_meta) && (
           <details className="pp-section pp-origin">
             <summary>
               Where these came from
@@ -1243,20 +1417,12 @@ function Review({
               )}
             </summary>
             <div className="pp-section-body">
-              <ProjectCard project={job.project} />
+              <ProjectCard project={job.project} assumptionsOnly />
               <SourcesCard job={job} />
             </div>
           </details>
         )}
         <div className="pp-confirm">
-          <button className="primary-button" disabled={busy} type="submit">
-            {busy
-              ? 'Confirming…'
-              : toSource
-                ? `Confirm and find sellers for ${toSource} ${toSource === 1 ? 'part' : 'parts'}`
-                : 'Confirm the list'}{' '}
-            <ArrowIcon />
-          </button>
           {guest && (
             <p>
               As a guest you can search sellers for up to {guest.part_limit} parts. Parts you already have don't count.
@@ -1267,6 +1433,23 @@ function Review({
               {error}
             </p>
           )}
+          <div className="pp-confirm-row">
+            <p className="pp-confirm-count">
+              <strong>
+                {kept.length} {kept.length === 1 ? 'part' : 'parts'}
+              </strong>
+              {owned > 0 && <> · {owned} you have</>}
+            </p>
+            <button className="primary-button" disabled={busy} type="submit">
+              {busy && <Spinner />}
+              {busy
+                ? 'Confirming…'
+                : toSource
+                  ? `Find sellers for ${toSource} ${toSource === 1 ? 'part' : 'parts'}`
+                  : 'Confirm the list'}{' '}
+              <ArrowIcon />
+            </button>
+          </div>
         </div>
       </form>
       <SidePanel
@@ -1288,6 +1471,13 @@ function Review({
             key={shown.item.line_id}
             row={rows.find(row => row.item.line_id === shown.item.line_id) ?? shown}
             update={update}
+            drawing={
+              shownVisual && (
+                <Suspense fallback={<span className="sk pp-part-drawing-sk" />}>
+                  <PartDetail part={shownVisual} />
+                </Suspense>
+              )
+            }
           />
         )}
       </SidePanel>
@@ -1424,7 +1614,8 @@ function JobPage({ id }: { id: string }) {
   const account = useAccount()
   const localPreview = import.meta.env.DEV && new URLSearchParams(window.location.search).get('preview') === '1'
   const token = (localPreview ? 'dummy-token' : null) || sessionStorage.getItem(`bharat-sourcer:job:${id}`) || ''
-  const [job, setJob] = useState<Job | null>(null)
+  // A snapshot prefetched from My projects (or kept from an earlier visit) paints at once; the stream refreshes it.
+  const [job, setJob] = useState<Job | null>(() => cachedJob(id)?.value ?? null)
   const [fatalError, setFatalError] = useState('')
   const [connectionIssue, setConnectionIssue] = useState('')
   useJobTitle(job, fatalError, connectionIssue)
@@ -1473,6 +1664,28 @@ function JobPage({ id }: { id: string }) {
   function applySnapshot(next: Job) {
     setJob(previous => (previous && Date.parse(next.updated_at) < Date.parse(previous.updated_at) ? previous : next))
   }
+
+  // A prefetch still in flight when the page opened can still beat the stream's first snapshot.
+  useEffect(() => {
+    const pending = cachedJob(id)
+    if (!pending || pending.value) return
+    let active = true
+    pending.promise.then(
+      next => {
+        if (active)
+          setJob(previous =>
+            previous && Date.parse(next.updated_at) < Date.parse(previous.updated_at) ? previous : next,
+          )
+      },
+      () => undefined,
+    )
+    return () => {
+      active = false
+    }
+  }, [id])
+  useEffect(() => {
+    if (job) rememberJob(job)
+  }, [job])
 
   useEffect(() => {
     if (!account.ready || (!token && (!account.identity || account.identity === 'legacy'))) return
@@ -1534,12 +1747,47 @@ function JobPage({ id }: { id: string }) {
 
   const currentStep = job ? stepOf(job) : 0
   const viewing = viewStep ?? currentStep
+  const mainRef = useRef<HTMLDivElement>(null)
+  const focusStep = useRef(false)
+  const shownStep = useRef<number | null>(null)
+  // A view transition applies its update a frame later; a click in between compares against the step on its way.
+  const pendingView = useRef<number | null>(null)
   function view(step: number) {
-    if (step === viewing) return
-    setAttentionOpen(false)
-    setDirection(step < viewing ? 'back' : 'forward')
-    setViewStep(step === currentStep ? null : step)
+    const from = pendingView.current ?? viewing
+    if (step === from) return
+    pendingView.current = step
+    focusStep.current = true
+    withViewTransition(() => {
+      pendingView.current = null
+      setAttentionOpen(false)
+      setDirection(step < from ? 'back' : 'forward')
+      setViewStep(step === currentStep ? null : step)
+    })
   }
+  // Focus follows a step change to the new step's heading: always when the user picked the step, and for a status
+  // change only when focus was in the page content (not in a side panel or a field the user is typing in).
+  useEffect(() => {
+    const key = job ? viewing * 10 + currentStep : null
+    if (key === null) return
+    const changed = shownStep.current !== null && shownStep.current !== key
+    shownStep.current = key
+    if (!changed) return
+    const active = document.activeElement
+    const inContent = !active || active === document.body || !!mainRef.current?.contains(active)
+    if (!focusStep.current && !inContent) return
+    focusStep.current = false
+    const root = mainRef.current
+    const heading = ['.pp-stage-head h2', '.pp-lookback-head h2', '#pp-parts-title', 'h2']
+      .map(selector => root?.querySelector<HTMLElement>(selector))
+      .find(Boolean)
+    if (!heading) return
+    heading.tabIndex = -1
+    heading.focus({ preventScroll: true })
+  }, [job, viewing, currentStep])
+  // The order plan's code is needed from the seller search on; fetch it ahead.
+  useEffect(() => {
+    if (currentStep >= 1) preload(loadResults)
+  }, [currentStep])
   const back = {
     label: currentStep === 2 ? 'Back to order plan' : 'Back to seller search',
     onClick: () => view(currentStep),
@@ -1576,13 +1824,13 @@ function JobPage({ id }: { id: string }) {
   return (
     <main id="main" className={`job-page project-page${chatOpen || openPart || attentionOpen ? ' sheet-open' : ''}`}>
       <div className="container job-container pp-container">
-        {!job && (
+        {!job && account.ready && (fatalError || (!token && (!account.identity || account.identity === 'legacy'))) && (
           <div className="job-hero">
             <h1>Opening your project</h1>
           </div>
         )}
         {!account.ready ? (
-          <p role="status">Checking your session…</p>
+          <JobSkeleton />
         ) : !token && (!account.identity || account.identity === 'legacy') ? (
           <section className="job-panel">
             <h2>Session access ended</h2>
@@ -1641,10 +1889,7 @@ function JobPage({ id }: { id: string }) {
             )}
           </section>
         ) : !job ? (
-          <section className="job-panel loading-panel" role="status">
-            <span className="loading-indicator" /> Connecting to your job…
-            {connectionIssue ? <p>{connectionIssue}</p> : null}
-          </section>
+          <JobSkeleton note={connectionIssue} />
         ) : (
           <>
             {connectionIssue ? (
@@ -1653,25 +1898,24 @@ function JobPage({ id }: { id: string }) {
               </div>
             ) : null}
             {(job.demo || localPreview) && <p className="pp-demo-tag">Demo project with sample data</p>}
-            <ProjectHeading
-              key={job.project?.title_source + ':' + job.project?.title + ':' + job.project?.description}
-              job={job}
-              token={token}
-              onJob={applySnapshot}
-            />
+            <ProjectHeading job={job} token={token} onJob={applySnapshot} />
             <StageSteps
               job={job}
               reading={jobSourceCopy(job).reading}
               viewing={viewing}
               onView={view}
+              onPrefetch={step => {
+                if (step === 2) preload(loadResults)
+              }}
               action={pauseControl}
             />
+            <StageAnnouncer job={job} reading={jobSourceCopy(job).reading} />
             {actionError && (
               <p className="form-error" role="alert">
                 {actionError}
               </p>
             )}
-            <div className={`pp-main pp-view pp-view-${direction}`} key={`${viewing}:${currentStep}`}>
+            <div ref={mainRef} className={`pp-main pp-view pp-view-${direction}`} key={`${viewing}:${currentStep}`}>
               {viewing !== currentStep ? (
                 viewing === 0 ? (
                   <ConfirmedParts job={job} back={back} />
@@ -1717,16 +1961,18 @@ function JobPage({ id }: { id: string }) {
                     />
                   ) : null}
                   {job.status === 'done' ? (
-                    <Results
-                      attentionOpen={attentionOpen}
-                      onAttentionChange={setAttention}
-                      job={job}
-                      token={token}
-                      onJob={applySnapshot}
-                      onOpenChat={() => setChatOpen(true)}
-                      openPart={openPart}
-                      onOpenPart={setOpenPart}
-                    />
+                    <Suspense fallback={<ResultsSkeleton />}>
+                      <Results
+                        attentionOpen={attentionOpen}
+                        onAttentionChange={setAttention}
+                        job={job}
+                        token={token}
+                        onJob={applySnapshot}
+                        onOpenChat={() => setChatOpen(true)}
+                        openPart={openPart}
+                        onOpenPart={setOpenPart}
+                      />
+                    </Suspense>
                   ) : null}
                   {!['awaiting_confirmation', 'done', 'failed'].includes(job.status) ? (
                     <AnalysisProgress job={job} />
@@ -1735,7 +1981,9 @@ function JobPage({ id }: { id: string }) {
               )}
             </div>
             <ChatDrawer job={job} open={chatOpen} onOpenChange={setChatOpen}>
-              <ChatPanel job={job} token={token} onJob={applySnapshot} bare />
+              <Suspense fallback={<p className="sk-note">Loading the conversation…</p>}>
+                <ChatPanel job={job} token={token} onJob={applySnapshot} bare />
+              </Suspense>
             </ChatDrawer>
           </>
         )}
@@ -1754,8 +2002,10 @@ export default function App() {
   function navigate(next: string) {
     if (import.meta.env.DEV && new URLSearchParams(window.location.search).get('preview') === '1') next += '?preview=1'
     window.history.pushState({}, '', next)
-    setPath(next.split('?')[0])
-    window.scrollTo({ top: 0, behavior: 'instant' })
+    withViewTransition(() => {
+      setPath(next.split('?')[0])
+      window.scrollTo({ top: 0, behavior: 'instant' })
+    })
   }
   const account = useAccount()
   const jobId = path.startsWith('/job/') ? path.slice(5) : null
@@ -1780,7 +2030,17 @@ export default function App() {
       </a>
       <Header onHome={() => navigate('/')} isHome={path === '/'} onProjects={() => navigate('/projects')} />
       {shareToken ? (
-        <SharedReport shareToken={shareToken} onCopied={id => navigate('/job/' + id)} />
+        <Suspense
+          fallback={
+            <main id="main" className="job-page project-page">
+              <div className="container job-container pp-container">
+                <ResultsSkeleton label="Loading the shared report…" />
+              </div>
+            </main>
+          }
+        >
+          <SharedReport shareToken={shareToken} onCopied={id => navigate('/job/' + id)} />
+        </Suspense>
       ) : path === '/projects' ? (
         <Projects onOpen={id => navigate(`/job/${encodeURIComponent(id)}`)} onNew={() => navigate('/')} />
       ) : jobId ? (

@@ -7,12 +7,17 @@ import {
   getSession,
   logoutSession,
   listProjects,
+  cachedProjects,
+  deleteProject,
   claimProject,
+  clearApiCache,
   type Session,
   type Project,
 } from './api'
 import { auth, firebaseLogout, googleLogin, localPreview } from './auth'
 import ProjectCard from './ProjectCard'
+import { ProjectsSkeleton } from './Skeleton'
+import { useToast } from './toastContext'
 import { CountryPicker, fallbackCountries, type CountryOption } from './CountryPicker'
 
 type Identity = Session | 'legacy' | null
@@ -43,6 +48,9 @@ export function AccountProvider({ children }: { children: ReactNode }) {
   const [countryOptions, setCountryOptions] = useState<CountryOption[]>(fallbackCountries)
   const [countryStatus, setCountryStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
   const isAccount = !!identity && identity !== 'legacy' && identity.kind === 'account'
+  const identityKey = identity && identity !== 'legacy' ? identity.kind + ':' + revision : String(identity)
+  // Cached jobs and project lists belong to one identity; drop them whenever it changes.
+  useEffect(() => clearApiCache(), [identityKey])
   useEffect(() => {
     let active = true
     // eslint-disable-next-line react-hooks/set-state-in-effect -- resets local state when the effect inputs change; restructuring would change render timing
@@ -381,6 +389,7 @@ export function Projects({ onOpen, onNew }: { onOpen: (id: string) => void; onNe
   const [error, setError] = useState('')
   const [moreError, setMoreError] = useState('')
   const [retry, setRetry] = useState(0)
+  const toast = useToast()
   useEffect(() => {
     let active = true
     if (!ownerKey) {
@@ -390,10 +399,16 @@ export function Projects({ onOpen, onNew }: { onOpen: (id: string) => void; onNe
       setCursor(null)
       return
     }
-    setBusy(true)
     setError('')
     setMoreError('')
-    listProjects()
+    // A list prefetched from the header paints at once; a fresh page replaces it when it arrives.
+    const cached = retry ? null : cachedProjects()
+    if (cached?.value) {
+      setProjects(cached.value.projects)
+      setCursor(cached.value.next_cursor)
+      setLoadedOwner(ownerKey)
+    } else setBusy(true)
+    ;(cached && !cached.value ? cached.promise : listProjects())
       .then(page => {
         if (!active) return
         setProjects(page.projects)
@@ -410,6 +425,27 @@ export function Projects({ onOpen, onNew }: { onOpen: (id: string) => void; onNe
       active = false
     }
   }, [ownerKey, retry])
+  // Optimistic delete: the card goes at once and comes back in place if the server refuses.
+  async function remove(project: Project) {
+    const index = projects.findIndex(row => row.job_id === project.job_id)
+    setProjects(rows => rows.filter(row => row.job_id !== project.job_id))
+    try {
+      await deleteProject(project.job_id)
+      try {
+        sessionStorage.removeItem(`bharat-sourcer:job:${project.job_id}`)
+      } catch {
+        /* nothing saved */
+      }
+      toast('Project deleted')
+    } catch (cause) {
+      setProjects(rows =>
+        rows.some(row => row.job_id === project.job_id)
+          ? rows
+          : [...rows.slice(0, Math.max(0, index)), project, ...rows.slice(Math.max(0, index))],
+      )
+      toast(cause instanceof Error ? cause.message : 'Could not delete the project. Please try again.', 'error')
+    }
+  }
   async function loadMore() {
     if (!cursor || moreBusy) return
     setMoreBusy(true)
@@ -446,7 +482,7 @@ export function Projects({ onOpen, onNew }: { onOpen: (id: string) => void; onNe
         <div className="demo-alert">Sample projects · Local demo only · No verified prices or evidence</div>
       )}
       {!ready || (ownerKey && (busy || loadedOwner !== ownerKey) && !error) ? (
-        <p role="status">Loading your projects…</p>
+        <ProjectsSkeleton />
       ) : !identity || identity === 'legacy' ? (
         <section className="projects-empty">
           <span className="empty-symbol">↗</span>
@@ -496,7 +532,7 @@ export function Projects({ onOpen, onNew }: { onOpen: (id: string) => void; onNe
                     key={project.job_id}
                     project={project}
                     onOpen={() => onOpen(project.job_id)}
-                    onDeleted={() => setProjects(rows => rows.filter(row => row.job_id !== project.job_id))}
+                    onDelete={() => void remove(project)}
                   />
                 ))}
               </div>

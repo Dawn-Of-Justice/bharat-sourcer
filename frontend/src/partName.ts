@@ -31,3 +31,13 @@ export function partName(item: BomItem, spec: BuyableSpec | null | undefined = i
   const name = [...identity, category === 'other' ? '' : category].filter(Boolean).join(' ')
   return name ? `${name} (${item.raw_name})` : item.raw_name
 }
+
+// Up to two initials for a part shown without a drawing ("ESP32 board" -> "EB").
+export function partInitials(name: string): string {
+  const words = name.match(/[A-Za-z0-9]+/g) ?? []
+  const letters = words
+    .slice(0, 2)
+    .map(word => word[0])
+    .join('')
+  return (letters || '?').toUpperCase()
+}

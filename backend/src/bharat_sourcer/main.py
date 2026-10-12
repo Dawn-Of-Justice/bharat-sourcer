@@ -24,6 +24,7 @@ from bharat_sourcer.identity import Principal
 from bharat_sourcer.images import PartImageService
 from bharat_sourcer.jobs import JobError, JobService
 from bharat_sourcer.markets import MarketsService, add_markets_routes
+from bharat_sourcer.overview import OverviewService
 from bharat_sourcer.plans import cart_plans, set_import_references
 from bharat_sourcer.schemas import (
     CartPlans,
@@ -40,6 +41,7 @@ from bharat_sourcer.schemas import (
     ImageRequest,
     Job,
     PartImages,
+    ProjectOverview,
     ProposalDecision,
     RefreshOffers,
     ResistorInputs,
@@ -61,6 +63,7 @@ from bharat_sourcer.sourcing.research import GeminiResearch
 from bharat_sourcer.sourcing.service import GeminiDiscovery, SourcingService
 from bharat_sourcer.sourcing.spec_writer import GeminiSpecWriter
 from bharat_sourcer.sourcing.trust import TrustChecker
+from bharat_sourcer.spec_fill import GeminiSpecFiller
 from bharat_sourcer.storage import FirestoreJobStore, JobStore, MemoryJobStore, StorageError
 from bharat_sourcer.streaming import snapshots
 
@@ -135,6 +138,9 @@ def create_app(
         sourcing_parallelism=settings.sourcing_parallelism,
         seller_penalty_inr=settings.recommend_seller_penalty_inr,
         gemini_budget_usd=settings.job_gemini_budget_usd,
+        spec_filler=GeminiSpecFiller(settings, cache=shared_cache)
+        if live_extractor and settings.spec_fill_enabled and settings.gemini_api_key
+        else None,
     )
 
     conversation = ConversationService(
@@ -187,7 +193,7 @@ def create_app(
 
     app = FastAPI(
         title="Bharat Sourcer API",
-        version="0.31.1",
+        version="0.32.0",
         description=(
             "Demo or live YouTube and project-page extraction with optional Firestore job "
             "persistence."
@@ -200,6 +206,13 @@ def create_app(
     images = PartImageService(settings, service)
     code_patches = CodePatchService(settings, service, SafeFetcher())
     app.state.code_patch_service = code_patches
+    # Project overview: drawn after extraction (inline locally, its own Cloud Task in cloud
+    # mode so the extraction task stays short) and on the owner's request.
+    overviews = OverviewService(settings, service, SafeFetcher(), cache=shared_cache)
+    if dispatcher:
+        overviews.launch = lambda key: dispatcher.notify(key, "overview")
+    service.overviews = overviews
+    app.state.overview_service = overviews
     compiles = CompileService(settings, service, code_patches)
     app.state.compile_service = compiles
     app.state.image_service = images
@@ -358,6 +371,27 @@ def create_app(
     @app.post("/v1/jobs/{job_id}/parts/{line_id}/image", response_model=PartImages, tags=["images"])
     def fallback_image(job_id: str, line_id: str, body: ImageRequest, x_job_token: JobToken = None):
         return images.resolve(job_id, line_id, x_job_token, body.failed_urls, generate=True)
+
+    @app.get(
+        "/v1/jobs/{job_id}/overview",
+        response_model=ProjectOverview,
+        tags=["overview"],
+        responses={404: {"model": ErrorResponse}},
+    )
+    def get_overview(job_id: str, x_job_token: JobToken = None):
+        return overviews.get(job_id, x_job_token)
+
+    @app.post(
+        "/v1/jobs/{job_id}/overview",
+        response_model=ProjectOverview,
+        tags=["overview"],
+        responses={404: {"model": ErrorResponse}, 409: {"model": ErrorResponse}},
+    )
+    def request_overview(job_id: str, tasks: BackgroundTasks, x_job_token: JobToken = None):
+        overview, started = overviews.request(job_id, x_job_token)
+        if started:
+            dispatch(tasks, overviews.generate, job_id, "overview")
+        return overview
 
     @app.post(
         "/v1/jobs/{job_id}/lines/{line_id}/code-patch",
@@ -586,7 +620,7 @@ def create_app(
     @app.post("/internal/work", include_in_schema=False)
     def internal_work(body: Work, request: Request):
         authorize_worker(request)
-        complete = work_once(service, conversation, body)
+        complete = work_once(service, conversation, body, overviews)
         return JSONResponse(status_code=200 if complete else 503, content={"complete": complete})
 
     @app.post("/internal/sweep", include_in_schema=False)

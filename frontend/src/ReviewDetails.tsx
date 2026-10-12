@@ -1,4 +1,13 @@
-import { evidenceText, type BomItem, type Evidence, type EvidenceSource, type Job, type SourceReport } from './api'
+import {
+  evidenceText,
+  type BomItem,
+  type Evidence,
+  type EvidenceSource,
+  type Job,
+  type PartSpecs,
+  type SourceReport,
+  type SpecEvidence,
+} from './api'
 
 // Review-page details from multi-source intake (docs/contracts/multi-source-intake.md). All are rule or model outputs, not verified facts.
 const sourceLabel: Record<EvidenceSource, string> = {
@@ -36,6 +45,47 @@ export function EvidenceList({ evidence }: { evidence: Evidence[] }) {
           </li>
         ))}
       </ul>
+    </div>
+  )
+}
+
+// Spec values the model decided from the project context are suggestions, never verified facts.
+export const AI_DECIDED = 'AI decided from the project'
+const specSource: Record<SpecEvidence['source'], string> = {
+  part_name: 'part name',
+  user: 'yours',
+  seller_title: 'seller title',
+  seller_property: 'seller property',
+  seller_table: 'seller table',
+  catalog: 'typical module value',
+  ai_inferred: AI_DECIDED,
+}
+// One spec value's origin, with AI-decided values in muted text.
+export function SpecSourceText({ source }: { source: SpecEvidence['source'] }) {
+  return source === 'ai_inferred' ? (
+    <span className="ai-decided">{AI_DECIDED}</span>
+  ) : (
+    <>{specSource[source] ?? String(source).replaceAll('_', ' ')}</>
+  )
+}
+
+// Required values the source did not state, filled by the model (items[].ai_specs). Only used to fill gaps.
+export function AiSpecs({ specs }: { specs?: PartSpecs | null }) {
+  const rows = Object.entries(specs ?? {}).filter(([, value]) => value !== null && value !== undefined && value !== '')
+  if (!rows.length) return null
+  return (
+    <div className="ai-specs">
+      <strong>Values the source did not state</strong>
+      <dl>
+        {rows.map(([field, value]) => (
+          <div key={field}>
+            <dt>{field.replaceAll('_', ' ')}</dt>
+            <dd>
+              {String(value)} <span className="ai-decided">{AI_DECIDED}</span>
+            </dd>
+          </div>
+        ))}
+      </dl>
     </div>
   )
 }

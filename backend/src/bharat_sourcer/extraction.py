@@ -647,7 +647,10 @@ class GeminiExtractor:
         )
 
     def _fetch(self, source: ProjectPageSource) -> tuple[str, str]:
-        """Return the URL evidence cites and the document's bounded readable text."""
+        """Return the URL evidence cites and the document's bounded readable text.
+
+        A GitHub repository without a README returns empty text (its code is read instead).
+        """
         unavailable = "The project page could not be fetched; check that it is public"
         for index, candidate in enumerate(source.fetch_urls):
             try:
@@ -663,8 +666,9 @@ class GeminiExtractor:
                 continue
             if page.status != 200:
                 if source.kind == "github" and page.status == 404:
-                    unavailable = "No README was found in this public GitHub repository"
-                elif page.status in REFUSED_STATUSES:
+                    # No README: the caller reads the repository's code files instead.
+                    return source.url, ""
+                if page.status in REFUSED_STATUSES:
                     unavailable = (
                         f"The site refused automated access (HTTP {page.status}) to this "
                         "project page; try a video or GitHub source instead"
@@ -682,6 +686,16 @@ class GeminiExtractor:
 
     def _extract_page(self, source: ProjectPageSource) -> ExtractionResult:
         document_url, text = self._fetch(source)
+        if not text:
+            # A GitHub repository without a README: its code files are still evidence.
+            code_items = read_code(self.fetcher, source.url, "")
+            if not code_items:
+                raise ExtractionError(
+                    "SOURCE_UNAVAILABLE",
+                    "This public GitHub repository has no README and no code files that "
+                    "name a known part library or board",
+                )
+            return ExtractionResult(items=[], code_items=code_items)
         document = {
             "source_kind": source.kind,
             "source_url": source.url,

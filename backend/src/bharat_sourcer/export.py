@@ -11,6 +11,7 @@ from bharat_sourcer.schemas import (
     Model,
     PartRequirement,
     ProjectContext,
+    ProjectOverview,
     Report,
     ReportLine,
     Status,
@@ -44,6 +45,8 @@ class SharedProject(Model):
     items: list[BomItem]
     report: Report | None = None
     notice: str
+    # The AI-drawn parts and wiring (docs/contracts/project-overview.md), never verified.
+    overview: ProjectOverview | None = None
 
 
 def redact(job: Job) -> SharedProject:
@@ -64,6 +67,7 @@ def redact(job: Job) -> SharedProject:
         items=[item.model_copy(deep=True) for item in job.items],
         report=report,
         notice=(DEMO_NOTICE + " " if job.demo else "") + SNAPSHOT_NOTICE,
+        overview=job.overview.model_copy(deep=True) if job.overview else None,
     )
 
 

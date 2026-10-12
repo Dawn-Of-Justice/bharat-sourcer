@@ -3,7 +3,7 @@
   "info": {
     "title": "Bharat Sourcer API",
     "description": "Demo or live YouTube and project-page extraction with optional Firestore job persistence.",
-    "version": "0.31.1"
+    "version": "0.32.0"
   },
   "paths": {
     "/v1/session/guest": {
@@ -2107,6 +2107,170 @@
         }
       }
     },
+    "/v1/jobs/{job_id}/overview": {
+      "get": {
+        "tags": [
+          "overview"
+        ],
+        "summary": "Get Overview",
+        "operationId": "get_overview_v1_jobs__job_id__overview_get",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Job Id"
+            }
+          },
+          {
+            "name": "x-job-token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Job-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectOverview"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "overview"
+        ],
+        "summary": "Request Overview",
+        "operationId": "request_overview_v1_jobs__job_id__overview_post",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Job Id"
+            }
+          },
+          {
+            "name": "x-job-token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Job-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectOverview"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          }
+        }
+      }
+    },
     "/v1/jobs/{job_id}/lines/{line_id}/code-patch": {
       "post": {
         "tags": [
@@ -4000,6 +4164,9 @@
             "default": false
           },
           "specs": {
+            "$ref": "#/components/schemas/PartSpecs"
+          },
+          "ai_specs": {
             "$ref": "#/components/schemas/PartSpecs"
           },
           "requirements": {
@@ -6831,6 +6998,16 @@
                 "type": "null"
               }
             ]
+          },
+          "overview": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ProjectOverview"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "additionalProperties": false,
@@ -7751,6 +7928,253 @@
         ],
         "title": "OrderPlanSeller"
       },
+      "OverviewJudge": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "passed",
+              "issues",
+              "skipped",
+              "pending"
+            ],
+            "title": "Status",
+            "default": "pending"
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 300
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Summary"
+          },
+          "confirmed": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Confirmed",
+            "default": 0
+          },
+          "unverified": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Unverified",
+            "default": 0
+          },
+          "disputed": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Disputed",
+            "default": 0
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "OverviewJudge"
+      },
+      "PartBody": {
+        "properties": {
+          "width_mm": {
+            "type": "number",
+            "maximum": 300.0,
+            "minimum": 1.0,
+            "title": "Width Mm"
+          },
+          "height_mm": {
+            "type": "number",
+            "maximum": 300.0,
+            "minimum": 1.0,
+            "title": "Height Mm"
+          },
+          "color": {
+            "type": "string",
+            "enum": [
+              "blue",
+              "black",
+              "green",
+              "red",
+              "purple",
+              "yellow",
+              "white",
+              "silver",
+              "orange"
+            ],
+            "title": "Color"
+          },
+          "shape": {
+            "type": "string",
+            "enum": [
+              "rect",
+              "rounded",
+              "round",
+              "pouch"
+            ],
+            "title": "Shape"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "width_mm",
+          "height_mm",
+          "color",
+          "shape"
+        ],
+        "title": "PartBody"
+      },
+      "PartChip": {
+        "properties": {
+          "label": {
+            "type": "string",
+            "maxLength": 24,
+            "minLength": 1,
+            "title": "Label"
+          },
+          "x": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "X"
+          },
+          "y": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Y"
+          },
+          "w": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "W"
+          },
+          "h": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "H"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "label",
+          "x",
+          "y",
+          "w",
+          "h"
+        ],
+        "title": "PartChip",
+        "description": "The main chip or module can, as fractions of the body."
+      },
+      "PartConnector": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "usb_c",
+              "micro_usb",
+              "jst",
+              "barrel",
+              "screw_terminal",
+              "pin_socket"
+            ],
+            "title": "Type"
+          },
+          "side": {
+            "type": "string",
+            "enum": [
+              "top",
+              "bottom",
+              "left",
+              "right"
+            ],
+            "title": "Side"
+          },
+          "position": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Position"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "type",
+          "side",
+          "position"
+        ],
+        "title": "PartConnector"
+      },
+      "PartFeature": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "screen",
+              "led",
+              "button",
+              "antenna",
+              "touch_pad",
+              "lens",
+              "label"
+            ],
+            "title": "Type"
+          },
+          "x": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "X"
+          },
+          "y": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Y"
+          },
+          "w": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "W"
+          },
+          "h": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "H"
+          },
+          "text": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 24,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Text"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "type",
+          "x",
+          "y",
+          "w",
+          "h"
+        ],
+        "title": "PartFeature"
+      },
       "PartImage": {
         "properties": {
           "url": {
@@ -8244,6 +8668,188 @@
         "type": "object",
         "title": "PartSpecs"
       },
+      "PartVisual": {
+        "properties": {
+          "line_id": {
+            "type": "string",
+            "maxLength": 20,
+            "minLength": 1,
+            "title": "Line Id"
+          },
+          "label": {
+            "type": "string",
+            "maxLength": 40,
+            "minLength": 1,
+            "title": "Label"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "board",
+              "module",
+              "sensor",
+              "display",
+              "battery",
+              "switch",
+              "passive",
+              "connector",
+              "other"
+            ],
+            "title": "Kind"
+          },
+          "body": {
+            "$ref": "#/components/schemas/PartBody"
+          },
+          "chip": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PartChip"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "features": {
+            "items": {
+              "$ref": "#/components/schemas/PartFeature"
+            },
+            "type": "array",
+            "maxItems": 8,
+            "title": "Features"
+          },
+          "connectors": {
+            "items": {
+              "$ref": "#/components/schemas/PartConnector"
+            },
+            "type": "array",
+            "maxItems": 4,
+            "title": "Connectors"
+          },
+          "headers": {
+            "items": {
+              "$ref": "#/components/schemas/PinHeader"
+            },
+            "type": "array",
+            "maxItems": 4,
+            "title": "Headers"
+          },
+          "pin_source": {
+            "type": "string",
+            "enum": [
+              "code",
+              "datasheet_knowledge",
+              "ai_inferred"
+            ],
+            "title": "Pin Source",
+            "default": "ai_inferred"
+          },
+          "verdict": {
+            "type": "string",
+            "enum": [
+              "confirmed",
+              "unverified",
+              "disputed"
+            ],
+            "title": "Verdict",
+            "default": "unverified"
+          },
+          "verdict_reason": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 300
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verdict Reason"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "line_id",
+          "label",
+          "kind",
+          "body"
+        ],
+        "title": "PartVisual"
+      },
+      "Pin": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 16,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "power",
+              "ground",
+              "gpio",
+              "analog",
+              "i2c",
+              "spi",
+              "uart",
+              "control",
+              "other"
+            ],
+            "title": "Kind"
+          },
+          "functions": {
+            "items": {
+              "type": "string",
+              "maxLength": 24,
+              "minLength": 1
+            },
+            "type": "array",
+            "maxItems": 4,
+            "title": "Functions"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "name",
+          "kind"
+        ],
+        "title": "Pin",
+        "description": "One header pin; `name` is the silkscreen label wires refer to."
+      },
+      "PinHeader": {
+        "properties": {
+          "side": {
+            "type": "string",
+            "enum": [
+              "top",
+              "bottom",
+              "left",
+              "right"
+            ],
+            "title": "Side"
+          },
+          "pins": {
+            "items": {
+              "$ref": "#/components/schemas/Pin"
+            },
+            "type": "array",
+            "maxItems": 40,
+            "minItems": 1,
+            "title": "Pins"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "side",
+          "pins"
+        ],
+        "title": "PinHeader"
+      },
       "PlanPick": {
         "properties": {
           "line_id": {
@@ -8460,6 +9066,97 @@
           "projects"
         ],
         "title": "ProjectList"
+      },
+      "ProjectOverview": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "ready",
+              "failed",
+              "stale"
+            ],
+            "title": "Status"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 300
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          },
+          "generated_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Generated At"
+          },
+          "items_hash": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 64
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Items Hash"
+          },
+          "demo": {
+            "type": "boolean",
+            "title": "Demo",
+            "default": false
+          },
+          "parts": {
+            "items": {
+              "$ref": "#/components/schemas/PartVisual"
+            },
+            "type": "array",
+            "maxItems": 40,
+            "title": "Parts"
+          },
+          "wiring": {
+            "items": {
+              "$ref": "#/components/schemas/WireConnection"
+            },
+            "type": "array",
+            "maxItems": 120,
+            "title": "Wiring"
+          },
+          "judge": {
+            "$ref": "#/components/schemas/OverviewJudge"
+          },
+          "notes": {
+            "items": {
+              "type": "string",
+              "maxLength": 300,
+              "minLength": 1
+            },
+            "type": "array",
+            "maxItems": 10,
+            "title": "Notes"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "title": "ProjectOverview",
+        "description": "AI-inferred drawing of the project; never verified against the physical board."
       },
       "ProjectSummary": {
         "properties": {
@@ -10286,6 +10983,16 @@
           "notice": {
             "type": "string",
             "title": "Notice"
+          },
+          "overview": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ProjectOverview"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "additionalProperties": false,
@@ -10518,7 +11225,8 @@
               "seller_title",
               "seller_property",
               "seller_table",
-              "catalog"
+              "catalog",
+              "ai_inferred"
             ],
             "title": "Source"
           },
@@ -11376,6 +12084,133 @@
         "additionalProperties": false,
         "type": "object",
         "title": "WhatChanges"
+      },
+      "WireConnection": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^W\\d{2,3}$",
+            "title": "Id"
+          },
+          "from": {
+            "$ref": "#/components/schemas/WireEnd"
+          },
+          "to": {
+            "$ref": "#/components/schemas/WireEnd"
+          },
+          "signal": {
+            "type": "string",
+            "enum": [
+              "power",
+              "ground",
+              "i2c_sda",
+              "i2c_scl",
+              "spi",
+              "uart",
+              "digital",
+              "analog",
+              "pwm",
+              "other"
+            ],
+            "title": "Signal"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 40
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "code",
+              "description",
+              "ai_inferred"
+            ],
+            "title": "Source",
+            "default": "ai_inferred"
+          },
+          "evidence": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evidence"
+          },
+          "verdict": {
+            "type": "string",
+            "enum": [
+              "confirmed",
+              "unverified",
+              "disputed"
+            ],
+            "title": "Verdict",
+            "default": "unverified"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 300
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "problems": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 6,
+            "title": "Problems"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "from",
+          "to",
+          "signal"
+        ],
+        "title": "WireConnection"
+      },
+      "WireEnd": {
+        "properties": {
+          "line_id": {
+            "type": "string",
+            "maxLength": 20,
+            "minLength": 1,
+            "title": "Line Id"
+          },
+          "pin": {
+            "type": "string",
+            "maxLength": 16,
+            "minLength": 1,
+            "title": "Pin"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "line_id",
+          "pin"
+        ],
+        "title": "WireEnd"
       },
       "ZoomRequest": {
         "properties": {

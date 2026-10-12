@@ -2,6 +2,7 @@ import { ApiError } from './api'
 import { reviewItems, reviewJobFields } from './previewReview'
 import type { ChatMessage, Job, JobStatus, BomItem, ProjectUnderstanding } from './api'
 import { planPreview, previewCities, previewReportRequest } from './previewReport'
+import { sampleOverview, sampleOverviewState } from './previewOverview'
 
 const items: BomItem[] = ['Sample controller board', 'Sample sensor module', 'Jumper wires'].map((raw_name, index) => ({
   line_id: 'L0' + (index + 1),
@@ -118,6 +119,18 @@ let job: Job = {
   chat_error: null,
   actions: [],
   ...reviewJobFields,
+  overview:
+    status === 'awaiting_confirmation'
+      ? sampleOverviewState(new URLSearchParams(window.location.search).get('overview'))
+      : null,
+}
+// A pending sample overview becomes ready a few seconds after it started, so the skeleton and polling can be seen.
+let overviewReadyAt = job.overview?.status === 'pending' ? Date.now() + 6000 : 0
+function settleOverview() {
+  if (job.overview?.status === 'pending' && Date.now() >= overviewReadyAt) {
+    job.overview = sampleOverview()
+    job.updated_at = new Date().toISOString()
+  }
 }
 
 // Dummy chat states for the results stage: a pending spec proposal and an approved refresh with its completion message.
@@ -214,6 +227,7 @@ function jsonBody<T>(options: RequestInit): T {
 }
 
 export function previewRequest(path: string, options: RequestInit): unknown {
+  settleOverview()
   // The extra dummy project cards open the one sample project.
   path = path.replace(/^\/v1\/jobs\/ui-preview-[a-z]+(?=\/|$)/, '/v1/jobs/ui-preview')
   if (path === '/v1/countries')
@@ -430,6 +444,16 @@ export function previewRequest(path: string, options: RequestInit): unknown {
       ]
     }
     return structuredClone({ ...job, updated_at: new Date().toISOString() })
+  }
+  if (path === '/v1/jobs/ui-preview/overview') {
+    if (
+      options.method === 'POST' &&
+      (!job.overview || job.overview.status === 'failed' || job.overview.status === 'stale')
+    ) {
+      job.overview = sampleOverviewState('pending')
+      overviewReadyAt = Date.now() + 4000
+    }
+    return structuredClone(job.overview)
   }
   const reportReply = previewReportRequest(path, options, job)
   if (reportReply !== undefined || (path === '/v1/jobs/ui-preview/share' && options.method === 'DELETE'))

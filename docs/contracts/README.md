@@ -1,4 +1,12 @@
-# Implemented API contract — v0.31.1
+# Implemented API contract — v0.32.0
+
+v0.32.0 adds the [project overview](project-overview.md): after extraction the backend
+draws every part (body, chip, features, connectors, pin headers) and the wiring with
+Gemini from the parts list and the project's code, checks it with deterministic rules
+and a separate AI judge (confirmed / unverified / disputed per part, pin header and
+wire), and stores it as `job.overview` (also on share links). New routes:
+`GET /v1/jobs/{job_id}/overview` and owner-only `POST /v1/jobs/{job_id}/overview`
+(redraw). Draft edits make it `stale`. AI-inferred, never verified against the board.
 
 v0.31.1: the guest session cookie is now `__session` (the only cookie Firebase Hosting
 forwards, for `https://bharatsource.web.app`); `bs_guest` cookies are still read until they
@@ -190,6 +198,7 @@ and `/openapi.json` are public. `/health` is the cloud-safe liveness path.
 The API base URL has no `/api` suffix.
 
 [Backend roadmap](backend-roadmap.md) tracks agreed features still to implement.
+[Project overview](project-overview.md): AI-drawn parts and wiring for the review step, checked by rules and an AI judge (`job.overview`, `GET`/`POST /v1/jobs/{job_id}/overview`).
 [Export and share](export-and-share.md): PDF, printable HTML report and revocable read-only share links.
 [Frontend quickstart](frontend-quickstart.md) includes local configuration, request code,
 credentials guidance and the integration acceptance checklist.

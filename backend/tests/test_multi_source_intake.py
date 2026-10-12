@@ -354,6 +354,107 @@ def test_github_readme_without_quoted_parts_still_returns_code_hints():
     assert result.items == [] and len(result.code_items) == 2
 
 
+TREE = "https://api.github.com/repos/maker/synthetic-station/git/trees/HEAD?recursive=1"
+DESK_SKETCH = """// Synthetic sketch
+#include <Wire.h>
+#include <Adafruit_SH110X.h>
+#define TOUCH_PIN 7
+"""
+
+
+def tree(*entries):
+    """A synthetic GitHub git/trees response: (path, size) blobs."""
+    body = {"tree": [{"path": p, "type": "blob", "size": size} for p, size in entries]}
+    return page(TREE, json.dumps(body), content_type="application/json")
+
+
+def test_github_without_readme_reads_code_from_the_repository_tree():
+    fetcher = FakeFetcher(
+        {
+            TREE: tree(
+                ("photo.jpeg", 1000),
+                ("deskbuddy.ino", 3000),
+                ("libraries/Other/Other.cpp", 100),  # vendored: skipped
+                ("huge.cpp", 900_000),  # over the size limit: skipped
+            ),
+            RAW + "deskbuddy.ino": page(RAW + "deskbuddy.ino", DESK_SKETCH),
+        }
+    )
+
+    def no_model(request):
+        raise AssertionError("No README means no page model call")
+
+    result = extractor(fetcher, no_model).extract(REPO)
+    assert result.items == []
+    assert [x.raw_name for x in result.code_items] == ["SH1106 OLED display"]
+    evidence = result.code_items[0].evidence[0]
+    assert (evidence.file, evidence.line) == ("deskbuddy.ino", 3)
+    raw_calls = [url for url in fetcher.calls if url.startswith(RAW)]
+    readmes = [RAW + name for name in ("README.md", "readme.md", "README.rst", "README")]
+    assert raw_calls == [*readmes, RAW + "deskbuddy.ino"]
+    assert TREE in fetcher.calls
+
+
+def test_github_without_readme_or_code_reports_a_clear_message():
+    fetcher = FakeFetcher({TREE: tree(("photo.jpeg", 1000), ("case.stl", 2000))})
+    with pytest.raises(ExtractionError) as captured:
+        extractor(fetcher, lambda request: gemini({"items": []})).extract(REPO)
+    assert captured.value.code == "SOURCE_UNAVAILABLE"
+    assert "no README and no code files" in captured.value.message
+
+
+def test_github_tree_is_a_fallback_when_conventional_guesses_miss():
+    fetcher = FakeFetcher(
+        {
+            RAW + "README.md": page(RAW + "README.md", "# Synthetic"),
+            TREE: tree(("firmware/station_v2.ino", 500)),
+            RAW + "firmware/station_v2.ino": page(RAW + "firmware/station_v2.ino", SKETCH),
+        }
+    )
+    result = extractor(fetcher, lambda request: gemini({"items": []})).extract(REPO)
+    assert [x.raw_name for x in result.code_items] == [
+        "BME280 sensor module",
+        "SH1106 OLED display",
+    ]
+    # The tree is not read when a conventional file already gave code.
+    fetcher = FakeFetcher({RAW + "src/main.cpp": page(RAW + "src/main.cpp", SKETCH)})
+    read_code(fetcher, REPO, "# Synthetic README")
+    assert TREE not in fetcher.calls
+
+
+def test_github_tree_failures_fall_back_to_conventional_guesses():
+    for response in (FetchError("Robots policy prevents verification"), page(TREE, "{bad")):
+        fetcher = FakeFetcher(
+            {TREE: response, RAW + "src/main.cpp": page(RAW + "src/main.cpp", SKETCH)}
+        )
+        items = read_code(fetcher, REPO, "")
+        assert [x.raw_name for x in items] == ["BME280 sensor module", "SH1106 OLED display"]
+
+
+def test_intake_reports_readme_less_github_source_as_read():
+    from bharat_sourcer.intake import extract_sources
+
+    class Extractor:
+        def extract(self, url):
+            if url == REPO:
+                return ExtractionResult(
+                    items=[], code_items=read_code(FakeFetcher(CODE_ONLY), REPO, "")
+                )
+            return ExtractionResult(
+                items=[item("1.3 inch I2C OLED display module (SH1106)", [video_ev()])]
+            )
+
+    CODE_ONLY = {
+        TREE: tree(("deskbuddy.ino", 3000)),
+        RAW + "deskbuddy.ino": page(RAW + "deskbuddy.ino", DESK_SKETCH),
+    }
+    result = extract_sources(Extractor(), [VIDEO, REPO])
+    github = result.sources[1]
+    assert (github.status, github.item_count, github.code_item_count) == ("read", 0, 1)
+    assert [x.raw_name for x in result.items] == ["1.3 inch I2C OLED display module (SH1106)"]
+    assert {e.source for e in result.items[0].evidence} == {"video", "code"}
+
+
 # --- Fusion, look-alikes and confidence -----------------------------------------------
 
 
@@ -411,8 +512,11 @@ def test_generic_name_takes_part_number_and_distinct_parts_stay_apart():
         "L298N driver",
     ]
     assert [x.line_id for x in fused] == ["L01", "L02", "L03"]
-    # HC-SR04P is a look-alike group member, so even two agreeing sources still say check.
-    assert fused[0].confidence == "check"
+    # HC-SR04P is a look-alike group member: two agreeing sources still cap it at likely.
+    assert fused[0].confidence == "likely"
+    assert fused[0].confidence_reason == (
+        "Easily confused with HC-SR04; confirm the exact variant."
+    )
     assert [x.name for x in fused[0].lookalikes] == ["HC-SR04"]
 
 
@@ -434,10 +538,34 @@ def test_single_source_confidence_levels():
             ]
         ]
     )
-    assert [x.confidence for x in fused] == ["likely", "likely", "check", "check"]
+    # A look-alike alone is likely (confirm the variant); no evidence stays check.
+    assert [x.confidence for x in fused] == ["likely", "likely", "likely", "check"]
     assert "quote checked" in fused[0].confidence_reason
     assert "BMP280" in fused[2].confidence_reason
+    assert "confirm the exact variant" in fused[2].confidence_reason
     assert fused[2].lookalikes[0].origin == "table" and fused[2].lookalikes[0].note
+
+
+def test_generic_suggested_battery_folds_into_the_specific_battery():
+    lipo = item("3.7V 400mAh LiPo battery (602530)", [video_ev("00:30")])
+    generic = item("Rechargeable battery", [video_ev("02:10")], qty=1, qty_source="inferred")
+    switch = item("Slide switch", [video_ev("00:40")], qty_source="inferred")
+    fused = fuse([[lipo, generic, switch]])
+    assert [x.raw_name for x in fused] == ["3.7V 400mAh LiPo battery (602530)", "Slide switch"]
+    assert [x.line_id for x in fused] == ["L01", "L02"]
+    assert [e.timestamp for e in fused[0].evidence] == ["00:30", "02:10"]
+    assert (fused[0].qty, fused[0].qty_source) == (1, "stated")
+
+
+def test_battery_lines_that_are_not_duplicates_stay_apart():
+    coin = item("CR2032 coin cell", [video_ev()])
+    lipo = item("3.7V LiPo battery", [video_ev("00:20")])
+    generic = item("Battery", [video_ev("00:30")], qty_source="inferred")
+    # Two specific batteries: the generic suggestion is ambiguous and is kept.
+    assert len(fuse([[coin, lipo, generic]])) == 3
+    # A stated generic line is the source's own line, not a suggestion.
+    stated = item("Rechargeable battery", [video_ev("00:30")])
+    assert len(fuse([[lipo, stated]])) == 2
 
 
 def test_code_include_alone_is_verified():

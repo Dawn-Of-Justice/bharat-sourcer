@@ -52,6 +52,8 @@ export function PartThumb({
 }) {
   const [remote, setRemote] = useState<PartImages | null>(null)
   const [failed, setFailed] = useState<string[]>([])
+  // The thumbnail shimmers until its image has loaded, then fades in.
+  const [loaded, setLoaded] = useState<string | null>(null)
   const requested = useRef(false)
   const local = lineImages(line, job.demo)
   const allowed = (url: string) => secureLink(url) || /^data:image\/(?:svg\+xml,|jpeg;base64,)/i.test(url)
@@ -99,9 +101,22 @@ export function PartThumb({
       : image?.label
   // The name sits beside the thumbnail, so the image itself is decorative; its label is a tooltip.
   return (
-    <span className="pp-row-thumb" title={label ?? undefined}>
+    <span
+      className={`pp-row-thumb${image && loaded !== image.url ? ' is-loading' : ''}`}
+      title={label ?? undefined}
+      aria-busy={image && loaded !== image.url ? true : undefined}
+    >
       {image ? (
-        <img key={image.url} src={image.url} alt="" loading="lazy" referrerPolicy="no-referrer" onError={imageFailed} />
+        <img
+          key={image.url}
+          className={loaded === image.url ? 'is-loaded' : undefined}
+          src={image.url}
+          alt=""
+          loading="lazy"
+          referrerPolicy="no-referrer"
+          onLoad={() => setLoaded(image.url)}
+          onError={imageFailed}
+        />
       ) : null}
     </span>
   )

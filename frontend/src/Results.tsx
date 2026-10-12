@@ -23,6 +23,9 @@ import { NeedsList, SummaryBand } from './ReportSummary'
 import { orderNeeds } from './orderNeeds'
 import CodePatchView from './CodePatch'
 import { SellerIdentity } from './SellerIdentity'
+import { AiSpecs, SpecSourceText } from './ReviewDetails'
+import { Spinner } from './Skeleton'
+import { useToast } from './toastContext'
 
 function Assessment({ value }: { value: ResearchAssessment }) {
   return (
@@ -302,17 +305,25 @@ function OfferList({
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [acknowledge, setAcknowledge] = useState<Record<string, boolean>>({})
+  // Optimistic selection: the chosen card shows as selected while the server confirms; a failure rolls it back.
+  const [optimistic, setOptimistic] = useState<{ url: string | null } | null>(null)
+  const toast = useToast()
   const offers = offersOf(line)
   const editable = !job.demo && !readOnly
   const needsValue = (line.buyable_spec ?? line.item.buyable_spec)?.needs_value === true
+  const selectedUrl = optimistic ? optimistic.url : line.selected_offer_url
   async function choose(url: string | null, changes = false, assessment = false) {
     setBusy(true)
     setError('')
+    setOptimistic({ url })
     try {
       onJob(await selectOffer(job.job_id, token, line.item.line_id, url, changes, assessment))
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Could not update the selection.')
+      const message = cause instanceof Error ? cause.message : 'Could not update the selection.'
+      setError(message)
+      toast(message, 'error')
     } finally {
+      setOptimistic(null)
       setBusy(false)
     }
   }
@@ -356,151 +367,155 @@ function OfferList({
     )
   return (
     <div className="offers-list">
-      {offers.map(offer => {
-        const selected = line.selected_offer_url === offer.url
-        const grade = offer.compatibility?.grade
-        const changeNeeded = grade === 'B'
-        const judged = !grade && (offer.match?.status === 'exact' || offer.match?.status === 'compatible')
-        const aiChoice = !grade && !judged && offer.research_assessment?.status === 'potential_match'
-        // eslint-disable-next-line react-hooks/purity -- offer freshness is evaluated at render time by design
-        const fresh = Date.now() - Date.parse(offer.checked_at) < 24 * 60 * 60 * 1000
-        const eligible =
-          editable && offer.stock === 'in_stock' && fresh && (grade === 'A' || changeNeeded || judged || aiChoice)
-        const acknowledged = acknowledge[offer.url] ?? false
-        const recommended = line.recommendation?.offer_url === offer.url
-        const canToggle =
-          editable && !busy && (selected || (eligible && (!(changeNeeded || aiChoice || needsValue) || acknowledged)))
-        const toggleSelection = () => {
-          if (!editable || busy) return
-          if (canToggle) {
-            onNotice(null)
-            void (selected ? choose(null) : choose(offer.url, changeNeeded, aiChoice))
-            return
+      <div className="offers-track snap-row" tabIndex={0} role="group" aria-label="Seller offers">
+        {offers.map(offer => {
+          const selected = selectedUrl === offer.url
+          const grade = offer.compatibility?.grade
+          const changeNeeded = grade === 'B'
+          const judged = !grade && (offer.match?.status === 'exact' || offer.match?.status === 'compatible')
+          const aiChoice = !grade && !judged && offer.research_assessment?.status === 'potential_match'
+          // eslint-disable-next-line react-hooks/purity -- offer freshness is evaluated at render time by design
+          const fresh = Date.now() - Date.parse(offer.checked_at) < 24 * 60 * 60 * 1000
+          const eligible =
+            editable && offer.stock === 'in_stock' && fresh && (grade === 'A' || changeNeeded || judged || aiChoice)
+          const acknowledged = acknowledge[offer.url] ?? false
+          const recommended = line.recommendation?.offer_url === offer.url
+          const canToggle =
+            editable && !busy && (selected || (eligible && (!(changeNeeded || aiChoice || needsValue) || acknowledged)))
+          const toggleSelection = () => {
+            if (!editable || busy) return
+            if (canToggle) {
+              onNotice(null)
+              void (selected ? choose(null) : choose(offer.url, changeNeeded, aiChoice))
+              return
+            }
+            onNotice({
+              title: !fresh ? 'Quote expired' : 'Can’t select this offer',
+              message: !fresh
+                ? 'This quote is over 24 hours old. Refresh the quote to select this seller.'
+                : offer.stock !== 'in_stock'
+                  ? 'Stock is not confirmed for this offer. Please choose an in-stock option.'
+                  : !eligible
+                    ? 'Compatibility is unresolved. Review the research notes or choose another offer.'
+                    : 'Please tick the review checkbox before selecting this offer.',
+            })
           }
-          onNotice({
-            title: !fresh ? 'Quote expired' : 'Can’t select this offer',
-            message: !fresh
-              ? 'This quote is over 24 hours old. Refresh the quote to select this seller.'
-              : offer.stock !== 'in_stock'
-                ? 'Stock is not confirmed for this offer. Please choose an in-stock option.'
-                : !eligible
-                  ? 'Compatibility is unresolved. Review the research notes or choose another offer.'
-                  : 'Please tick the review checkbox before selecting this offer.',
-          })
-        }
-        return (
-          <article
-            className={`offer${selected ? ' is-selected' : ''}${editable && !busy ? ' is-interactive' : ''}`}
-            key={offer.url}
-            onClick={event => {
-              const control = (event.target as Element).closest('a, button, input, label, select, textarea, details')
-              if (control && event.currentTarget.contains(control)) return
-              toggleSelection()
-            }}
-          >
-            {editable && (
-              <button
-                type="button"
-                className="offer-card-toggle"
-                aria-label={`Select offer from ${offer.seller_name || offer.seller}: ${offer.title}`}
-                aria-pressed={selected}
-                disabled={busy}
-                onClick={toggleSelection}
-              />
-            )}
-            <div>
-              {(recommended || selected) && (
-                <div className="offer-card-status">
-                  <span aria-hidden="true">{selected ? '✓' : '★'}</span>
-                  {selected ? (recommended ? 'Selected · Recommended' : 'Selected') : 'Recommended'}
+          return (
+            <article
+              className={`offer${selected ? ' is-selected' : ''}${editable && !busy ? ' is-interactive' : ''}`}
+              key={offer.url}
+              onClick={event => {
+                const control = (event.target as Element).closest('a, button, input, label, select, textarea, details')
+                if (control && event.currentTarget.contains(control)) return
+                toggleSelection()
+              }}
+            >
+              {editable && (
+                <button
+                  type="button"
+                  className="offer-card-toggle"
+                  aria-label={`Select offer from ${offer.seller_name || offer.seller}: ${offer.title}`}
+                  aria-pressed={selected}
+                  disabled={busy}
+                  onClick={toggleSelection}
+                />
+              )}
+              <div>
+                {(recommended || selected) && (
+                  <div className="offer-card-status">
+                    {busy && selected ? <Spinner /> : <span aria-hidden="true">{selected ? '✓' : '★'}</span>}
+                    {selected ? (recommended ? 'Selected · Recommended' : 'Selected') : 'Recommended'}
+                  </div>
+                )}
+                <SellerIdentity offer={offer} compact />
+                <span className="offer-title">
+                  {offer.title}
+                  {offer.match?.variant ? ` · Variant: ${offer.match.variant}` : ''}
+                </span>
+                <span>
+                  <PackPrice offer={offer} />, {offer.stock.replaceAll('_', ' ')}, checked{' '}
+                  {checkedAgo(offer.checked_at)}
+                </span>
+                <div className="plan-chips">
+                  <GradeChip compatibility={offer.compatibility} match={offer.match} />
                 </div>
-              )}
-              <SellerIdentity offer={offer} compact />
-              <span className="offer-title">
-                {offer.title}
-                {offer.match?.variant ? ` · Variant: ${offer.match.variant}` : ''}
-              </span>
-              <span>
-                <PackPrice offer={offer} />, {offer.stock.replaceAll('_', ' ')}, checked {checkedAgo(offer.checked_at)}
-              </span>
-              <div className="plan-chips">
-                <GradeChip compatibility={offer.compatibility} match={offer.match} />
-              </div>
-              {offer.spec_conflicts?.length ? (
-                <details className="spec-conflicts">
-                  <summary>
-                    Sellers disagree on {offer.spec_conflicts.map(conflict => conflict.field).join(', ')} · values
-                    unknown
-                  </summary>
-                  <ul>
-                    {offer.spec_conflicts.map(conflict => (
-                      <li key={conflict.field}>
-                        <strong>{conflict.field}: unknown</strong>
-                        <ul>
-                          {conflict.candidates.map((candidate, index) => (
-                            <li key={index}>
-                              {candidate.value} · {candidate.source.replaceAll('_', ' ')}
-                              {candidate.locator ? ` (${candidate.locator})` : ''}
-                            </li>
-                          ))}
-                        </ul>
-                      </li>
-                    ))}
-                  </ul>
-                </details>
-              ) : null}
-              {changeNeeded && (
-                <p>
-                  Required changes: {offer.compatibility?.changes?.join('; ') || 'Review the report before accepting.'}
-                </p>
-              )}
-              {offer.research_assessment && <Assessment value={offer.research_assessment} />}
-              {eligible && !selected && (changeNeeded || aiChoice || needsValue) && (
-                <label className="offer-ack">
-                  <input
-                    type="checkbox"
-                    checked={acknowledged}
-                    onChange={event => setAcknowledge(rows => ({ ...rows, [offer.url]: event.target.checked }))}
-                  />{' '}
-                  I reviewed{' '}
-                  {needsValue
-                    ? 'the missing value and will verify this listing before ordering'
-                    : changeNeeded
-                      ? 'the required changes'
-                      : 'the AI assessment, conditions and unknowns'}
-                </label>
-              )}
-              {editable && selected && changeNeeded && line.selection_source !== 'user' && !line.changes_accepted && (
-                <>
+                {offer.spec_conflicts?.length ? (
+                  <details className="spec-conflicts">
+                    <summary>
+                      Sellers disagree on {offer.spec_conflicts.map(conflict => conflict.field).join(', ')} · values
+                      unknown
+                    </summary>
+                    <ul>
+                      {offer.spec_conflicts.map(conflict => (
+                        <li key={conflict.field}>
+                          <strong>{conflict.field}: unknown</strong>
+                          <ul>
+                            {conflict.candidates.map((candidate, index) => (
+                              <li key={index}>
+                                {candidate.value} · <SpecSourceText source={candidate.source} />
+                                {candidate.locator ? ` (${candidate.locator})` : ''}
+                              </li>
+                            ))}
+                          </ul>
+                        </li>
+                      ))}
+                    </ul>
+                  </details>
+                ) : null}
+                {changeNeeded && (
+                  <p>
+                    Required changes:{' '}
+                    {offer.compatibility?.changes?.join('; ') || 'Review the report before accepting.'}
+                  </p>
+                )}
+                {offer.research_assessment && <Assessment value={offer.research_assessment} />}
+                {eligible && !selected && (changeNeeded || aiChoice || needsValue) && (
                   <label className="offer-ack">
                     <input
                       type="checkbox"
                       checked={acknowledged}
                       onChange={event => setAcknowledge(rows => ({ ...rows, [offer.url]: event.target.checked }))}
                     />{' '}
-                    I reviewed the required changes
+                    I reviewed{' '}
+                    {needsValue
+                      ? 'the missing value and will verify this listing before ordering'
+                      : changeNeeded
+                        ? 'the required changes'
+                        : 'the AI assessment, conditions and unknowns'}
                   </label>
-                  <button
-                    type="button"
-                    className="nav-cta"
-                    disabled={busy || !acknowledged}
-                    onClick={() => void choose(offer.url, true)}
-                  >
-                    Keep this offer
-                  </button>
-                </>
-              )}
-            </div>
-            <footer className="offer-actions">
-              {secureLink(offer.url) && (
-                <a href={offer.url} target="_blank" rel="noopener noreferrer">
-                  Seller page ↗
-                </a>
-              )}
-            </footer>
-          </article>
-        )
-      })}
+                )}
+                {editable && selected && changeNeeded && line.selection_source !== 'user' && !line.changes_accepted && (
+                  <>
+                    <label className="offer-ack">
+                      <input
+                        type="checkbox"
+                        checked={acknowledged}
+                        onChange={event => setAcknowledge(rows => ({ ...rows, [offer.url]: event.target.checked }))}
+                      />{' '}
+                      I reviewed the required changes
+                    </label>
+                    <button
+                      type="button"
+                      className="nav-cta"
+                      disabled={busy || !acknowledged}
+                      onClick={() => void choose(offer.url, true)}
+                    >
+                      Keep this offer
+                    </button>
+                  </>
+                )}
+              </div>
+              <footer className="offer-actions">
+                {secureLink(offer.url) && (
+                  <a href={offer.url} target="_blank" rel="noopener noreferrer">
+                    Seller page ↗
+                  </a>
+                )}
+              </footer>
+            </article>
+          )
+        })}
+      </div>
       <small className="offers-note">Prices are what each seller's page showed when checked.</small>
       {error && (
         <p className="form-error" role="alert">
@@ -682,6 +697,7 @@ function PartDetail({
           <summary>Specs and requirements</summary>
           <div className="pp-section-body">
             <BuyingSpec spec={spec} warning={false} />
+            <AiSpecs specs={line.item.ai_specs} />
             {live && (
               <RequirementReview
                 key={JSON.stringify(line.item.requirements ?? [])}
