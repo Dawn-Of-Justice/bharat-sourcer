@@ -37,33 +37,36 @@ export function ProjectHero({ job }: { job: Job }) {
   return (
     <section className="po-hero" aria-labelledby="po-hero-title">
       <h2 id="po-hero-title">How it works</h2>
-      {summary && (
-        <div className="po-hero-summary">
-          <p ref={summaryRef} id="po-hero-how" className={`po-hero-how${expanded ? '' : ' is-clamped'}`}>
-            {summary}
-          </p>
-          {(overflows || expanded) && (
-            <button
-              type="button"
-              className="pp-text-button po-hero-more"
-              aria-expanded={expanded}
-              aria-controls="po-hero-how"
-              onClick={() => setExpanded(open => !open)}
-            >
-              {expanded ? 'Show less' : 'Read more'}
-            </button>
-          )}
-        </div>
-      )}
-      {chips.length > 0 && (
-        <ul className="po-hero-chips">
-          {chips.map(([label, value]) => (
-            <li key={label}>
-              <span>{label}</span> {value}
-            </li>
-          ))}
-        </ul>
-      )}
+      <div className="po-hero-body">
+        {summary && (
+          <div className="po-hero-summary">
+            <p ref={summaryRef} id="po-hero-how" className={`po-hero-how${expanded ? '' : ' is-clamped'}`}>
+              {summary}
+            </p>
+            {(overflows || expanded) && (
+              <button
+                type="button"
+                className="pp-text-button po-hero-more"
+                aria-expanded={expanded}
+                aria-controls="po-hero-how"
+                onClick={() => setExpanded(open => !open)}
+              >
+                {expanded ? 'Show less' : 'Read more'}
+              </button>
+            )}
+          </div>
+        )}
+        {chips.length > 0 && (
+          <dl className="po-hero-facts">
+            {chips.map(([label, value]) => (
+              <div key={label}>
+                <dt>{label}</dt>
+                <dd>{value}</dd>
+              </div>
+            ))}
+          </dl>
+        )}
+      </div>
     </section>
   )
 }
