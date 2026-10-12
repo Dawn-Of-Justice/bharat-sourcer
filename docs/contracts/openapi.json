@@ -3,7 +3,7 @@
   "info": {
     "title": "Bharat Sourcer API",
     "description": "Demo or live YouTube and project-page extraction with optional Firestore job persistence.",
-    "version": "0.32.0"
+    "version": "0.33.0"
   },
   "paths": {
     "/v1/session/guest": {
@@ -9079,6 +9079,22 @@
             ],
             "title": "Status"
           },
+          "stage": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "parts",
+                  "wiring",
+                  "checking"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stage"
+          },
           "message": {
             "anyOf": [
               {
@@ -9148,6 +9164,14 @@
             "type": "array",
             "maxItems": 10,
             "title": "Notes"
+          },
+          "resolved": {
+            "items": {
+              "$ref": "#/components/schemas/ResolvedSpec"
+            },
+            "type": "array",
+            "maxItems": 120,
+            "title": "Resolved"
           }
         },
         "additionalProperties": false,
@@ -10247,6 +10271,54 @@
           "question"
         ],
         "title": "ResistorQuestion"
+      },
+      "ResolvedSpec": {
+        "properties": {
+          "line_id": {
+            "type": "string",
+            "title": "Line Id"
+          },
+          "field": {
+            "type": "string",
+            "maxLength": 40,
+            "title": "Field"
+          },
+          "value": {
+            "type": "string",
+            "maxLength": 200,
+            "title": "Value"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 300
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "drawing",
+              "wiring"
+            ],
+            "title": "Source"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "line_id",
+          "field",
+          "value",
+          "source"
+        ],
+        "title": "ResolvedSpec",
+        "description": "An open spec question the drawing settled, so the maker is not asked it."
       },
       "SafetyFlag": {
         "properties": {

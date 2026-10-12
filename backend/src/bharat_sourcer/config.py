@@ -30,8 +30,11 @@ DEFAULT_SITE_THINKING: dict[str, ThinkingLevel] = {
     "discovery": "low",
     "judge": "low",
     "markets": "low",
-    # The overview judge (overview.py) returns short verdicts; generation keeps the default.
+    # Overview (overview.py): part drawings, wiring and judge verdicts are recall and short
+    # structured output; low thinking took the Desk Buddy wiring from 53 s to 8 s.
+    "overview": "low",
     "overview_judge": "low",
+    "overview_wiring": "low",
     "spec": "low",
     "spec_fill": "low",
 }
@@ -137,10 +140,23 @@ class Settings(BaseSettings):
     # Spec fill (spec_fill.py): one call per extracted job decides required spec fields
     # (pinout, logic voltage, ...) from project context instead of asking. Site `spec_fill`.
     spec_fill_enabled: bool = True
-    # Project overview (overview.py): after extraction, one call (site `overview`) draws
-    # every part and the wiring from the project code, then a separate judge call (site
-    # `overview_judge`) marks each part, pin header and wire confirmed/unverified/disputed.
+    # Project overview (overview.py): after extraction, parallel calls (site `overview`) draw
+    # the parts two lines at a time, one call (site `overview_wiring`) wires them, and judge
+    # calls (site `overview_judge`) mark each part, pin header and wire
+    # confirmed/unverified/disputed. Each part shows on the review page as soon as it is drawn.
     overview_enabled: bool = True
+    # Tried once when an overview call's model stays overloaded (429/5xx or timeouts) after
+    # its retries; empty turns the fallback off.
+    overview_fallback_model: str | None = Field(
+        default="gemini-3.5-flash-lite", pattern=r"^[a-zA-Z0-9.-]+$"
+    )
+    # Gemini sites served by Vertex AI (gemini_api.py) when gcp_project is set: same models,
+    # billed to the project, authorised by the service account (roles/aiplatform.user), on
+    # a separate capacity pool from the API key. Refusals fall back to the API key.
+    gemini_vertex_sites: list[str] = Field(
+        default_factory=lambda: ["overview", "overview_wiring", "overview_judge"]
+    )
+    vertex_location: str = Field(default="global", pattern=r"^[a-z0-9-]+$")
     # Opt-in Gemini extras (gemini_extras.py); each has its own per-owner daily quota.
     explain_enabled: bool = False
     explain_daily_limit: int = Field(default=10, ge=1, le=200)

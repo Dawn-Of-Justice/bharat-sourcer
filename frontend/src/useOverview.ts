@@ -7,7 +7,16 @@ import { useToast } from './toastContext'
 
 // Changes whenever the backend's overview changes; a local reply is shown only until then.
 const overviewKey = (overview: ProjectOverview | null | undefined) =>
-  overview ? [overview.status, overview.generated_at, overview.items_hash].join('|') : 'none'
+  overview
+    ? [
+        overview.status,
+        overview.stage,
+        overview.generated_at,
+        overview.items_hash,
+        overview.parts.length,
+        overview.wiring.length,
+      ].join('|')
+    : 'none'
 
 export function useOverview(job: Job, token: string) {
   const key = overviewKey(job.overview)
@@ -18,7 +27,7 @@ export function useOverview(job: Job, token: string) {
   const pending = overview?.status === 'pending'
   const toast = useToast()
 
-  // Poll while the drawing is generated; the job stream may also deliver it first.
+  // Poll while the drawing is generated (parts arrive a group at a time); the job stream may deliver them first.
   useEffect(() => {
     if (!pending) return
     let alive = true
@@ -29,7 +38,7 @@ export function useOverview(job: Job, token: string) {
         },
         () => undefined,
       )
-    }, 3000)
+    }, 1500)
     return () => {
       alive = false
       clearInterval(timer)

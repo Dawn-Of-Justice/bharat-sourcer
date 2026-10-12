@@ -40,6 +40,7 @@ import {
   type BomItem,
   type BuyableSpec,
   type Job,
+  type ResolvedSpec,
 } from './api'
 import { ChatDrawer, SidePanel, StageAnnouncer, StageSteps, stepOf } from './ProjectFrame'
 import { NeedsList, safetyNeeds, type Need } from './ReportSummary'
@@ -224,6 +225,16 @@ const sourceFields: Record<LinkSource, { label: string; placeholder: string }> =
 }
 
 const bareHost = (url: URL) => url.hostname.toLowerCase().replace(/^www\./, '')
+// A short readable name for a source link: "github.com/owner/repo", "youtube.com/watch".
+function sourceLabel(link: string) {
+  try {
+    const url = new URL(link)
+    const path = url.pathname.split('/').filter(Boolean).slice(0, 2).join('/')
+    return path ? `${bareHost(url)}/${path}` : bareHost(url)
+  } catch {
+    return link
+  }
+}
 function linkKind(url: URL): LinkSource | 'hackster' | null {
   const host = bareHost(url)
   if (['youtube.com', 'm.youtube.com', 'youtu.be'].includes(host)) return 'youtube'
@@ -953,10 +964,12 @@ function ReviewPartPanel({
   row,
   update,
   drawing,
+  settled,
 }: {
   row: ReviewRow
   update: (id: string, patch: Partial<ReviewRow>) => void
   drawing?: ReactNode
+  settled?: ResolvedSpec[]
 }) {
   const id = row.item.line_id
   return (
@@ -1008,6 +1021,20 @@ function ReviewPartPanel({
         <div className="pp-part-callout pp-part-callout-input">
           <strong>Still unclear</strong>
           <p>{row.item.clarifications.map(entry => entry.question).join(' ')}</p>
+        </div>
+      )}
+      {!!settled?.length && (
+        <div className="pp-settled">
+          <strong>Worked out from the drawing</strong>
+          <dl>
+            {settled.map(entry => (
+              <div key={entry.field} title={entry.reason ?? undefined}>
+                <dt>{entry.field.replace(/_/g, ' ')}</dt>
+                <dd>{entry.value}</dd>
+              </div>
+            ))}
+          </dl>
+          <small>AI-inferred from the code and wiring; edit the buying spec if your part differs.</small>
         </div>
       )}
       <ConflictNotes item={row.item} />
@@ -1206,10 +1233,14 @@ function Review({
   const reports = job.source_reports ?? []
   const skipped = reports.filter(report => report.status === 'failed').length
   const { overview } = drawing
-  // Drawings come from the overview (one per physical part); a pending overview shows skeletons instead.
-  const visuals = new Map(
-    (overview && overview.status !== 'pending' ? overview.parts : []).map(part => [part.line_id, part]),
-  )
+  // Drawings come from the overview (one per physical part). While it is drawn, finished parts show at once and
+  // the rest keep a skeleton until every part call is back.
+  const visuals = new Map((overview && overview.status !== 'failed' ? overview.parts : []).map(p => [p.line_id, p]))
+  const drawingParts = drawing.pending && (overview?.stage ?? 'parts') === 'parts'
+  const checked = overview?.status !== 'pending'
+  const settled = new Map<string, ResolvedSpec[]>()
+  for (const entry of overview?.resolved ?? [])
+    settled.set(entry.line_id, [...(settled.get(entry.line_id) ?? []), entry])
   const safetyLines = new Set((job.safety_flags ?? []).flatMap(flag => flag.line_ids))
   // At most one pill per card: safety > the review note > the drawing check (disputed, then unverified).
   const cardStatus = (row: ReviewRow): { label: string; tone: 'danger' | 'input' | 'bad' | 'warn' } | null => {
@@ -1217,7 +1248,7 @@ function Review({
     if (safetyLines.has(row.item.line_id)) return { label: 'Safety check', tone: 'danger' }
     const note = reviewNote(row)
     if (note) return { label: note, tone: 'input' }
-    const verdict = visuals.get(row.item.line_id)?.verdict
+    const verdict = checked ? visuals.get(row.item.line_id)?.verdict : undefined
     if (verdict === 'disputed') return { label: 'Check this', tone: 'bad' }
     if (verdict === 'unverified') return { label: 'Double-check pins', tone: 'warn' }
     return null
@@ -1292,9 +1323,14 @@ function Review({
           )}
         </div>
         <p className="pp-parts-help">Mark what you already have. We search sellers only after you confirm.</p>
-        {drawing.pending && (
-          <p className="visually-hidden" role="status">
-            Drawing your parts…
+        {drawing.pending && overview && (
+          <p className="pp-draw-progress" role="status">
+            <Spinner />
+            {overview.stage === 'wiring'
+              ? 'Working out the wiring…'
+              : overview.stage === 'checking'
+                ? 'Double-checking pins and wires…'
+                : `Drawing your parts… ${overview.parts.length} ready`}
           </p>
         )}
         {!overview && (
@@ -1348,12 +1384,12 @@ function Review({
                   onClick={() => onOpenPart(active ? null : row.item.line_id)}
                 />
                 <div className="pp-card-art" aria-hidden="true">
-                  {drawing.pending ? (
-                    <span className="sk pp-card-sk" />
-                  ) : visual ? (
+                  {visual ? (
                     <Suspense fallback={<span className="sk pp-card-sk" />}>
-                      <PartArt part={visual} />
+                      <PartArt key={visual.line_id} part={visual} />
                     </Suspense>
+                  ) : drawingParts ? (
+                    <span className="sk pp-card-sk" />
                   ) : (
                     <span className="part-placeholder">{partInitials(name)}</span>
                   )}
@@ -1400,27 +1436,46 @@ function Review({
             )
           })}
         </ul>
-        {overview && overview.status !== 'pending' && overview.status !== 'failed' && overview.wiring.length > 0 && (
+        {overview && overview.status !== 'failed' && overview.wiring.length > 0 && (
           <Suspense fallback={null}>
             <WiringSection overview={overview} />
           </Suspense>
         )}
         {(!!job.project?.assumptions?.length || reports.length > 0 || job.video_meta) && (
-          <details className="pp-section pp-origin">
-            <summary>
-              Where these came from
-              {reports.length > 0 && (
-                <span>
-                  {reports.length - skipped} {reports.length - skipped === 1 ? 'source' : 'sources'} read
-                  {skipped ? `, ${skipped} skipped` : ''}
-                </span>
-              )}
-            </summary>
-            <div className="pp-section-body">
-              <ProjectCard project={job.project} assumptionsOnly />
-              <SourcesCard job={job} />
-            </div>
-          </details>
+          <section className="pp-origin" aria-labelledby="pp-origin-title">
+            <h2 id="pp-origin-title">Where these came from</h2>
+            {reports.length > 0 && (
+              <ul className="pp-origin-links">
+                {reports.map(report => (
+                  <li key={report.url} className={report.status === 'failed' ? 'is-skipped' : undefined}>
+                    <a href={report.url} target="_blank" rel="noopener noreferrer">
+                      {sourceLabel(report.url)} <span aria-hidden="true">↗</span>
+                    </a>
+                    <small>
+                      {report.status === 'read'
+                        ? `${report.item_count} ${report.item_count === 1 ? 'part' : 'parts'}`
+                        : 'Skipped'}
+                    </small>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <details className="pp-section">
+              <summary>
+                Assumptions and source details
+                {reports.length > 0 && (
+                  <span>
+                    {reports.length - skipped} {reports.length - skipped === 1 ? 'source' : 'sources'} read
+                    {skipped ? `, ${skipped} skipped` : ''}
+                  </span>
+                )}
+              </summary>
+              <div className="pp-section-body">
+                <ProjectCard project={job.project} assumptionsOnly />
+                <SourcesCard job={job} />
+              </div>
+            </details>
+          </section>
         )}
         <div className="pp-confirm">
           {guest && (
@@ -1468,6 +1523,7 @@ function Review({
       >
         {shown && (
           <ReviewPartPanel
+            settled={settled.get(shown.item.line_id)}
             key={shown.item.line_id}
             row={rows.find(row => row.item.line_id === shown.item.line_id) ?? shown}
             update={update}
