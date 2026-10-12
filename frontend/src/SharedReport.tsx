@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useAccount } from './Account'
 import { ApiError, copyShared, getShared, type Job, type SharedProject } from './api'
 import Results from './Results'
+import { ResultsSkeleton } from './Skeleton'
 
 // Public, read-only report at /shared/<token>. No chat, edit, select, refresh or image-generation
 // controls; "Copy to my projects" (sign-in or guest session) makes an editable copy.
@@ -110,9 +111,7 @@ export default function SharedReport({
             <p role="alert">{error}</p>
           </section>
         ) : !shared || !job ? (
-          <section className="job-panel loading-panel" role="status">
-            <span className="loading-indicator" /> Loading the shared report…
-          </section>
+          <ResultsSkeleton label="Loading the shared report…" />
         ) : (
           <>
             <div className="share-notice" role="note">

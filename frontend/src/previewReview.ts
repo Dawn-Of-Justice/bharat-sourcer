@@ -58,6 +58,8 @@ export function reviewItems(items: BomItem[]): BomItem[] {
         { name: 'Sample sensor B', note: 'Dummy note: same footprint, different chip.', origin: 'table' },
         { name: 'Sample sensor C', note: null, origin: 'ai' },
       ],
+      // Dummy values standing in for the backend's AI-filled required specs.
+      ai_specs: { logic_v: 3.3, interface: 'i2c' },
     },
     {
       ...wires,

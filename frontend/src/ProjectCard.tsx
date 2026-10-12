@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from 'react'
-import { deleteProject, type Project } from './api'
+import { prefetchJob, type Project } from './api'
+import { loadChatPanel, loadResults, preload, usePrefetch } from './prefetch'
 
 type Source = { kind: 'youtube' | 'github' | 'article' | 'link'; label: string }
 
@@ -123,15 +124,14 @@ function projectTitle(project: Project) {
 export default function ProjectCard({
   project,
   onOpen,
-  onDeleted,
+  onDelete,
 }: {
   project: Project
   onOpen: () => void
-  onDeleted: () => void
+  // Removes the card at once; the list restores it if the delete fails.
+  onDelete: () => void
 }) {
   const [confirming, setConfirming] = useState(false)
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState('')
   const source = sourceOf(project.url)
   const [statusLabel, tone] = statuses[project.status] ?? [project.status.replaceAll('_', ' '), 'muted']
   const title = projectTitle(project)
@@ -140,24 +140,20 @@ export default function ProjectCard({
     month: 'short',
     year: 'numeric',
   })
-  async function remove() {
-    setBusy(true)
-    setError('')
+  // Resting on a card fetches its job (and the order plan's code) so opening it paints at once.
+  const prefetch = usePrefetch(() => {
+    let token = ''
     try {
-      await deleteProject(project.job_id)
-      try {
-        sessionStorage.removeItem(`bharat-sourcer:job:${project.job_id}`)
-      } catch {
-        /* nothing saved */
-      }
-      onDeleted()
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Could not delete the project. Please try again.')
-      setBusy(false)
+      token = sessionStorage.getItem(`bharat-sourcer:job:${project.job_id}`) ?? ''
+    } catch {
+      /* storage unavailable */
     }
-  }
+    prefetchJob(project.job_id, token)
+    preload(loadChatPanel)
+    if (project.status === 'done') preload(loadResults)
+  })
   return (
-    <article className={`project-card source-${source.kind}`} aria-busy={busy}>
+    <article className={`project-card source-${source.kind}`} {...prefetch}>
       <div className="project-card-top">
         <span className="project-icon" title={source.label}>
           {sourceIcons[source.kind]}
@@ -186,25 +182,12 @@ export default function ProjectCard({
             <strong>Delete this project?</strong> Its parts list, seller offers, conversation and share link are removed
             for good.
           </p>
-          {error && (
-            <p className="form-error" role="alert">
-              {error}
-            </p>
-          )}
           <div>
-            <button
-              type="button"
-              className="nav-cta"
-              disabled={busy}
-              onClick={() => {
-                setConfirming(false)
-                setError('')
-              }}
-            >
+            <button type="button" className="nav-cta" onClick={() => setConfirming(false)}>
               Cancel
             </button>
-            <button type="button" className="danger-button" disabled={busy} onClick={() => void remove()}>
-              {busy ? 'Deleting…' : 'Delete project'}
+            <button type="button" className="danger-button" onClick={onDelete}>
+              Delete project
             </button>
           </div>
         </div>

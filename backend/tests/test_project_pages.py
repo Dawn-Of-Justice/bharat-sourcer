@@ -346,19 +346,24 @@ def test_github_readme_fallback_and_evidence_url():
     )
     urls = [call[0] for call in fetcher.calls]
     assert urls[:2] == [raw + "README.md", raw + "readme.md"]
-    # Then a bounded set of code and build files on the same raw host (all missing here).
-    assert 2 < len(urls) <= 2 + 8 and all(url.startswith(raw) for url in urls)
+    # Then a bounded set of code and build files on the same raw host (all missing here),
+    # and, since none was a code file, one repository-tree request.
+    tree = "https://api.github.com/repos/maker/synthetic-bot/git/trees/HEAD?recursive=1"
+    assert urls[-1] == tree
+    assert 2 < len(urls) <= 2 + 8 + 1 and all(url.startswith(raw) for url in urls[:-1])
     assert str(items[0].evidence[0].url) == raw + "readme.md"
     assert items[0].qty == 2
 
 
-def test_github_without_readme_is_unavailable():
+def test_github_without_readme_or_code_is_unavailable():
     fetcher = FakeFetcher({})
     with pytest.raises(ExtractionError) as captured:
         extractor(fetcher).extract("https://github.com/maker/synthetic-bot")
     assert captured.value.code == "SOURCE_UNAVAILABLE"
     assert "README" in captured.value.message
-    assert len(fetcher.calls) == len(project_page_source("https://github.com/a/b").fetch_urls)
+    readmes = len(project_page_source("https://github.com/a/b").fetch_urls)
+    # README guesses, one tree request (missing here), then bounded code-file guesses.
+    assert readmes + 1 < len(fetcher.calls) <= readmes + 1 + 8
 
 
 @pytest.mark.parametrize(
@@ -423,8 +428,8 @@ def test_live_api_accepts_project_page_and_rejects_other_hosts():
             "file": None,
             "line": None,
         }
-        # One page quote, ESP32 look-alike variants from the curated table: "check".
-        assert job["items"][0]["confidence"] == "check"
+        # One page quote, ESP32 look-alike variants from the curated table: "likely".
+        assert job["items"][0]["confidence"] == "likely"
         assert job["source_reports"][0]["kind"] == "hackster"
 
 

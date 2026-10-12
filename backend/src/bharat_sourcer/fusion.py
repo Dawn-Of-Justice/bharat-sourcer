@@ -220,7 +220,11 @@ def code_confirms(entry: Entry) -> bool:
 
 
 def assess(entry: Entry) -> None:
-    """Deterministic confidence from evidence: check > verified > likely (first rule wins)."""
+    """Deterministic confidence from evidence (first rule wins).
+
+    check: no evidence or a source conflict. An unconfirmed look-alike caps the line at
+    likely; code or two agreeing sources make it verified; one source is likely.
+    """
     item = entry.item
     origins = {origin(evidence) for evidence in item.evidence}
     if not item.evidence:
@@ -228,8 +232,9 @@ def assess(entry: Entry) -> None:
     elif item.conflicts:
         level, reason = "check", "Sources disagree about this line; review the conflict."
     elif item.lookalikes and not code_confirms(entry):
+        # A look-alike is a warning about the variant, not doubt that the part is used.
         names = ", ".join(lookalike.name for lookalike in item.lookalikes[:3])
-        level, reason = "check", f"Easily confused with {names}; confirm the exact part."
+        level, reason = "likely", f"Easily confused with {names}; confirm the exact variant."
     elif "code" in origins:
         level, reason = "verified", "The project code uses a library or board for this part."
     elif len(origins) >= 2:
@@ -243,12 +248,67 @@ def assess(entry: Entry) -> None:
     item.confidence, item.confidence_reason = level, reason[:300]
 
 
+# Roles a build normally fills with one part. A generic, suggested line in one of these
+# roles ("Rechargeable battery") beside a specific one ("3.7V 400mAh LiPo battery") is the
+# same part named twice, not a second part.
+SINGLE_ROLES = {"battery", "board"}
+BATTERY_WORDS = {"battery", "lipo", "liion", "lithium", "18650", "cell"}
+
+
+def role(item: BomItem) -> str | None:
+    spec = item.buyable_spec
+    if spec is not None and spec.category in SINGLE_ROLES:
+        return spec.category
+    if (spec is None or spec.category == "other") and BATTERY_WORDS & set(tokens(item.raw_name)):
+        return "battery"
+    return None
+
+
+def specific(item: BomItem) -> bool:
+    """True when the name carries a part number or a value (3.7v, 400mah)."""
+    words = compact(item.raw_name).split()
+    return bool(model_codes(item.raw_name)) or any(SPEC_WORD.fullmatch(w) for w in words)
+
+
+def generic_suggestion(item: BomItem) -> bool:
+    return (
+        item.qty_source == "inferred"
+        and not item.user_edited
+        and not item.conflicts
+        and not specific(item)
+    )
+
+
+def drop_generic_duplicates(entries: list[Entry]) -> list[Entry]:
+    """Fold a generic suggested line into the one other line that fills the same role."""
+    roles = [role(entry.item) for entry in entries]
+    dropped: set[int] = set()
+    for index, entry in enumerate(entries):
+        if roles[index] is None or not generic_suggestion(entry.item):
+            continue
+        others = [
+            other
+            for other, value in enumerate(roles)
+            if other != index and other not in dropped and value == roles[index]
+        ]
+        if len(others) != 1:
+            continue  # none, or ambiguous (e.g. a coin cell and a LiPo)
+        target = others[0]
+        if not specific(entries[target].item) and target > index:
+            continue  # two generic lines: keep the first, fold the later one
+        merge(entries[target], entry.item, "same", min(entry.groups))
+        entries[target].groups |= entry.groups
+        dropped.add(index)
+    return [entry for index, entry in enumerate(entries) if index not in dropped]
+
+
 def fuse(groups: list[list[BomItem]]) -> list[BomItem]:
     """Merge per-source BOMs, add table look-alikes and assess confidence.
 
     Lines of the first group keep their order and names; later groups merge into the best
     matching line (one line per source, strongest match first, ties by order) or are
-    appended. Line ids are renumbered L01, L02, ...
+    appended. A generic suggested line that duplicates the only other line in a
+    single-part role (battery, board) is folded into it. Line ids are renumbered L01, L02, ...
     """
     entries: list[Entry] = []
     for index, items in enumerate(groups):
@@ -270,6 +330,7 @@ def fuse(groups: list[list[BomItem]]) -> list[BomItem]:
         for j, item in enumerate(items):
             if j not in used_items:
                 entries.append(Entry(item, {index}, [(source_kind(item), item.raw_name)]))
+    entries = drop_generic_duplicates(entries)
     result = []
     for number, entry in enumerate(entries[:MAX_ITEMS], start=1):
         item = entry.item

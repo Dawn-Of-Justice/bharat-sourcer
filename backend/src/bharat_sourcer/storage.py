@@ -25,6 +25,10 @@ class StoredJob(Model):
     shared_at: datetime | None = None
     # Offer URLs of lines queued for refresh: re-fetched before any paid rediscovery.
     refresh_urls: dict[str, list[str]] | None = None
+    # Project overview drawing (overview.py): the running attempt and when a pending
+    # drawing counts as interrupted (it can then be restarted).
+    overview_run_id: str | None = None
+    overview_lease_until: datetime | None = None
     schema_version: int = Field(default=1, ge=1, le=1)
 
 

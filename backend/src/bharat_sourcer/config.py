@@ -30,7 +30,10 @@ DEFAULT_SITE_THINKING: dict[str, ThinkingLevel] = {
     "discovery": "low",
     "judge": "low",
     "markets": "low",
+    # The overview judge (overview.py) returns short verdicts; generation keeps the default.
+    "overview_judge": "low",
     "spec": "low",
+    "spec_fill": "low",
 }
 
 
@@ -131,6 +134,13 @@ class Settings(BaseSettings):
     # Batched spec writer (sourcing/spec_writer.py): one call per job for lines without an
     # AI buying spec (jobs extracted before specs existed). Site `spec`, low thinking.
     spec_writer_enabled: bool = True
+    # Spec fill (spec_fill.py): one call per extracted job decides required spec fields
+    # (pinout, logic voltage, ...) from project context instead of asking. Site `spec_fill`.
+    spec_fill_enabled: bool = True
+    # Project overview (overview.py): after extraction, one call (site `overview`) draws
+    # every part and the wiring from the project code, then a separate judge call (site
+    # `overview_judge`) marks each part, pin header and wire confirmed/unverified/disputed.
+    overview_enabled: bool = True
     # Opt-in Gemini extras (gemini_extras.py); each has its own per-owner daily quota.
     explain_enabled: bool = False
     explain_daily_limit: int = Field(default=10, ge=1, le=200)

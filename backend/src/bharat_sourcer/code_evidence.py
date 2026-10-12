@@ -3,10 +3,13 @@
 Besides the README, a bounded set of files is read from the same public
 `raw.githubusercontent.com` endpoint through the guarded fetcher: `platformio.ini`,
 `library.json`, `requirements.txt`, the usual Arduino, PlatformIO, CircuitPython and
-MicroPython entry points, and code files the README links to. `#include` lines, Python
-imports, `lib_deps`/dependencies and `board =` targets are mapped to part hints with the
-curated `data/library_parts.json` table. No model is involved, every hint cites
-`file:line`, and code never establishes how many of a part the build uses.
+MicroPython entry points, and code files the README links to. When the repository has no
+README, or none of those guesses is a code file, the file list comes from the repository
+tree (one GitHub REST `git/trees/HEAD` request through the same fetcher, robots and size
+limits). `#include` lines, Python imports, `lib_deps`/dependencies and `board =` targets
+are mapped to part hints with the curated `data/library_parts.json` table. No model is
+involved, every hint cites `file:line`, and code never establishes how many of a part the
+build uses.
 """
 
 import json
@@ -21,6 +24,26 @@ from bharat_sourcer.schemas import BomItem, Evidence
 from bharat_sourcer.sourcing.fetch import FetchError, Page
 
 RAW_HOST = "raw.githubusercontent.com"
+API_HOST = "api.github.com"
+TREE_BYTES = 1_000_000
+MAX_TREE_ENTRIES = 5000
+# Vendored libraries, build output and docs are not the project's own code.
+SKIP_DIRS = {
+    ".git",
+    ".github",
+    ".pio",
+    ".vscode",
+    "build",
+    "doc",
+    "docs",
+    "examples",
+    "lib",
+    "libraries",
+    "node_modules",
+    "test",
+    "tests",
+    "vendor",
+}
 CODE_FILE_BYTES = 200_000
 MAX_CODE_FILES = 8
 MAX_LINES = 5000
@@ -200,22 +223,70 @@ def linked_files(owner: str, repo: str, readme: str) -> list[tuple[str, str]]:
     return result
 
 
-def candidate_files(owner: str, repo: str, readme: str) -> list[tuple[str, str]]:
-    """Bounded, ordered list of (ref, path) to try; most files will simply not exist."""
-    candidates = [("HEAD", "platformio.ini")]
-    candidates += linked_files(owner, repo, readme)[:3]
-    candidates += [
-        ("HEAD", path)
-        for path in (
-            "src/main.cpp",
-            f"{repo}.ino",
-            f"{repo}/{repo}.ino",
-            "code.py",
-            "main.py",
-            "requirements.txt",
-            "library.json",
-        )
-    ]
+def discover_files(fetcher: Fetcher, owner: str, repo: str) -> list[str] | None:
+    """Code and build file paths from the repository tree, most useful first.
+
+    None when the tree could not be read (refused, missing, oversized or malformed).
+    """
+    url = f"https://{API_HOST}/repos/{owner}/{repo}/git/trees/HEAD?recursive=1"
+    try:
+        page = fetcher.get(url, max_bytes=TREE_BYTES)
+    except FetchError:
+        return None
+    if page.status != 200 or (urlsplit(page.url).hostname or "").lower() != API_HOST:
+        return None
+    try:
+        tree = json.loads(page.body.decode("utf-8", errors="replace")).get("tree")
+    except (ValueError, AttributeError):
+        return None
+    if not isinstance(tree, list):
+        return None
+    paths = []
+    for entry in tree[:MAX_TREE_ENTRIES]:
+        if not isinstance(entry, dict) or entry.get("type") != "blob":
+            continue
+        path, size = entry.get("path"), entry.get("size")
+        if not isinstance(path, str) or not wanted(path) or safe_path(path) != path:
+            continue
+        if isinstance(size, int) and size > CODE_FILE_BYTES:
+            continue
+        if any(segment.casefold() in SKIP_DIRS for segment in path.split("/")[:-1]):
+            continue
+        paths.append(path)
+
+    def rank(path: str) -> tuple[int, int, str]:
+        name = basename(path).casefold()
+        kind = 0 if name in BUILD_FILES else 1 if name.endswith(".ino") else 2
+        return kind, path.count("/"), path.casefold()
+
+    return sorted(paths, key=rank)
+
+
+def candidate_files(
+    owner: str, repo: str, readme: str, discovered: list[str] | None = None
+) -> list[tuple[str, str]]:
+    """Bounded, ordered list of (ref, path) to try.
+
+    With `discovered` (paths from the repository tree) the list is the files that exist;
+    otherwise it is conventional guesses, most of which will simply not exist.
+    """
+    if discovered:
+        candidates = [("HEAD", path) for path in discovered]
+    else:
+        candidates = [("HEAD", "platformio.ini")]
+        candidates += linked_files(owner, repo, readme)[:3]
+        candidates += [
+            ("HEAD", path)
+            for path in (
+                "src/main.cpp",
+                f"{repo}.ino",
+                f"{repo}/{repo}.ino",
+                "code.py",
+                "main.py",
+                "requirements.txt",
+                "library.json",
+            )
+        ]
     unique = []
     for candidate in candidates:
         if candidate not in unique and safe_path(candidate[1]):
@@ -226,12 +297,46 @@ def candidate_files(owner: str, repo: str, readme: str) -> list[tuple[str, str]]
 def read_code(fetcher: Fetcher, repository_url: str, readme: str) -> list[BomItem]:
     """Fetch the bounded file list and turn every mapped hint into a code-evidence BOM line.
 
-    Missing, refused (including robots.txt) or oversized files are skipped silently: code
-    evidence is supplementary to the README and never fails a job.
+    Without a README (empty `readme`) the repository tree chooses the files. With one, the
+    README links and conventional names are tried first and the tree is read only when no
+    code file was found that way. Missing, refused (including robots.txt) or oversized
+    files are skipped silently: code evidence is supplementary and never fails a job.
     """
     owner, repo = urlsplit(repository_url).path.strip("/").split("/")[:2]
     items: dict[str, list[Evidence]] = {}
-    for ref, path in candidate_files(owner, repo, readme):
+    no_readme = not readme.strip()
+    discovered = discover_files(fetcher, owner, repo) if no_readme else None
+    tried = candidate_files(owner, repo, readme, discovered)
+    found_code = scan_files(fetcher, owner, repo, tried, items)
+    if not no_readme and not found_code:
+        discovered = discover_files(fetcher, owner, repo)
+        if discovered:
+            extra = [c for c in candidate_files(owner, repo, "", discovered) if c not in tried]
+            scan_files(fetcher, owner, repo, extra, items)
+    return [
+        BomItem(
+            line_id=f"C{index:02d}",
+            raw_name=part,
+            qty=1,
+            qty_source="inferred",
+            qty_reason=QTY_REASON,
+            evidence=evidence,
+        )
+        for index, (part, evidence) in enumerate(items.items(), start=1)
+        if evidence
+    ][:MAX_CODE_ITEMS]
+
+
+def scan_files(
+    fetcher: Fetcher,
+    owner: str,
+    repo: str,
+    candidates: list[tuple[str, str]],
+    items: dict[str, list[Evidence]],
+) -> bool:
+    """Fetch and scan `candidates` into `items`; True when any code file was read."""
+    found_code = False
+    for ref, path in candidates:
         raw = f"https://{RAW_HOST}/{owner}/{repo}/{ref}/{path}"
         try:
             page = fetcher.get(raw, max_bytes=CODE_FILE_BYTES)
@@ -241,6 +346,7 @@ def read_code(fetcher: Fetcher, repository_url: str, readme: str) -> list[BomIte
             continue
         if b"\0" in page.body[:4096]:
             continue
+        found_code = found_code or path.casefold().endswith(CODE_SUFFIXES)
         text = page.body.decode("utf-8", errors="replace")
         for part, number, line, matched in scan(path, text):
             evidence = items.setdefault(part, [])
@@ -260,15 +366,4 @@ def read_code(fetcher: Fetcher, repository_url: str, readme: str) -> list[BomIte
                     line=number,
                 )
             )
-    return [
-        BomItem(
-            line_id=f"C{index:02d}",
-            raw_name=part,
-            qty=1,
-            qty_source="inferred",
-            qty_reason=QTY_REASON,
-            evidence=evidence,
-        )
-        for index, (part, evidence) in enumerate(items.items(), start=1)
-        if evidence
-    ][:MAX_CODE_ITEMS]
+    return found_code

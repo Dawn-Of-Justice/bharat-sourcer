@@ -51,8 +51,18 @@ lines), in this order: `platformio.ini`; up to 3 code files the README links to 
 links or `github.com/<owner>/<repo>/blob/<ref>/<path>`; `..` and odd paths are rejected);
 `src/main.cpp`, `<repo>.ino`, `<repo>/<repo>.ino`, `code.py`, `main.py`,
 `requirements.txt`, `library.json`. Missing (404), robots-blocked, binary or oversized files
-are skipped silently; code never fails a job. If the README itself is missing the job fails
-as before and no code file is fetched.
+are skipped silently; code never fails a job.
+
+When none of those files is a code file (`.ino .cpp .c .h .hpp .py`), or the repository has
+**no README** at all, the file list comes from the repository tree instead: one request to
+`api.github.com/repos/<owner>/<repo>/git/trees/HEAD?recursive=1` through the same guarded
+fetcher (robots, 1 MB limit). Build files come first, then `.ino` sketches, then other code
+files, shallowest first; files over 200 KB and paths under `lib/`, `libraries/`, `.pio/`,
+`examples/`, `test(s)/`, `docs/`, `build/` or `vendor/` are skipped; at most 8 are fetched.
+If the tree cannot be read, the conventional names above are tried. A repository without a
+README makes no page model call: its source report is `read` with `item_count: 0` and
+`code_item_count` set, or the source fails with `SOURCE_UNAVAILABLE` ("no README and no code
+files that name a known part library or board") when no code hint is found.
 
 Deterministic rules, no model call:
 
@@ -129,6 +139,14 @@ is kept (deduplicated, at most 20); requirements and look-alikes are unioned. Qu
 stated count replaces an inferred one; two different stated counts keep the first and add a
 conflict. Line ids are renumbered `L01...`; at most 100 lines.
 
+**Generic suggested duplicates.** After merging, a line is folded into another (evidence,
+requirements and look-alikes kept) when it is a *generic suggestion*: inferred quantity,
+not user-edited, no conflict, and no part number or value in its name. It must fill a
+single-part role (`battery` or `board`, from `buyable_spec.category`; a battery word such
+as battery/LiPo/cell when there is no category) shared with exactly one other line. With two
+or more other lines in that role (a coin cell and a LiPo) nothing is folded. Example:
+"Rechargeable battery" (suggested qty) beside "3.7V 400mAh LiPo battery (602530)".
+
 ### Conflicts
 
 `items[].conflicts[]` (new, default `[]`):
@@ -169,8 +187,10 @@ Look-alikes are warnings, never suggested substitutes.
 
 1. `check`: no evidence.
 2. `check`: any conflict.
-3. `check`: any look-alike, unless code evidence pins the line to exactly one member of
-   each of its look-alike groups (e.g. `Adafruit_BME280.h` or `board = esp32dev`).
+3. `likely` ("Easily confused with X; confirm the exact variant."): any look-alike,
+   unless code evidence pins the line to exactly one member of each of its look-alike
+   groups (e.g. `Adafruit_BME280.h` or `board = esp32dev`). A look-alike is a variant
+   warning, not doubt that the part is used, so it caps the line at `likely`.
 4. `verified`: code evidence (a mapped include, import, dependency or board).
 5. `verified`: evidence from two or more distinct sources (video, video description, each
    page URL, code).

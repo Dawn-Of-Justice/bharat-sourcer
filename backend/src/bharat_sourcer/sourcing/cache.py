@@ -36,6 +36,12 @@ TTL = {
     # item text + project hash -> guarded buyable spec. Derived from that project's text, so
     # only a job with the same item and the same project context can read it.
     "spec": 7 * DAY,
+    # line name + family + missing fields + known values + code quotes + project hash ->
+    # AI-filled required spec values (spec_fill.py); project-derived like "spec".
+    "spec_fill": 7 * DAY,
+    # items hash + code hash -> judged project overview (overview.py). Keyed by the parts
+    # list itself, so only a job with the same lines and the same code can read it.
+    "overview": 7 * DAY,
 }
 NAMESPACES = frozenset(TTL)
 

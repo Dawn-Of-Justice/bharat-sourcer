@@ -35,12 +35,15 @@ export function StageSteps({
   reading,
   viewing,
   onView,
+  onPrefetch,
   action,
 }: {
   job: Job
   reading: string
   viewing: number
   onView: (step: number) => void
+  // Called when the pointer or focus reaches a step button, to preload that step's view.
+  onPrefetch?: (step: number) => void
   action?: ReactNode
 }) {
   const current = stepOf(job)
@@ -68,7 +71,7 @@ export function StageSteps({
             <span className="pp-step-text">
               <strong>{label}</strong>
               {index === current ? (
-                <span role="status" aria-live="polite">
+                <span>
                   {working && <i className="pp-live" aria-hidden="true" />}
                   {stageNote(job, reading)}
                 </span>
@@ -89,6 +92,8 @@ export function StageSteps({
                   className="pp-step-button"
                   aria-pressed={viewing === index}
                   onClick={() => onView(index)}
+                  onPointerEnter={() => onPrefetch?.(index)}
+                  onFocus={() => onPrefetch?.(index)}
                 >
                   {node}
                   {text}
@@ -105,6 +110,16 @@ export function StageSteps({
       </ol>
       {action && <div className="pp-steps-action">{action}</div>}
     </nav>
+  )
+}
+
+// One persistent live region for status changes, so a new step's note is announced even though the step strip
+// re-renders it in a different list item.
+export function StageAnnouncer({ job, reading }: { job: Job; reading: string }) {
+  return (
+    <p className="visually-hidden" role="status" aria-live="polite">
+      {steps[stepOf(job)]}: {stageNote(job, reading)}
+    </p>
   )
 }
 

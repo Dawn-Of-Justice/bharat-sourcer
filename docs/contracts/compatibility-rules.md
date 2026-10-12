@@ -74,6 +74,21 @@ Outcomes:
 - A matched part no longer gets the generic "What must this part do…?" clarification.
 - An ambiguous match pre-fills nothing, so the existing clarifications still ask.
 
+### AI-filled required specs
+
+Fields in a typed family's required list that are still missing after extraction are
+decided by one batched Gemini call per live job (site `spec_fill`, `spec_fill.py`; off in
+demo jobs, without a key, or with `BS_SPEC_FILL_ENABLED=false`) from the project context
+(summary, power, controller, interfaces, assumptions), the line's name and requirements and
+its code-evidence quotes. Values must fit the `PartSpecs` enums and are saved on the line as
+`items[].ai_specs`. `resolve_part` uses them only to fill gaps: user, part-name and
+catalogue values win, and an AI value that conflicts with them is dropped. Each used value
+has a `SpecEvidence` with source `"ai_inferred"` and locator `ai:<line_id>`. Only fields
+still missing afterwards become clarifications. AI values never block an offer: for grading
+they count as unknown (the catalogue rules overlay only user and part-name values). Draft
+edits reuse the saved values without a model call; renaming a line clears them. A failed
+call leaves the questions as before. Results are cached for 7 days (`spec_fill`).
+
 ## 3. Rules engine (M8)
 
 `compat_rules.evaluate(required, offered, context)` compares facts about the BOM's

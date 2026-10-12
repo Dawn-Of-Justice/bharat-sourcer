@@ -161,6 +161,18 @@ export interface BomItem {
   confidence?: 'verified' | 'likely' | 'check' | null
   confidence_reason?: string | null
   buyable_spec?: BuyableSpec | null
+  // Required family specs still missing after extraction, decided by the model from the project context
+  // (docs/contracts/compatibility-rules.md "AI-filled required specs"). Used only to fill gaps; never verified.
+  ai_specs?: PartSpecs | null
+}
+// Typed part facts (PartSpecs in openapi.json); every field is optional and may be null.
+export type PartSpecs = Partial<Record<string, string | number | boolean | null>>
+// Where one spec value came from. 'catalog' is a typical module value; 'ai_inferred' was decided by the model.
+export interface SpecEvidence {
+  field: string
+  value: string
+  source: 'part_name' | 'user' | 'seller_title' | 'seller_property' | 'seller_table' | 'catalog' | 'ai_inferred'
+  locator: string
 }
 
 export type EvidenceSource = NonNullable<Evidence['source']>
@@ -266,12 +278,7 @@ export interface ReportLine {
     checked_at: string
     spec_conflicts?: {
       field: string
-      candidates: {
-        field: string
-        value: string
-        source: 'part_name' | 'user' | 'seller_title' | 'seller_property' | 'seller_table'
-        locator: string
-      }[]
+      candidates: SpecEvidence[]
     }[]
     compatibility: {
       status: string
@@ -413,9 +420,48 @@ export async function getBackendMode() {
   return health.mode
 }
 
-export function getJob(id: string, token: string) {
-  return request<Job>(`/v1/jobs/${encodeURIComponent(id)}`, {}, token)
+// A tiny in-memory cache (about 30 s) for GET job and the first page of projects. Hover/focus prefetch fills it so a
+// project opens with an instant first paint; the page still fetches or streams a fresh snapshot straight after.
+// clearApiCache() runs whenever the signed-in identity changes, so one account never sees another's cached data.
+const CACHE_TTL_MS = 30_000
+type CacheEntry<T> = { at: number; promise: Promise<T>; value?: T }
+const jobCache = new Map<string, CacheEntry<Job>>()
+let projectsCache: CacheEntry<ProjectPage> | null = null
+const fresh = <T>(entry: CacheEntry<T> | null | undefined) =>
+  entry && Date.now() - entry.at < CACHE_TTL_MS ? entry : null
+
+export function clearApiCache() {
+  jobCache.clear()
+  projectsCache = null
 }
+
+const fetchJob = (id: string, token: string) => request<Job>(`/v1/jobs/${encodeURIComponent(id)}`, {}, token)
+
+export function getJob(id: string, token: string) {
+  const promise = fetchJob(id, token)
+  promise.then(rememberJob, () => undefined)
+  return promise
+}
+// Keeps the latest snapshot (from a fetch, the live stream or an action reply) for the next visit.
+export function rememberJob(job: Job) {
+  jobCache.set(job.job_id, { at: Date.now(), promise: Promise.resolve(job), value: job })
+}
+export function prefetchJob(id: string, token: string) {
+  if (fresh(jobCache.get(id))) return
+  const promise = fetchJob(id, token)
+  const entry: CacheEntry<Job> = { at: Date.now(), promise }
+  jobCache.set(id, entry)
+  promise.then(
+    job => {
+      entry.value = job
+    },
+    () => {
+      if (jobCache.get(id) === entry) jobCache.delete(id)
+    },
+  )
+}
+// A recent snapshot (value) or an in-flight prefetch (promise) for this job, if any.
+export const cachedJob = (id: string) => fresh(jobCache.get(id))
 
 export function updateProject(id: string, token: string, changes: { title?: string; description?: string }) {
   return request<Job>(
@@ -494,12 +540,43 @@ export interface Project {
 export const getSession = () => request<Session>('/v1/session')
 export const startGuest = () => request<Session>('/v1/session/guest', { method: 'POST' })
 export const logoutSession = () => request<void>('/v1/session/logout', { method: 'POST' })
-export const listProjects = (cursor?: string) =>
-  request<{ projects: Project[]; next_cursor: string | null }>(
-    '/v1/projects?limit=20' + (cursor ? '&cursor=' + encodeURIComponent(cursor) : ''),
+export type ProjectPage = { projects: Project[]; next_cursor: string | null }
+const fetchProjects = (cursor?: string) =>
+  request<ProjectPage>('/v1/projects?limit=20' + (cursor ? '&cursor=' + encodeURIComponent(cursor) : ''))
+export function listProjects(cursor?: string) {
+  const promise = fetchProjects(cursor)
+  if (!cursor)
+    promise.then(
+      page => {
+        projectsCache = { at: Date.now(), promise: Promise.resolve(page), value: page }
+      },
+      () => undefined,
+    )
+  return promise
+}
+export function prefetchProjects() {
+  if (fresh(projectsCache)) return
+  const promise = fetchProjects()
+  const entry: CacheEntry<ProjectPage> = { at: Date.now(), promise }
+  projectsCache = entry
+  promise.then(
+    page => {
+      entry.value = page
+    },
+    () => {
+      if (projectsCache === entry) projectsCache = null
+    },
   )
-export const deleteProject = (id: string) =>
-  request<void>('/v1/projects/' + encodeURIComponent(id), { method: 'DELETE' })
+}
+export const cachedProjects = () => fresh(projectsCache)
+export const invalidateProjects = () => {
+  projectsCache = null
+}
+export function deleteProject(id: string) {
+  invalidateProjects()
+  jobCache.delete(id)
+  return request<void>('/v1/projects/' + encodeURIComponent(id), { method: 'DELETE' })
+}
 export const claimProject = (id: string, token?: string) =>
   request('/v1/projects/' + encodeURIComponent(id) + '/claim', {
     method: 'POST',
@@ -1027,3 +1104,75 @@ export async function exportBlob(path: string, token?: string): Promise<Blob> {
   }
   return response.blob()
 }
+
+// Project overview (docs/contracts/project-overview.md): AI-drawn parts and wiring, checked by a second AI call.
+// Nothing here is verified against the physical board.
+export type OverviewVerdict = 'confirmed' | 'unverified' | 'disputed'
+export type PartColor = 'blue' | 'black' | 'green' | 'red' | 'purple' | 'yellow' | 'white' | 'silver' | 'orange'
+export type BoardSide = 'top' | 'bottom' | 'left' | 'right'
+export interface OverviewPin {
+  name: string
+  kind: 'power' | 'ground' | 'gpio' | 'analog' | 'i2c' | 'spi' | 'uart' | 'control' | 'other'
+  functions: string[]
+}
+export interface PartVisual {
+  line_id: string
+  label: string
+  kind: 'board' | 'module' | 'sensor' | 'display' | 'battery' | 'switch' | 'passive' | 'connector' | 'other'
+  body: { width_mm: number; height_mm: number; color: PartColor; shape: 'rect' | 'rounded' | 'round' | 'pouch' }
+  chip: { label: string; x: number; y: number; w: number; h: number } | null
+  features: {
+    type: 'screen' | 'led' | 'button' | 'antenna' | 'touch_pad' | 'lens' | 'label'
+    x: number
+    y: number
+    w: number
+    h: number
+    text: string | null
+  }[]
+  connectors: {
+    type: 'usb_c' | 'micro_usb' | 'jst' | 'barrel' | 'screw_terminal' | 'pin_socket'
+    side: BoardSide
+    position: number
+  }[]
+  headers: { side: BoardSide; pins: OverviewPin[] }[]
+  pin_source: 'code' | 'datasheet_knowledge' | 'ai_inferred'
+  verdict: OverviewVerdict
+  verdict_reason: string | null
+}
+export interface WireConnection {
+  id: string
+  from: { line_id: string; pin: string }
+  to: { line_id: string; pin: string }
+  signal: 'power' | 'ground' | 'i2c_sda' | 'i2c_scl' | 'spi' | 'uart' | 'digital' | 'analog' | 'pwm' | 'other'
+  label: string | null
+  source: 'code' | 'description' | 'ai_inferred'
+  evidence: string | null
+  verdict: OverviewVerdict
+  reason: string | null
+  problems: string[]
+}
+export interface OverviewJudge {
+  status: 'passed' | 'issues' | 'skipped' | 'pending'
+  summary: string | null
+  confirmed: number
+  unverified: number
+  disputed: number
+}
+export interface ProjectOverview {
+  status: 'pending' | 'ready' | 'failed' | 'stale'
+  message: string | null
+  generated_at: string | null
+  items_hash: string | null
+  demo: boolean
+  parts: PartVisual[]
+  wiring: WireConnection[]
+  judge: OverviewJudge
+  notes: string[]
+}
+export interface Job {
+  overview?: ProjectOverview | null
+}
+export const getOverview = (id: string, token: string) => request<ProjectOverview>(jobPath(id, '/overview'), {}, token)
+// Owner only: starts generation when the overview is failed, stale or missing; otherwise returns the current one.
+export const regenerateOverview = (id: string, token: string) =>
+  request<ProjectOverview>(jobPath(id, '/overview'), { method: 'POST' }, token)

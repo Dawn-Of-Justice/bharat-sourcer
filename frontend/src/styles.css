@@ -6503,17 +6503,6 @@ button.pp-row-summary {
     min-height: 44px;
     font-size: 16px;
   }
-  .pp-review-row .pp-review-have {
-    min-height: 44px;
-    white-space: normal;
-  }
-  .pp-review-open strong {
-    overflow-wrap: anywhere;
-  }
-  .pp-review-row .pp-review-edit {
-    width: 40px;
-    height: 44px;
-  }
 }
 @media (max-width: 380px) {
   .pp-part .requirement-row {
@@ -6918,57 +6907,6 @@ button.pp-row-summary {
   font-size: 16px;
   line-height: 1.55;
 }
-.pp-review-rows {
-  margin-top: 12px;
-}
-.pp-review-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 104px 108px 40px;
-  align-items: center;
-  column-gap: 14px;
-  padding: 12px 18px;
-  border-radius: 10px;
-  transition: background 0.2s;
-}
-.pp-review-row:hover {
-  background: #f0f4ee;
-}
-.pp-review-row.is-active {
-  background: #e4eee6;
-  box-shadow: inset 3px 0 0 var(--pp-teal);
-}
-.pp-review-open {
-  display: grid;
-  gap: 2px;
-  min-width: 0;
-  padding: 8px 0;
-  border: 0;
-  color: inherit;
-  background: none;
-  font: inherit;
-  text-align: left;
-}
-.pp-review-open strong {
-  overflow: hidden;
-  color: var(--pp-ink);
-  font-size: 16px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.pp-review-open small {
-  color: var(--pp-muted);
-  font-size: 13px;
-}
-.pp-review-open small.pp-review-attention {
-  color: #94560f;
-  font-weight: 700;
-}
-.pp-review-open:focus-visible,
-.pp-review-edit:focus-visible {
-  outline: 3px solid #d9802e;
-  outline-offset: 2px;
-  border-radius: 8px;
-}
 .pp-review-qty {
   display: inline-flex;
   align-items: center;
@@ -7008,26 +6946,6 @@ button.pp-row-summary {
   width: 17px;
   height: 17px;
   accent-color: var(--pp-teal);
-}
-.pp-review-edit {
-  display: grid;
-  place-items: center;
-  width: 36px;
-  height: 36px;
-  border: 0;
-  border-radius: 50%;
-  background: transparent;
-}
-.pp-review-edit:hover {
-  background: #e4eee6;
-}
-.pp-review-row.is-removed .pp-review-open strong {
-  color: #5f716b;
-  text-decoration: line-through;
-}
-.pp-review-row.is-removed .pp-review-qty,
-.pp-review-row.is-removed .pp-review-have {
-  opacity: 0.45;
 }
 .pp-review-undo {
   justify-self: center;
@@ -7149,17 +7067,6 @@ button.pp-row-summary {
   background: var(--pp-mint);
 }
 @media (max-width: 760px) {
-  .pp-review-row {
-    grid-template-columns: auto minmax(0, 1fr) 40px;
-    grid-template-areas: 'name name name' 'qty have edit';
-    row-gap: 4px;
-  }
-  .pp-review-open {
-    grid-area: name;
-  }
-  .pp-review-open strong {
-    white-space: normal;
-  }
   .pp-review-qty {
     grid-area: qty;
     justify-content: flex-start;
@@ -7167,7 +7074,6 @@ button.pp-row-summary {
   .pp-review-have {
     grid-area: have;
   }
-  .pp-review-edit,
   .pp-review-undo {
     grid-area: edit;
   }
@@ -7183,16 +7089,12 @@ button.pp-row-summary {
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .pp-progress-bar span,
-  .pp-review-row {
+  .pp-progress-bar span {
     transition: none;
   }
 }
 
 @media (max-width: 760px) {
-  .pp-review-edit .pp-row-chevron {
-    display: block;
-  }
   .pp-origin > summary {
     flex-wrap: wrap;
     row-gap: 2px;
@@ -7200,5 +7102,1250 @@ button.pp-row-summary {
   .pp-origin > summary span {
     flex-basis: 100%;
     order: 3;
+  }
+}
+
+/* --- Project overview on the review step (ProjectOverview.tsx, PartSvg.tsx, WiringDiagram.tsx) -----------------
+   AI-drawn parts and wiring; see docs/contracts/project-overview.md. */
+.po-hero {
+  display: grid;
+  gap: 10px;
+  margin: 0 0 28px;
+  padding: 20px 24px;
+  border: 1px solid var(--pp-line);
+  border-radius: 16px;
+  background: var(--pp-paper);
+}
+.po-hero h2 {
+  margin: 0;
+  color: var(--pp-teal);
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.po-hero-how {
+  max-width: 72ch;
+  margin: 0;
+  color: #2f4b46;
+  font-size: 16px;
+  line-height: 1.6;
+}
+.po-hero-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.po-hero-chips li {
+  min-width: 0;
+  padding: 5px 12px;
+  border-radius: 999px;
+  background: var(--pp-mint);
+  color: #24433d;
+  font-size: 13px;
+  font-weight: 650;
+  overflow-wrap: anywhere;
+}
+.po-hero-chips span {
+  color: var(--pp-teal);
+  font-weight: 800;
+}
+.po-reason {
+  margin: 0;
+  color: var(--pp-brick);
+  font-size: 13.5px;
+  line-height: 1.45;
+}
+.po-reason-soft {
+  margin: 0;
+  color: #6d5a35;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.part-svg {
+  position: relative;
+  width: 100%;
+  margin: 0 auto;
+}
+.part-svg svg {
+  width: 100%;
+  height: auto;
+  overflow: visible;
+  animation: po-float 4s ease-in-out infinite;
+}
+.part-pin {
+  outline: none;
+  cursor: help;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: po-pin-pop 0.35s cubic-bezier(0.3, 1.6, 0.6, 1) backwards;
+  animation-delay: calc(var(--i, 0) * 20ms + 0.25s);
+}
+.part-pin.is-active .part-pin-hit {
+  fill: rgba(232, 191, 74, 0.3);
+}
+.part-pin:focus-visible .part-pin-hit {
+  fill: rgba(217, 128, 46, 0.25);
+  stroke: #d9802e;
+  stroke-width: 2;
+}
+.part-pin-tip {
+  position: absolute;
+  z-index: 3;
+  display: grid;
+  gap: 1px;
+  width: max-content;
+  max-width: 190px;
+  padding: 6px 9px;
+  border-radius: 8px;
+  background: var(--pp-ink);
+  box-shadow: 0 6px 18px rgba(13, 38, 48, 0.2);
+  color: #fff;
+  font-size: 12px;
+  line-height: 1.35;
+  pointer-events: none;
+  transform: translate(-50%, calc(-100% - 10px));
+}
+.part-pin-tip strong {
+  font-family: Consolas, ui-monospace, monospace;
+}
+.part-pin-tip span {
+  color: #cfe1dc;
+}
+.po-hero-summary {
+  display: grid;
+  justify-items: start;
+  gap: 4px;
+}
+.po-hero-how.is-clamped {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+.po-hero-more {
+  font-size: 14px;
+}
+
+/* Review parts: one card per line (App.tsx Review). The whole card opens the part panel; the quantity and
+   "I have it" controls sit above that button. */
+.pp-parts-help {
+  margin: -2px 0 16px;
+  color: var(--pp-muted);
+  font-size: 14px;
+  line-height: 1.5;
+}
+.pp-draw-note {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+  margin: 0 0 14px;
+  color: var(--pp-muted);
+  font-size: 14px;
+  line-height: 1.5;
+}
+.pp-draw-note p {
+  flex: 1 1 260px;
+  margin: 0;
+}
+.pp-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.pp-card {
+  position: relative;
+  display: grid;
+  grid-template-rows: auto auto auto 1fr;
+  gap: 8px;
+  min-width: 0;
+  padding: 10px 10px 12px;
+  border: 1px solid var(--pp-line);
+  border-radius: 14px;
+  background: var(--pp-paper);
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s,
+    background-color 0.2s;
+  animation: po-fade-up 0.4s ease-out both;
+  animation-delay: calc(var(--i, 0) * 40ms);
+}
+.pp-card:hover {
+  border-color: #c5d3cb;
+  box-shadow: 0 4px 14px rgba(13, 38, 48, 0.07);
+}
+.pp-card.is-active {
+  border-color: var(--pp-teal);
+  box-shadow: 0 0 0 1px var(--pp-teal);
+}
+.pp-card-open {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
+  cursor: pointer;
+}
+.pp-card-open:focus-visible {
+  outline: 3px solid #d9802e;
+  outline-offset: 2px;
+}
+.pp-card-art,
+.pp-card-name,
+.pp-card-pill {
+  position: relative;
+  pointer-events: none;
+}
+.pp-card-art {
+  display: grid;
+  place-items: center;
+  height: 104px;
+  padding: 8px;
+  border-radius: 10px;
+  background:
+    radial-gradient(circle, #dfe6dc 1px, transparent 1.2px) 0 0 / 14px 14px,
+    #f5f7f1;
+}
+.pp-card-thumb {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.pp-card-sk {
+  width: 100%;
+  height: 100%;
+}
+.part-placeholder {
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
+  background: #e6ece4;
+  color: #5d706c;
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+.pp-card-check {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--pp-teal);
+  box-shadow: 0 0 0 2px #fff;
+}
+.pp-card-check::after {
+  content: '';
+  width: 5px;
+  height: 9px;
+  margin-top: -2px;
+  border: solid #fff;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+.pp-card-name {
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--pp-ink);
+  font-size: 15px;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+.pp-card-pill {
+  justify-self: start;
+  max-width: 100%;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.35;
+}
+.pp-card-pill.is-danger {
+  color: #a2372c;
+  background: #fdecea;
+}
+.pp-card-pill.is-input {
+  color: #74501c;
+  background: #fdf0dc;
+}
+.pp-card-pill.is-bad {
+  color: #8f231c;
+  background: #fbe4e0;
+}
+.pp-card-pill.is-warn {
+  color: #6d5a35;
+  background: #f5eedc;
+}
+.pp-card-pill.is-muted {
+  color: #5f716b;
+  background: #eef1ec;
+}
+.pp-card-controls {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  align-self: end;
+  justify-content: space-between;
+  gap: 6px 10px;
+  pointer-events: none;
+}
+.pp-card-controls > * {
+  pointer-events: auto;
+}
+.pp-card .pp-review-qty input {
+  width: 62px;
+  height: 36px;
+}
+.pp-card .pp-review-have {
+  min-height: 36px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.pp-card.is-owned {
+  background: #f4f6f2;
+}
+.pp-card.is-owned .pp-card-art > :not(.pp-card-check),
+.pp-card.is-owned .pp-card-name {
+  opacity: 0.55;
+}
+.pp-card.is-removed .pp-card-art,
+.pp-card.is-removed .pp-card-name {
+  opacity: 0.45;
+}
+.pp-card.is-removed .pp-card-name {
+  text-decoration: line-through;
+}
+@media (max-width: 639px) {
+  .pp-cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+  .pp-card-art {
+    height: 84px;
+  }
+}
+@media (max-width: 340px) {
+  .pp-cards {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Part panel: the large drawing at the top. */
+.pp-part-drawing {
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+  border-radius: 12px;
+  background:
+    radial-gradient(circle, #dfe6dc 1px, transparent 1.2px) 0 0 / 14px 14px,
+    #f5f7f1;
+}
+.pp-part-drawing-art {
+  display: grid;
+  place-items: center;
+  padding: 6px 0;
+}
+.pp-part-drawing-source {
+  margin: 0;
+  color: var(--pp-muted);
+  font-size: 13px;
+  font-weight: 650;
+}
+.pp-part-drawing-sk {
+  height: 200px;
+}
+
+/* "How it's wired": a disclosure row; the panel holds a Diagram | List toggle, a legend and one caption. */
+.po-wiring {
+  margin: 28px 0 0;
+  border: 1px solid var(--pp-line);
+  border-radius: 14px;
+  background: var(--pp-paper);
+}
+.po-wiring-heading {
+  margin: 0;
+  font-size: inherit;
+}
+.po-wiring-toggle {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  width: 100%;
+  min-height: 56px;
+  padding: 12px 18px;
+  border: 0;
+  border-radius: 14px;
+  color: var(--pp-ink);
+  background: none;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.po-wiring-toggle:focus-visible {
+  outline: 3px solid #d9802e;
+  outline-offset: 2px;
+}
+.po-wiring-title {
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+.po-wiring-count {
+  color: var(--pp-muted);
+  font-size: 14px;
+  font-weight: 650;
+}
+.po-wiring-check {
+  padding: 2px 9px;
+  border-radius: 999px;
+  color: #74501c;
+  background: #fdf0dc;
+  font-size: 12px;
+  font-weight: 800;
+}
+.po-wiring-chevron {
+  width: 9px;
+  height: 9px;
+  margin-left: auto;
+  border-right: 2px solid #8a9a94;
+  border-bottom: 2px solid #8a9a94;
+  transform: translateY(-2px) rotate(45deg);
+  transition: transform 0.2s;
+}
+.po-wiring.is-open .po-wiring-chevron {
+  transform: translateY(2px) rotate(-135deg);
+}
+.po-wiring-panel {
+  display: grid;
+  gap: 14px;
+  padding: 0 18px 18px;
+}
+.po-wiring-panel[hidden] {
+  display: none;
+}
+.po-wiring-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--pp-line);
+}
+.po-segmented {
+  display: inline-flex;
+  padding: 3px;
+  border-radius: 10px;
+  background: #eef1ec;
+}
+.po-segmented button {
+  min-height: 32px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 8px;
+  color: #3f5552;
+  background: transparent;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 750;
+  cursor: pointer;
+}
+.po-segmented button.is-selected {
+  color: var(--pp-ink);
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(13, 38, 48, 0.12);
+}
+.po-segmented button:focus-visible {
+  outline: 3px solid #d9802e;
+  outline-offset: 1px;
+}
+.po-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: #3f5552;
+  font-size: 12.5px;
+  font-weight: 650;
+}
+.po-legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.po-legend-swatch,
+.po-swatch {
+  width: 18px;
+  height: 0;
+  border-top: 3px solid var(--wire);
+  border-radius: 2px;
+}
+.po-swatch.is-dashed {
+  border-top-style: dashed;
+}
+.po-wiring-frame {
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  padding: 10px;
+  border: 1px solid var(--pp-line);
+  border-radius: 12px;
+  background:
+    radial-gradient(circle, #e2e8df 1px, transparent 1.2px) 0 0 / 16px 16px,
+    #fbfbf6;
+}
+.po-wiring-svg {
+  display: block;
+  width: 100%;
+  min-width: min(var(--diagram-w), 600px);
+  max-width: var(--diagram-w);
+  height: auto;
+  margin: 0 auto;
+}
+.po-node-card {
+  fill: #fff;
+  stroke: #d6ded7;
+  stroke-width: 1;
+}
+.po-node.is-controller .po-node-card {
+  stroke: #b8c9c0;
+}
+.po-node-thumb {
+  fill: #f2f5ef;
+}
+.po-node-rule {
+  stroke: #e4e9e2;
+}
+.po-node-row {
+  stroke: #f1f4ef;
+}
+.po-wire {
+  outline: none;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+.po-wiring-svg.has-active .po-wire:not(.is-active) {
+  opacity: 0.25;
+}
+.po-wire:focus-visible .po-wire-hit {
+  stroke: rgba(217, 128, 46, 0.25);
+}
+.po-wire-reveal {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: po-wire-draw 0.6s ease-out forwards;
+  animation-delay: calc(var(--i, 0) * 35ms + 0.1s);
+}
+.po-wire-list {
+  display: grid;
+  gap: 16px;
+}
+.po-wire-group h3 {
+  margin: 0 0 4px;
+  color: var(--pp-ink);
+  font-size: 14px;
+  font-weight: 800;
+}
+.po-wire-group ul {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.po-wire-row {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: 10px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  color: var(--pp-ink);
+  font-size: 14px;
+  transition: background-color 0.15s;
+}
+.po-wire-row.is-active {
+  background: #f1f6f1;
+}
+.po-wire-ends {
+  overflow-wrap: anywhere;
+}
+.po-wire-ends code {
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: #eef1ec;
+  font-family: Consolas, ui-monospace, monospace;
+  font-size: 12.5px;
+}
+.po-wire-icons {
+  display: inline-flex;
+  gap: 4px;
+}
+.po-mini-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  cursor: help;
+}
+.po-mini-icon svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+}
+.po-mini-source {
+  color: #5d706c;
+  background: #eef1ec;
+}
+.po-mini-confirmed {
+  color: #175e55;
+  background: var(--pp-mint);
+}
+.po-mini-unverified {
+  color: #8a5a12;
+  background: #fdf0dc;
+}
+.po-mini-disputed {
+  color: #8f231c;
+  background: #fbe4e0;
+}
+.po-wire-problem {
+  grid-column: 2 / -1;
+  margin: 2px 0 0;
+  color: #a2483f;
+  font-size: 13px;
+  line-height: 1.4;
+}
+.po-wiring-caption {
+  display: grid;
+  gap: 4px;
+  color: var(--pp-muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.po-wiring-caption p,
+.po-wiring-caption ul {
+  margin: 0;
+}
+.po-wiring-caption ul {
+  padding-left: 18px;
+}
+@media (max-width: 639px) {
+  .po-wiring-toggle {
+    padding: 12px 14px;
+  }
+  .po-wiring-panel {
+    padding: 0 14px 14px;
+  }
+  .po-wiring-frame {
+    padding: 6px;
+  }
+}
+
+/* The confirm button stays in reach while the review scrolls: a sticky bar across the page. */
+.pp-confirm {
+  position: sticky;
+  bottom: 0;
+  z-index: 6;
+  justify-items: stretch;
+  gap: 8px;
+  padding: 12px 0;
+  background: #f8f7f2;
+  /* Full-bleed background and top rule without widening the page: spread shadows clipped to the bar's height. */
+  box-shadow:
+    0 0 0 100vmax #f8f7f2,
+    0 -1px 0 100vmax var(--pp-line);
+  clip-path: inset(-1px -100vmax 0);
+}
+.pp-confirm > p {
+  text-align: right;
+}
+.pp-confirm-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px 18px;
+}
+.pp-confirm .pp-confirm-count {
+  color: var(--pp-muted);
+  font-size: 14px;
+}
+.pp-confirm-count strong {
+  color: var(--pp-ink);
+}
+.project-page:has(.pp-confirm) .pp-chat-launcher {
+  bottom: 100px;
+}
+@media (max-width: 639px) {
+  .pp-confirm > p {
+    text-align: left;
+  }
+  .pp-confirm-row {
+    display: grid;
+    justify-content: stretch;
+    justify-items: stretch;
+    gap: 6px;
+  }
+  .pp-confirm .primary-button {
+    width: 100%;
+    justify-content: center;
+  }
+  .project-page:has(.pp-confirm) .pp-chat-launcher {
+    bottom: 132px;
+  }
+}
+
+@keyframes po-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+}
+@keyframes po-pin-pop {
+  from {
+    transform: scale(0);
+  }
+}
+@keyframes po-float {
+  0%,
+  100% {
+    transform: translateY(-2px);
+  }
+  50% {
+    transform: translateY(2px);
+  }
+}
+@keyframes po-wire-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+@keyframes po-shimmer {
+  to {
+    background-position: -200% 0;
+  }
+}
+@media (max-width: 600px) {
+  .po-hero {
+    padding: 20px 18px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .part-svg svg,
+  .part-pin,
+  .pp-card {
+    animation: none;
+  }
+  .po-wire-reveal {
+    animation: none;
+    stroke-dashoffset: 0;
+  }
+  .pp-card,
+  .po-wire,
+  .po-wire-row,
+  .po-wiring-chevron {
+    transition: none;
+  }
+}
+
+/* --- UX polish: skeletons, feedback, toasts, carousels (Skeleton.tsx, toast.tsx, prefetch.ts) -------------------
+   Every animation here stops under prefers-reduced-motion (see the block at the end of this section). */
+
+/* Skeletons share one shimmer (po-shimmer). */
+.sk {
+  display: block;
+  border-radius: 8px;
+  background: linear-gradient(90deg, #eef1ea 0%, #f8faf5 45%, #eef1ea 90%) 0 0 / 200% 100%;
+  animation: po-shimmer 1.4s linear infinite;
+}
+.sk-group {
+  display: grid;
+  gap: 12px;
+}
+.sk-line {
+  width: 100%;
+  height: 14px;
+}
+.sk-line.is-short {
+  width: 45%;
+}
+.sk-title {
+  width: 75%;
+  height: 22px;
+}
+.sk-heading {
+  width: min(520px, 80%);
+  height: 34px;
+}
+.sk-tiny {
+  width: 30%;
+  height: 10px;
+}
+.sk-circle {
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+  border-radius: 50%;
+}
+.sk-pill {
+  width: 96px;
+  height: 24px;
+  flex-shrink: 0;
+  border-radius: 999px;
+}
+.sk-thumb {
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  border-radius: 10px;
+}
+.sk-card {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+}
+.sk-meta {
+  display: flex;
+  gap: 12px;
+}
+.sk-meta .sk-tiny {
+  width: 80px;
+}
+.sk-job {
+  gap: 14px;
+}
+.sk-steps {
+  display: flex;
+  gap: 24px;
+  margin: 14px 0 18px;
+  padding: 20px 0;
+  border-block: 1px solid var(--pp-line);
+}
+.sk-step {
+  display: grid;
+  flex: 1 1 0;
+  gap: 10px;
+}
+.sk-step .sk-tiny {
+  width: 70%;
+}
+.sk-rows {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.sk-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 18px;
+  border: 1px solid var(--pp-line);
+  border-radius: 12px;
+  background: var(--pp-paper);
+}
+.sk-row-text {
+  display: grid;
+  flex: 1;
+  gap: 8px;
+  min-width: 0;
+}
+.sk-band {
+  display: grid;
+  gap: 12px;
+  padding: 26px 28px;
+  border-radius: 16px;
+  background: #e7ece4;
+}
+.sk-note {
+  margin: 0;
+  color: var(--pp-muted);
+  font-size: 14px;
+}
+
+/* Part thumbnails shimmer until the photo loads, then fade it in. */
+.pp-row-thumb.is-loading {
+  background: linear-gradient(90deg, #eef1ea 0%, #f8faf5 45%, #eef1ea 90%) 0 0 / 200% 100%;
+  animation: po-shimmer 1.4s linear infinite;
+}
+.pp-row-thumb img {
+  opacity: 0;
+  transition: opacity 0.25s ease-out;
+}
+.pp-row-thumb img.is-loaded {
+  opacity: 1;
+}
+
+/* Press state for buttons. */
+:is(
+    .primary-button,
+    .nav-cta,
+    .report-action,
+    .danger-button,
+    .remove-button,
+    .account-link,
+    .pp-attention-button,
+    .pp-text-button,
+    .source-option,
+    .add-source-button,
+    .pp-step-button
+  ):active:not(:disabled) {
+  transform: scale(0.98);
+  transition: transform 120ms ease-out;
+}
+
+/* Inline spinner inside a button (or status line) while its action runs. */
+.btn-spinner {
+  display: inline-block;
+  flex-shrink: 0;
+  width: 1em;
+  height: 1em;
+  margin-right: 0.45em;
+  vertical-align: -0.15em;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  opacity: 0.8;
+  animation: btn-spin 0.7s linear infinite;
+}
+.offer-card-status .btn-spinner,
+.share-button .btn-spinner {
+  margin-right: 0;
+}
+.project-heading h1 .btn-spinner,
+.project-heading p .btn-spinner {
+  width: 0.6em;
+  height: 0.6em;
+  margin: 0 0 0 0.35em;
+  vertical-align: middle;
+  color: var(--pp-teal);
+}
+@keyframes btn-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Brief check after a title or description saves. */
+.save-check {
+  display: inline-grid;
+  place-items: center;
+  width: 1.15em;
+  height: 1.15em;
+  margin-left: 0.35em;
+  border-radius: 50%;
+  background: var(--pp-teal);
+  color: #fff;
+  font-size: 0.5em;
+  vertical-align: middle;
+  animation: save-check 2s ease-out forwards;
+}
+.project-heading p .save-check {
+  font-size: 0.7em;
+}
+@keyframes save-check {
+  0% {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+  15%,
+  75% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1);
+  }
+}
+
+/* Quantity inputs pulse once when their value changes (two names so a quick second change restarts it). */
+.qty-field.is-pulse-a input {
+  animation: qty-pulse-a 0.4s ease-out;
+}
+.qty-field.is-pulse-b input {
+  animation: qty-pulse-b 0.4s ease-out;
+}
+@keyframes qty-pulse-a {
+  40% {
+    transform: scale(1.06);
+    box-shadow: 0 0 0 4px #19766d24;
+  }
+}
+@keyframes qty-pulse-b {
+  40% {
+    transform: scale(1.06);
+    box-shadow: 0 0 0 4px #19766d24;
+  }
+}
+
+/* "I have it": a drawn check that pops in. */
+.pp-review-have input {
+  display: inline-grid;
+  place-items: center;
+  margin: 0;
+  border: 2px solid #9fb2ab;
+  border-radius: 5px;
+  background: #fff;
+  appearance: none;
+  transition:
+    background-color 0.15s,
+    border-color 0.15s;
+}
+.pp-review-have input::after {
+  content: '';
+  width: 5px;
+  height: 9px;
+  margin-top: -2px;
+  border: solid #fff;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg) scale(0);
+  transition: transform 0.18s cubic-bezier(0.3, 1.6, 0.5, 1);
+}
+.pp-review-have input:checked {
+  border-color: var(--pp-teal);
+  background: var(--pp-teal);
+}
+.pp-review-have input:checked::after {
+  transform: rotate(45deg) scale(1);
+}
+.pp-review-have input:disabled {
+  cursor: not-allowed;
+}
+
+/* AI-decided spec values are suggestions: shown in muted text. */
+.ai-decided {
+  color: var(--pp-muted);
+  font-size: 0.92em;
+  font-style: italic;
+  font-weight: 500;
+}
+.ai-specs {
+  display: grid;
+  gap: 6px;
+  margin-top: 12px;
+  font-size: 14px;
+}
+.ai-specs dl {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+}
+.ai-specs dl > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+}
+.ai-specs dt {
+  min-width: 110px;
+  color: #3f5f59;
+  font-weight: 700;
+  text-transform: capitalize;
+}
+.ai-specs dd {
+  margin: 0;
+}
+
+/* Toasts: one polite live region, bottom centre, above side panels. */
+.toast-region {
+  position: fixed;
+  z-index: 200;
+  left: 50%;
+  bottom: max(20px, env(safe-area-inset-bottom));
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  width: min(420px, calc(100vw - 32px));
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+.toast {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 100%;
+  padding: 10px 10px 10px 14px;
+  border: 1px solid #b9dcc4;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 12px 30px #1b3b4224;
+  color: #1f5a43;
+  font-size: 14px;
+  font-weight: 700;
+  pointer-events: auto;
+  animation: toast-in 0.22s ease-out;
+}
+.toast > span:nth-child(2) {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.toast-error {
+  border-color: #e4c3bd;
+  background: #fff7f4;
+  color: #8a3a2f;
+}
+.toast-icon {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #e7f5e9;
+  font-size: 12px;
+}
+.toast-error .toast-icon {
+  background: #fbe3dd;
+}
+.toast-close {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  margin-left: auto;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: inherit;
+  font-size: 12px;
+}
+.toast-close:hover {
+  background: #0000000d;
+}
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
+}
+
+/* Offers sit in a track so the note and errors stay outside the phone carousel. */
+.offers-track {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: inherit;
+}
+
+/* Long lists skip rendering work for rows that are off screen. */
+.pp-rows > li {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 68px;
+}
+.offers-track > .offer {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 220px;
+}
+
+/* View transitions for route and step changes: a short cross-fade. */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 180ms;
+}
+
+/* Phones: rows of cards become horizontal snap carousels with a peek of the next card. The containers are focusable
+   (tabIndex=0) so the keyboard can scroll them; the scrollbar is hidden visually. */
+@media (max-width: 639px) {
+  .offers-track.snap-row,
+  .pp-groups.snap-row,
+  .how-grid.snap-row {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: 80%;
+    grid-template-columns: none;
+    align-items: start;
+    gap: 12px;
+    margin-inline: 0;
+    padding: 4px;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scroll-snap-type: x mandatory;
+    scroll-padding-inline: 16px;
+    scrollbar-width: none;
+  }
+  .snap-row::-webkit-scrollbar {
+    display: none;
+  }
+  .snap-row > * {
+    min-width: 0;
+    scroll-snap-align: center;
+  }
+  .how-grid.snap-row {
+    align-items: stretch;
+  }
+  .pp-groups.snap-row {
+    margin-top: 18px;
+  }
+  .pp-groups.snap-row > .pp-group {
+    margin-top: 0;
+    padding: 12px;
+    border: 1px solid var(--pp-line);
+    border-radius: 14px;
+    background: var(--pp-paper);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sk,
+  .pp-row-thumb.is-loading,
+  .btn-spinner,
+  .save-check,
+  .qty-field input,
+  .toast {
+    animation: none !important;
+  }
+  .pp-row-thumb img,
+  .pp-review-have input,
+  .pp-review-have input::after {
+    transition: none;
+  }
+  :is(
+      .primary-button,
+      .nav-cta,
+      .report-action,
+      .danger-button,
+      .remove-button,
+      .account-link,
+      .pp-attention-button,
+      .pp-text-button,
+      .source-option,
+      .add-source-button,
+      .pp-step-button
+    ):active:not(:disabled) {
+    transform: none;
+  }
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation: none;
   }
 }

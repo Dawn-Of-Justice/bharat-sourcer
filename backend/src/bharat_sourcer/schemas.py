@@ -162,8 +162,15 @@ class SpecEvidence(Model):
     field: str
     value: str
     # "catalog" values come from the curated parts catalogue, never from a seller.
+    # "ai_inferred" values were decided by the model from project context (BomItem.ai_specs).
     source: Literal[
-        "part_name", "user", "seller_title", "seller_property", "seller_table", "catalog"
+        "part_name",
+        "user",
+        "seller_title",
+        "seller_property",
+        "seller_table",
+        "catalog",
+        "ai_inferred",
     ]
     locator: str
 
@@ -416,6 +423,9 @@ class BomItem(Model):
     evidence: list[Evidence] = Field(default_factory=list)
     user_edited: bool = False
     specs: PartSpecs = Field(default_factory=PartSpecs)
+    # Required spec values the model inferred from project context after extraction
+    # (spec_fill.py), never verified. Name, catalogue and user values take precedence.
+    ai_specs: PartSpecs = Field(default_factory=PartSpecs)
     requirements: list[PartRequirement] = Field(default_factory=list, max_length=20)
     clarifications: list[Clarification] = Field(default_factory=list)
     lookalikes: list[Lookalike] = Field(default_factory=list, max_length=10)
@@ -1340,6 +1350,131 @@ class CopiedFrom(Model):
     source_updated_at: datetime
 
 
+# Project overview (docs/contracts/project-overview.md): AI-drawn parts and wiring, checked
+# by rules and a second AI call. Nothing here is verified against the physical board.
+OverviewVerdict = Literal["confirmed", "unverified", "disputed"]
+OverviewSide = Literal["top", "bottom", "left", "right"]
+Fraction = Annotated[float, Field(ge=0, le=1, allow_inf_nan=False)]
+
+
+class PartBody(Model):
+    width_mm: float = Field(ge=1, le=300, allow_inf_nan=False)
+    height_mm: float = Field(ge=1, le=300, allow_inf_nan=False)
+    color: Literal["blue", "black", "green", "red", "purple", "yellow", "white", "silver", "orange"]
+    shape: Literal["rect", "rounded", "round", "pouch"]
+
+
+class PartChip(Model):
+    """The main chip or module can, as fractions of the body."""
+
+    label: str = Field(min_length=1, max_length=24)
+    x: Fraction
+    y: Fraction
+    w: Fraction
+    h: Fraction
+
+
+class PartFeature(Model):
+    type: Literal["screen", "led", "button", "antenna", "touch_pad", "lens", "label"]
+    x: Fraction
+    y: Fraction
+    w: Fraction
+    h: Fraction
+    text: str | None = Field(default=None, min_length=1, max_length=24)
+
+
+class PartConnector(Model):
+    type: Literal["usb_c", "micro_usb", "jst", "barrel", "screw_terminal", "pin_socket"]
+    side: OverviewSide
+    position: Fraction
+
+
+class Pin(Model):
+    """One header pin; `name` is the silkscreen label wires refer to."""
+
+    name: str = Field(min_length=1, max_length=16)
+    kind: Literal["power", "ground", "gpio", "analog", "i2c", "spi", "uart", "control", "other"]
+    functions: list[Annotated[str, Field(min_length=1, max_length=24)]] = Field(
+        default_factory=list, max_length=4
+    )
+
+
+class PinHeader(Model):
+    side: OverviewSide
+    pins: list[Pin] = Field(min_length=1, max_length=40)
+
+
+class PartVisual(Model):
+    line_id: str = Field(min_length=1, max_length=20)
+    label: str = Field(min_length=1, max_length=40)
+    kind: Literal[
+        "board", "module", "sensor", "display", "battery", "switch", "passive", "connector", "other"
+    ]
+    body: PartBody
+    chip: PartChip | None = None
+    features: list[PartFeature] = Field(default_factory=list, max_length=8)
+    connectors: list[PartConnector] = Field(default_factory=list, max_length=4)
+    headers: list[PinHeader] = Field(default_factory=list, max_length=4)
+    pin_source: Literal["code", "datasheet_knowledge", "ai_inferred"] = "ai_inferred"
+    verdict: OverviewVerdict = "unverified"
+    verdict_reason: str | None = Field(default=None, max_length=300)
+
+
+class WireEnd(Model):
+    line_id: str = Field(min_length=1, max_length=20)
+    pin: str = Field(min_length=1, max_length=16)
+
+
+class WireConnection(Model):
+    # `from` is a Python keyword: the field is `from_` in code and `from` in JSON.
+    model_config = ConfigDict(
+        extra="forbid",
+        str_strip_whitespace=True,
+        serialize_by_alias=True,
+        validate_by_alias=True,
+        validate_by_name=True,
+    )
+
+    id: str = Field(pattern=r"^W\d{2,3}$")
+    from_: WireEnd = Field(alias="from")
+    to: WireEnd
+    signal: Literal[
+        "power", "ground", "i2c_sda", "i2c_scl", "spi", "uart", "digital", "analog", "pwm", "other"
+    ]
+    label: str | None = Field(default=None, max_length=40)
+    source: Literal["code", "description", "ai_inferred"] = "ai_inferred"
+    evidence: str | None = Field(default=None, max_length=200)
+    verdict: OverviewVerdict = "unverified"
+    reason: str | None = Field(default=None, max_length=300)
+    # Deterministic validator findings (overview.py), never model text.
+    problems: list[str] = Field(default_factory=list, max_length=6)
+
+
+class OverviewJudge(Model):
+    status: Literal["passed", "issues", "skipped", "pending"] = "pending"
+    summary: str | None = Field(default=None, max_length=300)
+    # Final verdict counts over parts and wires (after pin-header verdicts are applied).
+    confirmed: int = Field(default=0, ge=0)
+    unverified: int = Field(default=0, ge=0)
+    disputed: int = Field(default=0, ge=0)
+
+
+class ProjectOverview(Model):
+    """AI-inferred drawing of the project; never verified against the physical board."""
+
+    status: Literal["pending", "ready", "failed", "stale"]
+    message: str | None = Field(default=None, max_length=300)
+    generated_at: datetime | None = None
+    items_hash: str | None = Field(default=None, max_length=64)
+    demo: bool = False
+    parts: list[PartVisual] = Field(default_factory=list, max_length=40)
+    wiring: list[WireConnection] = Field(default_factory=list, max_length=120)
+    judge: OverviewJudge = Field(default_factory=OverviewJudge)
+    notes: list[Annotated[str, Field(min_length=1, max_length=300)]] = Field(
+        default_factory=list, max_length=10
+    )
+
+
 class Job(Model):
     job_id: str
     status: Status = "queued"
@@ -1371,6 +1506,8 @@ class Job(Model):
     cost_estimate: CostEstimate | None = None
     # Set on projects created with "Copy to my projects" from a share link.
     copied_from: CopiedFrom | None = None
+    # AI-drawn parts and wiring for the review step (overview.py); None until drawn.
+    overview: ProjectOverview | None = None
 
 
 class AccountSettings(Model):
