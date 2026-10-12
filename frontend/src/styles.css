@@ -2411,6 +2411,72 @@ svg {
   align-items: center;
   gap: 16px;
 }
+.mobile-navigation {
+  display: none;
+}
+@media (max-width: 600px) {
+  .site-header .header-inner {
+    flex-wrap: nowrap;
+    justify-content: space-between;
+  }
+  .site-header .header-account {
+    display: none;
+  }
+  .mobile-navigation {
+    display: block;
+    position: relative;
+    flex-shrink: 0;
+  }
+  .mobile-menu-toggle {
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    padding: 10px;
+    border: 1px solid #bccfca;
+    border-radius: 12px;
+    background: transparent;
+    color: #207c70;
+    cursor: pointer;
+  }
+  .mobile-menu-toggle svg {
+    width: 24px;
+    height: 24px;
+  }
+  .mobile-menu {
+    position: absolute;
+    top: calc(100% + 10px);
+    right: 0;
+    width: 200px;
+    padding: 8px;
+    border: 1px solid #dce3d8;
+    border-radius: 14px;
+    background: #f8f7f2;
+    box-shadow: 0 12px 32px #102c3926;
+  }
+  .mobile-menu button {
+    display: block;
+    width: 100%;
+    min-height: 44px;
+    padding: 10px 12px;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: #207c70;
+    font: inherit;
+    font-weight: 700;
+    text-align: left;
+    cursor: pointer;
+  }
+  .mobile-menu button:hover {
+    background: #e8eee5;
+  }
+  .mobile-menu-toggle:focus-visible,
+  .mobile-menu button:focus-visible {
+    outline: 2px solid #207c70;
+    outline-offset: 2px;
+  }
+}
 .account-link {
   border: 0;
   background: transparent;
@@ -6546,6 +6612,47 @@ button.pp-row-summary {
   align-items: center;
   gap: 16px;
   margin: 20px 0;
+}
+@media (max-width: 600px) {
+  .seller-retry-options .seller-retry-option {
+    display: grid;
+    grid-template-columns: 20px minmax(0, 1fr);
+    align-items: start;
+    gap: 4px 10px;
+  }
+  .seller-retry-options .seller-retry-option input {
+    grid-column: 1;
+    grid-row: 1 / span 2;
+    margin: 2px 0 0;
+  }
+  .seller-retry-options .seller-retry-option > strong,
+  .seller-retry-options .seller-retry-option > span {
+    grid-column: 2;
+    min-width: 0;
+    line-height: 1.45;
+  }
+  .seller-retry .pp-rows > .seller-retry-option {
+    display: grid;
+    gap: 4px;
+  }
+  .seller-retry .pp-rows > .seller-retry-option > strong {
+    min-width: 0;
+  }
+  .seller-retry-actions {
+    flex-wrap: nowrap;
+    align-items: stretch;
+    gap: 10px;
+  }
+  .seller-retry-actions > button {
+    flex: 1;
+    min-width: 0;
+    min-height: 48px;
+    padding: 10px 8px;
+    justify-content: center;
+    white-space: normal;
+    line-height: 1.35;
+    text-align: center;
+  }
 }
 .offer-selection-notice p {
   margin: 4px 0 0;
