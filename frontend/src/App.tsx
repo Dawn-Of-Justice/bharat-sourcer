@@ -48,6 +48,7 @@ import { NeedsList, safetyNeeds, type Need } from './ReportSummary'
 import Requirements, { requirementPayload, validRequirements } from './Requirements'
 import SpecPanel, { specPayload, validSpec } from './SpecPanel'
 import { AiSpecs, ConfidenceChip, ConflictNotes, EvidenceList, SourcesCard } from './ReviewDetails'
+import { sourceChipCount, sourceChipLabels } from './sourceChips'
 import { JobSkeleton, ResultsSkeleton, Spinner } from './Skeleton'
 import { useOverview } from './useOverview'
 import { PartIllustration } from './PartIllustration'
@@ -226,16 +227,6 @@ const sourceFields: Record<LinkSource, { label: string; placeholder: string }> =
 }
 
 const bareHost = (url: URL) => url.hostname.toLowerCase().replace(/^www\./, '')
-// A short readable name for a source link: "github.com/owner/repo", "youtube.com/watch".
-function sourceLabel(link: string) {
-  try {
-    const url = new URL(link)
-    const path = url.pathname.split('/').filter(Boolean).slice(0, 2).join('/')
-    return path ? `${bareHost(url)}/${path}` : bareHost(url)
-  } catch {
-    return link
-  }
-}
 function linkKind(url: URL): LinkSource | 'hackster' | null {
   const host = bareHost(url)
   if (['youtube.com', 'm.youtube.com', 'youtu.be'].includes(host)) return 'youtube'
@@ -1232,7 +1223,9 @@ function Review({
   // eslint-disable-next-line react-hooks/refs -- keeps the last opened part rendered while the side panel closes
   const shown = current ?? lastRow.current
   const reports = job.source_reports ?? []
-  const skipped = reports.filter(report => report.status === 'failed').length
+  const chipLabels = sourceChipLabels(reports)
+  const assumptionCount = job.project?.assumptions?.length ?? 0
+  const descriptionLinks = job.video_meta?.expired ? 0 : (job.video_meta?.links?.length ?? 0)
   const { overview } = drawing
   // Drawings come from the overview (one per physical part). While it is drawn, finished parts show at once and
   // the rest keep a skeleton until every part call is back.
@@ -1443,40 +1436,53 @@ function Review({
             <WiringSection overview={overview} />
           </Suspense>
         )}
-        {(!!job.project?.assumptions?.length || reports.length > 0 || job.video_meta) && (
+        {(assumptionCount > 0 || reports.length > 0 || descriptionLinks > 0 || job.video_meta?.expired) && (
           <section className="pp-origin" aria-labelledby="pp-origin-title">
             <h2 id="pp-origin-title">Where these came from</h2>
             {reports.length > 0 && (
               <ul className="pp-origin-links">
-                {reports.map(report => (
-                  <li key={report.url} className={report.status === 'failed' ? 'is-skipped' : undefined}>
-                    <a href={report.url} target="_blank" rel="noopener noreferrer">
-                      {sourceLabel(report.url)} <span aria-hidden="true">↗</span>
+                {reports.map((report, index) => (
+                  <li key={`${index}-${report.url}`} className={report.status === 'failed' ? 'is-skipped' : undefined}>
+                    <a
+                      href={report.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      title={
+                        report.status === 'failed'
+                          ? `${report.error?.message || 'This source could not be read.'} It was skipped.`
+                          : report.url
+                      }
+                    >
+                      {chipLabels[index]} <span aria-hidden="true">↗</span>
                     </a>
-                    <small>
-                      {report.status === 'read'
-                        ? `${report.item_count} ${report.item_count === 1 ? 'part' : 'parts'}`
-                        : 'Skipped'}
-                    </small>
+                    <small>{sourceChipCount(report)}</small>
                   </li>
                 ))}
               </ul>
             )}
-            <details className="pp-section">
-              <summary>
-                Assumptions and source details
-                {reports.length > 0 && (
+            {(assumptionCount > 0 || descriptionLinks > 0 || job.video_meta?.expired) && (
+              <details className="pp-section">
+                <summary>
+                  {assumptionCount > 0 && (descriptionLinks > 0 || job.video_meta?.expired)
+                    ? 'Assumptions and video description links'
+                    : assumptionCount > 0
+                      ? 'Assumptions'
+                      : 'Video description links'}
                   <span>
-                    {reports.length - skipped} {reports.length - skipped === 1 ? 'source' : 'sources'} read
-                    {skipped ? `, ${skipped} skipped` : ''}
+                    {[
+                      assumptionCount && `${assumptionCount} ${assumptionCount === 1 ? 'assumption' : 'assumptions'}`,
+                      descriptionLinks && `${descriptionLinks} ${descriptionLinks === 1 ? 'link' : 'links'}`,
+                    ]
+                      .filter(Boolean)
+                      .join(', ')}
                   </span>
-                )}
-              </summary>
-              <div className="pp-section-body">
-                <ProjectCard project={job.project} assumptionsOnly />
-                <SourcesCard job={job} />
-              </div>
-            </details>
+                </summary>
+                <div className="pp-section-body">
+                  <ProjectCard project={job.project} assumptionsOnly />
+                  <SourcesCard job={job} linksOnly />
+                </div>
+              </details>
+            )}
           </section>
         )}
         <div className="pp-confirm">
