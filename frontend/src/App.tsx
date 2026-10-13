@@ -49,7 +49,7 @@ import SpecPanel, { specPayload, validSpec } from './SpecPanel'
 import { AiSpecs, ConfidenceChip, ConflictNotes, EvidenceList, SourcesCard } from './ReviewDetails'
 import { JobSkeleton, ResultsSkeleton, Spinner } from './Skeleton'
 import { useOverview } from './useOverview'
-import { partInitials } from './partName'
+import { PartIllustration } from './PartIllustration'
 import { useToast } from './toastContext'
 import {
   loadChatPanel,
@@ -1391,7 +1391,7 @@ function Review({
                   ) : drawingParts ? (
                     <span className="sk pp-card-sk" />
                   ) : (
-                    <span className="part-placeholder">{partInitials(name)}</span>
+                    <PartIllustration name={name} category={row.item.buyable_spec?.category} />
                   )}
                   {have && <span className="pp-card-check" />}
                 </div>
