@@ -1,13 +1,21 @@
 # Backend
 
-v0.38.0 adds add-to-cart links to the order plan (`carts.py`). Offers verified from a
-store's own JSON keep its cart id (`VerifiedOffer.cart_id`: Shopify variant id or
-WooCommerce product id). Each `OrderPlanLine.cart_url` adds that line's packs to the
-seller's cart (Shopify `/cart/<variant>:<qty>?storefront=true`, WooCommerce
-`/?add-to-cart=<id>&quantity=<qty>`). `OrderPlanSeller.cart_url` is one Shopify cart
-permalink with every line in `cart_line_ids`; it replaces that shop's cart. Lines waiting
-for the user's confirmation are left out. Other platforms (Magento, OpenCart, custom
-stores) get no link. Older Shopify offers use the `?variant=` in their URL.
+v0.39.0 replaces the per-platform cart rules with a cart engine (`sourcing/cart_engine.py`).
+After offers are verified, it reads each listing's add-to-cart forms and buttons from the
+page already fetched (free) and asks Gemini (site `cart_recipe`, low thinking) whether a
+GET link adds a product with a quantity. The model answers in parts (path, id and quantity
+parameter names, fixed parameters, an optional several-items path with separators, the
+form field holding the id); code builds the URL on the store's own host and checks every
+part, and the id field must give one unambiguous id on that page. Failed answers are asked
+again (up to 3); "no link" needs two votes. Recipes are cached per store and form shape in
+memory and in the shared cache (`cart_recipe`, 30 days; "no link" 7 days), so each store
+costs about one call (≈ $0.002) across all jobs. Sourcing waits at most 8 s; a slower
+decision finishes in the background and is cached for the store's next listings.
+`VerifiedOffer.cart_id` is read from each listing's form and `cart_recipe` holds the store
+recipe; `OrderPlanLine.cart_url` and `OrderPlanSeller.cart_url`/`cart_line_ids`/
+`cart_replaces` are filled from them (`carts.py`). Lines waiting for confirmation stay out
+of the seller link. Links are judgements, not verified checkouts. `BS_CART_ENGINE_ENABLED`
+turns it off.
 
 v0.37.0 lets a finished list be edited again. `POST /v1/jobs/{job_id}/confirm` now also
 accepts a `done` job: the same edits (add, remove, update, have_it) apply, then seller

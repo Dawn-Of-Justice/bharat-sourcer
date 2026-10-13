@@ -57,6 +57,7 @@ from bharat_sourcer.sharing import add_share_routes
 from bharat_sourcer.sourcing import seller_search
 from bharat_sourcer.sourcing.buyer import GeminiBuyer
 from bharat_sourcer.sourcing.cache import build_cache
+from bharat_sourcer.sourcing.cart_engine import CartEngine
 from bharat_sourcer.sourcing.fetch import SafeFetcher
 from bharat_sourcer.sourcing.judge import GeminiJudge
 from bharat_sourcer.sourcing.politeness import Politeness
@@ -130,6 +131,9 @@ def create_app(
                 else None,
                 buyer=GeminiBuyer(settings) if settings.buyer_enabled else None,
                 buyer_rounds=settings.buyer_search_rounds,
+                carts=CartEngine(settings, cache=shared_cache)
+                if settings.cart_engine_enabled
+                else None,
             )
             if settings.sourcing_enabled and not settings.demo_mode
             else None
@@ -197,7 +201,7 @@ def create_app(
 
     app = FastAPI(
         title="Bharat Sourcer API",
-        version="0.38.0",
+        version="0.39.0",
         description=(
             "Demo or live YouTube and project-page extraction with optional Firestore job "
             "persistence."

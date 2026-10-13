@@ -40,6 +40,8 @@ DEFAULT_SITE_THINKING: dict[str, ThinkingLevel] = {
     "reconcile": "medium",
     "spec": "low",
     "spec_fill": "low",
+    # Cart engine (sourcing/cart_engine.py): one short structured answer per store.
+    "cart_recipe": "low",
 }
 
 
@@ -146,6 +148,8 @@ class Settings(BaseSettings):
     # Reconcile (reconcile.py): one call per extracted job reasons about the whole build and
     # merges lines that are the same part or drops ones that are not a purchase. Site `reconcile`.
     reconcile_enabled: bool = True
+    # Work out add-to-cart links per store with one cached Gemini call (cart_engine.py).
+    cart_engine_enabled: bool = True
     # Project overview (overview.py): after extraction, parallel calls (site `overview`) draw
     # the parts two lines at a time, one call (site `overview_wiring`) wires them, and judge
     # calls (site `overview_judge`) mark each part, pin header and wire
@@ -167,6 +171,7 @@ class Settings(BaseSettings):
             "overview_judge",
             "spec_fill",
             "reconcile",
+            "cart_recipe",
         ]
     )
     vertex_location: str = Field(default="global", pattern=r"^[a-z0-9-]+$")

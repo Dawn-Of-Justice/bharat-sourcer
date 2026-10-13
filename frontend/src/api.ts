@@ -744,7 +744,7 @@ export interface OrderPlanLine {
   grade?: PlanGrade | null
   changes_required?: boolean
   blocked_reason?: string | null
-  // Adds this line's packs to the seller's cart (Shopify or WooCommerce only).
+  // Adds this line's packs to the seller's cart, when the cart engine found a link recipe for the shop.
   cart_url?: string | null
 }
 export interface OrderPlanSeller {
@@ -757,9 +757,11 @@ export interface OrderPlanSeller {
   free_shipping_gap_inr?: string | null
   policy?: ShippingPolicyRef | null
   product_links?: string[]
-  // One link that opens this seller's cart with `cart_line_ids` added (Shopify; replaces that shop's cart).
+  // One link adding every line in `cart_line_ids` to this seller's cart (cart engine recipe, when the shop supports
+  // several items); `cart_replaces` when the recipe says it empties the cart first.
   cart_url?: string | null
   cart_line_ids?: string[]
+  cart_replaces?: boolean
 }
 export interface UnsourcedLine {
   line_id: string

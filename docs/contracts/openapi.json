@@ -3,7 +3,7 @@
   "info": {
     "title": "Bharat Sourcer API",
     "description": "Demo or live YouTube and project-page extraction with optional Firestore job persistence.",
-    "version": "0.38.0"
+    "version": "0.39.0"
   },
   "paths": {
     "/v1/session/guest": {
@@ -4623,6 +4623,80 @@
         "title": "CartPlans",
         "description": "Suggestions only: plans never change the user's selection."
       },
+      "CartRecipe": {
+        "properties": {
+          "single_url": {
+            "type": "string",
+            "maxLength": 300,
+            "title": "Single Url"
+          },
+          "multi_url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 300
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Multi Url"
+          },
+          "multi_item": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 40
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Multi Item"
+          },
+          "multi_join": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 3
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Multi Join"
+          },
+          "replaces_cart": {
+            "type": "boolean",
+            "title": "Replaces Cart",
+            "default": false
+          },
+          "method": {
+            "type": "string",
+            "const": "llm_form_review",
+            "title": "Method",
+            "default": "llm_form_review"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "single_url"
+        ],
+        "title": "CartRecipe",
+        "description": "How a shopper's browser adds items to one store's cart by opening a link.\n\nDecided by an LLM from the store's own add-to-cart form, checked by code, cached per\nstore. Not verified by placing an order: the link may still fail at the store."
+      },
       "CatalogCandidate": {
         "properties": {
           "id": {
@@ -8038,6 +8112,11 @@
             },
             "type": "array",
             "title": "Cart Line Ids"
+          },
+          "cart_replaces": {
+            "type": "boolean",
+            "title": "Cart Replaces",
+            "default": false
           }
         },
         "additionalProperties": false,
@@ -12259,13 +12338,23 @@
             "anyOf": [
               {
                 "type": "string",
-                "pattern": "^\\d{1,20}$"
+                "pattern": "^[\\w-]{1,40}$"
               },
               {
                 "type": "null"
               }
             ],
             "title": "Cart Id"
+          },
+          "cart_recipe": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CartRecipe"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "additionalProperties": false,
