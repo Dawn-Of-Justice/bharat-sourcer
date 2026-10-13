@@ -21,6 +21,7 @@ import { SidePanel } from './ProjectFrame'
 import { ExportButtons, ShareControl } from './ReportActions'
 import { NeedsList, SummaryBand } from './ReportSummary'
 import { orderNeeds } from './orderNeeds'
+import SellerRetry from './SellerRetry'
 import CodePatchView from './CodePatch'
 import { SellerIdentity } from './SellerIdentity'
 import { AiSpecs, SpecSourceText } from './ReviewDetails'
@@ -773,6 +774,7 @@ export default function Results({
   onOpenPart,
   attentionOpen,
   onAttentionChange,
+  onRetry,
 }: {
   job: Job
   token: string
@@ -783,6 +785,8 @@ export default function Results({
   onOpenPart?: (lineId: string | null) => void
   attentionOpen?: boolean
   onAttentionChange?: (open: boolean) => void
+  // Search again for parts without a seller; absent on the shared page.
+  onRetry?: (ids: string[]) => Promise<void>
 }) {
   const report = reportOf(job)
   const readOnly = !!shareToken
@@ -885,6 +889,7 @@ export default function Results({
           )
         }
       />
+      {onRetry && !readOnly && <SellerRetry job={job} onRetry={onRetry} />}
       <SidePanel
         id="pp-attention"
         open={showingAttention}
