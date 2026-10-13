@@ -166,6 +166,14 @@ or more other lines in that role (a coin cell and a LiPo) nothing is folded. Exa
 timestamp, `file:line` or page quote of that side's first evidence. The server never picks a
 side for identity; the maker resolves it with the normal `update` edit at confirmation.
 
+## 3a. Parallel reading (v0.35.0)
+
+Sources are extracted at the same time. For a video, the description is fetched first
+(YouTube Data API, no model call) so its project links are added before any model call and
+read alongside the video. Reports, groups and fusion follow source order exactly as a
+sequential read would. A slow or failed model call is hedged on a second route (see
+backend README v0.35.0).
+
 ## 4a. Reconcile (v0.34.0)
 
 Fusion only merges by name. After it, one Gemini call (site `reconcile`, `reconcile.py`)

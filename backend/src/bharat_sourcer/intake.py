@@ -1,6 +1,6 @@
 """Multi-source intake: validate a job's sources, extract each one, fuse one BOM.
 
-The primary URL and up to three extra `sources` are extracted one by one with the existing
+The primary URL and up to three extra `sources` are extracted in parallel with the existing
 extractor (one model call per source; GitHub code hints add none). A failing extra source
 is reported and skipped; the job fails only when no source yields parts.
 
@@ -10,7 +10,9 @@ the description to supported project pages are added as extra sources (within th
 of three extras and the usual dedupe), and the description gets its own source report.
 """
 
+import contextvars
 import logging
+from concurrent.futures import Future, ThreadPoolExecutor
 
 from bharat_sourcer.extraction import (
     ExtractionError,
@@ -93,63 +95,106 @@ def add_description_links(
         link.followed = known
 
 
+def _prefetch_links(extractor: Extractor, sources: list[tuple[str, str, str]], linked: set[str]):
+    """Add a video's description links before any model call, so they are read alongside
+    the video instead of after it. Optional: extractors without `video_links` skip this."""
+    video_links = getattr(extractor, "video_links", None)
+    if video_links is None:
+        return
+    for kind, _, submitted in list(sources):
+        if kind != "video":
+            continue
+        try:
+            meta = video_links(submitted)
+        except Exception:  # The video read fetches the description again and reports it.
+            log.info("Description prefetch failed", exc_info=True)
+            continue
+        if meta is not None:
+            add_description_links(sources, meta.model_copy(deep=True), linked)
+
+
 def extract_sources(extractor: Extractor, urls: list[str]) -> IntakeResult:
-    """Extract every source and fuse the per-source BOMs into one (see fusion.py)."""
+    """Extract every source in parallel and fuse the per-source BOMs into one (fusion.py).
+
+    Sources are read at the same time (a 4-minute video takes 10 to 50 s, each linked page
+    about 25 s; read one by one they added up). Results are processed in source order, so
+    fusion and reports are the same as a sequential read.
+    """
     sources = validate_sources(urls)
     groups, reports, project, first_error = [], [], None, None
     video_meta, linked = None, set[str]()
+    _prefetch_links(extractor, sources, linked)
     index = 0
-    while index < len(sources):  # Description links may append sources while reading.
-        kind, canonical, submitted = sources[index]
-        index += 1
-        report = {
-            "url": canonical,
-            "kind": report_kind(kind, canonical),
-            "role": "primary" if index == 1 else "additional",
-        }
-        if canonical in linked:
-            report["found_in"] = DESCRIPTION_SOURCE
-        try:
-            result = extractor.extract(submitted)
-        except Exception as exc:
-            if len(sources) == 1:
-                raise  # Single-source jobs fail exactly as before.
-            error = (
-                exc
-                if isinstance(exc, ExtractionError)
-                else ExtractionError("EXTRACTION_FAILED", "Extraction of this source failed")
-            )
-            log.info("Source %d of %d failed: %s", index, len(sources), error.code)
-            first_error = first_error or error
+    with ThreadPoolExecutor(max_workers=MAX_EXTRA_SOURCES + 1) as pool:
+        futures: dict[int, Future] = {}
+
+        def submit_new() -> None:
+            for position, (_, _, submitted) in enumerate(sources):
+                if position not in futures:
+                    context = contextvars.copy_context()  # keeps the job's cost attribution
+                    futures[position] = pool.submit(context.run, _attempt, extractor, submitted)
+
+        submit_new()
+        while index < len(sources):  # Description links may append sources while reading.
+            kind, canonical, _ = sources[index]
+            outcome = futures[index].result()
+            index += 1
+            report = {
+                "url": canonical,
+                "kind": report_kind(kind, canonical),
+                "role": "primary" if index == 1 else "additional",
+            }
+            if canonical in linked:
+                report["found_in"] = DESCRIPTION_SOURCE
+            if isinstance(outcome, BaseException):
+                if len(sources) == 1:
+                    raise outcome  # Single-source jobs fail exactly as before.
+                error = (
+                    outcome
+                    if isinstance(outcome, ExtractionError)
+                    else ExtractionError("EXTRACTION_FAILED", "Extraction of this source failed")
+                )
+                log.info("Source %d of %d failed: %s", index, len(sources), error.code)
+                first_error = first_error or error
+                reports.append(
+                    SourceReport(
+                        **report,
+                        status="failed",
+                        error=ErrorDetail(code=error.code, message=error.message),
+                    )
+                )
+                continue
+            result = outcome
+            # Simple extractors (and tests) may return only the item list.
+            items = result if isinstance(result, list) else result.items
+            code_items = [] if isinstance(result, list) else result.code_items
+            if project is None and not isinstance(result, list):
+                project = result.project
+            groups += [group for group in (items, code_items) if group]
             reports.append(
                 SourceReport(
                     **report,
-                    status="failed",
-                    error=ErrorDetail(code=error.code, message=error.message),
+                    status="read",
+                    item_count=len(items),
+                    code_item_count=len(code_items),
                 )
             )
-            continue
-        # Simple extractors (and tests) may return only the item list.
-        items = result if isinstance(result, list) else result.items
-        code_items = [] if isinstance(result, list) else result.code_items
-        if project is None and not isinstance(result, list):
-            project = result.project
-        groups += [group for group in (items, code_items) if group]
-        reports.append(
-            SourceReport(
-                **report,
-                status="read",
-                item_count=len(items),
-                code_item_count=len(code_items),
-            )
-        )
-        if kind == "video" and not isinstance(result, list):
-            described = description_report(canonical, result)
-            if described is not None:
-                reports.append(described)
-            if result.video_meta is not None and video_meta is None:
-                video_meta = result.video_meta.model_copy(deep=True)
-                add_description_links(sources, video_meta, linked)
+            if kind == "video" and not isinstance(result, list):
+                described = description_report(canonical, result)
+                if described is not None:
+                    reports.append(described)
+                if result.video_meta is not None and video_meta is None:
+                    video_meta = result.video_meta.model_copy(deep=True)
+                    add_description_links(sources, video_meta, linked)
+                    submit_new()
     if not groups:
         raise first_error or ExtractionError("NO_BOM", "No supported parts found")
     return IntakeResult(items=fuse(groups), project=project, sources=reports, video_meta=video_meta)
+
+
+def _attempt(extractor: Extractor, url: str):
+    """The source's result, or the exception it raised (handled in source order)."""
+    try:
+        return extractor.extract(url)
+    except Exception as exc:
+        return exc
