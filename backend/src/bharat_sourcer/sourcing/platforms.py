@@ -167,6 +167,7 @@ def shopify_offer(page: Page, query: str | None, fetcher) -> VerifiedOffer | Non
         specs=specs,
         spec_evidence=evidence,
         spec_conflicts=conflicts,
+        cart_id=str(variant.get("id")) if str(variant.get("id")).isdigit() else None,
     )
 
 
@@ -293,6 +294,7 @@ def woocommerce_offer(page: Page, query: str | None, fetcher) -> VerifiedOffer |
         specs=specs,
         spec_evidence=evidence,
         spec_conflicts=conflicts,
+        cart_id=str(product.get("id")) if str(product.get("id")).isdigit() else None,
     )
 
 
