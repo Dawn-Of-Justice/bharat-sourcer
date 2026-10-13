@@ -1,5 +1,3 @@
-import SellerSearchResults from './SellerSearchResults'
-import { sellerSearchViewAfterUpdate } from './sellerSearch'
 import YoutubeJourney from './YoutubeJourney'
 import { watchJob } from './stream'
 import { useJobTitle } from './useJobTitle'
@@ -1828,15 +1826,13 @@ function JobPage({ id }: { id: string }) {
   const [viewStep, setViewStep] = useState<number | null>(null)
   // Which way the content slides in: back to an earlier step, or forward.
   const [direction, setDirection] = useState<'back' | 'forward'>('forward')
-  const previousStatus = useRef<Job['status'] | undefined>(undefined)
-  const previewSearchResults =
-    localPreview && new URLSearchParams(window.location.search).get('stage') === 'search-results'
-  useEffect(() => {
-    if (!job?.status) return
-    setViewStep(sellerSearchViewAfterUpdate(previousStatus.current, job.status, previewSearchResults))
+  // A new stage shows itself: drop any earlier step the user was looking at.
+  const [shownStatus, setShownStatus] = useState(job?.status)
+  if (job?.status !== shownStatus) {
+    setShownStatus(job?.status)
+    setViewStep(null)
     setDirection('forward')
-    previousStatus.current = job.status
-  }, [job?.status, previewSearchResults])
+  }
 
   function applySnapshot(next: Job) {
     setJob(previous => (previous && Date.parse(next.updated_at) < Date.parse(previous.updated_at) ? previous : next))
@@ -1966,7 +1962,7 @@ function JobPage({ id }: { id: string }) {
     if (currentStep >= 1) preload(loadResults)
   }, [currentStep])
   const back = {
-    label: currentStep === 2 ? 'Back to order plan' : 'Back to seller search',
+    label: job?.status === 'done' ? 'Back to order plan' : 'Back to seller search',
     onClick: () => view(currentStep),
   }
   const pauseControl =
@@ -2082,7 +2078,7 @@ function JobPage({ id }: { id: string }) {
               viewing={viewing}
               onView={view}
               onPrefetch={step => {
-                if (step === 2) preload(loadResults)
+                if (step === 1) preload(loadResults)
               }}
               action={pauseControl}
             />
@@ -2111,24 +2107,6 @@ function JobPage({ id }: { id: string }) {
                   ) : (
                     <ConfirmedParts job={job} back={back} />
                   )
-                ) : job.status === 'done' ? (
-                  <SellerSearchResults
-                    job={job}
-                    onContinue={() => view(2)}
-                    onDetails={lineId => {
-                      view(2)
-                      setOpenPart(lineId)
-                    }}
-                    onRetry={async ids => {
-                      await refreshOffers(id, token, ids)
-                      setOpenPart(null)
-                      setChatOpen(false)
-                      setAttention(false)
-                      setViewStep(1)
-                      setJob(previous => (previous ? { ...previous, status: 'resolving' } : previous))
-                      setRevision(value => value + 1)
-                    }}
-                  />
                 ) : (
                   <AnalysisProgress job={job} back={back} />
                 )
@@ -2163,6 +2141,15 @@ function JobPage({ id }: { id: string }) {
                         onOpenChat={() => setChatOpen(true)}
                         openPart={openPart}
                         onOpenPart={setOpenPart}
+                        onRetry={async ids => {
+                          await refreshOffers(id, token, ids)
+                          setOpenPart(null)
+                          setChatOpen(false)
+                          setAttention(false)
+                          setViewStep(null)
+                          setJob(previous => (previous ? { ...previous, status: 'resolving' } : previous))
+                          setRevision(value => value + 1)
+                        }}
                       />
                     </Suspense>
                   ) : null}
@@ -2211,7 +2198,6 @@ export default function App() {
           <a href="/projects?preview=1">My projects</a>
           <a href="/job/ui-preview?preview=1">Review</a>
           <a href="/job/ui-preview?preview=1&stage=sourcing">Parallel progress</a>
-          <a href="/job/ui-preview?preview=1&stage=search-results">Search complete</a>
           <a href="/job/ui-preview?preview=1&stage=done">Results</a>
           <a href="/job/ui-preview?preview=1&stage=plan">Order plan</a>
           <a href="/shared/ui-preview.dummy?preview=1">Shared link</a>

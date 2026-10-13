@@ -49,14 +49,3 @@ export function sellerSearchOutcomes(job: Job, now = Date.now()): SellerSearchOu
       : { item, kind: 'details', reason: 'Compatibility needs review' }
   })
 }
-
-export function sellerSearchViewAfterUpdate(
-  previous: Job['status'] | undefined,
-  next: Job['status'],
-  preview: boolean,
-) {
-  return next === 'done' &&
-    (preview || (previous !== undefined && ['resolving', 'sourcing', 'paused'].includes(previous)))
-    ? 1
-    : null
-}

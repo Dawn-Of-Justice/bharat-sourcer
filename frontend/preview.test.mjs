@@ -286,15 +286,6 @@ test('seller retry separates missing details and available offers from retryable
   assert.equal(sellerSearchOutcomes(fixture)[0].kind, 'owned')
 })
 
-test('seller-search completion stays on Find sellers while reopening a completed job keeps its order plan', () => {
-  const { sellerSearchViewAfterUpdate } = load('./sellerSearch')
-  for (const status of ['resolving', 'sourcing', 'paused'])
-    assert.equal(sellerSearchViewAfterUpdate(status, 'done', false), 1)
-  assert.equal(sellerSearchViewAfterUpdate(undefined, 'done', false), null)
-  assert.equal(sellerSearchViewAfterUpdate(undefined, 'done', true), 1)
-  assert.equal(sellerSearchViewAfterUpdate('done', 'sourcing', false), null)
-})
-
 test('local retry progresses, preserves untouched parts, and enforces batch and retry limits without network', async () => {
   const { planPreview, previewReportRequest } = load('./previewReport')
   const { sellerSearchOutcomes } = load('./sellerSearch')

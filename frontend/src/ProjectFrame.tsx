@@ -3,13 +3,13 @@ import type { Job } from './api'
 import { ChatIcon } from './LandingIcons'
 
 // The project page's three-step journey: the same order the user goes through.
-const steps = ['Review the parts', 'Find sellers', 'Order plan'] as const
+// Seller search and the order plan share one step: the plan shows what was found and what to search again.
+const steps = ['Review the parts', 'Sellers and order plan'] as const
 
 export function stepOf(job: Job): number {
   if (['queued', 'extracting', 'awaiting_confirmation'].includes(job.status)) return 0
-  if (['resolving', 'sourcing', 'paused'].includes(job.status)) return 1
-  if (job.status === 'done') return 2
-  return job.report ? 2 : job.items.length ? 1 : 0
+  if (['resolving', 'sourcing', 'paused', 'done'].includes(job.status)) return 1
+  return job.report || job.items.length ? 1 : 0
 }
 
 function stageNote(job: Job, reading: string): string {

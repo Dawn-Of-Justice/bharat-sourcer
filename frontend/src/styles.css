@@ -6716,6 +6716,10 @@ button.pp-row-summary {
   box-shadow: 0 4px 18px rgba(13, 38, 48, 0.12);
   cursor: default;
 }
+/* Search again for parts without a seller, under the order plan's parts (SellerRetry.tsx). */
+.seller-retry {
+  margin-top: 28px;
+}
 .seller-retry-options {
   min-width: 0;
   margin: 20px 0;
