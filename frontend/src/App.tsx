@@ -1226,7 +1226,6 @@ function Review({
   const reports = job.source_reports ?? []
   const chipLabels = sourceChipLabels(reports)
   const assumptionCount = job.project?.assumptions?.length ?? 0
-  const descriptionLinks = job.video_meta?.expired ? 0 : (job.video_meta?.links?.length ?? 0)
   const { overview } = drawing
   // Drawings come from the overview (one per physical part). While it is drawn, finished parts show at once and
   // the rest keep a skeleton until every part call is back.
@@ -1437,7 +1436,7 @@ function Review({
             <WiringSection overview={overview} />
           </Suspense>
         )}
-        {(assumptionCount > 0 || reports.length > 0 || descriptionLinks > 0 || job.video_meta?.expired) && (
+        {(assumptionCount > 0 || reports.length > 0) && (
           <section className="pp-origin" aria-labelledby="pp-origin-title">
             <h2 id="pp-origin-title">Where these came from</h2>
             {reports.length > 0 && (
@@ -1461,26 +1460,16 @@ function Review({
                 ))}
               </ul>
             )}
-            {(assumptionCount > 0 || descriptionLinks > 0 || job.video_meta?.expired) && (
+            {assumptionCount > 0 && (
               <details className="pp-section">
                 <summary>
-                  {assumptionCount > 0 && (descriptionLinks > 0 || job.video_meta?.expired)
-                    ? 'Assumptions and video description links'
-                    : assumptionCount > 0
-                      ? 'Assumptions'
-                      : 'Video description links'}
+                  Assumptions
                   <span>
-                    {[
-                      assumptionCount && `${assumptionCount} ${assumptionCount === 1 ? 'assumption' : 'assumptions'}`,
-                      descriptionLinks && `${descriptionLinks} ${descriptionLinks === 1 ? 'link' : 'links'}`,
-                    ]
-                      .filter(Boolean)
-                      .join(', ')}
+                    {assumptionCount} {assumptionCount === 1 ? 'assumption' : 'assumptions'}
                   </span>
                 </summary>
                 <div className="pp-section-body">
                   <ProjectCard project={job.project} assumptionsOnly />
-                  <SourcesCard job={job} linksOnly />
                 </div>
               </details>
             )}
