@@ -159,13 +159,12 @@ const linkKind = {
   other: 'Other link',
 }
 
-// linksOnly drops the per-source list, for pages that already show the sources as chips.
-export function SourcesCard({ job, linksOnly = false }: { job: Job; linksOnly?: boolean }) {
-  const reports = linksOnly ? [] : (job.source_reports ?? [])
+export function SourcesCard({ job }: { job: Job }) {
+  const reports = job.source_reports ?? []
   const meta = job.video_meta
   if (!reports.length && !meta?.expired && !meta?.links?.length) return null
   return (
-    <section className="sources-card" aria-label={linksOnly ? 'Video description links' : 'Sources read'}>
+    <section className="sources-card" aria-label="Sources read">
       {reports.length > 0 && (
         <>
           <strong>Sources read</strong>
