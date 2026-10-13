@@ -365,6 +365,7 @@ type JobEdit =
     }
   | { op: 'have_it'; line_id: string; user_has_it: boolean }
   | { op: 'remove'; line_id: string }
+  | { op: 'add'; raw_name: string; qty: number; requirements?: PartRequirement[] }
 
 /** Error envelope returned by the backend on non-2xx responses. */
 export type ErrorBody = { error?: { code?: string; message?: string } }

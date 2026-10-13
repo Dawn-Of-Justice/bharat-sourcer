@@ -48,7 +48,13 @@ def test_job_lifecycle_and_edits(client):
     assert job["report"]["total_inr"] is None
     assert all(line["grade"] is None for line in job["report"]["lines"])
     assert [event["seq"] for event in job["events"]] == list(range(1, 6))
-    assert client.post(f"{path}/confirm", headers=headers, json={}).status_code == 409
+    # A finished list can be edited and confirmed again.
+    again = {"edits": [{"op": "remove", "line_id": "L04"}]}
+    assert client.post(f"{path}/confirm", headers=headers, json=again).status_code == 202
+    assert [
+        line["item"]["line_id"]
+        for line in client.get(path, headers=headers).json()["report"]["lines"]
+    ] == ["L01", "L03"]
 
 
 def test_jobs_require_their_own_token(client):

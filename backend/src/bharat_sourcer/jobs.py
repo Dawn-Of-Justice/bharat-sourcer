@@ -61,6 +61,16 @@ from bharat_sourcer.youtube_meta import apply_retention
 log = logging.getLogger(__name__)
 
 
+def same_part(before: BomItem, after: BomItem) -> bool:
+    """Whether seller results found for `before` still describe `after` (quantity aside)."""
+    return (
+        before.raw_name == after.raw_name
+        and before.buyable_spec == after.buyable_spec
+        and before.specs == after.specs
+        and before.requirements == after.requirements
+    )
+
+
 def worth_rechecking(line: ReportLine) -> bool:
     """A refresh re-checks known listings only when one was usable: in stock, judged an
     exact or compatible match by the spec judge (or unjudged), on a part whose value is
@@ -835,7 +845,8 @@ class JobService:
 
         def change(record: StoredJob):
             job = self._authorized(record, token)
-            self.edit_draft(job, request, finalize=True)
+            previous = job.report if job.status == "done" else None
+            self.edit_draft(job, request, finalize=True, reopen=previous is not None)
             if (
                 record.part_limit
                 and sum(not item.user_has_it for item in job.items) > record.part_limit
@@ -843,12 +854,63 @@ class JobService:
                 raise JobError(
                     422, "PART_LIMIT", "Remove parts or mark owned parts before confirming"
                 )
+            if previous is not None and job.sourcing_enabled and not job.demo:
+                self._keep_sourced(record, previous)
 
         if self.store.mutate(job_id, change) is None:
             raise JobError(404, "JOB_NOT_FOUND", "Job not found or token invalid")
 
-    def edit_draft(self, job: Job, request: ConfirmJob, *, finalize: bool = False) -> None:
-        if job.status != "awaiting_confirmation":
+    def _keep_sourced(self, record: StoredJob, previous: Report) -> None:
+        """After edits to a finished report, keep seller results for unchanged parts.
+
+        Only lines that are new, or whose name, specs or build details changed, are searched
+        again; a quantity change keeps its offers and only the costs are recomputed.
+        """
+        job = record.job
+        before = {line.item.line_id: line for line in previous.lines}
+        lines, search = [], []
+        for item in job.items:
+            old = before.get(item.line_id)
+            if item.user_has_it:
+                lines.append(
+                    ReportLine(item=item.model_copy(deep=True), sourcing_status="already_owned")
+                )
+            elif (
+                old is None
+                or old.sourcing_status == "already_owned"
+                or not same_part(old.item, item)
+            ):
+                search.append(item.line_id)
+            else:
+                lines.append(old.model_copy(update={"item": item.model_copy(deep=True)}, deep=True))
+        previous.lines = lines
+        update_costs(previous)
+        job.report = previous
+        job.error = None
+        record.refresh_urls = None
+        record.run_id = record.lease_until = None
+        if not search:
+            reassess_report(previous, job.project)
+            apply_recommendations(previous, self.seller_penalty_inr)
+            self._transition(job, "done", "Saved your changes; no new parts to search.")
+            return
+        if job.cost_estimate:
+            # Each search for added parts is a new sourcing run with its own budget.
+            job.cost_estimate.run_usd, job.cost_estimate.budget_reached = 0.0, False
+        record.sourcing_scope = search
+        count = len(search)
+        self._transition(
+            job,
+            "resolving",
+            f"Saved your changes; searching sellers for {count} new or changed "
+            + ("part." if count == 1 else "parts."),
+        )
+
+    def edit_draft(
+        self, job: Job, request: ConfirmJob, *, finalize: bool = False, reopen: bool = False
+    ) -> None:
+        # A finished report can be edited again; confirm then searches only what changed.
+        if job.status != "awaiting_confirmation" and not (reopen and job.status == "done"):
             raise JobError(409, "INVALID_STATE", "Job is not awaiting confirmation")
         # Work on a copy so any invalid edit rolls back the entire confirmation.
         items = {item.line_id: item.model_copy(deep=True) for item in job.items}

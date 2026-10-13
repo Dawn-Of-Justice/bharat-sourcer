@@ -939,6 +939,8 @@ type ReviewRow = {
   removed: boolean
   requirements: NonNullable<BomItem['requirements']>
   spec: BuyableSpec | null
+  // Added on this page; sent as a new line when the list is confirmed.
+  added?: boolean
 }
 
 // A short note under a review row's name: the one thing worth checking first.
@@ -1076,7 +1078,7 @@ function Review({
 }: {
   job: Job
   token: string
-  onConfirmed: () => void
+  onConfirmed: (searching: boolean) => void
   openPart: string | null
   onOpenPart: (lineId: string | null) => void
 }) {
@@ -1094,6 +1096,9 @@ function Review({
   )
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+  const [newName, setNewName] = useState('')
+  const [newQty, setNewQty] = useState('1')
+  const addedCount = useRef(0)
   const lastRow = useRef<ReviewRow | null>(null)
   const [attentionOpen, setAttentionOpen] = useState(false)
   const drawing = useOverview(job, token)
@@ -1104,6 +1109,32 @@ function Review({
 
   function update(id: string, patch: Partial<ReviewRow>) {
     setRows(current => current.map(row => (row.item.line_id === id ? { ...row, ...patch } : row)))
+  }
+
+  function addPart() {
+    const name = newName.trim()
+    const qty = Number(newQty)
+    if (!name || !Number.isInteger(qty) || qty < 1 || qty > 10000) {
+      setError('A new part needs a name and a quantity from 1 to 10,000.')
+      return
+    }
+    setError('')
+    addedCount.current += 1
+    const item: BomItem = {
+      line_id: `new-${addedCount.current}`,
+      raw_name: name,
+      qty,
+      user_has_it: false,
+      user_edited: true,
+      evidence: [],
+      clarifications: [],
+    }
+    setRows(current => [
+      ...current,
+      { item, name, qty: String(qty), owned: false, removed: false, requirements: [], spec: null, added: true },
+    ])
+    setNewName('')
+    setNewQty('1')
   }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -1145,6 +1176,16 @@ function Review({
     }
     const edits: Parameters<typeof confirmJob>[2] = []
     for (const row of rows) {
+      if (row.added) {
+        if (!row.removed)
+          edits.push({
+            op: 'add',
+            raw_name: row.name.trim(),
+            qty: Number(row.qty),
+            ...(row.requirements.length ? { requirements: requirementPayload(row.requirements) } : {}),
+          })
+        continue
+      }
       if (row.removed) {
         edits.push({ op: 'remove', line_id: row.item.line_id })
         continue
@@ -1177,7 +1218,7 @@ function Review({
     try {
       await confirmJob(job.job_id, token, edits)
       onOpenPart(null)
-      onConfirmed()
+      onConfirmed(toSource > 0)
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Could not confirm the list.')
     } finally {
@@ -1186,7 +1227,24 @@ function Review({
   }
 
   const kept = rows.filter(row => !row.removed)
-  const toSource = kept.filter(row => !row.owned).length
+  // After sellers were found, confirming searches only parts that are new or changed (backend jobs.py
+  // `_keep_sourced`); a quantity change keeps its seller results.
+  const searched = job.status === 'done' && job.report && !job.demo ? job.report : null
+  const previous = new Map((searched?.lines ?? []).map(line => [line.item.line_id, line]))
+  const needsSearch = (row: ReviewRow) => {
+    if (row.owned) return false
+    if (!searched || row.added) return true
+    const line = previous.get(row.item.line_id)
+    return (
+      !line ||
+      line.sourcing_status === 'already_owned' ||
+      row.name.trim() !== row.item.raw_name ||
+      JSON.stringify(row.requirements) !== JSON.stringify(row.item.requirements ?? []) ||
+      (!!row.spec && JSON.stringify(row.spec) !== JSON.stringify(row.item.buyable_spec ?? null))
+    )
+  }
+  const toSource = kept.filter(needsSearch).length
+  const unowned = kept.filter(row => !row.owned).length
   const guest =
     account.identity && account.identity !== 'legacy' && account.identity.kind === 'guest' ? account.identity : null
   const needs: Need[] = safetyNeeds(job, showReviewPart)
@@ -1210,12 +1268,12 @@ function Review({
         action: { label: 'Check part', onClick: () => showReviewPart(row.item.line_id) },
       })
   }
-  if (guest && toSource > guest.part_limit)
+  if (guest && unowned > guest.part_limit)
     needs.push({
       key: 'guest-limit',
       tone: 'input',
       title: `Guests can search sellers for up to ${guest.part_limit} parts`,
-      detail: `This list has ${toSource}. Mark parts you already have, remove some, or sign in with Google.`,
+      detail: `This list has ${unowned}. Mark parts you already have, remove some, or sign in with Google.`,
       action: { label: 'Sign in', onClick: account.open },
     })
   const current = rows.find(row => row.item.line_id === openPart) ?? null
@@ -1316,7 +1374,11 @@ function Review({
             </button>
           )}
         </div>
-        <p className="pp-parts-help">Mark what you already have. We search sellers only after you confirm.</p>
+        <p className="pp-parts-help">
+          {searched
+            ? 'Sellers are already found for this list. Add, remove or change parts; we search only the new or changed ones.'
+            : 'Mark what you already have. We search sellers only after you confirm.'}
+        </p>
         <ReconciledNote lines={job.reconciled ?? []} />
         {drawing.pending && overview && (
           <p className="pp-draw-progress" role="status">
@@ -1431,6 +1493,29 @@ function Review({
             )
           })}
         </ul>
+        <div className="pp-add-part" role="group" aria-label="Add a part">
+          <input
+            type="text"
+            value={newName}
+            maxLength={200}
+            placeholder="Add a part, e.g. 10k resistor"
+            aria-label="Name of the part to add"
+            onChange={event => setNewName(event.target.value)}
+            onKeyDown={event => {
+              if (event.key === 'Enter') {
+                event.preventDefault()
+                addPart()
+              }
+            }}
+          />
+          <QtyField className="pp-review-qty" value={newQty} disabled={false} onChange={setNewQty}>
+            <span className="visually-hidden">Quantity of the part to add</span>
+            <span aria-hidden="true">×</span>
+          </QtyField>
+          <button type="button" className="nav-cta" onClick={addPart} disabled={!newName.trim()}>
+            Add part
+          </button>
+        </div>
         {overview && overview.status !== 'failed' && overview.wiring.length > 0 && (
           <Suspense fallback={null}>
             <WiringSection overview={overview} />
@@ -1498,8 +1583,10 @@ function Review({
               {busy
                 ? 'Confirming…'
                 : toSource
-                  ? `Find sellers for ${toSource} ${toSource === 1 ? 'part' : 'parts'}`
-                  : 'Confirm the list'}{' '}
+                  ? `Find sellers for ${toSource} ${searched ? 'new ' : ''}${toSource === 1 ? 'part' : 'parts'}`
+                  : searched
+                    ? 'Save changes'
+                    : 'Confirm the list'}{' '}
               <ArrowIcon />
             </button>
           </div>
@@ -1539,14 +1626,14 @@ function Review({
   )
 }
 
-// The confirmed list, shown when the user steps back to "Review the parts" after confirming.
+// The confirmed list, shown when the user steps back to "Review the parts" while sellers are searched.
 function ConfirmedParts({ job, back }: { job: Job; back: { label: string; onClick: () => void } }) {
   return (
     <section className="job-panel pp-stage pp-lookback">
       <header className="pp-lookback-head">
         <div>
           <h2>The parts you confirmed</h2>
-          <p>To change a part now, ask in the chat. Every suggested change needs your approval before it is applied.</p>
+          <p>You can add, remove or change parts here once the seller search finishes.</p>
         </div>
         <button type="button" className="nav-cta" onClick={back.onClick}>
           {back.label}
@@ -2008,7 +2095,22 @@ function JobPage({ id }: { id: string }) {
             <div ref={mainRef} className={`pp-main pp-view pp-view-${direction}`} key={`${viewing}:${currentStep}`}>
               {viewing !== currentStep ? (
                 viewing === 0 ? (
-                  <ConfirmedParts job={job} back={back} />
+                  job.status === 'done' ? (
+                    <Review
+                      key={JSON.stringify(job.items)}
+                      job={job}
+                      token={token}
+                      onConfirmed={searching => {
+                        setViewStep(null)
+                        if (searching) setJob(previous => (previous ? { ...previous, status: 'resolving' } : previous))
+                        setRevision(value => value + 1)
+                      }}
+                      openPart={openPart}
+                      onOpenPart={setOpenPart}
+                    />
+                  ) : (
+                    <ConfirmedParts job={job} back={back} />
+                  )
                 ) : job.status === 'done' ? (
                   <SellerSearchResults
                     job={job}
