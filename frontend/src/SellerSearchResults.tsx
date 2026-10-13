@@ -118,6 +118,14 @@ export default function SellerSearchResults({
           {error}
         </p>
       )}
+      <ul className="pp-rows seller-results" aria-label="Search results">
+        {outcomes.map(({ item, reason }) => (
+          <li className="seller-retry-option" key={item.line_id}>
+            <strong>{item.raw_name}</strong>
+            <span>{reason}</span>
+          </li>
+        ))}
+      </ul>
       <div className="seller-retry-actions">
         {!!retryable.length && !job.demo && remaining > 0 && (
           <button type="button" className="nav-cta" disabled={!canRetry || !ids.length} onClick={() => void retry()}>
@@ -128,17 +136,6 @@ export default function SellerSearchResults({
           Continue to order plan
         </button>
       </div>
-      <details className="pp-section">
-        <summary>All search results</summary>
-        <ul className="pp-rows">
-          {outcomes.map(({ item, reason }) => (
-            <li className="seller-retry-option" key={item.line_id}>
-              <strong>{item.raw_name}</strong>
-              <span>{reason}</span>
-            </li>
-          ))}
-        </ul>
-      </details>
     </section>
   )
 }
