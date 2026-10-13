@@ -5,9 +5,9 @@ import {
   type EvidenceSource,
   type Job,
   type PartSpecs,
-  type SourceReport,
   type SpecEvidence,
 } from './api'
+import { kindLabel } from './sourceChips'
 
 // Review-page details from multi-source intake (docs/contracts/multi-source-intake.md). All are rule or model outputs, not verified facts.
 const sourceLabel: Record<EvidenceSource, string> = {
@@ -152,15 +152,6 @@ export function ConflictNotes({ item }: { item: BomItem }) {
   )
 }
 
-const kindLabel: Record<SourceReport['kind'], string> = {
-  video: 'YouTube video',
-  instructables: 'Instructables project',
-  hackster: 'Hackster project',
-  github: 'GitHub repository',
-  adafruit: 'Adafruit Learn guide',
-  blog: 'Tutorial blog',
-  youtube_description: 'Video description',
-}
 const linkKind = {
   project_source: 'Project page',
   video: 'Another video',
@@ -168,12 +159,13 @@ const linkKind = {
   other: 'Other link',
 }
 
-export function SourcesCard({ job }: { job: Job }) {
-  const reports = job.source_reports ?? []
+// linksOnly drops the per-source list, for pages that already show the sources as chips.
+export function SourcesCard({ job, linksOnly = false }: { job: Job; linksOnly?: boolean }) {
+  const reports = linksOnly ? [] : (job.source_reports ?? [])
   const meta = job.video_meta
-  if (!reports.length && !meta) return null
+  if (!reports.length && !meta?.expired && !meta?.links?.length) return null
   return (
-    <section className="sources-card" aria-label="Sources read">
+    <section className="sources-card" aria-label={linksOnly ? 'Video description links' : 'Sources read'}>
       {reports.length > 0 && (
         <>
           <strong>Sources read</strong>
