@@ -7125,7 +7125,6 @@ button.pp-row-summary {
   text-transform: uppercase;
 }
 .po-hero-how {
-  max-width: 72ch;
   margin: 0;
   color: #2f4b46;
   font-size: 16px;
@@ -7135,19 +7134,15 @@ button.pp-row-summary {
   display: grid;
   gap: 18px;
 }
-@media (min-width: 860px) {
-  .po-hero-body {
-    grid-template-columns: minmax(0, 1fr) minmax(220px, 300px);
-    gap: 40px;
-    align-items: start;
-  }
-}
+/* The summary spans the card; the facts sit in a row below it and wrap to fewer columns as the card narrows,
+   so neither leaves a blank block beside the other. */
 .po-hero-facts {
   display: grid;
-  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px 28px;
   margin: 0;
-  padding: 0 0 0 20px;
-  border-left: 2px solid var(--pp-mint);
+  padding: 14px 0 0;
+  border-top: 2px solid var(--pp-mint);
 }
 .po-hero-facts div {
   display: grid;
