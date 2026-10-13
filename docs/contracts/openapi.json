@@ -3,7 +3,7 @@
   "info": {
     "title": "Bharat Sourcer API",
     "description": "Demo or live YouTube and project-page extraction with optional Firestore job persistence.",
-    "version": "0.37.0"
+    "version": "0.38.0"
   },
   "paths": {
     "/v1/session/guest": {
@@ -7929,6 +7929,20 @@
               }
             ],
             "title": "Blocked Reason"
+          },
+          "cart_url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2083,
+                "minLength": 1,
+                "format": "uri"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cart Url"
           }
         },
         "additionalProperties": false,
@@ -8003,6 +8017,27 @@
             },
             "type": "array",
             "title": "Product Links"
+          },
+          "cart_url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2083,
+                "minLength": 1,
+                "format": "uri"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cart Url"
+          },
+          "cart_line_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Cart Line Ids"
           }
         },
         "additionalProperties": false,
@@ -12219,6 +12254,18 @@
               }
             ],
             "title": "Pack Qty"
+          },
+          "cart_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^\\d{1,20}$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cart Id"
           }
         },
         "additionalProperties": false,

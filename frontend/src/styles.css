@@ -6187,6 +6187,32 @@ audio {
   gap: 16px;
   padding: 0 4px 10px;
 }
+/* Add to cart under a seller's heading (PartsList.tsx CartLinks). */
+.pp-cart {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+  padding: 0 4px 12px;
+}
+.pp-cart p {
+  flex: 1 1 260px;
+  margin: 0;
+  color: var(--pp-muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+.pp-cart ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.pp-cart a {
+  text-decoration: none;
+}
 .pp-group-head h3 {
   margin: 0;
   color: var(--pp-ink);

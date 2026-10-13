@@ -744,6 +744,8 @@ export interface OrderPlanLine {
   grade?: PlanGrade | null
   changes_required?: boolean
   blocked_reason?: string | null
+  // Adds this line's packs to the seller's cart (Shopify or WooCommerce only).
+  cart_url?: string | null
 }
 export interface OrderPlanSeller {
   seller: string
@@ -755,6 +757,9 @@ export interface OrderPlanSeller {
   free_shipping_gap_inr?: string | null
   policy?: ShippingPolicyRef | null
   product_links?: string[]
+  // One link that opens this seller's cart with `cart_line_ids` added (Shopify; replaces that shop's cart).
+  cart_url?: string | null
+  cart_line_ids?: string[]
 }
 export interface UnsourcedLine {
   line_id: string

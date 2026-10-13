@@ -819,6 +819,9 @@ class VerifiedOffer(Model):
     match: OfferMatch | None = None
     # Pieces per listing when the listing is a pack ("pack of 10"); None: not stated.
     pack_qty: int | None = Field(default=None, ge=1, le=100000)
+    # The store's own id for adding this listing to its cart, read from its public JSON:
+    # a Shopify variant id or a WooCommerce product id. None: not known (older offers).
+    cart_id: str | None = Field(default=None, pattern=r"^\d{1,20}$")
 
 
 class SearchAttribution(Model):
@@ -1007,6 +1010,8 @@ class OrderPlanLine(Model):
     grade: Literal["A", "B", "C", "D", "X"] | None = None
     changes_required: bool = False
     blocked_reason: str | None = None
+    # Opens the seller's cart with this line's packs added (Shopify or WooCommerce only).
+    cart_url: HttpUrl | None = None
 
 
 class OrderPlanSeller(Model):
@@ -1019,6 +1024,10 @@ class OrderPlanSeller(Model):
     free_shipping_gap_inr: Money | None = None
     policy: ShippingPolicyRef | None = None
     product_links: list[HttpUrl] = Field(default_factory=list)
+    # One link that opens this seller's cart with every line in `cart_line_ids` added
+    # (Shopify cart permalink; it replaces what was in the cart at that shop).
+    cart_url: HttpUrl | None = None
+    cart_line_ids: list[str] = Field(default_factory=list)
 
 
 class UnsourcedLine(Model):

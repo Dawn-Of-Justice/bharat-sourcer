@@ -116,7 +116,52 @@ function shippingNote(seller: OrderPlanSeller) {
     : `${shipping}.`
 }
 
-type Group = { key: string; title: string; note?: string; amount?: string; lines: ReportLine[] }
+type Group = {
+  key: string
+  title: string
+  note?: string
+  amount?: string
+  lines: ReportLine[]
+  seller?: OrderPlanSeller
+}
+
+// Add a seller's order to its cart (backend carts.py). Shopify shops take the whole order in one link; WooCommerce
+// shops take one part per link; other shops have no add-to-cart link, so their product pages are the way in.
+function CartLinks({ seller, names }: { seller: OrderPlanSeller; names: Map<string, ReportLine> }) {
+  const entries = seller.lines ?? []
+  const added = new Set(seller.cart_line_ids ?? [])
+  const name = (id: string) => names.get(id)?.item.raw_name ?? id
+  if (seller.cart_url) {
+    const rest = entries.filter(entry => !added.has(entry.line_id))
+    return (
+      <div className="pp-cart">
+        <a className="primary-button" href={seller.cart_url} target="_blank" rel="noopener noreferrer">
+          Add {added.size} {added.size === 1 ? 'item' : 'items'} to cart <span aria-hidden="true">↗</span>
+        </a>
+        <p>
+          Opens the shop's cart with these quantities, replacing anything already in it.
+          {rest.length > 0 && ` Add ${rest.map(entry => name(entry.line_id)).join(', ')} from the product page.`}
+        </p>
+      </div>
+    )
+  }
+  const single = entries.filter(entry => entry.cart_url)
+  if (!single.length) return null
+  return (
+    <div className="pp-cart">
+      <p>This shop adds one part at a time. Each link adds that part with its quantity:</p>
+      <ul>
+        {single.map(entry => (
+          <li key={entry.line_id}>
+            <a className="nav-cta" href={entry.cart_url!} target="_blank" rel="noopener noreferrer">
+              Add {name(entry.line_id)} ×{entry.packs} <span aria-hidden="true">↗</span>
+            </a>
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}
 
 // The parts list: grouped by seller (how the user will order) or in parts-list order.
 export default function PartsList({
@@ -168,6 +213,7 @@ export default function PartsList({
           title: sellerTitle(seller, lines),
           note: shippingNote(seller),
           amount: rupees(seller.subtotal_inr),
+          seller,
           lines: (seller.lines ?? [])
             .map(entry => lines.get(entry.line_id))
             .filter((line): line is ReportLine => !!line),
@@ -224,6 +270,7 @@ export default function PartsList({
                 </div>
                 {group.amount && <strong>{group.amount}</strong>}
               </header>
+              {group.seller && !readOnly && <CartLinks seller={group.seller} names={lines} />}
               <ul className="pp-rows">{group.lines.map(line => row(line, false))}</ul>
             </section>
           ))}

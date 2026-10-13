@@ -16,6 +16,7 @@ from functools import lru_cache
 from itertools import product
 from urllib.parse import urlsplit
 
+from bharat_sourcer.carts import line_cart_url, seller_cart
 from bharat_sourcer.costing import (
     ZERO,
     Pick,
@@ -766,6 +767,7 @@ def unsourced_entry(line: ReportLine) -> UnsourcedLine:
 def build_order_plan(report: Report) -> OrderPlan:
     """Seller-grouped plan from selections, else recommendations; nothing is applied here."""
     entries, picks, unsourced = [], [], []
+    offers_by_line: dict[str, tuple[VerifiedOffer | None, int]] = {}
     for line in report.lines:
         if line.item.user_has_it:
             continue
@@ -796,6 +798,7 @@ def build_order_plan(report: Report) -> OrderPlan:
         )
         picks.append(pick)
         rec = line.recommendation
+        offers_by_line[line.item.line_id] = (offer, packs)
         entries.append(
             (
                 pick,
@@ -819,6 +822,7 @@ def build_order_plan(report: Report) -> OrderPlan:
                     else rec.blocked_reason
                     if rec and rec.offer_url == url
                     else None,
+                    cart_url=line_cart_url(offer, packs),
                 ),
             )
         )
@@ -826,6 +830,14 @@ def build_order_plan(report: Report) -> OrderPlan:
     for seller, items in group(picks).items():
         parts, gst, shipping, total, gap = seller_charges(seller, items)
         lines = [entry for pick, entry in entries if seller_key(pick.seller) == seller]
+        cart_url, cart_line_ids = seller_cart(
+            [
+                (entry.line_id, *offers_by_line[entry.line_id])
+                for entry in lines
+                # A line waiting for the user's confirmation is not put in the cart for them.
+                if not entry.blocked_reason and not entry.changes_required
+            ]
+        )
         sellers.append(
             OrderPlanSeller(
                 seller=seller,
@@ -837,6 +849,8 @@ def build_order_plan(report: Report) -> OrderPlan:
                 free_shipping_gap_inr=money(gap) if gap is not None else None,
                 policy=policy_ref(seller),
                 product_links=list(dict.fromkeys(entry.offer_url for entry in lines)),
+                cart_url=cart_url,
+                cart_line_ids=cart_line_ids,
             )
         )
     sellers.sort(key=lambda s: (-len(s.lines), -Decimal(s.subtotal_inr), s.seller))

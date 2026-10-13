@@ -1,4 +1,10 @@
-# Implemented API contract — v0.37.0
+# Implemented API contract — v0.38.0
+
+v0.38.0: `VerifiedOffer.cart_id` (digits; Shopify variant or WooCommerce product id, or
+null). `OrderPlanLine.cart_url` adds that line's packs to the seller's cart (Shopify or
+WooCommerce only). `OrderPlanSeller.cart_url` + `cart_line_ids`: one Shopify cart
+permalink adding those lines; it replaces the shop's cart. Lines with a
+`blocked_reason` or `changes_required` are not included. Null when no link is possible.
 
 v0.37.0: `POST /v1/jobs/{job_id}/confirm` also accepts a `done` job. Unchanged lines keep
 their offers and selections; only new lines and lines with a changed name, `buyable_spec`,

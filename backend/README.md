@@ -1,5 +1,14 @@
 # Backend
 
+v0.38.0 adds add-to-cart links to the order plan (`carts.py`). Offers verified from a
+store's own JSON keep its cart id (`VerifiedOffer.cart_id`: Shopify variant id or
+WooCommerce product id). Each `OrderPlanLine.cart_url` adds that line's packs to the
+seller's cart (Shopify `/cart/<variant>:<qty>?storefront=true`, WooCommerce
+`/?add-to-cart=<id>&quantity=<qty>`). `OrderPlanSeller.cart_url` is one Shopify cart
+permalink with every line in `cart_line_ids`; it replaces that shop's cart. Lines waiting
+for the user's confirmation are left out. Other platforms (Magento, OpenCart, custom
+stores) get no link. Older Shopify offers use the `?variant=` in their URL.
+
 v0.37.0 lets a finished list be edited again. `POST /v1/jobs/{job_id}/confirm` now also
 accepts a `done` job: the same edits (add, remove, update, have_it) apply, then seller
 results are kept for unchanged lines and only new lines, or lines whose name, specs or

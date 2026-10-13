@@ -563,12 +563,16 @@ export function planPreview(job: Job): Job {
           free_shipping_gap_inr: '530.01',
           policy: policyA,
           product_links: [url('controller-a'), url('wires-a')],
+          // Dummy cart link: not a real shop.
+          cart_url: 'https://seller-a.example/cart/1001:1?storefront=true',
+          cart_line_ids: ['L01'],
         },
         {
           seller: sellerB,
           lines: [
             planLine('L02', name('L02'), url('sensor-b'), 'Sample sensor module (dummy listing)', '199.00', {
               selection_source: 'user',
+              cart_url: 'https://seller-b.example/?add-to-cart=2002&quantity=1',
             }),
           ],
           subtotal_inr: '199.00',
