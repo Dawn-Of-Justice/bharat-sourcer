@@ -12,7 +12,10 @@ of three extras and the usual dedupe), and the description gets its own source r
 
 import contextvars
 import logging
+from collections.abc import Callable
 from concurrent.futures import Future, ThreadPoolExecutor
+from functools import partial
+from urllib.parse import urlsplit
 
 from bharat_sourcer.extraction import (
     ExtractionError,
@@ -25,6 +28,28 @@ from bharat_sourcer.schemas import ErrorDetail, JobVideoMeta, SourceReport
 from bharat_sourcer.youtube_meta import DESCRIPTION_SOURCE, description_page_source
 
 MAX_EXTRA_SOURCES = 3
+
+# progress(key, status, label, detail): live steps for the job page (jobs.py stores them).
+Progress = Callable[[str, str, str | None, str | None], None]
+
+
+def _no_progress(key: str, status: str, label: str | None, detail: str | None) -> None:
+    return None
+
+
+def source_label(kind: str, canonical: str) -> str:
+    if kind == "video":
+        return "Reading the video"
+    if report_kind(kind, canonical) == "github":
+        return "Reading the GitHub repository"
+    host = urlsplit(canonical).hostname or "a project page"
+    return f"Reading {host.removeprefix('www.')}"
+
+
+def found(result) -> str:
+    items = result if isinstance(result, list) else [*result.items, *result.code_items]
+    return f"{len(items)} {'part' if len(items) == 1 else 'parts'} found"
+
 
 log = logging.getLogger(__name__)
 
@@ -95,7 +120,12 @@ def add_description_links(
         link.followed = known
 
 
-def _prefetch_links(extractor: Extractor, sources: list[tuple[str, str, str]], linked: set[str]):
+def _prefetch_links(
+    extractor: Extractor,
+    sources: list[tuple[str, str, str]],
+    linked: set[str],
+    progress: Progress,
+):
     """Add a video's description links before any model call, so they are read alongside
     the video instead of after it. Optional: extractors without `video_links` skip this."""
     video_links = getattr(extractor, "video_links", None)
@@ -104,16 +134,30 @@ def _prefetch_links(extractor: Extractor, sources: list[tuple[str, str, str]], l
     for kind, _, submitted in list(sources):
         if kind != "video":
             continue
+        progress("description", "running", "Reading the video description", None)
         try:
             meta = video_links(submitted)
         except Exception:  # The video read fetches the description again and reports it.
             log.info("Description prefetch failed", exc_info=True)
+            progress("description", "failed", None, "Could not read the description")
             continue
-        if meta is not None:
-            add_description_links(sources, meta.model_copy(deep=True), linked)
+        if meta is None:
+            progress("description", "skipped", None, "No description available")
+            continue
+        before = len(sources)
+        add_description_links(sources, meta.model_copy(deep=True), linked)
+        added = len(sources) - before
+        progress(
+            "description",
+            "done",
+            None,
+            f"{added} project {'link' if added == 1 else 'links'} found" if added else None,
+        )
 
 
-def extract_sources(extractor: Extractor, urls: list[str]) -> IntakeResult:
+def extract_sources(
+    extractor: Extractor, urls: list[str], progress: Progress = _no_progress
+) -> IntakeResult:
     """Extract every source in parallel and fuse the per-source BOMs into one (fusion.py).
 
     Sources are read at the same time (a 4-minute video takes 10 to 50 s, each linked page
@@ -123,16 +167,21 @@ def extract_sources(extractor: Extractor, urls: list[str]) -> IntakeResult:
     sources = validate_sources(urls)
     groups, reports, project, first_error = [], [], None, None
     video_meta, linked = None, set[str]()
-    _prefetch_links(extractor, sources, linked)
+    _prefetch_links(extractor, sources, linked, progress)
     index = 0
     with ThreadPoolExecutor(max_workers=MAX_EXTRA_SOURCES + 1) as pool:
         futures: dict[int, Future] = {}
 
         def submit_new() -> None:
-            for position, (_, _, submitted) in enumerate(sources):
+            for position, (kind, canonical, submitted) in enumerate(sources):
                 if position not in futures:
+                    key = f"source:{canonical}"
+                    progress(key, "running", source_label(kind, canonical), None)
                     context = contextvars.copy_context()  # keeps the job's cost attribution
-                    futures[position] = pool.submit(context.run, _attempt, extractor, submitted)
+                    future = pool.submit(context.run, _attempt, extractor, submitted)
+                    # Ticks off as each source finishes, in whatever order they finish.
+                    future.add_done_callback(partial(_finished, progress, key))
+                    futures[position] = future
 
         submit_new()
         while index < len(sources):  # Description links may append sources while reading.
@@ -190,6 +239,15 @@ def extract_sources(extractor: Extractor, urls: list[str]) -> IntakeResult:
     if not groups:
         raise first_error or ExtractionError("NO_BOM", "No supported parts found")
     return IntakeResult(items=fuse(groups), project=project, sources=reports, video_meta=video_meta)
+
+
+def _finished(progress: Progress, key: str, future: Future) -> None:
+    outcome = future.result()
+    if isinstance(outcome, BaseException):
+        message = outcome.message if isinstance(outcome, ExtractionError) else None
+        progress(key, "failed", None, (message or "Could not be read")[:200])
+    else:
+        progress(key, "done", None, found(outcome))
 
 
 def _attempt(extractor: Extractor, url: str):

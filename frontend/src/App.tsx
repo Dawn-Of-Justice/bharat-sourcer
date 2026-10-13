@@ -51,6 +51,7 @@ import { AiSpecs, ConfidenceChip, ConflictNotes, EvidenceList, SourcesCard } fro
 import { sourceChipCount, sourceChipLabels } from './sourceChips'
 import { JobSkeleton, ResultsSkeleton, Spinner } from './Skeleton'
 import { useOverview } from './useOverview'
+import { ExtractionProgress } from './ExtractionProgress'
 import { PartIllustration } from './PartIllustration'
 import { useToast } from './toastContext'
 import {
@@ -1699,6 +1700,8 @@ function AnalysisProgress({ job, back }: { job: Job; back?: { label: string; onC
             })}
           </ul>
         </>
+      ) : job.status === 'extracting' && job.extraction_progress?.length ? (
+        <ExtractionProgress steps={job.extraction_progress} />
       ) : (
         <div className="progress-track" aria-label="Reading the project">
           <span />

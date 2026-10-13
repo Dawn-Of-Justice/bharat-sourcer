@@ -1,4 +1,10 @@
-# Implemented API contract — v0.35.0
+# Implemented API contract — v0.36.0
+
+v0.36.0: new `Job.extraction_progress: ExtractionStep[]` (at most 12): `key`
+(`description`, `source:<url>`, `reconcile`, `spec_fill`), `label`, `status`
+(`pending`|`running`|`done`|`failed`|`skipped`), `detail`, `started_at`, `finished_at`.
+Updated live while `extracting` (the job stream picks it up); kept afterwards. There is no
+model-reported percentage; clients estimate one from the steps.
 
 v0.35.0: no API change. Extraction reads all sources in parallel (description links are
 found before the video read) and hedges slow or failed model calls on a second route, so

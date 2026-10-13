@@ -337,6 +337,22 @@ class ConflictValue(Model):
     locator: str | None = Field(default=None, max_length=300)
 
 
+class ExtractionStep(Model):
+    """One live step of reading a job's sources (jobs.py); shown while `extracting`.
+
+    key: `description` (the video's description), `source:<url>` (one per source, read in
+    parallel), `reconcile` (checking the list as one build), `spec_fill` (part details).
+    There is no model-reported percentage: clients estimate progress from the steps.
+    """
+
+    key: str = Field(min_length=1, max_length=600)
+    label: str = Field(min_length=1, max_length=200)
+    status: Literal["pending", "running", "done", "failed", "skipped"] = "pending"
+    detail: str | None = Field(default=None, max_length=200)
+    started_at: datetime | None = None
+    finished_at: datetime | None = None
+
+
 class ReconciledLine(Model):
     """A line the reconcile pass folded into another or left out (reconcile.py); AI-decided."""
 
@@ -1514,6 +1530,8 @@ class Job(Model):
     items: list[BomItem] = Field(default_factory=list)
     # Lines the reconcile pass merged into another or left out, with reasons (reconcile.py).
     reconciled: list[ReconciledLine] = Field(default_factory=list, max_length=60)
+    # Live steps while the sources are read (jobs.py); kept afterwards as a record.
+    extraction_progress: list[ExtractionStep] = Field(default_factory=list, max_length=12)
     events: list[Event] = Field(default_factory=list)
     report: Report | None = None
     error: "ErrorDetail | None" = None

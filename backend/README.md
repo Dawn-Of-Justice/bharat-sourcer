@@ -1,5 +1,13 @@
 # Backend
 
+v0.36.0 shows extraction progress live. While a job is `extracting`, `Job.extraction_progress`
+lists its steps (`description`, one `source:<url>` per source, `reconcile`, `spec_fill`)
+with `status` (pending, running, done, failed, skipped), a short `detail` ("8 parts found",
+"3 project links found") and start and finish times. Each step is saved as it changes
+(`JobService._progress_writer`, guarded by the run id; a failed write is only logged), and
+parallel sources tick off in the order they finish. Gemini reports no progress inside a
+call, so the web app shows these steps with a percentage estimated from typical step times.
+
 v0.35.0 makes extraction faster. A clean read of a 4-minute video answers in 35 to 46 s,
 but jobs took 4 to 5 minutes: about 1 in 3 reads looped to MAX_TOKENS, Vertex often
 answered 429, and retries then waited on backoff and a hanging API key. Each extraction

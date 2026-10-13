@@ -35,6 +35,7 @@ from bharat_sourcer.schemas import (
     CreateJob,
     ErrorDetail,
     Event,
+    ExtractionStep,
     HaveLine,
     Job,
     PartSpecs,
@@ -306,6 +307,7 @@ class JobService:
                 record.job.extraction_model = self.model
             record.run_id = run_id
             record.lease_until = now() + timedelta(seconds=self.lease_seconds)
+            record.job.extraction_progress = []
             self._transition(record.job, "extracting", "Extracting parts.")
 
         claimed = self.store.mutate(job_id, claim)
@@ -333,20 +335,43 @@ class JobService:
                 )
             else:
                 job_input = claimed.job.input
+                progress = self._progress_writer(job_id, run_id)
+                if self.reconciler is not None:
+                    progress("reconcile", "pending", "Checking the list as one build", None)
+                if self.spec_filler is not None:
+                    progress("spec_fill", "pending", "Filling in part details", None)
                 with attribute(ledger):
                     result = extract_sources(
-                        self.extractor, [str(url) for url in [job_input.url, *job_input.sources]]
+                        self.extractor,
+                        [str(url) for url in [job_input.url, *job_input.sources]],
+                        progress,
                     )
                 items, project, reports = result.items, result.project, result.sources
                 video_meta = result.video_meta
                 # One call reads the whole build and merges lines that are the same part
                 # (named differently by different sources) or drops ones that are not bought.
+                if self.reconciler is not None:
+                    progress("reconcile", "running", None, None)
                 with attribute(ledger):
                     items, reconciled = reconcile_items(self.reconciler, items, project)
+                if self.reconciler is not None:
+                    merged = sum(change.action == "merged" for change in reconciled)
+                    progress(
+                        "reconcile",
+                        "done",
+                        None,
+                        f"{merged} duplicate {'line' if merged == 1 else 'lines'} combined"
+                        if merged
+                        else None,
+                    )
                 # One batched call fills required spec fields from project context so they
                 # are not asked; saved on the items, so later draft edits reuse them.
+                if self.spec_filler is not None:
+                    progress("spec_fill", "running", None, None)
                 with attribute(ledger):
                     fill_missing_specs(self.spec_filler, items, project)
+                if self.spec_filler is not None:
+                    progress("spec_fill", "done", None, None)
         except Exception as exc:
             error = (
                 exc
@@ -385,6 +410,40 @@ class JobService:
         if self.overviews is not None and saved and saved.job.status == "awaiting_confirmation":
             # Runs after the review page is available; never fails the extraction.
             self.overviews.after_extraction(job_id)
+
+    def _progress_writer(self, job_id: str, run_id: str):
+        """progress(key, status, label, detail) saving one live extraction step on the job.
+
+        Called from source worker threads too; a failed write is logged and never affects
+        the extraction."""
+
+        def progress(key: str, status: str, label: str | None, detail: str | None) -> None:
+            def change(record: StoredJob):
+                if record.run_id != run_id or record.job.status != "extracting":
+                    return
+                steps = record.job.extraction_progress
+                step = next((s for s in steps if s.key == key[:600]), None)
+                if step is None:
+                    if len(steps) >= 12:
+                        return
+                    step = ExtractionStep(key=key[:600], label=(label or key)[:200])
+                    steps.append(step)
+                if label:
+                    step.label = label[:200]
+                step.status = status
+                if detail is not None:
+                    step.detail = detail[:200]
+                if status == "running" and step.started_at is None:
+                    step.started_at = now()
+                if status in ("done", "failed", "skipped"):
+                    step.finished_at = now()
+
+            try:
+                self.store.mutate(job_id, change)
+            except Exception:
+                log.warning("EXTRACTION_PROGRESS_FAILED key=%s", key, exc_info=True)
+
+        return progress
 
     def recover(self, job_id: str | None = None, *, execute: bool = True) -> None:
         keys = [job_id] if job_id else self.store.pending()

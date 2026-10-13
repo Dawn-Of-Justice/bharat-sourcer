@@ -181,6 +181,15 @@ export interface Lookalike {
   note?: string | null
   origin: 'table' | 'ai'
 }
+export interface ExtractionStep {
+  // 'description', 'source:<url>', 'reconcile' or 'spec_fill'
+  key: string
+  label: string
+  status: 'pending' | 'running' | 'done' | 'failed' | 'skipped'
+  detail?: string | null
+  started_at?: string | null
+  finished_at?: string | null
+}
 export interface ReconciledLine {
   raw_name: string
   action: 'merged' | 'removed'
@@ -324,6 +333,8 @@ export interface Job {
   items: BomItem[]
   // Lines an AI pass over the whole build merged into another or left out (backend reconcile.py).
   reconciled?: ReconciledLine[]
+  // Live steps while the sources are read (backend jobs.py); no model-reported percentage.
+  extraction_progress?: ExtractionStep[]
   project?: ProjectUnderstanding | null
   events: { seq: number; status: JobStatus; message: string; timestamp: string }[]
   report: {

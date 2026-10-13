@@ -3,7 +3,7 @@
   "info": {
     "title": "Bharat Sourcer API",
     "description": "Demo or live YouTube and project-page extraction with optional Firestore job persistence.",
-    "version": "0.35.0"
+    "version": "0.36.0"
   },
   "paths": {
     "/v1/session/guest": {
@@ -6477,6 +6477,78 @@
         ],
         "title": "Explanation"
       },
+      "ExtractionStep": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "maxLength": 600,
+            "minLength": 1,
+            "title": "Key"
+          },
+          "label": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Label"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "running",
+              "done",
+              "failed",
+              "skipped"
+            ],
+            "title": "Status",
+            "default": "pending"
+          },
+          "detail": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detail"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "key",
+          "label"
+        ],
+        "title": "ExtractionStep",
+        "description": "One live step of reading a job's sources (jobs.py); shown while `extracting`.\n\nkey: `description` (the video's description), `source:<url>` (one per source, read in\nparallel), `reconcile` (checking the list as one build), `spec_fill` (part details).\nThere is no model-reported percentage: clients estimate progress from the steps."
+      },
       "ExtrasStatus": {
         "properties": {
           "demo": {
@@ -6845,6 +6917,14 @@
             "type": "array",
             "maxItems": 60,
             "title": "Reconciled"
+          },
+          "extraction_progress": {
+            "items": {
+              "$ref": "#/components/schemas/ExtractionStep"
+            },
+            "type": "array",
+            "maxItems": 12,
+            "title": "Extraction Progress"
           },
           "events": {
             "items": {
