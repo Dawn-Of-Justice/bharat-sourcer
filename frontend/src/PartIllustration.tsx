@@ -12,7 +12,8 @@ const ELECTRONIC = new Set(['ic', 'module', 'board', 'sensor', 'connector', 'swi
 function illustrationKind(name: string, category?: BuyableSpec['category']): Kind {
   const text = name.toLowerCase()
   if (/heat\s*-?\s*shrink|shrink tub/.test(text)) return 'heatshrink'
-  if (/enclosure|bcaseb|housing|\bbox\b|shell|chassis|3d[- ]?print|\bpla\b|\bpetg\b|filament/.test(text)) return 'enclosure'
+  if (/enclosure|bcaseb|housing|\bbox\b|shell|chassis|3d[- ]?print|\bpla\b|\bpetg\b|filament/.test(text))
+    return 'enclosure'
   if (/solder/.test(text)) return 'solder'
   if (/screw|bolt|\bnuts?\b|standoff|spacer|washer|rivet|insert/.test(text)) return 'screws'
   if (/tape|glue|adhesive|velcro|epoxy|zip tie|cable tie/.test(text)) return 'tape'
