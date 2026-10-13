@@ -1,5 +1,18 @@
 # Backend
 
+v0.34.0 adds a reconcile pass after extraction (`reconcile.py`, site `reconcile`, medium
+thinking, on Vertex). Fusion merges lines only when names match, so one part read from a
+video and from code under different names ("1.3-inch I2C OLED (SH1106)" and "SSD1306 OLED
+display") stayed two lines. One call now gets the project and every fused line with short
+evidence, lists each line's function and connections, and returns merges (same physical
+part) and removals (duplicate, built into another listed part, tool, not a part). Merges
+reuse `fusion.merge`, so evidence is combined and different part numbers stay an
+`identity_mismatch` conflict. Owned or edited lines are never touched, at most a third of
+the lines can be removed, and any failure keeps the fused list. Each change is saved on
+`Job.reconciled` with its reason and shown on the review page. Cached 7 days per (lines,
+project). Live on the Desk Buddy list it merged the SSD1306 line into the SH1106 one in
+3 of 3 runs (9 to 17 s). Off with `BS_RECONCILE_ENABLED=false`.
+
 v0.33.0 makes the project overview fast and progressive, and lets it answer questions.
 Parts are drawn by parallel calls (site `overview`, two lines each, up to 8 at once, low
 thinking) and each group is saved on `job.overview` as soon as it lands

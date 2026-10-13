@@ -40,6 +40,7 @@ import {
   type BomItem,
   type BuyableSpec,
   type Job,
+  type ReconciledLine,
   type ResolvedSpec,
 } from './api'
 import { ChatDrawer, SidePanel, StageAnnouncer, StageSteps, stepOf } from './ProjectFrame'
@@ -1323,6 +1324,7 @@ function Review({
           )}
         </div>
         <p className="pp-parts-help">Mark what you already have. We search sellers only after you confirm.</p>
+        <ReconciledNote lines={job.reconciled ?? []} />
         {drawing.pending && overview && (
           <p className="pp-draw-progress" role="status">
             <Spinner />
@@ -1571,6 +1573,40 @@ function ConfirmedParts({ job, back }: { job: Job; back: { label: string; onClic
         </div>
       </details>
     </section>
+  )
+}
+
+const removedKind = { built_in: 'built in', tool: 'a tool', not_a_part: 'not a part' } as const
+
+// What the AI pass over the whole build combined or left out, so no extracted line disappears silently.
+function ReconciledNote({ lines }: { lines: ReconciledLine[] }) {
+  if (!lines.length) return null
+  const merged = lines.filter(line => line.action === 'merged').length
+  const removed = lines.length - merged
+  const summary = [
+    merged ? `combined ${merged} duplicate ${merged === 1 ? 'line' : 'lines'}` : '',
+    removed ? `left out ${removed} ${removed === 1 ? 'line that isn’t' : 'lines that aren’t'} a part to buy` : '',
+  ]
+    .filter(Boolean)
+    .join(' and ')
+  return (
+    <details className="pp-reconciled">
+      <summary>
+        We checked the list as one build and {summary}. <span>See what changed</span>
+      </summary>
+      <ul>
+        {lines.map(line => (
+          <li key={`${line.action}-${line.raw_name}`}>
+            <strong>{line.raw_name}</strong>{' '}
+            {line.action === 'merged'
+              ? `→ combined into ${line.into ?? 'another line'}`
+              : `→ left out (${line.kind ? removedKind[line.kind] : 'not needed'}${line.kind === 'built_in' && line.into ? ` on ${line.into}` : ''})`}
+            <small>{line.reason}</small>
+          </li>
+        ))}
+      </ul>
+      <p>Decided by AI from the project and its sources; not verified.</p>
+    </details>
   )
 }
 

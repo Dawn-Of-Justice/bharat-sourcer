@@ -3,7 +3,7 @@
   "info": {
     "title": "Bharat Sourcer API",
     "description": "Demo or live YouTube and project-page extraction with optional Firestore job persistence.",
-    "version": "0.33.0"
+    "version": "0.34.0"
   },
   "paths": {
     "/v1/session/guest": {
@@ -6838,6 +6838,14 @@
             "type": "array",
             "title": "Items"
           },
+          "reconciled": {
+            "items": {
+              "$ref": "#/components/schemas/ReconciledLine"
+            },
+            "type": "array",
+            "maxItems": 60,
+            "title": "Reconciled"
+          },
           "events": {
             "items": {
               "$ref": "#/components/schemas/Event"
@@ -9283,6 +9291,67 @@
           "action"
         ],
         "title": "ProposalDecision"
+      },
+      "ReconciledLine": {
+        "properties": {
+          "raw_name": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Raw Name"
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "merged",
+              "removed"
+            ],
+            "title": "Action"
+          },
+          "kind": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "built_in",
+                  "tool",
+                  "not_a_part"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kind"
+          },
+          "into": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Into"
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 300,
+            "minLength": 1,
+            "title": "Reason"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "raw_name",
+          "action",
+          "reason"
+        ],
+        "title": "ReconciledLine",
+        "description": "A line the reconcile pass folded into another or left out (reconcile.py); AI-decided."
       },
       "RefreshLineResult": {
         "properties": {

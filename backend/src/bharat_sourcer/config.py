@@ -35,6 +35,9 @@ DEFAULT_SITE_THINKING: dict[str, ThinkingLevel] = {
     "overview": "low",
     "overview_judge": "low",
     "overview_wiring": "low",
+    # Reconcile (reconcile.py) reasons about the whole build; low thinking missed duplicates
+    # and left connections empty in the live check, medium found them.
+    "reconcile": "medium",
     "spec": "low",
     "spec_fill": "low",
 }
@@ -140,6 +143,9 @@ class Settings(BaseSettings):
     # Spec fill (spec_fill.py): one call per extracted job decides required spec fields
     # (pinout, logic voltage, ...) from project context instead of asking. Site `spec_fill`.
     spec_fill_enabled: bool = True
+    # Reconcile (reconcile.py): one call per extracted job reasons about the whole build and
+    # merges lines that are the same part or drops ones that are not a purchase. Site `reconcile`.
+    reconcile_enabled: bool = True
     # Project overview (overview.py): after extraction, parallel calls (site `overview`) draw
     # the parts two lines at a time, one call (site `overview_wiring`) wires them, and judge
     # calls (site `overview_judge`) mark each part, pin header and wire
@@ -160,6 +166,7 @@ class Settings(BaseSettings):
             "overview_wiring",
             "overview_judge",
             "spec_fill",
+            "reconcile",
         ]
     )
     vertex_location: str = Field(default="global", pattern=r"^[a-z0-9-]+$")

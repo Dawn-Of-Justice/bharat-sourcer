@@ -26,6 +26,7 @@ from bharat_sourcer.jobs import JobError, JobService
 from bharat_sourcer.markets import MarketsService, add_markets_routes
 from bharat_sourcer.overview import OverviewService
 from bharat_sourcer.plans import cart_plans, set_import_references
+from bharat_sourcer.reconcile import GeminiReconciler
 from bharat_sourcer.schemas import (
     CartPlans,
     CodePatch,
@@ -141,6 +142,9 @@ def create_app(
         spec_filler=GeminiSpecFiller(settings, cache=shared_cache)
         if live_extractor and settings.spec_fill_enabled and settings.gemini_api_key
         else None,
+        reconciler=GeminiReconciler(settings, cache=shared_cache)
+        if live_extractor and settings.reconcile_enabled and settings.gemini_api_key
+        else None,
     )
 
     conversation = ConversationService(
@@ -193,7 +197,7 @@ def create_app(
 
     app = FastAPI(
         title="Bharat Sourcer API",
-        version="0.33.0",
+        version="0.34.0",
         description=(
             "Demo or live YouTube and project-page extraction with optional Firestore job "
             "persistence."

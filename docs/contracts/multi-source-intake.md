@@ -166,6 +166,23 @@ or more other lines in that role (a coin cell and a LiPo) nothing is folded. Exa
 timestamp, `file:line` or page quote of that side's first evidence. The server never picks a
 side for identity; the maker resolves it with the normal `update` edit at confirmation.
 
+## 4a. Reconcile (v0.34.0)
+
+Fusion only merges by name. After it, one Gemini call (site `reconcile`, `reconcile.py`)
+reads the project and all lines (name, qty, specs, up to 4 short evidence notes) and
+returns each line's function and connections plus:
+
+- merges: lines that are one physical part (kept line, merged lines, reason). Applied with
+  the fusion merge rules: evidence, requirements and look-alikes combined; names with
+  different part numbers add an `identity_mismatch` conflict (confidence `check`).
+- removals: `duplicate` (of `part_of`; applied as a merge), `built_in` (on another listed
+  part; needs `part_of`), `tool`, `not_a_part`. Consumables and enclosures are kept.
+
+Guards: unknown ids, overlapping merges and owned or user-edited lines are ignored; at most
+a third of the lines can be removed; lines are renumbered L01, L02, ... Any failure keeps
+the fused list. Every change is saved on `Job.reconciled` with its AI reason; the review
+page lists them ("We checked the list as one build and combined 1 duplicate line").
+
 ## 5. Look-alikes
 
 `items[].lookalikes[]` (new, default `[]`, at most 10): `{name, note, origin}`.
