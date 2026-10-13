@@ -11,14 +11,13 @@ from pydantic import Field, ValidationError
 
 from bharat_sourcer.code_evidence import read_code
 from bharat_sourcer.config import Settings
-from bharat_sourcer.gemini_api import VertexUnavailable, endpoint, uses_vertex
+from bharat_sourcer.gemini_api import post_generate
 from bharat_sourcer.project_pages import (
     ProjectPageSource,
     document_text,
     normalise,
     quote_found,
 )
-from bharat_sourcer.resilience import post_with_retry
 from bharat_sourcer.schemas import (
     BomItem,
     BuyableSpec,
@@ -521,24 +520,10 @@ class GeminiExtractor:
         return self._extract_video(canonical)
 
     def _post(self, client: httpx.Client, payload: dict) -> httpx.Response:
-        """Vertex AI first when enabled for site `extraction` (gemini_api.py), then the API key.
-
-        The API key is used when Vertex refuses (401/403/404, no credentials) and also when
-        Vertex stays overloaded or times out, since the two run on separate capacity.
-        """
-        model = self.settings.gemini_model
-        if uses_vertex(self.settings, "extraction"):
-            try:
-                url, headers = endpoint(self.settings, "extraction", model)
-                response = post_with_retry(client, url, headers=headers, json=payload, attempts=2)
-                # 400 too: Vertex is stricter about request shape than the API key route.
-                if response.status_code not in {400, 401, 403, 404, 429, 500, 502, 503, 504}:
-                    return response
-                log.warning("EXTRACTION_VERTEX_FALLBACK http_status=%s", response.status_code)
-            except (VertexUnavailable, httpx.TimeoutException, httpx.NetworkError) as exc:
-                log.warning("EXTRACTION_VERTEX_FALLBACK reason=%s", type(exc).__name__)
-        url, headers = endpoint(self.settings, "extraction", model, vertex=False)
-        return post_with_retry(client, url, headers=headers, json=payload)
+        """Vertex AI first for site `extraction`, then the API key (gemini_api.py)."""
+        return post_generate(
+            client, self.settings, "extraction", self.settings.gemini_model, payload
+        )
 
     def _generate(self, parts: list[dict], prompt: str, model: type[Model], noun: str):
         """One structured call, retried once when the output is cut off or invalid: video

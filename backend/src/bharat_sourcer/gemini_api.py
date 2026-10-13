@@ -71,3 +71,28 @@ def endpoint(settings: Settings, site: str, model: str, *, vertex: bool | None =
     return GEMINI_API.format(model=model), {
         "x-goog-api-key": settings.gemini_api_key.get_secret_value()
     }
+
+
+FALLBACK_STATUS = {400, 401, 403, 404, 429, 500, 502, 503, 504}
+
+
+def post_generate(client, settings: Settings, site: str, model: str, payload: dict, **kwargs):
+    """POST a generateContent payload: Vertex AI first when enabled for `site`, then the
+    API key. The API key is used when Vertex refuses (400/401/403/404, no credentials) and
+    also when it stays overloaded (429/5xx after two tries) or times out, since the two
+    run on separate capacity. Extra kwargs go to `post_with_retry` for the API-key call."""
+    import httpx
+
+    from bharat_sourcer.resilience import post_with_retry
+
+    if uses_vertex(settings, site):
+        try:
+            url, headers = endpoint(settings, site, model)
+            response = post_with_retry(client, url, headers=headers, json=payload, attempts=2)
+            if response.status_code not in FALLBACK_STATUS:
+                return response
+            log.warning("GEMINI_VERTEX_FALLBACK site=%s http_status=%s", site, response.status_code)
+        except (VertexUnavailable, httpx.TimeoutException, httpx.NetworkError) as exc:
+            log.warning("GEMINI_VERTEX_FALLBACK site=%s reason=%s", site, type(exc).__name__)
+    url, headers = endpoint(settings, site, model, vertex=False)
+    return post_with_retry(client, url, headers=headers, json=payload, **kwargs)

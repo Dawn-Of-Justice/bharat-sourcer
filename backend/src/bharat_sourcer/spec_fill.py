@@ -23,7 +23,7 @@ from pydantic import Field
 from bharat_sourcer.compat import resolve_part
 from bharat_sourcer.config import Settings, site_generation, site_model
 from bharat_sourcer.extraction import generation_schema
-from bharat_sourcer.resilience import post_with_retry
+from bharat_sourcer.gemini_api import post_generate
 from bharat_sourcer.schemas import BomItem, Model, PartSpecs, ProjectContext
 from bharat_sourcer.sourcing.cache import TTL, SharedCache, cache_key, normalise_part, stable_hash
 from bharat_sourcer.usage import paid_allowed, record_usage
@@ -235,14 +235,9 @@ class GeminiSpecFiller:
         if key is None or not key.get_secret_value().strip():
             return None
         try:
-            with httpx.Client(timeout=60, transport=self.transport) as client:
-                response = post_with_retry(
-                    client,
-                    f"https://generativelanguage.googleapis.com/v1beta/models/{model}"
-                    ":generateContent",
-                    headers={"x-goog-api-key": key.get_secret_value()},
-                    json=payload,
-                )
+            # 30 s: a spec fill answers in a few seconds; a hung call should not hold the job.
+            with httpx.Client(timeout=30, transport=self.transport) as client:
+                response = post_generate(client, self.settings, SITE, model, payload)
             response.raise_for_status()
             data = response.json()
             record_usage(SITE, model, data)

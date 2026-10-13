@@ -241,3 +241,24 @@ def test_demo_jobs_never_fill():
     job, _ = service.create(CreateJob(url="https://youtu.be/abcdefghijk"))
     service.extract(job.job_id)
     assert spec_filler.calls == []
+
+
+def test_spec_fill_uses_vertex_and_falls_back_to_the_api_key(monkeypatch):
+    import httpx
+
+    from bharat_sourcer.config import Settings
+    from bharat_sourcer.gemini_api import post_generate
+
+    monkeypatch.setattr("bharat_sourcer.gemini_api.vertex_token", lambda: "t")
+    monkeypatch.setattr("bharat_sourcer.resilience.time.sleep", lambda _: None)
+    hosts: list[str] = []
+
+    def handle(request):
+        hosts.append(request.url.host)
+        return httpx.Response(503 if request.url.host == "aiplatform.googleapis.com" else 200)
+
+    settings = Settings(_env_file=None, gemini_api_key="k", gcp_project="demo-project")
+    with httpx.Client(transport=httpx.MockTransport(handle)) as client:
+        response = post_generate(client, settings, "spec_fill", "m", {})
+    assert response.status_code == 200
+    assert hosts == ["aiplatform.googleapis.com"] * 2 + ["generativelanguage.googleapis.com"]
