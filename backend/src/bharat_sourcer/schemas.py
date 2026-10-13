@@ -337,6 +337,18 @@ class ConflictValue(Model):
     locator: str | None = Field(default=None, max_length=300)
 
 
+class ReconciledLine(Model):
+    """A line the reconcile pass folded into another or left out (reconcile.py); AI-decided."""
+
+    raw_name: str = Field(min_length=1, max_length=200)
+    action: Literal["merged", "removed"]
+    # removed only: built_in (part of another listed part), tool or not_a_part.
+    kind: Literal["built_in", "tool", "not_a_part"] | None = None
+    # merged: the kept line's name; removed built_in: the part it is built into.
+    into: str | None = Field(default=None, max_length=200)
+    reason: str = Field(min_length=1, max_length=300)
+
+
 class ItemConflict(Model):
     """Sources disagree about this line; nothing is picked silently (see multi-source-intake)."""
 
@@ -1500,6 +1512,8 @@ class Job(Model):
     created_at: datetime = Field(default_factory=now)
     updated_at: datetime = Field(default_factory=now)
     items: list[BomItem] = Field(default_factory=list)
+    # Lines the reconcile pass merged into another or left out, with reasons (reconcile.py).
+    reconciled: list[ReconciledLine] = Field(default_factory=list, max_length=60)
     events: list[Event] = Field(default_factory=list)
     report: Report | None = None
     error: "ErrorDetail | None" = None

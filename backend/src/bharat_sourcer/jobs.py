@@ -25,6 +25,7 @@ from bharat_sourcer.recommend import (
     judge_confirmed,
     release_recommendations,
 )
+from bharat_sourcer.reconcile import Reconciler, reconcile_items
 from bharat_sourcer.safety import flags_for
 from bharat_sourcer.schemas import (
     AddLine,
@@ -38,6 +39,7 @@ from bharat_sourcer.schemas import (
     Job,
     PartSpecs,
     ProjectContext,
+    ReconciledLine,
     RefreshOffers,
     RemoveLine,
     Report,
@@ -109,9 +111,12 @@ class JobService:
         gemini_budget_usd: float | None = None,
         refresh_unlimited_uids: str = "",
         spec_filler: SpecFiller | None = None,
+        reconciler: Reconciler | None = None,
     ):
         # Decides missing required spec fields after live extraction (spec_fill.py).
         self.spec_filler = spec_filler
+        # Merges duplicate lines and drops non-purchases after live extraction (reconcile.py).
+        self.reconciler = reconciler
         self.refresh_unlimited_owners = frozenset(
             "user:" + uid.strip() for uid in refresh_unlimited_uids.split(",") if uid.strip()
         )
@@ -311,6 +316,7 @@ class JobService:
         project = None
         reports = []
         video_meta = None
+        reconciled: list[ReconciledLine] = []
         # Extraction counts toward the job's total; the budget limits sourcing runs only.
         ledger = JobLedger(job_id, previous=claimed.job.cost_estimate)
         try:
@@ -333,6 +339,10 @@ class JobService:
                     )
                 items, project, reports = result.items, result.project, result.sources
                 video_meta = result.video_meta
+                # One call reads the whole build and merges lines that are the same part
+                # (named differently by different sources) or drops ones that are not bought.
+                with attribute(ledger):
+                    items, reconciled = reconcile_items(self.reconciler, items, project)
                 # One batched call fills required spec fields from project context so they
                 # are not asked; saved on the items, so later draft edits reuse them.
                 with attribute(ledger):
@@ -360,6 +370,7 @@ class JobService:
                 self._transition(record.job, "failed", error.message)
             else:
                 record.job.items = items
+                record.job.reconciled = reconciled
                 record.job.project = project
                 record.job.source_reports = reports
                 record.job.video_meta = video_meta

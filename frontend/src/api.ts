@@ -181,6 +181,14 @@ export interface Lookalike {
   note?: string | null
   origin: 'table' | 'ai'
 }
+export interface ReconciledLine {
+  raw_name: string
+  action: 'merged' | 'removed'
+  kind?: 'built_in' | 'tool' | 'not_a_part' | null
+  // merged: the kept line's name; removed built_in: the part it is built into.
+  into?: string | null
+  reason: string
+}
 export interface ItemConflict {
   kind: 'identity_mismatch' | 'qty_mismatch'
   message: string
@@ -314,6 +322,8 @@ export interface Job {
   demo: boolean
   input: { url: string; country?: string }
   items: BomItem[]
+  // Lines an AI pass over the whole build merged into another or left out (backend reconcile.py).
+  reconciled?: ReconciledLine[]
   project?: ProjectUnderstanding | null
   events: { seq: number; status: JobStatus; message: string; timestamp: string }[]
   report: {

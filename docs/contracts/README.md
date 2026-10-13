@@ -1,4 +1,9 @@
-# Implemented API contract — v0.33.0
+# Implemented API contract — v0.34.0
+
+v0.34.0: after fusion an AI pass over the whole build merges lines that are the same part
+and drops lines that are not a purchase (see [multi-source intake](multi-source-intake.md)
+§4a). New `Job.reconciled: ReconciledLine[]` lists each change (`raw_name`, `action`
+`merged`|`removed`, `kind` for removals, `into`, `reason`). Cost sites gain `reconcile`.
 
 v0.33.0: the [project overview](project-overview.md) is drawn by parallel calls and saved
 as it goes. A `pending` overview now carries the parts drawn so far (then the wires) and a

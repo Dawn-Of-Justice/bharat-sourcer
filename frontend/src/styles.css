@@ -7250,6 +7250,46 @@ button.pp-row-summary {
   font-size: 14px;
   line-height: 1.5;
 }
+.pp-reconciled {
+  margin: -6px 0 16px;
+  color: var(--pp-muted);
+  font-size: 14px;
+  line-height: 1.5;
+}
+.pp-reconciled > summary {
+  cursor: pointer;
+  list-style: none;
+}
+.pp-reconciled > summary::-webkit-details-marker {
+  display: none;
+}
+.pp-reconciled > summary span {
+  color: var(--pp-teal);
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.pp-reconciled ul {
+  display: grid;
+  gap: 8px;
+  margin: 10px 0 6px;
+  padding: 12px 16px;
+  border: 1px solid var(--pp-line);
+  border-radius: 10px;
+  background: var(--pp-paper);
+  list-style: none;
+}
+.pp-reconciled li strong {
+  color: #24433d;
+}
+.pp-reconciled li small {
+  display: block;
+  font-size: 13px;
+}
+.pp-reconciled p {
+  margin: 0;
+  font-size: 12.5px;
+}
 .pp-draw-note {
   display: flex;
   flex-wrap: wrap;
