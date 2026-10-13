@@ -125,8 +125,11 @@ type Group = {
   seller?: OrderPlanSeller
 }
 
-// Add a seller's order to its cart (backend carts.py). Shopify shops take the whole order in one link; WooCommerce
-// shops take one part per link; other shops have no add-to-cart link, so their product pages are the way in.
+// Add a seller's order to its cart (backend carts.py). The cart engine works out per shop, from its own add-to-cart
+// form, whether a link can add parts: some shops take the whole order in one link, some one part per link, others none
+// (their product pages are the way in). Links are not checked by placing an order, so the copy says they may fail.
+const UNCHECKED = 'Worked out automatically from the shop’s page; if a link does not work, use the product page.'
+
 function CartLinks({ seller, names }: { seller: OrderPlanSeller; names: Map<string, ReportLine> }) {
   const entries = seller.lines ?? []
   const added = new Set(seller.cart_line_ids ?? [])
@@ -139,8 +142,10 @@ function CartLinks({ seller, names }: { seller: OrderPlanSeller; names: Map<stri
           Add {added.size} {added.size === 1 ? 'item' : 'items'} to cart <span aria-hidden="true">↗</span>
         </a>
         <p>
-          Opens the shop's cart with these quantities, replacing anything already in it.
-          {rest.length > 0 && ` Add ${rest.map(entry => name(entry.line_id)).join(', ')} from the product page.`}
+          Opens the shop's cart with these quantities
+          {seller.cart_replaces ? ', replacing anything already in it' : '; it may replace what is already there'}.
+          {rest.length > 0 && ` Add ${rest.map(entry => name(entry.line_id)).join(', ')} from the product page.`}{' '}
+          {UNCHECKED}
         </p>
       </div>
     )
@@ -149,7 +154,7 @@ function CartLinks({ seller, names }: { seller: OrderPlanSeller; names: Map<stri
   if (!single.length) return null
   return (
     <div className="pp-cart">
-      <p>This shop adds one part at a time. Each link adds that part with its quantity:</p>
+      <p>This shop adds one part at a time. Each link adds that part with its quantity. {UNCHECKED}</p>
       <ul>
         {single.map(entry => (
           <li key={entry.line_id}>

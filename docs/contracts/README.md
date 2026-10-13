@@ -1,10 +1,12 @@
-# Implemented API contract — v0.38.0
+# Implemented API contract — v0.39.0
 
-v0.38.0: `VerifiedOffer.cart_id` (digits; Shopify variant or WooCommerce product id, or
-null). `OrderPlanLine.cart_url` adds that line's packs to the seller's cart (Shopify or
-WooCommerce only). `OrderPlanSeller.cart_url` + `cart_line_ids`: one Shopify cart
-permalink adding those lines; it replaces the shop's cart. Lines with a
-`blocked_reason` or `changes_required` are not included. Null when no link is possible.
+v0.39.0: add-to-cart links come from the cart engine instead of per-platform rules.
+`VerifiedOffer.cart_id` (`^[\w-]{1,40}$`) is the id from the listing's own add-to-cart form;
+new `VerifiedOffer.cart_recipe: CartRecipe | null` (`single_url` with `{id}`, `{qty}` and
+optionally `{page}`; `multi_url` with `{items}`, `multi_item`, `multi_join`;
+`replaces_cart`; `method: "llm_form_review"`; `model`). New `OrderPlanSeller.cart_replaces`.
+`OrderPlanLine.cart_url`, `OrderPlanSeller.cart_url` and `cart_line_ids` are unchanged in
+shape. Links are LLM judgements checked by code, not verified checkouts.
 
 v0.37.0: `POST /v1/jobs/{job_id}/confirm` also accepts a `done` job. Unchanged lines keep
 their offers and selections; only new lines and lines with a changed name, `buyable_spec`,

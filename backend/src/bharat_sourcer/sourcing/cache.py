@@ -41,6 +41,9 @@ TTL = {
     "spec_fill": 7 * DAY,
     # Merges and removals for one parts list and project (reconcile.py).
     "reconcile": 7 * DAY,
+    # store host + add-to-cart form shape -> link recipe (sourcing/cart_engine.py). Store
+    # behaviour changes rarely; a stale recipe only yields a link that may not work.
+    "cart_recipe": 30 * DAY,
     # items hash + code hash -> judged project overview (overview.py). Keyed by the parts
     # list itself, so only a job with the same lines and the same code can read it.
     "overview": 7 * DAY,

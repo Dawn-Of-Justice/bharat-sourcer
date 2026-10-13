@@ -36,6 +36,7 @@ from bharat_sourcer.sourcing.buyer import (
     picked_offer,
     substitute_compatibility,
 )
+from bharat_sourcer.sourcing.cart_engine import CartEngine
 from bharat_sourcer.sourcing.fetch import FetchError, SafeFetcher, validate_url
 from bharat_sourcer.sourcing.judge import Judge, review_candidates
 from bharat_sourcer.sourcing.listings import (
@@ -269,6 +270,7 @@ class SourcingService:
         spec_writer: "SpecWriter | None" = None,
         buyer: "GeminiBuyer | None" = None,
         buyer_rounds: int = 2,
+        carts: CartEngine | None = None,
     ):
         self.discovery = discovery
         self.fetcher = fetcher
@@ -286,6 +288,8 @@ class SourcingService:
         # AI buyer: decides unstated values and what to buy when nothing was accepted.
         self.buyer = buyer
         self.buyer_rounds = buyer_rounds
+        # Cart engine: add-to-cart link recipes per store, decided once and cached.
+        self.carts = carts
         self._recent: dict[str, tuple[float, Future, str]] = {}
         self._recent_lock = threading.Lock()
 
@@ -714,6 +718,11 @@ class SourcingService:
             except Exception:
                 # Trust labels are advisory; verified offers are kept without them.
                 logging.getLogger(__name__).warning("SELLER_TRUST_FAILED", exc_info=True)
+        if self.carts and offers:
+            try:
+                self.carts.label_offers(offers, pages)
+            except Exception:
+                logging.getLogger(__name__).warning("CART_ENGINE_FAILED", exc_info=True)
         research = None
         if self.researcher:
             try:

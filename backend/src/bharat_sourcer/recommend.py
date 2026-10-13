@@ -830,7 +830,7 @@ def build_order_plan(report: Report) -> OrderPlan:
     for seller, items in group(picks).items():
         parts, gst, shipping, total, gap = seller_charges(seller, items)
         lines = [entry for pick, entry in entries if seller_key(pick.seller) == seller]
-        cart_url, cart_line_ids = seller_cart(
+        cart_url, cart_line_ids, cart_replaces = seller_cart(
             [
                 (entry.line_id, *offers_by_line[entry.line_id])
                 for entry in lines
@@ -851,6 +851,7 @@ def build_order_plan(report: Report) -> OrderPlan:
                 product_links=list(dict.fromkeys(entry.offer_url for entry in lines)),
                 cart_url=cart_url,
                 cart_line_ids=cart_line_ids,
+                cart_replaces=cart_replaces,
             )
         )
     sellers.sort(key=lambda s: (-len(s.lines), -Decimal(s.subtotal_inr), s.seller))

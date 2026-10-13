@@ -1,58 +1,48 @@
-"""Add-to-cart links for a seller's order, built only from ids the store itself published.
+"""Add-to-cart links for the order plan, from each offer's cart engine recipe.
 
-Shopify stores take every line in one cart permalink (`/cart/<variant>:<qty>,...`); it
-replaces that shop's cart. WooCommerce adds one simple product per `?add-to-cart=` link.
-Other platforms have no public add-to-cart link, so they get none.
+The recipe (sourcing/cart_engine.py) is decided per store from its own add-to-cart form;
+this module only fills in ids and quantities. No store or platform is special-cased here.
 """
 
-from urllib.parse import parse_qs, urlsplit
+from urllib.parse import urlsplit
 
 from bharat_sourcer.schemas import VerifiedOffer
+from bharat_sourcer.sourcing.cart_engine import render, render_many
 
 MAX_QTY = 10000
 
 
-def cart_target(offer: VerifiedOffer) -> tuple[str, str, str] | None:
-    """(platform, https host, id) for an offer that can be added to its store's cart."""
-    parts = urlsplit(str(offer.url))
-    if parts.scheme != "https" or not parts.hostname:
-        return None
-    if offer.verification == "shopify_storefront_json":
-        # Variant offers carry their id in the URL (`?variant=`), including older ones.
-        variant = parse_qs(parts.query).get("variant", [None])[0]
-        cart_id = offer.cart_id or variant
-        if cart_id and cart_id.isdigit():
-            return "shopify", parts.hostname, cart_id
-    if offer.verification == "woocommerce_store_api" and offer.cart_id:
-        return "woocommerce", parts.hostname, offer.cart_id
-    return None
-
-
 def line_cart_url(offer: VerifiedOffer | None, packs: int) -> str | None:
-    target = cart_target(offer) if offer else None
-    if target is None or not 1 <= packs <= MAX_QTY:
+    if offer is None or offer.cart_recipe is None or not offer.cart_id:
         return None
-    platform, host, cart_id = target
-    if platform == "shopify":
-        return f"https://{host}/cart/{cart_id}:{packs}?storefront=true"
-    return f"https://{host}/?add-to-cart={cart_id}&quantity={packs}"
+    if not 1 <= packs <= MAX_QTY:
+        return None
+    return render(offer.cart_recipe, offer.cart_id, packs, str(offer.url))
 
 
 def seller_cart(
     entries: list[tuple[str, VerifiedOffer | None, int]],
-) -> tuple[str | None, list[str]]:
-    """One Shopify permalink for a seller's lines: (url, line ids it adds)."""
+) -> tuple[str | None, list[str], bool]:
+    """One link adding several of a seller's lines, when its recipe supports that.
+
+    Returns (url, line ids it adds, whether it empties the cart first).
+    """
+    usable = [
+        (line_id, offer, packs)
+        for line_id, offer, packs in entries
+        if offer and offer.cart_recipe and offer.cart_recipe.multi_url and offer.cart_id
+    ]
+    if not usable:
+        return None, [], False
+    recipe = usable[0][1].cart_recipe
+    host = urlsplit(str(usable[0][1].url)).hostname
     added: dict[str, int] = {}
     ids: list[str] = []
-    host = None
-    for line_id, offer, packs in entries:
-        target = cart_target(offer) if offer else None
-        if target is None or target[0] != "shopify" or (host and target[1] != host):
+    for line_id, offer, packs in usable:
+        cart_id = offer.cart_id
+        if not cart_id or offer.cart_recipe != recipe or urlsplit(str(offer.url)).hostname != host:
             continue
-        host = target[1]
-        added[target[2]] = min(MAX_QTY, added.get(target[2], 0) + packs)
+        added[cart_id] = min(MAX_QTY, added.get(cart_id, 0) + packs)
         ids.append(line_id)
-    if not added:
-        return None, []
-    items = ",".join(f"{cart_id}:{qty}" for cart_id, qty in added.items())
-    return f"https://{host}/cart/{items}?storefront=true", ids
+    url = render_many(recipe, list(added.items()))
+    return (url, ids, recipe.replaces_cart) if url else (None, [], False)

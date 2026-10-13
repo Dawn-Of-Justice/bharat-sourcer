@@ -780,6 +780,25 @@ class OfferMatch(Model):
     model: str | None = None
 
 
+class CartRecipe(Model):
+    """How a shopper's browser adds items to one store's cart by opening a link.
+
+    Decided by an LLM from the store's own add-to-cart form, checked by code, cached per
+    store. Not verified by placing an order: the link may still fail at the store.
+    """
+
+    # https URL templates on the store's host: `single_url` takes {id} and {qty};
+    # `multi_url` takes {items}, each rendered as `multi_item` ({id}, {qty}) and joined.
+    single_url: str = Field(max_length=300)
+    multi_url: str | None = Field(default=None, max_length=300)
+    multi_item: str | None = Field(default=None, max_length=40)
+    multi_join: str | None = Field(default=None, max_length=3)
+    # Opening the link empties the store's cart first (e.g. Shopify cart permalinks).
+    replaces_cart: bool = False
+    method: Literal["llm_form_review"] = "llm_form_review"
+    model: str | None = None
+
+
 class VerifiedOffer(Model):
     url: HttpUrl
     seller: str
@@ -819,9 +838,10 @@ class VerifiedOffer(Model):
     match: OfferMatch | None = None
     # Pieces per listing when the listing is a pack ("pack of 10"); None: not stated.
     pack_qty: int | None = Field(default=None, ge=1, le=100000)
-    # The store's own id for adding this listing to its cart, read from its public JSON:
-    # a Shopify variant id or a WooCommerce product id. None: not known (older offers).
-    cart_id: str | None = Field(default=None, pattern=r"^\d{1,20}$")
+    # Add-to-cart support worked out by the cart engine (sourcing/cart_engine.py): the
+    # product id read from this listing's own add-to-cart form, and the store's link recipe.
+    cart_id: str | None = Field(default=None, pattern=r"^[\w-]{1,40}$")
+    cart_recipe: CartRecipe | None = None
 
 
 class SearchAttribution(Model):
@@ -1010,7 +1030,7 @@ class OrderPlanLine(Model):
     grade: Literal["A", "B", "C", "D", "X"] | None = None
     changes_required: bool = False
     blocked_reason: str | None = None
-    # Opens the seller's cart with this line's packs added (Shopify or WooCommerce only).
+    # Adds this line's packs to the seller's cart (cart engine recipe), when one is known.
     cart_url: HttpUrl | None = None
 
 
@@ -1024,10 +1044,11 @@ class OrderPlanSeller(Model):
     free_shipping_gap_inr: Money | None = None
     policy: ShippingPolicyRef | None = None
     product_links: list[HttpUrl] = Field(default_factory=list)
-    # One link that opens this seller's cart with every line in `cart_line_ids` added
-    # (Shopify cart permalink; it replaces what was in the cart at that shop).
+    # One link that adds every line in `cart_line_ids` to this seller's cart, when the
+    # store's recipe supports several items; `cart_replaces` when it empties the cart first.
     cart_url: HttpUrl | None = None
     cart_line_ids: list[str] = Field(default_factory=list)
+    cart_replaces: bool = False
 
 
 class UnsourcedLine(Model):
