@@ -7303,6 +7303,26 @@ button.pp-row-summary {
   font-size: 14px;
   line-height: 1.5;
 }
+/* Add a part below the review cards (App.tsx Review `addPart`). */
+.pp-add-part {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin: 16px 0 8px;
+}
+.pp-add-part > input {
+  flex: 1 1 240px;
+  min-width: 0;
+  height: 38px;
+  padding: 0 12px;
+  border: 1px solid #cad8d3;
+  border-radius: 8px;
+  color: var(--pp-ink);
+  background: #fff;
+  font: inherit;
+  font-size: 15px;
+}
 .pp-reconciled {
   margin: -6px 0 16px;
   color: var(--pp-muted);

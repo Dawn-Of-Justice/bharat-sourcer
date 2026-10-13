@@ -1,5 +1,13 @@
 # Backend
 
+v0.37.0 lets a finished list be edited again. `POST /v1/jobs/{job_id}/confirm` now also
+accepts a `done` job: the same edits (add, remove, update, have_it) apply, then seller
+results are kept for unchanged lines and only new lines, or lines whose name, specs or
+build details changed, are searched. A quantity change keeps its offers and recomputes
+costs; a line marked owned becomes `already_owned`. With nothing new to search the job
+stays `done`; otherwise it goes to `resolving` with `sourcing_scope` set to those lines.
+Picks on kept lines survive. Edits are rejected (409) while sellers are being searched.
+
 v0.36.0 shows extraction progress live. While a job is `extracting`, `Job.extraction_progress`
 lists its steps (`description`, one `source:<url>` per source, `reconcile`, `spec_fill`)
 with `status` (pending, running, done, failed, skipped), a short `detail` ("8 parts found",

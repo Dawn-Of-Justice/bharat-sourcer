@@ -1,4 +1,10 @@
-# Implemented API contract — v0.36.0
+# Implemented API contract — v0.37.0
+
+v0.37.0: `POST /v1/jobs/{job_id}/confirm` also accepts a `done` job. Unchanged lines keep
+their offers and selections; only new lines and lines with a changed name, `buyable_spec`,
+`specs` or `requirements` are searched (`resolving`). A quantity change keeps offers and
+recomputes costs. With nothing to search the job stays `done`. 409 while `resolving` or
+`sourcing`. No schema change.
 
 v0.36.0: new `Job.extraction_progress: ExtractionStep[]` (at most 12): `key`
 (`description`, `source:<url>`, `reconcile`, `spec_fill`), `label`, `status`
