@@ -1,4 +1,8 @@
-# Implemented API contract — v0.34.0
+# Implemented API contract — v0.35.0
+
+v0.35.0: no API change. Extraction reads all sources in parallel (description links are
+found before the video read) and hedges slow or failed model calls on a second route, so
+jobs reach `awaiting_confirmation` sooner.
 
 v0.34.0: after fusion an AI pass over the whole build merges lines that are the same part
 and drops lines that are not a purchase (see [multi-source intake](multi-source-intake.md)

@@ -1,5 +1,18 @@
 # Backend
 
+v0.35.0 makes extraction faster. A clean read of a 4-minute video answers in 35 to 46 s,
+but jobs took 4 to 5 minutes: about 1 in 3 reads looped to MAX_TOKENS, Vertex often
+answered 429, and retries then waited on backoff and a hanging API key. Each extraction
+call is now hedged (`extraction.HEDGE_S = 30`): if it has not answered in 30 s, or fails, a
+second attempt starts on the other route (API key), a third on Vertex after another
+failure, and the first valid answer wins (`EXTRACTION_HEDGE`, `EXTRACTION_ATTEMPT_FAILED`
+logs). Hard failures (`NO_BOM`, unavailable pages) are not retried. Sources are also read in
+parallel: the video's description is fetched first (`GeminiExtractor.video_links`, reused
+by the video read), its project links join the job's sources, and every source is read at
+once; results are still fused in source order. Live on Desk Buddy the whole extraction
+step (video, reconcile, spec fill) took 44 s clean and 109 s with one stalled read (was
+4.6 min).
+
 v0.34.0 adds a reconcile pass after extraction (`reconcile.py`, site `reconcile`, medium
 thinking, on Vertex). Fusion merges lines only when names match, so one part read from a
 video and from code under different names ("1.3-inch I2C OLED (SH1106)" and "SSD1306 OLED

@@ -1,8 +1,12 @@
 """Bounded YouTube and project-page extraction via Gemini's generateContent REST API."""
 
+import contextvars
 import json
 import logging
 import re
+import threading
+import time
+from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
 from typing import Annotated, Literal, Protocol
 from urllib.parse import parse_qs, urlsplit
 
@@ -11,13 +15,14 @@ from pydantic import Field, ValidationError
 
 from bharat_sourcer.code_evidence import read_code
 from bharat_sourcer.config import Settings
-from bharat_sourcer.gemini_api import post_generate
+from bharat_sourcer.gemini_api import endpoint, post_generate
 from bharat_sourcer.project_pages import (
     ProjectPageSource,
     document_text,
     normalise,
     quote_found,
 )
+from bharat_sourcer.resilience import post_with_retry
 from bharat_sourcer.schemas import (
     BomItem,
     BuyableSpec,
@@ -349,6 +354,14 @@ def described(entry: DescribedEvidenceDraft, haystack: str, url: str) -> Evidenc
     return Evidence(timestamp=entry.timestamp, observation=entry.observation)
 
 
+# Hedged extraction (GeminiExtractor._generate): a second attempt starts on the other route
+# when the first has not answered in HEDGE_S seconds or fails; at most three attempts. A
+# clean video read took 35 to 46 s live, so a stalled one is raced early; the extra read
+# costs about $0.01.
+HEDGE_S = 30
+HEDGE_ROUTES = ("vertex_first", "api_key", "vertex_first")
+
+
 class Extractor(Protocol):
     def extract(self, url: str) -> "ExtractionResult | list[BomItem]": ...
 
@@ -512,6 +525,10 @@ class GeminiExtractor:
         self.transport = transport
         self.fetcher = fetcher or SafeFetcher()
         self.youtube_client = youtube_client
+        # Description lookups by canonical video URL: `video_links` runs before the video
+        # read (intake.py) and the read reuses its answer instead of calling YouTube twice.
+        self._descriptions: dict[str, tuple[VideoMeta | None, bool]] = {}
+        self._descriptions_lock = threading.Lock()
 
     def extract(self, url: str) -> ExtractionResult:
         kind, canonical = supported_source(url)
@@ -519,24 +536,89 @@ class GeminiExtractor:
             return self._extract_page(description_page_source(url))
         return self._extract_video(canonical)
 
-    def _post(self, client: httpx.Client, payload: dict) -> httpx.Response:
-        """Vertex AI first for site `extraction`, then the API key (gemini_api.py)."""
+    def _post(
+        self, client: httpx.Client, payload: dict, route: str = "vertex_first"
+    ) -> httpx.Response:
+        """`vertex_first`: Vertex AI for site `extraction`, then the API key (gemini_api.py).
+        `api_key`: the API key only, one retry, for the hedged second attempt."""
+        if route == "api_key":
+            url, headers = endpoint(
+                self.settings, "extraction", self.settings.gemini_model, vertex=False
+            )
+            return post_with_retry(client, url, headers=headers, json=payload, attempts=2)
         return post_generate(
             client, self.settings, "extraction", self.settings.gemini_model, payload
         )
 
     def _generate(self, parts: list[dict], prompt: str, model: type[Model], noun: str):
-        """One structured call, retried once when the output is cut off or invalid: video
-        reads sometimes loop on repeated text until MAX_TOKENS (about 1 in 3 live tries)."""
-        try:
-            return self._generate_once(parts, prompt, model, noun)
-        except ExtractionError as exc:
-            if exc.code != "INVALID_EXTRACTION":
-                raise
-            log.warning("EXTRACTION_RETRY_INVALID noun=%s", noun)
-            return self._generate_once(parts, prompt, model, noun)
+        """One structured call, hedged. A clean video read answers in 10 to 50 s, but live
+        reads looped to MAX_TOKENS about 1 in 3 times and Vertex often answered 429, so a
+        job waited minutes on retries. If the first attempt has not answered in
+        `HEDGE_S`, or fails, a second starts on the other route (the API key) and the
+        first valid answer wins; a third (Vertex again) follows a second failure. The
+        losers are abandoned (their HTTP calls finish in the background)."""
+        routes = list(HEDGE_ROUTES)
+        retriable = {"INVALID_EXTRACTION", "UPSTREAM_ERROR", "UPSTREAM_TIMEOUT", "UPSTREAM_QUOTA"}
+        pool = ThreadPoolExecutor(max_workers=2)
+        running: dict[Future, str] = {}
 
-    def _generate_once(self, parts: list[dict], prompt: str, model: type[Model], noun: str):
+        def start() -> None:
+            route = routes.pop(0)
+            context = contextvars.copy_context()  # keeps the job's cost attribution
+            future = pool.submit(
+                context.run, self._generate_once, parts, prompt, model, noun, route
+            )
+            running[future] = route
+
+        start()
+        deadline = time.monotonic() + self.settings.extraction_timeout_s + HEDGE_S
+        error: ExtractionError | None = None
+        try:
+            while running:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    break
+                hedge = routes and len(running) < 2
+                done, _ = wait(
+                    running,
+                    timeout=min(HEDGE_S, remaining) if hedge else remaining,
+                    return_when=FIRST_COMPLETED,
+                )
+                if not done:
+                    if hedge:
+                        log.warning("EXTRACTION_HEDGE noun=%s route=%s", noun, routes[0])
+                        start()
+                    continue
+                for future in done:
+                    route = running.pop(future)
+                    try:
+                        return future.result()
+                    except ExtractionError as exc:
+                        if exc.code not in retriable:
+                            raise
+                        log.warning(
+                            "EXTRACTION_ATTEMPT_FAILED noun=%s route=%s code=%s",
+                            noun,
+                            route,
+                            exc.code,
+                        )
+                        error = error or exc
+                        if routes and len(running) < 2:
+                            start()
+            raise error or ExtractionError(
+                "UPSTREAM_TIMEOUT", f"{noun.capitalize()} extraction timed out"
+            )
+        finally:
+            pool.shutdown(wait=False, cancel_futures=True)
+
+    def _generate_once(
+        self,
+        parts: list[dict],
+        prompt: str,
+        model: type[Model],
+        noun: str,
+        route: str = "vertex_first",
+    ):
         """Run one structured generateContent call and validate the output with `model`."""
         payload = {
             "systemInstruction": {"parts": [{"text": prompt}]},
@@ -553,7 +635,7 @@ class GeminiExtractor:
                 transport=self.transport,
                 follow_redirects=False,
             ) as client:
-                response = self._post(client, payload)
+                response = self._post(client, payload, route)
             if response.status_code == 429:
                 raise ExtractionError("UPSTREAM_QUOTA", "Gemini quota exceeded; try again later")
             if response.is_error:
@@ -583,8 +665,22 @@ class GeminiExtractor:
         key = self.settings.youtube_api_key
         if key is None or not key.get_secret_value().strip():
             return None, False
+        with self._descriptions_lock:
+            if canonical in self._descriptions:
+                return self._descriptions[canonical]
         meta = fetch_description(video_id(canonical), key.get_secret_value(), self.youtube_client)
+        with self._descriptions_lock:
+            self._descriptions[canonical] = (meta, meta is None)
         return meta, meta is None
+
+    def video_links(self, url: str) -> JobVideoMeta | None:
+        """The description's links for a video URL, without a model call (intake.py reads
+        the linked project pages alongside the video)."""
+        kind, canonical = supported_source(url)
+        if kind != "video":
+            return None
+        meta, _ = self._description(canonical)
+        return job_video_meta(meta, set()) if meta else None
 
     def _extract_video(self, canonical: str) -> ExtractionResult:
         meta, failed = self._description(canonical)

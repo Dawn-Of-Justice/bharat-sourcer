@@ -684,3 +684,40 @@ def test_renaming_a_line_clears_its_confidence():
 
 def test_quote_found_still_applies_to_markdown_text():
     assert quote_found("3.7V 420mAh", "Battery with Short Cable - 3.7V   420mAh")
+
+
+def test_sources_are_read_in_parallel_and_reported_in_order():
+    import threading
+    import time as clock
+
+    from bharat_sourcer.intake import extract_sources
+    from bharat_sourcer.schemas import JobVideoMeta
+
+    started: list[str] = []
+    both = threading.Barrier(2, timeout=5)  # fails unless the two reads overlap
+    page = "https://www.instructables.com/Synthetic/"
+
+    class Parallel:
+        def video_links(self, url):
+            return JobVideoMeta.model_validate(
+                {
+                    "video_id": "abcdefghijk",
+                    "fetched_at": "2026-10-13T00:00:00Z",
+                    "title": "Synthetic",
+                    "channel": "Synthetic",
+                    "links": [{"url": page, "kind": "project_source"}],
+                }
+            )
+
+        def extract(self, url):
+            started.append(url)
+            both.wait()
+            if "youtube" in url:
+                clock.sleep(0.05)  # the page answers first; order must still be video first
+                return [item("ESP32 board", [video_ev()])]
+            return [item("BME280 sensor", [page_ev("BME280")])]
+
+    result = extract_sources(Parallel(), ["https://www.youtube.com/watch?v=abcdefghijk"])
+    assert len(started) == 2
+    assert [report.kind for report in result.sources][:2] == ["video", "instructables"]
+    assert [i.raw_name for i in result.items] == ["ESP32 board", "BME280 sensor"]

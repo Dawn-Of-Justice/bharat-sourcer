@@ -239,3 +239,39 @@ def test_a_cut_off_answer_is_retried_once():
 
     assert provider(handle).extract(URL).items[0].raw_name == "ESP32 board"
     assert len(calls) == 2
+
+
+def test_a_slow_read_is_hedged_on_the_api_key_and_the_first_answer_wins(monkeypatch):
+    monkeypatch.setattr("bharat_sourcer.extraction.HEDGE_S", 0.2)
+    monkeypatch.setattr("bharat_sourcer.gemini_api.vertex_token", lambda: "vertex-token")
+    release = Event()
+    hosts: list[str] = []
+
+    def handle(request):
+        hosts.append(request.url.host)
+        if request.url.host == "aiplatform.googleapis.com":
+            release.wait(5)  # Vertex hangs until the test ends
+            return httpx.Response(503)
+        return result([PART])
+
+    extractor = GeminiExtractor(
+        Settings(_env_file=None, demo_mode=False, gemini_api_key="k", gcp_project="demo-project"),
+        transport=httpx.MockTransport(handle),
+    )
+    try:
+        assert extractor.extract(URL).items[0].raw_name == "ESP32 board"
+        assert hosts == ["aiplatform.googleapis.com", "generativelanguage.googleapis.com"]
+    finally:
+        release.set()
+
+
+def test_hard_failures_are_not_hedged():
+    calls = []
+
+    def handle(request):
+        calls.append(1)
+        return result([])
+
+    with pytest.raises(ExtractionError) as caught:
+        provider(handle).extract(URL)
+    assert caught.value.code == "NO_BOM" and len(calls) == 1
