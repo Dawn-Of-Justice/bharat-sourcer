@@ -8601,3 +8601,289 @@ button.pp-row-summary {
     animation: none;
   }
 }
+
+/* --- Project page: "Build it" step (BuildPage.tsx) ---------------------------------------
+   Summary card, parts checklist, AI-written build steps, wiring and safety notes in one column. */
+.pb-page {
+  display: grid;
+  gap: 36px;
+  min-width: 0;
+}
+.pb-card {
+  padding: 20px 24px;
+  border: 1px solid var(--pp-line);
+  border-radius: 16px;
+  background: var(--pp-paper);
+}
+.pb-summary {
+  display: grid;
+  justify-items: start;
+  gap: 14px;
+}
+.pb-summary h2 {
+  margin: 0;
+  color: var(--pp-ink);
+  font-size: clamp(24px, 2.4vw, 30px);
+  letter-spacing: -0.035em;
+}
+.pb-summary-text {
+  display: grid;
+  justify-items: start;
+  gap: 4px;
+}
+.pb-summary-how {
+  max-width: 72ch;
+  margin: 0;
+  color: #2f4b46;
+  font-size: 16px;
+  line-height: 1.6;
+}
+.pb-summary-how.is-clamped {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+}
+.pb-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.pb-chip {
+  max-width: 100%;
+  padding: 4px 11px;
+  border: 1px solid var(--pp-line);
+  border-radius: 999px;
+  background: #fff;
+  color: #35564d;
+  font-size: 13px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+.pb-chip span {
+  color: var(--pp-muted);
+  font-weight: 650;
+}
+.pb-chip.is-done {
+  border-color: transparent;
+  background: var(--pp-mint);
+  color: #175e55;
+}
+.pb-video-link {
+  color: var(--pp-teal);
+  font-size: 15px;
+  font-weight: 750;
+  text-underline-offset: 3px;
+}
+.pb-section {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+}
+.pb-section > h2 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  color: var(--pp-ink);
+  font-size: 22px;
+  letter-spacing: -0.03em;
+}
+.pb-section > h2 span {
+  color: var(--pp-muted);
+  font-size: 16px;
+  letter-spacing: 0;
+}
+.pb-parts {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--pp-line);
+}
+.pb-part {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 4px 16px;
+  padding: 12px 2px;
+  border-bottom: 1px solid var(--pp-line);
+}
+.pb-check.pp-review-have {
+  grid-area: auto;
+  align-items: flex-start;
+  min-width: 0;
+  color: var(--pp-ink);
+  font-size: 15px;
+  white-space: normal;
+  cursor: pointer;
+}
+.pb-check input {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.pb-part-name {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.pb-part.is-checked .pb-part-name {
+  color: #5d706c;
+}
+.pb-part-qty {
+  color: #5f716b;
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+}
+.pb-part-note {
+  grid-column: 1 / -1;
+  padding-left: 25px;
+  color: var(--pp-muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+.pb-part-note:empty {
+  display: none;
+}
+.pb-part-warn {
+  color: #74501c;
+  font-weight: 750;
+}
+.pb-part-error {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding-left: 25px;
+}
+.pb-pending {
+  display: flex;
+  align-items: center;
+  margin: 0;
+  color: #35564d;
+  font-size: 15px;
+  font-weight: 650;
+}
+.pb-offer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 20px;
+}
+.pb-offer p {
+  flex: 1 1 260px;
+  margin: 0;
+  color: #2f4b46;
+  font-size: 15px;
+  line-height: 1.55;
+}
+.pb-offer .nav-cta {
+  display: inline-flex;
+  align-items: center;
+}
+.pb-steps {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--pp-line);
+}
+.pb-step {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  gap: 14px;
+  padding: 18px 2px;
+  border-bottom: 1px solid var(--pp-line);
+}
+.pb-step-number {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--pp-mint);
+  color: #175e55;
+  font-size: 15px;
+  font-weight: 800;
+}
+.pb-step-body {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+.pb-step-body h3 {
+  margin: 4px 0 0;
+  color: var(--pp-ink);
+  font-size: 17px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+.pb-step-body > p {
+  max-width: 72ch;
+  margin: 0;
+  color: #2f4b46;
+  font-size: 15px;
+  line-height: 1.6;
+}
+.pb-step-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+}
+.pb-step-time {
+  color: var(--pp-teal);
+  font-size: 14px;
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+  text-underline-offset: 3px;
+}
+span.pb-step-time {
+  color: var(--pp-muted);
+}
+.pb-step-caution {
+  max-width: 72ch;
+}
+.pb-note,
+.pb-muted {
+  margin: 0;
+  color: var(--pp-muted);
+  font-size: 14px;
+  line-height: 1.55;
+}
+.pb-wiring .po-wiring {
+  margin: 0;
+}
+.pb-section .pp-needs {
+  margin: 0;
+}
+.pb-assumptions h3 {
+  margin: 0 0 6px;
+  color: var(--pp-ink);
+  font-size: 16px;
+}
+.pb-assumptions ul {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding-left: 20px;
+  color: #2f4b46;
+  font-size: 15px;
+  line-height: 1.55;
+}
+@media (max-width: 639px) {
+  .pb-card {
+    padding: 16px;
+  }
+  .pb-step {
+    grid-template-columns: 28px minmax(0, 1fr);
+    gap: 10px;
+  }
+  .pb-step-number {
+    width: 28px;
+    height: 28px;
+    font-size: 14px;
+  }
+}

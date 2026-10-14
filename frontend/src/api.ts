@@ -1219,3 +1219,40 @@ export const getOverview = (id: string, token: string) => request<ProjectOvervie
 // Owner only: starts generation when the overview is failed, stale or missing; otherwise returns the current one.
 export const regenerateOverview = (id: string, token: string) =>
   request<ProjectOverview>(jobPath(id, '/overview'), { method: 'POST' }, token)
+
+// Build guide (docs/contracts/build-guide.md): the parts checklist and AI-written build steps for a finished project.
+// The steps are AI-inferred from the parts list and the video evidence; never verified against the physical build.
+export interface BuildStep {
+  title: string
+  detail: string
+  line_ids: string[]
+  // "MM:SS" or "H:MM:SS": a moment in the source video, checked against the job's video evidence.
+  timestamp: string | null
+  caution: string | null
+  origin: 'ai_inferred'
+}
+export interface BuildGuide {
+  status: 'pending' | 'ready' | 'failed' | 'stale'
+  message: string | null
+  generated_at: string | null
+  items_hash: string | null
+  demo: boolean
+  steps: BuildStep[]
+}
+export interface Job {
+  // Line ids the maker ticked as received.
+  build_received?: string[]
+  build_guide?: BuildGuide | null
+}
+// Owner only, `done` jobs: ticks (or unticks) one part as received; returns the updated job.
+export const setBuildProgress = (id: string, token: string, lineId: string, received: boolean) =>
+  request<Job>(
+    jobPath(id, '/build-progress'),
+    { method: 'POST', body: JSON.stringify({ line_id: lineId, received }) },
+    token,
+  )
+// 404 BUILD_GUIDE_NOT_FOUND before the first POST.
+export const getBuildGuide = (id: string, token: string) => request<BuildGuide>(jobPath(id, '/build-guide'), {}, token)
+// Owner only, `done` jobs: starts writing when no usable guide exists; otherwise returns the current one.
+export const requestBuildGuide = (id: string, token: string) =>
+  request<BuildGuide>(jobPath(id, '/build-guide'), { method: 'POST' }, token)
