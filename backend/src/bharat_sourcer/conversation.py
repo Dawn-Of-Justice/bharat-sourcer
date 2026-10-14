@@ -1,6 +1,7 @@
 """Persisted conversation with explicit, atomic acceptance of draft BOM proposals."""
 
 import json
+import logging
 from datetime import timedelta
 from hashlib import sha256
 from typing import Protocol
@@ -75,6 +76,14 @@ class ScopeDecision(BaseModel):
     allowed: bool
 
 
+# The scope gate runs first on every message, so it absorbs Gemini overload bursts: on
+# 2026-10-15 three 503-class attempts inside ~10 s failed a question that passed on a retry
+# moments later. Five HTTP attempts back off for ~15 s; one more full check covers a parse
+# or truncation failure. The gate still fails closed when every attempt fails.
+SCOPE_HTTP_ATTEMPTS = 5
+SCOPE_CHECKS = 2
+
+
 class GeminiAssistant:
     def __init__(self, settings: Settings, transport: httpx.BaseTransport | None = None):
         self.settings, self.transport = settings, transport
@@ -89,6 +98,7 @@ class GeminiAssistant:
             response = post_with_retry(
                 client,
                 f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",
+                attempts=SCOPE_HTTP_ATTEMPTS,
                 headers={"x-goog-api-key": self.settings.gemini_api_key.get_secret_value()},
                 json={
                     "systemInstruction": {"parts": [{"text": SCOPE_PROMPT}]},
@@ -113,10 +123,20 @@ class GeminiAssistant:
         )
         return ScopeDecision.model_validate_json(text).allowed
 
+    def checked_scope(self, job: Job) -> bool | None:
+        """The scope decision, or None when every check failed."""
+        for check in range(SCOPE_CHECKS):
+            try:
+                return self.in_scope(job)
+            except Exception as exc:
+                logging.getLogger(__name__).warning(
+                    "Scope check %d of %d failed: %s", check + 1, SCOPE_CHECKS, exc
+                )
+        return None
+
     def reply(self, job: Job) -> ChatReply:
-        try:
-            allowed = self.in_scope(job)
-        except Exception:
+        allowed = self.checked_scope(job)
+        if allowed is None:
             # A classifier outage must not turn project chat into unrestricted chat.
             return ChatReply(
                 text="Project scope could not be checked. Please retry your project question."
