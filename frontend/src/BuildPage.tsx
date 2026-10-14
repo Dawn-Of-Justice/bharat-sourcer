@@ -15,7 +15,7 @@ import { loadProjectOverview } from './prefetch'
 import { NeedsList, safetyNeeds } from './ReportSummary'
 import { sellerName } from './SellerIdentity'
 import { Spinner } from './Skeleton'
-import { partName } from './partName'
+import { partName, qtyLabel } from './partName'
 
 // The "Build it" step for a finished project (docs/contracts/build-guide.md): the parts checklist, AI-written build
 // steps, the wiring drawing and the safety notes. The steps are AI-inferred and never verified against the build.
@@ -257,7 +257,7 @@ function PartsChecklist({
                 />
                 <span className="pb-part-name">{name}</span>
               </label>
-              <span className="pb-part-qty">×{item.qty ?? '?'}</span>
+              <span className="pb-part-qty">{qtyLabel(item)}</span>
               <span id={`pb-part-${id}-note`} className="pb-part-note">
                 {had ? (
                   'You had it'
