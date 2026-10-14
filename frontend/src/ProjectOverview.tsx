@@ -140,9 +140,11 @@ function MiniIcon({ title, tone, children }: { title: string; tone: string; chil
 
 const phone = () => typeof window !== 'undefined' && window.matchMedia('(max-width: 639px)').matches
 
-export function WiringSection({ overview }: { overview: Overview }) {
+// embedded: always open with no disclosure row, for a container that names it (the Build it page's Wiring tab).
+export function WiringSection({ overview, embedded = false }: { overview: Overview; embedded?: boolean }) {
   const id = useId()
-  const [open, setOpen] = useState(false)
+  const [opened, setOpen] = useState(false)
+  const open = embedded || opened
   const [view, setView] = useState<'diagram' | 'list'>(() => (phone() ? 'list' : 'diagram'))
   const [active, setActive] = useState<string | null>(null)
   const { parts, wiring } = overview
@@ -170,23 +172,28 @@ export function WiringSection({ overview }: { overview: Overview }) {
   )
 
   return (
-    <section className={`po-wiring${open ? ' is-open' : ''}`} aria-labelledby={`${id}-title`}>
-      <h2 className="po-wiring-heading" id={`${id}-title`}>
-        <button
-          type="button"
-          className="po-wiring-toggle"
-          aria-expanded={open}
-          aria-controls={`${id}-panel`}
-          onClick={() => setOpen(value => !value)}
-        >
-          <span className="po-wiring-title">How it’s wired</span>
-          <span className="po-wiring-count">
-            {wiring.length} {wiring.length === 1 ? 'connection' : 'connections'}
-          </span>
-          {toCheck > 0 && <span className="po-wiring-check">{toCheck} to check</span>}
-          <span className="po-wiring-chevron" aria-hidden="true" />
-        </button>
-      </h2>
+    <section
+      className={`po-wiring${open ? ' is-open' : ''}${embedded ? ' is-embedded' : ''}`}
+      aria-labelledby={embedded ? undefined : `${id}-title`}
+    >
+      {!embedded && (
+        <h2 className="po-wiring-heading" id={`${id}-title`}>
+          <button
+            type="button"
+            className="po-wiring-toggle"
+            aria-expanded={open}
+            aria-controls={`${id}-panel`}
+            onClick={() => setOpen(value => !value)}
+          >
+            <span className="po-wiring-title">How it’s wired</span>
+            <span className="po-wiring-count">
+              {wiring.length} {wiring.length === 1 ? 'connection' : 'connections'}
+            </span>
+            {toCheck > 0 && <span className="po-wiring-check">{toCheck} to check</span>}
+            <span className="po-wiring-chevron" aria-hidden="true" />
+          </button>
+        </h2>
+      )}
       <div className="po-wiring-panel" id={`${id}-panel`} hidden={!open}>
         <div className="po-wiring-bar">
           <div className="po-segmented" role="group" aria-label="Show wiring as">
