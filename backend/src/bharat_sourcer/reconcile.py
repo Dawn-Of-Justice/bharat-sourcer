@@ -12,7 +12,10 @@ returns:
   (evidence, requirements and look-alikes combined by `fusion.merge`; names with different
   part numbers keep an `identity_mismatch` conflict so the maker still picks the variant);
 - removals: lines that are not a separate purchase (built into another listed part, a tool,
-  software, or not a part at all).
+  software, or not a part at all);
+- per-line flags: `as_needed` (no meaningful piece count) and `made` (made to order: a
+  3D-printed part or a custom PCB), saved as `BomItem.qty_as_needed` and
+  `BomItem.fabrication`. Sourcing links a fabrication service for made-to-order lines.
 
 Each change is saved on `Job.reconciled` with its reason, so the review page can say what
 was combined or left out. Guards keep it conservative: unknown ids, overlapping merges and
@@ -72,6 +75,8 @@ class PartRoleDraft(Model):
     connects_to: list[int] = Field(default_factory=list)
     # The amount is not a meaningful piece count (bought by length, pack or weight, or made).
     as_needed: bool = False
+    # Made to order from the maker's design files rather than bought from stock.
+    made: Literal["none", "3d_print", "pcb"] = "none"
 
 
 # Reasons are cut to length here rather than rejected, so one long reason does not throw
@@ -121,7 +126,12 @@ First think through the build: for EVERY line give its function in this project 
 ids of the lines it connects to electrically or mechanically (parts), and as_needed: true
 when a piece count is not meaningful for that line because it is bought by length, pack or
 weight or made by the maker (hookup wire, heat shrink, solder, filament, a 3D-printed case),
-false for discrete parts (boards, modules, batteries, switches, resistors, screws). A
+false for discrete parts (boards, modules, batteries, switches, resistors, screws), and
+made: how the part is obtained. "3d_print" when this project's own part is 3D-printed from
+its design (a printed case, bracket, mount or gear), "pcb" when it is a custom circuit
+board designed for this project (its own PCB or shield made from Gerber files, to order
+from a PCB fab), else "none": anything bought ready-made, including dev boards, modules,
+breakout boards, perfboard or stripboard, and the filament itself. A
 display or sensor connects to the controller, the battery to its charger or switch, and
 so on. Two lines with the same function that connect to the same things are usually one
 part, especially when the project has one of them (one screen, one battery). Then decide:
@@ -267,6 +277,13 @@ def mark_as_needed(items: list[BomItem], draft: ReconcileDraft) -> None:
                 item.qty_as_needed = True
 
 
+def mark_fabrication(items: list[BomItem], draft: ReconcileDraft) -> None:
+    """Flag lines the model says are made to order (printed part, custom PCB)."""
+    for part in draft.parts:
+        if part.made != "none" and part.id < len(items):
+            items[part.id].fabrication = part.made
+
+
 def reconcile_items(
     reconciler: Reconciler | None, items: list[BomItem], project: ProjectContext | None
 ) -> tuple[list[BomItem], list[ReconciledLine]]:
@@ -279,6 +296,7 @@ def reconcile_items(
             return items, []
         copies = [item.model_copy(deep=True) for item in items]
         mark_as_needed(copies, draft)
+        mark_fabrication(copies, draft)
         if not (draft.merges or draft.removals):
             return copies, []
         kept, changes = apply(copies, draft)
@@ -307,7 +325,8 @@ class GeminiReconciler:
     def review(self, items: list[BomItem], project: ProjectContext | None) -> ReconcileDraft | None:
         briefs = [line_brief(index, item) for index, item in enumerate(items)]
         body = {"project": compact_project(project), "lines": briefs}
-        key = cache_key(SITE, site_model(self.settings, SITE), stable_hash(body))
+        # v2: drafts also say which lines are made to order; older entries lack it.
+        key = cache_key(SITE, site_model(self.settings, SITE), "v2", stable_hash(body))
         cached = self.cache.get(key) if self.cache is not None else None
         if isinstance(cached, dict):
             try:

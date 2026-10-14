@@ -152,6 +152,8 @@ export interface BomItem {
   qty_reason?: string | null
   // A count is not meaningful (wire, heat shrink, a printed case): shown as "As needed"; qty is one pack.
   qty_as_needed?: boolean
+  // Made to order (AI-decided): a 3D-printed part or a custom PCB, linked to a fabrication service.
+  fabrication?: 'none' | '3d_print' | 'pcb'
   user_has_it: boolean
   user_edited: boolean
   evidence: Evidence[]
@@ -283,9 +285,37 @@ export interface VideoMeta {
   expired?: boolean
 }
 
+export interface FabricationService {
+  name: string
+  url: string
+  note?: string | null
+  ships_to_india?: 'yes' | 'unknown'
+  // False for the curated fallback list: show it as not checked live.
+  checked_live?: boolean
+  checked_at?: string | null
+}
+export interface FabricationPlan {
+  kind: '3d_print' | 'pcb'
+  services?: FabricationService[]
+  // What the service needs, e.g. "STL or STEP file of the part".
+  upload: string
+  // Design files linked from the project's own sources.
+  design_links?: string[]
+  method: 'grounded_search_page_checked' | 'curated_fallback'
+  note?: string
+}
+export interface MadeToOrderLine {
+  line_id: string
+  name: string
+  fabrication: FabricationPlan
+}
+
 export interface ReportLine {
   item: BomItem
-  sourcing_status: 'not_run' | 'already_owned' | 'offers_found' | 'no_verified_offers' | 'failed'
+  sourcing_status:
+    'not_run' | 'already_owned' | 'offers_found' | 'no_verified_offers' | 'failed' | 'fabrication_service'
+  // Set with sourcing_status 'fabrication_service'.
+  fabrication?: FabricationPlan | null
   sourcing_error: { code: string; message: string } | null
   offers: {
     url: string
@@ -776,6 +806,8 @@ export interface UnsourcedLine {
 export interface OrderPlan {
   sellers?: OrderPlanSeller[]
   unsourced?: UnsourcedLine[]
+  // Ordered from a fabrication service: never in seller carts or unsourced.
+  made_to_order?: MadeToOrderLine[]
   seller_count?: number
   costing: CostBreakdown
   ready?: boolean

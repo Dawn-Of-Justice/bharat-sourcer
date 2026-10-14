@@ -82,6 +82,8 @@ def _describe(result: RefreshLineResult) -> str:
         )
     if result.sourcing_status in {"offers_found", "no_verified_offers"}:
         return f"{result.line_id}: no verified offers."
+    if result.sourcing_status == "fabrication_service":
+        return f"{result.line_id}: made to order; fabrication services linked."
     if result.sourcing_status == "already_owned":
         return f"{result.line_id}: marked as already owned; not searched."
     if result.error_code == "SOURCING_LIMIT":

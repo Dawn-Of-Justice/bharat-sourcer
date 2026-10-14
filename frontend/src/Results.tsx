@@ -16,6 +16,8 @@ import {
 import Requirements, { requirementPayload, validRequirements } from './Requirements'
 import { GradeChip, MatchChip, PackPrice, price, secureLink } from './ReportBits'
 import { PlanCompare } from './OrderPlan'
+import { FabricationCard } from './MadeToOrder'
+import { madeToOrder } from './fabrication'
 import PartsList, { statusOf } from './PartsList'
 import { SidePanel } from './ProjectFrame'
 import { ExportButtons, ShareControl } from './ReportActions'
@@ -571,6 +573,7 @@ function PartDetail({
     }
   }, [notice])
   const live = !job.demo && !readOnly
+  const made = madeToOrder(line)
   return (
     <div className="pp-part-layout">
       <div className="pp-part">
@@ -579,6 +582,8 @@ function PartDetail({
             <strong>You already have this part.</strong>
             <p>It is not part of the order.</p>
           </div>
+        ) : made ? (
+          <FabricationCard plan={line.fabrication} />
         ) : chosen ? (
           <div className="pp-part-pick">
             <p className="pp-part-price">
@@ -670,7 +675,7 @@ function PartDetail({
             </p>
           </div>
         )}
-        {!line.item.user_has_it && (
+        {!line.item.user_has_it && !made && (
           <details className="pp-section" open={offersOpen} onToggle={event => setOffersOpen(event.currentTarget.open)}>
             <summary>
               Seller offers <span>{offers.length}</span>

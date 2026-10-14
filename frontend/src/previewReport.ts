@@ -2,6 +2,7 @@ import type {
   CartPlans,
   CostAmount,
   CostBreakdown,
+  FabricationPlan,
   Job,
   OrderPlanLine,
   Report,
@@ -470,10 +471,36 @@ const planLine = (
   ...extra,
 })
 
+// Dummy made-to-order plan: invented services on example.com, not real fabrication services or design files.
+const dummyFabrication: FabricationPlan = {
+  kind: '3d_print',
+  services: [
+    {
+      name: 'Sample 3D Print Service (dummy)',
+      url: url('print-service-a'),
+      note: 'Dummy: upload an STL, get an instant quote, delivery across India.',
+      ships_to_india: 'yes',
+      checked_live: true,
+      checked_at: '2026-10-15T09:00:00Z',
+    },
+    {
+      name: 'Another Print Shop (dummy)',
+      url: url('print-service-b'),
+      note: 'Dummy: PLA, PETG and resin prints from uploaded files.',
+      ships_to_india: 'unknown',
+      checked_live: true,
+      checked_at: '2026-10-15T09:00:00Z',
+    },
+  ],
+  upload: 'STL or STEP file of the part (many services also take 3MF)',
+  design_links: [url('printables-model')],
+  method: 'grounded_search_page_checked',
+}
+
 export function planPreview(job: Job): Job {
   const extras = planLines()
   const items = [
-    ...job.items.filter(item => !['L04', 'L05', 'L06'].includes(item.line_id)),
+    ...job.items.filter(item => !['L04', 'L05', 'L06', 'L07'].includes(item.line_id)),
     {
       line_id: 'L04',
       raw_name: 'Resistor (dummy, value missing)',
@@ -487,6 +514,17 @@ export function planPreview(job: Job): Job {
       { line_id: 'L05', raw_name: 'Sample display module (dummy, no offers)' },
       { line_id: 'L06', raw_name: 'Sample battery holder (dummy, out of stock)' },
     ].map(item => ({ ...item, qty: 1, user_has_it: false, user_edited: false, evidence: [], clarifications: [] })),
+    {
+      line_id: 'L07',
+      raw_name: '3D printed enclosure (dummy, made to order)',
+      qty: 1,
+      qty_as_needed: true,
+      fabrication: '3d_print' as const,
+      user_has_it: false,
+      user_edited: false,
+      evidence: [],
+      clarifications: [],
+    },
   ]
   const name = (id: string) => items.find(item => item.line_id === id)?.raw_name ?? id
   const lines: ReportLine[] = items.map(
@@ -531,6 +569,13 @@ export function planPreview(job: Job): Job {
         match: { status: 'exact', score: 0.95, method: 'llm_judge', reasons: ['Dummy: matching holder, sold out.'] },
       }),
     ] as unknown as ReportLine['offers'],
+  }
+  const madeIndex = lines.findIndex(line => line.item.line_id === 'L07')
+  lines[madeIndex] = {
+    ...lines[madeIndex],
+    sourcing_status: 'fabrication_service',
+    fabrication: dummyFabrication,
+    line_image: { url: svg('Dummy art'), kind: 'placeholder', label: 'Dummy enclosure illustration' },
   }
   const report: Report = {
     summary: 'Dummy preview order plan',
@@ -600,6 +645,9 @@ export function planPreview(job: Job): Job {
           next_steps: ['Which resistor value do you need?', 'Then refresh this part.'],
           research_urls: [url('resistor-research')],
         },
+      ],
+      made_to_order: [
+        { line_id: 'L07', name: '3D printed enclosure (dummy, made to order)', fabrication: dummyFabrication },
       ],
       seller_count: 2,
       costing: costing('plan'),

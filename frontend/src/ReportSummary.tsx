@@ -9,8 +9,11 @@ export function SummaryBand({ job, actions }: { job: Job; actions?: ReactNode })
   if (!report) return null
   const plan = report.order_plan
   const costing = plan?.costing ?? report.costing
-  const needed = job.items.filter(item => !item.user_has_it)
-  const owned = job.items.length - needed.length
+  // Made-to-order parts are ordered from a fabrication service, so the seller plan does not cover them.
+  const made = report.lines.filter(line => line.sourcing_status === 'fabrication_service' && !line.item.user_has_it)
+  const madeIds = new Set(made.map(line => line.item.line_id))
+  const needed = job.items.filter(item => !item.user_has_it && !madeIds.has(item.line_id))
+  const owned = job.items.filter(item => item.user_has_it).length
   const selected = report.lines.filter(line => line.selected_offer_url && !line.item.user_has_it)
   const covered = plan
     ? (plan.sellers ?? []).reduce((sum, seller) => sum + (seller.lines?.length ?? 0), 0)
@@ -36,7 +39,9 @@ export function SummaryBand({ job, actions }: { job: Job; actions?: ReactNode })
             <p className="pp-band-scope">
               for {covered === needed.length ? `all ${covered}` : `${covered} of ${needed.length}`}{' '}
               {needed.length === 1 ? 'part' : 'parts'}, from {sellers} {sellers === 1 ? 'seller' : 'sellers'}
-              {owned ? `. You already have ${owned}.` : ''}
+              {owned ? `. You already have ${owned}` : ''}
+              {made.length ? `. ${made.length} made to order by a fabrication service` : ''}
+              {owned || made.length ? '.' : ''}
             </p>
           </>
         ) : (

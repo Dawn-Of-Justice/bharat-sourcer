@@ -433,6 +433,7 @@ const refreshStatusText: Record<RefreshLineResult['sourcing_status'], string> = 
   failed: 'search failed',
   already_owned: 'already owned',
   not_run: 'not run',
+  fabrication_service: 'made to order',
 }
 const inr = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' })
 

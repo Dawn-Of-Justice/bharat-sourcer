@@ -3,7 +3,7 @@
   "info": {
     "title": "Bharat Sourcer API",
     "description": "Demo or live YouTube and project-page extraction with optional Firestore job persistence.",
-    "version": "0.41.0"
+    "version": "0.42.0"
   },
   "paths": {
     "/v1/session/guest": {
@@ -4413,6 +4413,16 @@
             "title": "Qty As Needed",
             "default": false
           },
+          "fabrication": {
+            "type": "string",
+            "enum": [
+              "none",
+              "3d_print",
+              "pcb"
+            ],
+            "title": "Fabrication",
+            "default": "none"
+          },
           "user_has_it": {
             "type": "boolean",
             "title": "User Has It",
@@ -7108,6 +7118,128 @@
         ],
         "title": "ExtrasStatus"
       },
+      "FabricationPlan": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "3d_print",
+              "pcb"
+            ],
+            "title": "Kind"
+          },
+          "services": {
+            "items": {
+              "$ref": "#/components/schemas/FabricationService"
+            },
+            "type": "array",
+            "maxItems": 4,
+            "title": "Services"
+          },
+          "upload": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Upload"
+          },
+          "design_links": {
+            "items": {
+              "type": "string",
+              "maxLength": 2083,
+              "minLength": 1,
+              "format": "uri"
+            },
+            "type": "array",
+            "maxItems": 4,
+            "title": "Design Links"
+          },
+          "method": {
+            "type": "string",
+            "enum": [
+              "grounded_search_page_checked",
+              "curated_fallback"
+            ],
+            "title": "Method"
+          },
+          "note": {
+            "type": "string",
+            "title": "Note",
+            "default": "Made to order: upload the design files to a service and order there. Price, delivery and India shipping are set by the service; check before ordering."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "kind",
+          "upload",
+          "method"
+        ],
+        "title": "FabricationPlan",
+        "description": "How to get a made-to-order line: services to order from and the files to upload."
+      },
+      "FabricationService": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "url": {
+            "type": "string",
+            "maxLength": 2083,
+            "minLength": 1,
+            "format": "uri",
+            "title": "Url"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 300
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "ships_to_india": {
+            "type": "string",
+            "enum": [
+              "yes",
+              "unknown"
+            ],
+            "title": "Ships To India",
+            "default": "unknown"
+          },
+          "checked_live": {
+            "type": "boolean",
+            "title": "Checked Live",
+            "default": false
+          },
+          "checked_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Checked At"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "name",
+          "url"
+        ],
+        "title": "FabricationService",
+        "description": "An online service that makes the part from the maker's files.\n\n`checked_live`: the page was fetched and read when the service was found (grounded\nsearch, sourcing/fabrication.py). False marks a curated fallback entry that was not\nchecked live. Shipping to India is the service page's claim, not verified by us."
+      },
       "FeatureStatus": {
         "properties": {
           "enabled": {
@@ -7913,6 +8045,29 @@
         "title": "Lookalike",
         "description": "A part easily confused with this line; a warning, never a suggested substitute."
       },
+      "MadeToOrderLine": {
+        "properties": {
+          "line_id": {
+            "type": "string",
+            "title": "Line Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "fabrication": {
+            "$ref": "#/components/schemas/FabricationPlan"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "line_id",
+          "name",
+          "fabrication"
+        ],
+        "title": "MadeToOrderLine"
+      },
       "MapsSource": {
         "properties": {
           "title": {
@@ -8299,6 +8454,13 @@
             },
             "type": "array",
             "title": "Unsourced"
+          },
+          "made_to_order": {
+            "items": {
+              "$ref": "#/components/schemas/MadeToOrderLine"
+            },
+            "type": "array",
+            "title": "Made To Order"
           },
           "seller_count": {
             "type": "integer",
@@ -9998,7 +10160,8 @@
               "already_owned",
               "offers_found",
               "no_verified_offers",
-              "failed"
+              "failed",
+              "fabrication_service"
             ],
             "title": "Sourcing Status"
           },
@@ -10249,7 +10412,8 @@
               "already_owned",
               "offers_found",
               "no_verified_offers",
-              "failed"
+              "failed",
+              "fabrication_service"
             ],
             "title": "Sourcing Status"
           },
@@ -10267,6 +10431,16 @@
             "anyOf": [
               {
                 "$ref": "#/components/schemas/BuyableSpec"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "fabrication": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FabricationPlan"
               },
               {
                 "type": "null"
@@ -10481,7 +10655,8 @@
                 "followup",
                 "buyer_value",
                 "buyer",
-                "buyer_search"
+                "buyer_search",
+                "fabrication"
               ]
             },
             "type": "array",

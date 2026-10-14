@@ -6660,6 +6660,26 @@ button.pp-row-summary {
   margin: 6px 0 0;
   padding-left: 20px;
 }
+.pp-made-services {
+  list-style: none;
+  padding-left: 0 !important;
+}
+.pp-made-services li {
+  margin-top: 6px;
+}
+.pp-made-services a {
+  font-weight: 700;
+}
+.pp-made-note {
+  display: block;
+  color: var(--pp-muted);
+}
+.pp-made-fine {
+  display: block;
+  margin-top: 8px;
+  color: var(--pp-muted);
+  font-size: 12px;
+}
 .pp-part-callout-input {
   border-left-color: var(--pp-saffron);
   background: #fdf6ea;
@@ -9191,6 +9211,10 @@ button.pp-row-summary {
 }
 .pb-part-warn {
   color: #74501c;
+  font-weight: 750;
+}
+.pb-part-made {
+  color: var(--pp-teal);
   font-weight: 750;
 }
 .pb-part-error {

@@ -52,6 +52,7 @@ from bharat_sourcer.schemas import (
     UpdateProject,
     now,
 )
+from bharat_sourcer.sourcing.fabrication import design_links
 from bharat_sourcer.sourcing.research import check_requirements
 from bharat_sourcer.sourcing.service import SourcingService
 from bharat_sourcer.spec_fill import SpecFiller, fill_missing_specs
@@ -69,6 +70,7 @@ def same_part(before: BomItem, after: BomItem) -> bool:
         and before.buyable_spec == after.buyable_spec
         and before.specs == after.specs
         and before.requirements == after.requirements
+        and before.fabrication == after.fabrication
     )
 
 
@@ -1081,6 +1083,8 @@ class JobService:
             return pending
         limit = min(self.sourcing_max_parts, claimed.part_limit or self.sourcing_max_parts)
         sourced = [item for item in pending if not item.user_has_it][: max(0, limit - searched)]
+        # Made-to-order lines are not bought from sellers, so they need no buying spec.
+        sourced = [item for item in sourced if item.fabrication == "none"]
         targets = [item for item in sourced if item.buyable_spec is None]
         if not targets:
             return pending
@@ -1178,6 +1182,11 @@ class JobService:
 
         def attributed_source(item):
             try:
+                fabricate = getattr(self.sourcing, "fabrication_line", None)
+                if fabricate is not None and item.fabrication != "none":
+                    made = fabricate(item, design_links(claimed.job, item.fabrication))
+                    if made is not None:
+                        return made
                 refresh_known = getattr(self.sourcing, "refresh_known", None)
                 if refresh_known and known_urls.get(item.line_id):
                     refreshed = refresh_known(item, claimed.job.items, known_urls[item.line_id])

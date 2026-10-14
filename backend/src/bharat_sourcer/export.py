@@ -195,6 +195,7 @@ LINE_STATUS = {
     "already_owned": "You have it",
     "not_run": "Not searched yet",
     "failed": "Search failed",
+    "fabrication_service": "Made to order",
 }
 COST_STATUS = {"known": "", "estimated": "est.", "unknown": "unknown"}
 
@@ -410,6 +411,23 @@ def to_html(view: SharedProject) -> str:
                     f"<span class='sub'>{e(entry.message)}</span>"
                     + (f"<ul>{steps}</ul>" if steps else "")
                     + "</li>"
+                )
+            parts.append("</ul>")
+        if plan.made_to_order:
+            parts.append("<h2>Made to order</h2><ul class='todo'>")
+            for made in plan.made_to_order:
+                fab = made.fabrication
+                services = "".join(
+                    f"<li>{link(s.url, s.name)}"
+                    + ("" if s.checked_live else " (not checked live)")
+                    + "</li>"
+                    for s in fab.services
+                )
+                designs = "".join(f"<li>Design files: {link(url)}</li>" for url in fab.design_links)
+                parts.append(
+                    f"<li><span class='part'>{e(made.name)}</span>"
+                    f"<span class='sub'>Upload: {e(fab.upload)}</span>"
+                    f"<ul>{services}{designs}</ul></li>"
                 )
             parts.append("</ul>")
     elif report:

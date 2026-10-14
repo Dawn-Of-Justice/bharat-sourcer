@@ -439,6 +439,9 @@ class BuyableSpec(Model):
     reasons: list[str] = Field(default_factory=list, max_length=6)
 
 
+Fabrication = Literal["none", "3d_print", "pcb"]
+
+
 class BomItem(Model):
     line_id: str
     raw_name: Name
@@ -451,6 +454,10 @@ class BomItem(Model):
     # decided by the reconcile pass (reconcile.py). `qty` stays one pack for sourcing; the
     # UI shows "As needed". Cleared when the maker sets a quantity.
     qty_as_needed: bool = False
+    # Made to order rather than bought from stock: a 3D-printed part or a custom PCB.
+    # Decided by the reconcile pass from project context (reconcile.py); sourcing then
+    # links a fabrication service instead of searching sellers (sourcing/fabrication.py).
+    fabrication: Fabrication = "none"
     user_has_it: bool = False
     evidence: list[Evidence] = Field(default_factory=list)
     user_edited: bool = False
@@ -627,13 +634,22 @@ class RefreshProposal(Model):
     result_message_id: str | None = None
 
 
+# fabrication_service: a made-to-order line linked to a fabrication service, not a seller.
+SourcingStatus = Literal[
+    "not_run",
+    "already_owned",
+    "offers_found",
+    "no_verified_offers",
+    "failed",
+    "fabrication_service",
+]
+
+
 class RefreshLineResult(Model):
     """Snapshot of one refreshed line when its batch ended; later refreshes do not edit it."""
 
     line_id: str
-    sourcing_status: Literal[
-        "not_run", "already_owned", "offers_found", "no_verified_offers", "failed"
-    ]
+    sourcing_status: SourcingStatus
     offer_count: int = Field(default=0, ge=0)
     lowest_listed_price_inr: Money | None = None
     lowest_listed_stock: Literal["in_stock", "out_of_stock", "preorder", "unknown"] | None = None
@@ -1071,11 +1087,51 @@ class UnsourcedLine(Model):
     research_urls: list[HttpUrl] = Field(default_factory=list)
 
 
+class FabricationService(Model):
+    """An online service that makes the part from the maker's files.
+
+    `checked_live`: the page was fetched and read when the service was found (grounded
+    search, sourcing/fabrication.py). False marks a curated fallback entry that was not
+    checked live. Shipping to India is the service page's claim, not verified by us.
+    """
+
+    name: str = Field(min_length=1, max_length=100)
+    url: HttpUrl
+    note: str | None = Field(default=None, max_length=300)
+    ships_to_india: Literal["yes", "unknown"] = "unknown"
+    checked_live: bool = False
+    checked_at: datetime | None = None
+
+
+class FabricationPlan(Model):
+    """How to get a made-to-order line: services to order from and the files to upload."""
+
+    kind: Literal["3d_print", "pcb"]
+    services: list[FabricationService] = Field(default_factory=list, max_length=4)
+    # What the service needs, e.g. "STL or STEP file of the part".
+    upload: str = Field(min_length=1, max_length=200)
+    # Design files linked from the project's own sources (repository, model page).
+    design_links: list[HttpUrl] = Field(default_factory=list, max_length=4)
+    method: Literal["grounded_search_page_checked", "curated_fallback"]
+    note: str = (
+        "Made to order: upload the design files to a service and order there. Price, "
+        "delivery and India shipping are set by the service; check before ordering."
+    )
+
+
+class MadeToOrderLine(Model):
+    line_id: str
+    name: str
+    fabrication: FabricationPlan
+
+
 class OrderPlan(Model):
     """Seller-grouped order built from selections, else recommendations; an estimate only."""
 
     sellers: list[OrderPlanSeller] = Field(default_factory=list)
     unsourced: list[UnsourcedLine] = Field(default_factory=list)
+    # Lines ordered from a fabrication service; not in seller carts and not unsourced.
+    made_to_order: list[MadeToOrderLine] = Field(default_factory=list)
     seller_count: int = 0
     costing: CostBreakdown
     ready: bool = False
@@ -1120,6 +1176,8 @@ SourcingStage = Literal[
     "buyer_value",
     "buyer",
     "buyer_search",
+    # Made-to-order line: fabrication services linked instead of a seller search.
+    "fabrication",
 ]
 
 
@@ -1254,12 +1312,12 @@ class BuyerDecision(Model):
 
 class ReportLine(Model):
     item: BomItem
-    sourcing_status: Literal[
-        "not_run", "already_owned", "offers_found", "no_verified_offers", "failed"
-    ]
+    sourcing_status: SourcingStatus
     resolution: PartResolution | None = None
     # The spec this line was sourced with (item spec, or a seed spec from the name).
     buyable_spec: BuyableSpec | None = None
+    # Set with sourcing_status "fabrication_service" (made-to-order lines).
+    fabrication: FabricationPlan | None = None
     offers: list[VerifiedOffer] = Field(default_factory=list)
     image_candidates: list[PartImage] = Field(default_factory=list)
     attribution: SearchAttribution | None = None
