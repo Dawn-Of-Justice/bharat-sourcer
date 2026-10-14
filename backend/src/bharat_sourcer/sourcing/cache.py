@@ -47,6 +47,9 @@ TTL = {
     # items hash + code hash -> judged project overview (overview.py). Keyed by the parts
     # list itself, so only a job with the same lines and the same code can read it.
     "overview": 7 * DAY,
+    # items hash + compact build input -> AI build steps (build_guide.py). Keyed by the
+    # parts list and project context, so only a job with the same input can read it.
+    "build_guide": 7 * DAY,
 }
 NAMESPACES = frozenset(TTL)
 

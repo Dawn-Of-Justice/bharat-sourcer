@@ -30,6 +30,7 @@ from bharat_sourcer.safety import flags_for
 from bharat_sourcer.schemas import (
     AddLine,
     BomItem,
+    BuildProgress,
     ConfirmJob,
     CopiedFrom,
     CreateJob,
@@ -242,6 +243,10 @@ class JobService:
             # A finished drawing of the same parts list; an unfinished one is not copied.
             overview=source.overview
             if source.overview and source.overview.status in {"ready", "stale"}
+            else None,
+            # Build steps for the same parts list; the received ticks are the owner's own.
+            build_guide=source.build_guide
+            if source.build_guide and source.build_guide.status in {"ready", "stale"}
             else None,
         )
         self._transition(
@@ -840,6 +845,31 @@ class JobService:
             raise JobError(404, "JOB_NOT_FOUND", "Job not found or token invalid")
         return record.job.model_copy(deep=True)
 
+    def set_build_progress(self, job_id: str, token: str | None, request: BuildProgress) -> Job:
+        """Tick or untick one line as received on the build page; idempotent."""
+        self._validate_id(job_id)
+
+        def change(record: StoredJob):
+            job = self._authorized(record, token)
+            if job.status != "done":
+                raise JobError(
+                    409, "INVALID_STATE", "The build checklist is for a finished project"
+                )
+            if request.line_id not in {item.line_id for item in job.items}:
+                raise JobError(422, "INVALID_LINE", f"Unknown line: {request.line_id}")
+            if (request.line_id in job.build_received) == request.received:
+                return  # already in the requested state
+            received = [i for i in job.build_received if i != request.line_id]
+            if request.received:
+                received.append(request.line_id)
+            job.build_received = received  # at most one id per line (100 lines at most)
+            job.updated_at = now()
+
+        record = self.store.mutate(job_id, change)
+        if record is None:
+            raise JobError(404, "JOB_NOT_FOUND", "Job not found or token invalid")
+        return record.job.model_copy(deep=True)
+
     def confirm(self, job_id: str, token: str | None, request: ConfirmJob) -> None:
         self._validate_id(job_id)
 
@@ -983,6 +1013,8 @@ class JobService:
                     item.qty, item.qty_source = 1, "inferred"
                     item.qty_reason = "Count not stated; assumed one. Change it if needed."
         job.items = list(items.values())
+        # A removed line can no longer be ticked as received on the build page.
+        job.build_received = [line_id for line_id in job.build_received if line_id in items]
         for item in job.items:
             try:
                 item.clarifications = resolve_part(item).clarifications
@@ -991,9 +1023,10 @@ class JobService:
                     422, "INVALID_SPECS", "Name and part specifications conflict"
                 ) from exc
         job.safety_flags = flags_for(job)
-        from bharat_sourcer.overview import mark_stale  # overview.py imports this module
+        from bharat_sourcer import build_guide, overview  # both import this module
 
-        mark_stale(job)  # a drawing of a different parts list is kept but marked stale
+        overview.mark_stale(job)  # a drawing of a different parts list is kept but marked stale
+        build_guide.mark_stale(job)  # so are build steps written for the old list
         if finalize:
             self._transition(job, "resolving", "Confirmed edits; preparing the report.")
         else:

@@ -18,7 +18,8 @@ from bharat_sourcer.schemas import Model
 class Work(Model):
     job_id: UUID
     # overview: draw the project overview (overview.py) after extraction or on request.
-    kind: Literal["workflow", "chat", "overview"]
+    # build_guide: write the build steps (build_guide.py) on the owner's request.
+    kind: Literal["workflow", "chat", "overview", "build_guide"]
 
 
 class CloudDispatcher:
@@ -84,8 +85,13 @@ class CloudDispatcher:
             return False
 
 
-def work_once(jobs, conversation, work, overviews=None):
+def work_once(jobs, conversation, work, overviews=None, guides=None):
     key = str(work.job_id)
+    if work.kind == "build_guide":
+        # Like the overview: always complete; a failed guide is stored as failed.
+        if guides is not None:
+            guides.generate(key)
+        return True
     if work.kind == "overview":
         # Always complete: a failed drawing is stored as failed, and an expired lease lets
         # the owner restart it; Cloud Tasks retries would only repeat paid calls.

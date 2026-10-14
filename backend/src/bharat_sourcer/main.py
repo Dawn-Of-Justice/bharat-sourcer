@@ -13,6 +13,7 @@ from google.api_core.exceptions import GoogleAPICallError
 
 from bharat_sourcer import compile_check
 from bharat_sourcer.access import Access, ProjectAccess, add_access_routes
+from bharat_sourcer.build_guide import BuildGuideService
 from bharat_sourcer.code_patches import CodePatchService
 from bharat_sourcer.compile_check import CompileService, RunnerResult
 from bharat_sourcer.config import Settings
@@ -28,6 +29,8 @@ from bharat_sourcer.overview import OverviewService
 from bharat_sourcer.plans import cart_plans, set_import_references
 from bharat_sourcer.reconcile import GeminiReconciler
 from bharat_sourcer.schemas import (
+    BuildGuide,
+    BuildProgress,
     CartPlans,
     CodePatch,
     CodePatchRequest,
@@ -201,7 +204,7 @@ def create_app(
 
     app = FastAPI(
         title="Bharat Sourcer API",
-        version="0.39.0",
+        version="0.40.0",
         description=(
             "Demo or live YouTube and project-page extraction with optional Firestore job "
             "persistence."
@@ -221,6 +224,12 @@ def create_app(
         overviews.launch = lambda key: dispatcher.notify(key, "overview")
     service.overviews = overviews
     app.state.overview_service = overviews
+    # Build guide: written only on the owner's request (inline locally, a Cloud Task in
+    # cloud mode).
+    guides = BuildGuideService(settings, service, cache=shared_cache)
+    if dispatcher:
+        guides.launch = lambda key: dispatcher.notify(key, "build_guide")
+    app.state.build_guide_service = guides
     compiles = CompileService(settings, service, code_patches)
     app.state.compile_service = compiles
     app.state.image_service = images
@@ -400,6 +409,36 @@ def create_app(
         if started:
             dispatch(tasks, overviews.generate, job_id, "overview")
         return overview
+
+    @app.post(
+        "/v1/jobs/{job_id}/build-progress",
+        response_model=Job,
+        tags=["build"],
+        responses={404: {"model": ErrorResponse}, 409: {"model": ErrorResponse}},
+    )
+    def set_build_progress(job_id: str, body: BuildProgress, x_job_token: JobToken = None):
+        return service.set_build_progress(job_id, x_job_token, body)
+
+    @app.get(
+        "/v1/jobs/{job_id}/build-guide",
+        response_model=BuildGuide,
+        tags=["build"],
+        responses={404: {"model": ErrorResponse}},
+    )
+    def get_build_guide(job_id: str, x_job_token: JobToken = None):
+        return guides.get(job_id, x_job_token)
+
+    @app.post(
+        "/v1/jobs/{job_id}/build-guide",
+        response_model=BuildGuide,
+        tags=["build"],
+        responses={404: {"model": ErrorResponse}, 409: {"model": ErrorResponse}},
+    )
+    def request_build_guide(job_id: str, tasks: BackgroundTasks, x_job_token: JobToken = None):
+        guide, started = guides.request(job_id, x_job_token)
+        if started:
+            dispatch(tasks, guides.generate, job_id, "build_guide")
+        return guide
 
     @app.post(
         "/v1/jobs/{job_id}/lines/{line_id}/code-patch",
@@ -628,7 +667,7 @@ def create_app(
     @app.post("/internal/work", include_in_schema=False)
     def internal_work(body: Work, request: Request):
         authorize_worker(request)
-        complete = work_once(service, conversation, body, overviews)
+        complete = work_once(service, conversation, body, overviews, guides)
         return JSONResponse(status_code=200 if complete else 503, content={"complete": complete})
 
     @app.post("/internal/sweep", include_in_schema=False)

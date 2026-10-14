@@ -42,6 +42,8 @@ DEFAULT_SITE_THINKING: dict[str, ThinkingLevel] = {
     "spec_fill": "low",
     # Cart engine (sourcing/cart_engine.py): one short structured answer per store.
     "cart_recipe": "low",
+    # Build guide (build_guide.py): one short ordered list of steps from text context.
+    "build_guide": "low",
 }
 
 
@@ -155,6 +157,9 @@ class Settings(BaseSettings):
     # calls (site `overview_judge`) mark each part, pin header and wire
     # confirmed/unverified/disputed. Each part shows on the review page as soon as it is drawn.
     overview_enabled: bool = True
+    # Build guide (build_guide.py): one call (site `build_guide`) writes numbered build steps
+    # for a finished project when the owner opens the build page (POST /build-guide).
+    build_guide_enabled: bool = True
     # Tried once when an overview call's model stays overloaded (429/5xx or timeouts) after
     # its retries; empty turns the fallback off.
     overview_fallback_model: str | None = Field(
@@ -172,6 +177,7 @@ class Settings(BaseSettings):
             "spec_fill",
             "reconcile",
             "cart_recipe",
+            "build_guide",
         ]
     )
     vertex_location: str = Field(default="global", pattern=r"^[a-z0-9-]+$")

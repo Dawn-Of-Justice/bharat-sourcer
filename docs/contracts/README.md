@@ -1,4 +1,15 @@
-# Implemented API contract — v0.39.0
+# Implemented API contract — v0.40.0
+
+v0.40.0 adds the [build guide](build-guide.md) for the build page. New
+`Job.build_received: string[]` (at most 100 line ids) and
+`POST /v1/jobs/{job_id}/build-progress` with `{"line_id", "received"}` (owner, `done`
+jobs only; 404/409/422; idempotent; returns the `Job`). A line removed by a later confirm
+leaves the list. New `Job.build_guide: BuildGuide | null` and `GET`/`POST
+/v1/jobs/{job_id}/build-guide` (owner; POST starts generation for a `done` job, GET reads
+it): `status` `pending`|`ready`|`failed`|`stale`, `message`, `generated_at`, `items_hash`,
+`demo`, `steps: BuildStep[]` (3–20: `title`, `detail`, `line_ids`, `timestamp` (a job video
+evidence timestamp or null), `caution`, `origin: "ai_inferred"`). Steps are AI-inferred,
+not verified. Cost sites gain `build_guide`.
 
 v0.39.0: add-to-cart links come from the cart engine instead of per-platform rules.
 `VerifiedOffer.cart_id` (`^[\w-]{1,40}$`) is the id from the listing's own add-to-cart form;
@@ -238,6 +249,7 @@ The API base URL has no `/api` suffix.
 
 [Backend roadmap](backend-roadmap.md) tracks agreed features still to implement.
 [Project overview](project-overview.md): AI-drawn parts and wiring for the review step, checked by rules and an AI judge (`job.overview`, `GET`/`POST /v1/jobs/{job_id}/overview`).
+[Build guide](build-guide.md): parts checklist and AI-written build steps for the build page (`job.build_received`, `job.build_guide`, `POST /v1/jobs/{job_id}/build-progress`, `GET`/`POST /v1/jobs/{job_id}/build-guide`).
 [Export and share](export-and-share.md): PDF, printable HTML report and revocable read-only share links.
 [Frontend quickstart](frontend-quickstart.md) includes local configuration, request code,
 credentials guidance and the integration acceptance checklist.

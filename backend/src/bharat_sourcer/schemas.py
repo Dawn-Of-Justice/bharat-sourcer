@@ -1549,6 +1549,38 @@ class ProjectOverview(Model):
     resolved: list[ResolvedSpec] = Field(default_factory=list, max_length=120)
 
 
+class BuildStep(Model):
+    """One AI-inferred build step (build_guide.py); never verified against the build."""
+
+    title: str = Field(min_length=1, max_length=120)
+    detail: str = Field(default="", max_length=600)
+    # Parts used in this step; every id is a line on the job.
+    line_ids: list[str] = Field(default_factory=list, max_length=40)
+    # A moment in the source video (MM:SS or H:MM:SS) where the evidence shows this step;
+    # always one of the job's video evidence timestamps.
+    timestamp: str | None = Field(default=None, pattern=r"^\d+:[0-5]\d(:[0-5]\d)?$")
+    caution: str | None = Field(default=None, max_length=200)
+    origin: Literal["ai_inferred"] = "ai_inferred"
+
+
+class BuildGuide(Model):
+    """AI-written build steps for a finished project; never verified."""
+
+    status: Literal["pending", "ready", "failed", "stale"]
+    message: str | None = Field(default=None, max_length=300)
+    generated_at: datetime | None = None
+    items_hash: str | None = Field(default=None, max_length=64)
+    demo: bool = False
+    steps: list[BuildStep] = Field(default_factory=list, max_length=20)
+
+
+class BuildProgress(Model):
+    """Tick (or untick) one parts-checklist line as received on the build page."""
+
+    line_id: str = Field(min_length=1, max_length=20)
+    received: bool
+
+
 class Job(Model):
     job_id: str
     status: Status = "queued"
@@ -1586,6 +1618,10 @@ class Job(Model):
     copied_from: CopiedFrom | None = None
     # AI-drawn parts and wiring for the review step (overview.py); None until drawn.
     overview: ProjectOverview | None = None
+    # Build page: line ids the maker ticked as received (POST /build-progress).
+    build_received: list[str] = Field(default_factory=list, max_length=100)
+    # AI-written build steps for the build page (build_guide.py); None until requested.
+    build_guide: BuildGuide | None = None
 
 
 class AccountSettings(Model):
