@@ -1,13 +1,30 @@
 {
-  "hosting": {
-    "site": "bharatsource",
-    "public": "hosting",
-    "ignore": ["**/.*"],
-    "rewrites": [
-      {
-        "source": "**",
-        "run": { "serviceId": "bharat-sourcer-web", "region": "asia-south1" }
-      }
-    ]
-  }
+  "hosting": [
+    {
+      "site": "bharatsourcer",
+      "public": "hosting",
+      "ignore": ["**/.*"],
+      "rewrites": [
+        {
+          "source": "**",
+          "run": {
+            "serviceId": "bharat-sourcer-web",
+            "region": "asia-south1"
+          }
+        }
+      ]
+    },
+    {
+      "site": "bharatsource",
+      "public": "hosting",
+      "ignore": ["**/.*"],
+      "redirects": [
+        {
+          "source": "/:path*",
+          "destination": "https://bharatsourcer.web.app/:path",
+          "type": 301
+        }
+      ]
+    }
+  ]
 }

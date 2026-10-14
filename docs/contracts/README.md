@@ -76,7 +76,7 @@ wire), and stores it as `job.overview` (also on share links). New routes:
 (redraw). Draft edits make it `stale`. AI-inferred, never verified against the board.
 
 v0.31.1: the guest session cookie is now `__session` (the only cookie Firebase Hosting
-forwards, for `https://bharatsource.web.app`); `bs_guest` cookies are still read until they
+forwards, for `https://bharatsourcer.web.app`); `bs_guest` cookies are still read until they
 expire. See [authentication](authentication.md).
 
 v0.31.0: robu.in is searched and verified again. Its pages answer a Cloudflare challenge, so
