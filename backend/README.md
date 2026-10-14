@@ -1,5 +1,19 @@
 # Backend
 
+v0.40.0 adds the build page backend (`build_guide.py`). `POST /v1/jobs/{job_id}/build-progress`
+ticks or unticks one line as received (`Job.build_received`; owner only, `done` jobs,
+idempotent; a line removed by a later confirm drops out). `POST /v1/jobs/{job_id}/build-guide`
+starts ONE Gemini call (site `build_guide`, low thinking, text only: no video) over the
+project understanding, the confirmed lines with their evidence observations and video
+timestamps, the overview wiring when drawn, code-patch notes and safety flags; it returns
+3–20 ordered steps (title, detail, parts used, video timestamp, caution). Code drops unknown
+line ids, clears timestamps that are not the job's own video evidence timestamps, cuts long
+text, treats a finish other than STOP as a failure and retries once. Results are cached
+(`build_guide`, 7 days) by the parts list and input, recorded on the job's cost, marked
+`stale` when the parts list changes and run as their own Cloud Task (`build_guide`) in cloud
+mode with a lease. Demo jobs get a labelled fixture. `BS_BUILD_GUIDE_ENABLED` turns it off.
+See [build guide](../docs/contracts/build-guide.md). Steps are AI-inferred, not verified.
+
 v0.39.0 replaces the per-platform cart rules with a cart engine (`sourcing/cart_engine.py`).
 After offers are verified, it reads each listing's add-to-cart forms and buttons from the
 page already fetched (free) and asks Gemini (site `cart_recipe`, low thinking) whether a

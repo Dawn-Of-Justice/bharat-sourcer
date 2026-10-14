@@ -29,6 +29,9 @@ class StoredJob(Model):
     # drawing counts as interrupted (it can then be restarted).
     overview_run_id: str | None = None
     overview_lease_until: datetime | None = None
+    # Build guide generation (build_guide.py): the running attempt and its lease.
+    build_guide_run_id: str | None = None
+    build_guide_lease_until: datetime | None = None
     schema_version: int = Field(default=1, ge=1, le=1)
 
 
