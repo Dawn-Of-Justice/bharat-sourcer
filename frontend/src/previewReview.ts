@@ -63,6 +63,8 @@ export function reviewItems(items: BomItem[]): BomItem[] {
     },
     {
       ...wires,
+      // Dummy: a line the backend marks as having no meaningful count.
+      qty_as_needed: true,
       buyable_spec: {
         origin: 'ai_inferred',
         category: 'wire',

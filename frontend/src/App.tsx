@@ -1,3 +1,4 @@
+import { qtyLabel } from './partName'
 import YoutubeJourney from './YoutubeJourney'
 import { watchJob } from './stream'
 import { useJobTitle } from './useJobTitle'
@@ -939,8 +940,22 @@ type ReviewRow = {
   removed: boolean
   requirements: NonNullable<BomItem['requirements']>
   spec: BuyableSpec | null
+  // No meaningful count (backend `qty_as_needed`): shown as "As needed" until the maker sets a number.
+  asNeeded: boolean
   // Added on this page; sent as a new line when the list is confirmed.
   added?: boolean
+}
+
+// "As needed" in place of a quantity box; the button switches the line to a number.
+function AsNeeded({ onSet, disabled = false }: { onSet: () => void; disabled?: boolean }) {
+  return (
+    <span className="pp-as-needed">
+      <span>As needed</span>
+      <button type="button" className="pp-text-button" disabled={disabled} onClick={onSet}>
+        Set a number
+      </button>
+    </span>
+  )
 }
 
 // A short note under a review row's name: the one thing worth checking first.
@@ -949,7 +964,8 @@ function reviewNote(row: ReviewRow) {
   if (row.item.conflicts?.length) return 'Sources disagree'
   if (row.item.clarifications.length) return 'Details need confirmation'
   if (row.spec?.needs_value) return 'Needs a value'
-  if (row.item.qty_source === 'inferred' && row.qty === (row.item.qty?.toString() ?? '')) return 'Suggested quantity'
+  if (!row.asNeeded && row.item.qty_source === 'inferred' && row.qty === (row.item.qty?.toString() ?? ''))
+    return 'Suggested quantity'
   if (row.item.confidence === 'check') return 'Check this part'
   return ''
 }
@@ -989,14 +1005,21 @@ function ReviewPartPanel({
         </p>
       )}
       <div className="pp-field-row">
-        <QtyField
-          className="pp-field pp-field-qty"
-          value={row.qty}
-          disabled={row.removed}
-          onChange={qty => update(id, { qty })}
-        >
-          Quantity
-        </QtyField>
+        {row.asNeeded ? (
+          <div className="pp-field pp-field-qty">
+            Quantity
+            <AsNeeded disabled={row.removed} onSet={() => update(id, { asNeeded: false })} />
+          </div>
+        ) : (
+          <QtyField
+            className="pp-field pp-field-qty"
+            value={row.qty}
+            disabled={row.removed}
+            onChange={qty => update(id, { qty })}
+          >
+            Quantity
+          </QtyField>
+        )}
         <label className="check-label">
           <input
             type="checkbox"
@@ -1007,7 +1030,12 @@ function ReviewPartPanel({
           I already have this
         </label>
       </div>
-      {row.item.qty_source === 'inferred' && row.qty === (row.item.qty?.toString() ?? '') && (
+      {row.asNeeded && (
+        <p className="pp-field-note">
+          A count does not fit this part; buy what the build needs (one pack is searched). Set a number to change it.
+        </p>
+      )}
+      {!row.asNeeded && row.item.qty_source === 'inferred' && row.qty === (row.item.qty?.toString() ?? '') && (
         <p className="pp-field-note">
           Suggested quantity: {row.item.qty_reason || 'the source did not state a count.'}
         </p>
@@ -1089,6 +1117,7 @@ function Review({
       name: item.raw_name,
       qty: item.qty?.toString() ?? '',
       owned: item.user_has_it,
+      asNeeded: !!item.qty_as_needed,
       removed: false,
       requirements: item.requirements ?? [],
       spec: item.buyable_spec ?? null,
@@ -1131,7 +1160,17 @@ function Review({
     }
     setRows(current => [
       ...current,
-      { item, name, qty: String(qty), owned: false, removed: false, requirements: [], spec: null, added: true },
+      {
+        item,
+        name,
+        qty: String(qty),
+        owned: false,
+        removed: false,
+        requirements: [],
+        spec: null,
+        asNeeded: false,
+        added: true,
+      },
     ])
     setNewName('')
     setNewQty('1')
@@ -1199,7 +1238,8 @@ function Review({
         buyable_spec?: BuyableSpec
       } = { op: 'update', line_id: row.item.line_id }
       if (row.name.trim() !== row.item.raw_name) updateEdit.raw_name = row.name.trim()
-      if (Number(row.qty) !== row.item.qty) updateEdit.qty = Number(row.qty)
+      if (Number(row.qty) !== row.item.qty || (row.item.qty_as_needed && !row.asNeeded))
+        updateEdit.qty = Number(row.qty)
       if (JSON.stringify(row.requirements) !== JSON.stringify(row.item.requirements ?? []))
         updateEdit.requirements = requirementPayload(row.requirements)
       if (row.spec && JSON.stringify(row.spec) !== JSON.stringify(row.item.buyable_spec ?? null))
@@ -1469,15 +1509,19 @@ function Review({
                     </button>
                   ) : (
                     <>
-                      <QtyField
-                        className="pp-review-qty"
-                        value={row.qty}
-                        disabled={false}
-                        onChange={qty => update(row.item.line_id, { qty })}
-                      >
-                        <span className="visually-hidden">Quantity of {name}</span>
-                        <span aria-hidden="true">×</span>
-                      </QtyField>
+                      {row.asNeeded ? (
+                        <AsNeeded onSet={() => update(row.item.line_id, { asNeeded: false })} />
+                      ) : (
+                        <QtyField
+                          className="pp-review-qty"
+                          value={row.qty}
+                          disabled={false}
+                          onChange={qty => update(row.item.line_id, { qty })}
+                        >
+                          <span className="visually-hidden">Quantity of {name}</span>
+                          <span aria-hidden="true">×</span>
+                        </QtyField>
+                      )}
                       <label className="pp-review-have">
                         <input
                           type="checkbox"
@@ -1599,7 +1643,7 @@ function Review({
         subtitle={
           shown ? (
             <>
-              <span>×{shown.qty || '?'}</span>
+              <span>{shown.asNeeded ? 'As needed' : `×${shown.qty || '?'}`}</span>
               {reviewNote(shown) && <span className="pp-row-status pp-status-input">{reviewNote(shown)}</span>}
             </>
           ) : undefined
@@ -1643,7 +1687,7 @@ function ConfirmedParts({ job, back }: { job: Job; back: { label: string; onClic
         {job.items.map(item => (
           <li key={item.line_id}>
             <span>{item.raw_name}</span>
-            <span className="pp-confirmed-qty">×{item.qty ?? '?'}</span>
+            <span className="pp-confirmed-qty">{qtyLabel(item)}</span>
             <span className="pp-confirmed-note">{item.user_has_it ? 'You have this' : ''}</span>
           </li>
         ))}
@@ -1766,7 +1810,7 @@ function AnalysisProgress({ job, back }: { job: Job; back?: { label: string; onC
               return (
                 <li key={item.line_id} id={'line-' + item.line_id} className="pp-progress-row">
                   <strong>{item.raw_name}</strong>
-                  <span className="pp-row-qty">×{item.qty ?? '?'}</span>
+                  <span className="pp-row-qty">{qtyLabel(item)}</span>
                   <span className={`pp-row-status pp-status-${status.tone}`}>
                     {statusOf(item) === 'not_run' && searching && <i className="pp-live" aria-hidden="true" />}
                     {status.label}

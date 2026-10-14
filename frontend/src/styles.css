@@ -7333,6 +7333,21 @@ button.pp-row-summary {
   font-size: 14px;
   line-height: 1.5;
 }
+/* "As needed" in place of a quantity box (App.tsx AsNeeded). */
+.pp-as-needed {
+  display: inline-flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  color: var(--pp-ink);
+  font-size: 14px;
+  font-weight: 600;
+}
+.pp-as-needed .pp-text-button {
+  font-size: 13px;
+  font-weight: 500;
+}
+
 /* Add a part below the review cards (App.tsx Review `addPart`). */
 .pp-add-part {
   display: flex;
