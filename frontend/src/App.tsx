@@ -46,7 +46,7 @@ import { ChatDrawer, SidePanel, StageAnnouncer, StageSteps, stepOf } from './Pro
 import { NeedsList, safetyNeeds, type Need } from './ReportSummary'
 import Requirements, { requirementPayload, validRequirements } from './Requirements'
 import SpecPanel, { specPayload, validSpec } from './SpecPanel'
-import { AiSpecs, ConfidenceChip, ConflictNotes, EvidenceList, SourcesCard } from './ReviewDetails'
+import { AiSpecs, ConfidenceChip, ConflictNotes, EvidenceList } from './ReviewDetails'
 import { sourceChipCount, sourceChipLabels } from './sourceChips'
 import { JobSkeleton, ResultsSkeleton, Spinner } from './Skeleton'
 import { useOverview } from './useOverview'
@@ -1103,12 +1103,15 @@ function Review({
   onConfirmed,
   openPart,
   onOpenPart,
+  locked,
 }: {
   job: Job
   token: string
   onConfirmed: (searching: boolean) => void
   openPart: string | null
   onOpenPart: (lineId: string | null) => void
+  // While sellers are searched the backend takes no edits: the same page, read-only, with a way back.
+  locked?: { label: string; onClick: () => void }
 }) {
   const account = useAccount()
   const [rows, setRows] = useState<ReviewRow[]>(() =>
@@ -1388,253 +1391,271 @@ function Review({
           <p>Nothing needs your attention right now.</p>
         )}
       </SidePanel>
-      <form onSubmit={submit}>
-        <div className="pp-parts-head">
-          <h2 id="pp-parts-title">
-            Your parts <span>{kept.length}</span>
-          </h2>
-          {needs.length > 0 && (
-            <button
-              type="button"
-              className={`pp-attention-button${safetyChecks ? ' has-danger' : ''}`}
-              aria-controls="pp-attention"
-              aria-expanded={attentionOpen && !openPart}
-              onClick={() => {
-                onOpenPart(null)
-                setAttentionOpen(open => !open)
-              }}
-            >
-              <span className="pp-need-dot" aria-hidden="true" />
-              Needs your attention <b>{needs.length}</b>
-              {safetyChecks > 0 && (
-                <small>
-                  {safetyChecks} safety {safetyChecks === 1 ? 'check' : 'checks'}
-                </small>
-              )}
-            </button>
-          )}
-        </div>
-        <p className="pp-parts-help">
-          {searched
-            ? 'Sellers are already found for this list. Add, remove or change parts; we search only the new or changed ones.'
-            : 'Mark what you already have. We search sellers only after you confirm.'}
-        </p>
-        <ReconciledNote lines={job.reconciled ?? []} />
-        {drawing.pending && overview && (
-          <p className="pp-draw-progress" role="status">
-            <Spinner />
-            {overview.stage === 'wiring'
-              ? 'Working out the wiring…'
-              : overview.stage === 'checking'
-                ? 'Double-checking pins and wires…'
-                : `Drawing your parts… ${overview.parts.length} ready`}
+      {locked && (
+        <div className="pp-locked" role="status">
+          <p>
+            <strong>Sellers are being searched.</strong> You can add, remove or change parts once the search finishes.
           </p>
-        )}
-        {!overview && (
-          <div className="pp-draw-note">
-            <p>See every part drawn with its pins, and how they connect.</p>
-            {drawAction('Draw the project')}
-          </div>
-        )}
-        {overview?.status === 'failed' && (
-          <div className="pp-draw-note">
-            <p>
-              We couldn’t draw this project.{overview.message ? ' ' + overview.message : ''} You can still review and
-              confirm the parts.
-            </p>
-            {drawAction('Try again')}
-          </div>
-        )}
-        {overview?.status === 'stale' && (
-          <div className="pp-draw-note">
-            <p>You changed the parts list, so the drawings show the earlier list.</p>
-            {drawAction('Redraw')}
-          </div>
-        )}
-        {drawing.error && (
-          <p className="form-error" role="alert">
-            {drawing.error}
-          </p>
-        )}
-        <ul className="pp-cards" aria-busy={drawing.pending || undefined}>
-          {rows.map((row, index) => {
-            const status = cardStatus(row)
-            const active = openPart === row.item.line_id
-            const visual = visuals.get(row.item.line_id)
-            const name = row.name || 'Unnamed part'
-            const have = row.owned && !row.removed
-            return (
-              <li
-                key={row.item.line_id}
-                id={`line-${row.item.line_id}`}
-                className={`pp-card${row.removed ? ' is-removed' : ''}${have ? ' is-owned' : ''}${active ? ' is-active' : ''}`}
-                style={{ '--i': index } as CSSProperties}
-              >
-                <button
-                  type="button"
-                  className="pp-card-open"
-                  aria-controls="pp-part"
-                  aria-expanded={active}
-                  aria-label={[name, row.removed ? 'removed' : '', status?.label ?? '', have ? 'you have it' : '']
-                    .filter(Boolean)
-                    .join(', ')}
-                  onClick={() => onOpenPart(active ? null : row.item.line_id)}
-                />
-                <div className="pp-card-art" aria-hidden="true">
-                  {visual ? (
-                    <Suspense fallback={<span className="sk pp-card-sk" />}>
-                      <PartArt key={visual.line_id} part={visual} />
-                    </Suspense>
-                  ) : drawingParts ? (
-                    <span className="sk pp-card-sk" />
-                  ) : (
-                    <PartIllustration name={name} category={row.item.buyable_spec?.category} />
-                  )}
-                  {have && <span className="pp-card-check" />}
-                </div>
-                <strong className="pp-card-name">{name}</strong>
-                {row.removed ? (
-                  <span className="pp-card-pill is-muted">Removed</span>
-                ) : (
-                  status && <span className={`pp-card-pill is-${status.tone}`}>{status.label}</span>
-                )}
-                <div className="pp-card-controls">
-                  {row.removed ? (
-                    <button
-                      type="button"
-                      className="pp-text-button pp-review-undo"
-                      onClick={() => update(row.item.line_id, { removed: false })}
-                    >
-                      Undo remove
-                    </button>
-                  ) : (
-                    <>
-                      {row.asNeeded ? (
-                        <AsNeeded onSet={() => update(row.item.line_id, { asNeeded: false })} />
-                      ) : (
-                        <QtyField
-                          className="pp-review-qty"
-                          value={row.qty}
-                          disabled={false}
-                          onChange={qty => update(row.item.line_id, { qty })}
-                        >
-                          <span className="visually-hidden">Quantity of {name}</span>
-                          <span aria-hidden="true">×</span>
-                        </QtyField>
-                      )}
-                      <label className="pp-review-have">
-                        <input
-                          type="checkbox"
-                          checked={row.owned}
-                          onChange={event => update(row.item.line_id, { owned: event.target.checked })}
-                        />{' '}
-                        I have it
-                      </label>
-                    </>
-                  )}
-                </div>
-              </li>
-            )
-          })}
-        </ul>
-        <div className="pp-add-part" role="group" aria-label="Add a part">
-          <input
-            type="text"
-            value={newName}
-            maxLength={200}
-            placeholder="Add a part, e.g. 10k resistor"
-            aria-label="Name of the part to add"
-            onChange={event => setNewName(event.target.value)}
-            onKeyDown={event => {
-              if (event.key === 'Enter') {
-                event.preventDefault()
-                addPart()
-              }
-            }}
-          />
-          <QtyField className="pp-review-qty" value={newQty} disabled={false} onChange={setNewQty}>
-            <span className="visually-hidden">Quantity of the part to add</span>
-            <span aria-hidden="true">×</span>
-          </QtyField>
-          <button type="button" className="nav-cta" onClick={addPart} disabled={!newName.trim()}>
-            Add part
+          <button type="button" className="nav-cta" onClick={locked.onClick}>
+            {locked.label}
           </button>
         </div>
-        {overview && overview.status !== 'failed' && overview.wiring.length > 0 && (
-          <Suspense fallback={null}>
-            <WiringSection overview={overview} />
-          </Suspense>
-        )}
-        {(assumptionCount > 0 || reports.length > 0) && (
-          <section className="pp-origin" aria-labelledby="pp-origin-title">
-            <h2 id="pp-origin-title">Where these came from</h2>
-            {reports.length > 0 && (
-              <ul className="pp-origin-links">
-                {reports.map((report, index) => (
-                  <li key={`${index}-${report.url}`} className={report.status === 'failed' ? 'is-skipped' : undefined}>
-                    <a
-                      href={report.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      title={
-                        report.status === 'failed'
-                          ? `${report.error?.message || 'This source could not be read.'} It was skipped.`
-                          : report.url
-                      }
-                    >
-                      {chipLabels[index]} <span aria-hidden="true">↗</span>
-                    </a>
-                    <small>{sourceChipCount(report)}</small>
-                  </li>
-                ))}
-              </ul>
+      )}
+      <form onSubmit={submit}>
+        <fieldset className="pp-review-fields" disabled={!!locked}>
+          <div className="pp-parts-head">
+            <h2 id="pp-parts-title">
+              Your parts <span>{kept.length}</span>
+            </h2>
+            {needs.length > 0 && (
+              <button
+                type="button"
+                className={`pp-attention-button${safetyChecks ? ' has-danger' : ''}`}
+                aria-controls="pp-attention"
+                aria-expanded={attentionOpen && !openPart}
+                onClick={() => {
+                  onOpenPart(null)
+                  setAttentionOpen(open => !open)
+                }}
+              >
+                <span className="pp-need-dot" aria-hidden="true" />
+                Needs your attention <b>{needs.length}</b>
+                {safetyChecks > 0 && (
+                  <small>
+                    {safetyChecks} safety {safetyChecks === 1 ? 'check' : 'checks'}
+                  </small>
+                )}
+              </button>
             )}
-            {assumptionCount > 0 && (
-              <details className="pp-section">
-                <summary>
-                  Assumptions
-                  <span>
-                    {assumptionCount} {assumptionCount === 1 ? 'assumption' : 'assumptions'}
-                  </span>
-                </summary>
-                <div className="pp-section-body">
-                  <ProjectCard project={job.project} assumptionsOnly />
-                </div>
-              </details>
-            )}
-          </section>
-        )}
-        <div className="pp-confirm">
-          {guest && (
-            <p>
-              As a guest you can search sellers for up to {guest.part_limit} parts. Parts you already have don't count.
+          </div>
+          {!locked && (
+            <p className="pp-parts-help">
+              {searched
+                ? 'Sellers are already found for this list. Add, remove or change parts; we search only the new or changed ones.'
+                : 'Mark what you already have. We search sellers only after you confirm.'}
             </p>
           )}
-          {error && (
+          <ReconciledNote lines={job.reconciled ?? []} />
+          {drawing.pending && overview && (
+            <p className="pp-draw-progress" role="status">
+              <Spinner />
+              {overview.stage === 'wiring'
+                ? 'Working out the wiring…'
+                : overview.stage === 'checking'
+                  ? 'Double-checking pins and wires…'
+                  : `Drawing your parts… ${overview.parts.length} ready`}
+            </p>
+          )}
+          {!overview && (
+            <div className="pp-draw-note">
+              <p>See every part drawn with its pins, and how they connect.</p>
+              {drawAction('Draw the project')}
+            </div>
+          )}
+          {overview?.status === 'failed' && (
+            <div className="pp-draw-note">
+              <p>
+                We couldn’t draw this project.{overview.message ? ' ' + overview.message : ''} You can still review and
+                confirm the parts.
+              </p>
+              {drawAction('Try again')}
+            </div>
+          )}
+          {overview?.status === 'stale' && (
+            <div className="pp-draw-note">
+              <p>You changed the parts list, so the drawings show the earlier list.</p>
+              {drawAction('Redraw')}
+            </div>
+          )}
+          {drawing.error && (
             <p className="form-error" role="alert">
-              {error}
+              {drawing.error}
             </p>
           )}
-          <div className="pp-confirm-row">
-            <p className="pp-confirm-count">
-              <strong>
-                {kept.length} {kept.length === 1 ? 'part' : 'parts'}
-              </strong>
-              {owned > 0 && <> · {owned} you have</>}
-            </p>
-            <button className="primary-button" disabled={busy} type="submit">
-              {busy && <Spinner />}
-              {busy
-                ? 'Confirming…'
-                : toSource
-                  ? `Find sellers for ${toSource} ${searched ? 'new ' : ''}${toSource === 1 ? 'part' : 'parts'}`
-                  : searched
-                    ? 'Save changes'
-                    : 'Confirm the list'}{' '}
-              <ArrowIcon />
+          <ul className="pp-cards" aria-busy={drawing.pending || undefined}>
+            {rows.map((row, index) => {
+              const status = cardStatus(row)
+              const active = openPart === row.item.line_id
+              const visual = visuals.get(row.item.line_id)
+              const name = row.name || 'Unnamed part'
+              const have = row.owned && !row.removed
+              return (
+                <li
+                  key={row.item.line_id}
+                  id={`line-${row.item.line_id}`}
+                  className={`pp-card${row.removed ? ' is-removed' : ''}${have ? ' is-owned' : ''}${active ? ' is-active' : ''}`}
+                  style={{ '--i': index } as CSSProperties}
+                >
+                  <button
+                    type="button"
+                    className="pp-card-open"
+                    aria-controls="pp-part"
+                    aria-expanded={active}
+                    aria-label={[name, row.removed ? 'removed' : '', status?.label ?? '', have ? 'you have it' : '']
+                      .filter(Boolean)
+                      .join(', ')}
+                    onClick={() => onOpenPart(active ? null : row.item.line_id)}
+                  />
+                  <div className="pp-card-art" aria-hidden="true">
+                    {visual ? (
+                      <Suspense fallback={<span className="sk pp-card-sk" />}>
+                        <PartArt key={visual.line_id} part={visual} />
+                      </Suspense>
+                    ) : drawingParts ? (
+                      <span className="sk pp-card-sk" />
+                    ) : (
+                      <PartIllustration name={name} category={row.item.buyable_spec?.category} />
+                    )}
+                    {have && <span className="pp-card-check" />}
+                  </div>
+                  <strong className="pp-card-name">{name}</strong>
+                  {row.removed ? (
+                    <span className="pp-card-pill is-muted">Removed</span>
+                  ) : (
+                    status && <span className={`pp-card-pill is-${status.tone}`}>{status.label}</span>
+                  )}
+                  <div className="pp-card-controls">
+                    {row.removed ? (
+                      <button
+                        type="button"
+                        className="pp-text-button pp-review-undo"
+                        onClick={() => update(row.item.line_id, { removed: false })}
+                      >
+                        Undo remove
+                      </button>
+                    ) : (
+                      <>
+                        {row.asNeeded ? (
+                          <AsNeeded onSet={() => update(row.item.line_id, { asNeeded: false })} />
+                        ) : (
+                          <QtyField
+                            className="pp-review-qty"
+                            value={row.qty}
+                            disabled={false}
+                            onChange={qty => update(row.item.line_id, { qty })}
+                          >
+                            <span className="visually-hidden">Quantity of {name}</span>
+                            <span aria-hidden="true">×</span>
+                          </QtyField>
+                        )}
+                        <label className="pp-review-have">
+                          <input
+                            type="checkbox"
+                            checked={row.owned}
+                            onChange={event => update(row.item.line_id, { owned: event.target.checked })}
+                          />{' '}
+                          I have it
+                        </label>
+                      </>
+                    )}
+                  </div>
+                </li>
+              )
+            })}
+          </ul>
+          <div className="pp-add-part" role="group" aria-label="Add a part">
+            <input
+              type="text"
+              value={newName}
+              maxLength={200}
+              placeholder="Add a part, e.g. 10k resistor"
+              aria-label="Name of the part to add"
+              onChange={event => setNewName(event.target.value)}
+              onKeyDown={event => {
+                if (event.key === 'Enter') {
+                  event.preventDefault()
+                  addPart()
+                }
+              }}
+            />
+            <QtyField className="pp-review-qty" value={newQty} disabled={false} onChange={setNewQty}>
+              <span className="visually-hidden">Quantity of the part to add</span>
+              <span aria-hidden="true">×</span>
+            </QtyField>
+            <button type="button" className="nav-cta" onClick={addPart} disabled={!newName.trim()}>
+              Add part
             </button>
           </div>
-        </div>
+          {overview && overview.status !== 'failed' && overview.wiring.length > 0 && (
+            <Suspense fallback={null}>
+              <WiringSection overview={overview} />
+            </Suspense>
+          )}
+          {(assumptionCount > 0 || reports.length > 0) && (
+            <section className="pp-origin" aria-labelledby="pp-origin-title">
+              <h2 id="pp-origin-title">Where these came from</h2>
+              {reports.length > 0 && (
+                <ul className="pp-origin-links">
+                  {reports.map((report, index) => (
+                    <li
+                      key={`${index}-${report.url}`}
+                      className={report.status === 'failed' ? 'is-skipped' : undefined}
+                    >
+                      <a
+                        href={report.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title={
+                          report.status === 'failed'
+                            ? `${report.error?.message || 'This source could not be read.'} It was skipped.`
+                            : report.url
+                        }
+                      >
+                        {chipLabels[index]} <span aria-hidden="true">↗</span>
+                      </a>
+                      <small>{sourceChipCount(report)}</small>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {assumptionCount > 0 && (
+                <details className="pp-section">
+                  <summary>
+                    Assumptions
+                    <span>
+                      {assumptionCount} {assumptionCount === 1 ? 'assumption' : 'assumptions'}
+                    </span>
+                  </summary>
+                  <div className="pp-section-body">
+                    <ProjectCard project={job.project} assumptionsOnly />
+                  </div>
+                </details>
+              )}
+            </section>
+          )}
+          <div className="pp-confirm">
+            {guest && (
+              <p>
+                As a guest you can search sellers for up to {guest.part_limit} parts. Parts you already have don't
+                count.
+              </p>
+            )}
+            {error && (
+              <p className="form-error" role="alert">
+                {error}
+              </p>
+            )}
+            <div className="pp-confirm-row">
+              <p className="pp-confirm-count">
+                <strong>
+                  {kept.length} {kept.length === 1 ? 'part' : 'parts'}
+                </strong>
+                {owned > 0 && <> · {owned} you have</>}
+              </p>
+              <button className="primary-button" disabled={busy} type="submit">
+                {busy && <Spinner />}
+                {busy
+                  ? 'Confirming…'
+                  : toSource
+                    ? `Find sellers for ${toSource} ${searched ? 'new ' : ''}${toSource === 1 ? 'part' : 'parts'}`
+                    : searched
+                      ? 'Save changes'
+                      : 'Confirm the list'}{' '}
+                <ArrowIcon />
+              </button>
+            </div>
+          </div>
+        </fieldset>
       </form>
       <SidePanel
         id="pp-part"
@@ -1666,39 +1687,6 @@ function Review({
           />
         )}
       </SidePanel>
-    </section>
-  )
-}
-
-// The confirmed list, shown when the user steps back to "Review the parts" while sellers are searched.
-function ConfirmedParts({ job, back }: { job: Job; back: { label: string; onClick: () => void } }) {
-  return (
-    <section className="job-panel pp-stage pp-lookback">
-      <header className="pp-lookback-head">
-        <div>
-          <h2>The parts you confirmed</h2>
-          <p>You can add, remove or change parts here once the seller search finishes.</p>
-        </div>
-        <button type="button" className="nav-cta" onClick={back.onClick}>
-          {back.label}
-        </button>
-      </header>
-      <ul className="pp-confirmed">
-        {job.items.map(item => (
-          <li key={item.line_id}>
-            <span>{item.raw_name}</span>
-            <span className="pp-confirmed-qty">{qtyLabel(item)}</span>
-            <span className="pp-confirmed-note">{item.user_has_it ? 'You have this' : ''}</span>
-          </li>
-        ))}
-      </ul>
-      <details className="pp-section pp-origin">
-        <summary>Where these came from</summary>
-        <div className="pp-section-body">
-          <ProjectCard project={job.project} />
-          <SourcesCard job={job} />
-        </div>
-      </details>
     </section>
   )
 }
@@ -2186,7 +2174,15 @@ function JobPage({ id }: { id: string }) {
                       onOpenPart={setOpenPart}
                     />
                   ) : (
-                    <ConfirmedParts job={job} back={back} />
+                    <Review
+                      key={JSON.stringify(job.items)}
+                      job={job}
+                      token={token}
+                      onConfirmed={() => undefined}
+                      openPart={null}
+                      onOpenPart={() => undefined}
+                      locked={back}
+                    />
                   )
                 ) : job.status === 'done' ? (
                   results
