@@ -317,11 +317,24 @@ function PartsChecklist({
   )
 }
 
-function Step({ step, number, job, names }: { step: BuildStep; number: number; job: Job; names: Map<string, string> }) {
+function Step({
+  step,
+  number,
+  job,
+  names,
+  behind = false,
+}: {
+  step: BuildStep
+  number: number
+  job: Job
+  names: Map<string, string>
+  // One-at-a-time view: a step stacked under the current one, kept for its height but hidden and unreachable.
+  behind?: boolean
+}) {
   const parts = step.line_ids.filter(id => names.has(id))
   const link = step.timestamp ? momentUrl(job.input.url, step.timestamp) : null
   return (
-    <li className="pb-step">
+    <li className={`pb-step${behind ? ' is-behind' : ''}`} inert={behind} aria-hidden={behind || undefined}>
       <span className="pb-step-number" aria-hidden="true">
         {number}
       </span>
@@ -472,8 +485,18 @@ function BuildSteps({ job, token, onStepParts }: { job: Job; token: string; onSt
                   </li>
                 ))}
               </ol>
-              <ol className="pb-steps is-single" start={current + 1}>
-                <Step step={step} number={current + 1} job={job} names={names} />
+              {/* Every step sits in the same grid cell, so the card keeps the tallest step's height. */}
+              <ol className="pb-steps is-single">
+                {steps.map((entry, index) => (
+                  <Step
+                    key={index}
+                    step={entry}
+                    number={index + 1}
+                    job={job}
+                    names={names}
+                    behind={index !== current}
+                  />
+                ))}
               </ol>
               <div className="pb-step-nav">
                 <button type="button" className="pb-step-prev" disabled={current === 0} onClick={() => go(current - 1)}>
