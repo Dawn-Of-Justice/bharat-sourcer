@@ -44,6 +44,8 @@ DEFAULT_SITE_THINKING: dict[str, ThinkingLevel] = {
     "cart_recipe": "low",
     # Build guide (build_guide.py): one short ordered list of steps from text context.
     "build_guide": "low",
+    # Fabrication services (sourcing/fabrication.py): a grounded search, then page verdicts.
+    "fabrication": "low",
 }
 
 
@@ -152,6 +154,9 @@ class Settings(BaseSettings):
     reconcile_enabled: bool = True
     # Work out add-to-cart links per store with one cached Gemini call (cart_engine.py).
     cart_engine_enabled: bool = True
+    # Made-to-order lines (sourcing/fabrication.py): link 3D printing and PCB services found
+    # by a grounded search and checked pages (site `fabrication`), cached for 30 days.
+    fabrication_enabled: bool = True
     # Project overview (overview.py): after extraction, parallel calls (site `overview`) draw
     # the parts two lines at a time, one call (site `overview_wiring`) wires them, and judge
     # calls (site `overview_judge`) mark each part, pin header and wire

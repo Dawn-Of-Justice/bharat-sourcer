@@ -11,6 +11,8 @@ import {
   type OrderPlanSeller,
   type ReportLine,
 } from './api'
+import { madeToOrder } from './fabrication'
+import { FirstService } from './MadeToOrder'
 import { loadProjectOverview } from './prefetch'
 import { wireFlagged } from './partGeometry'
 import { NeedsList, safetyNeeds } from './ReportSummary'
@@ -269,6 +271,8 @@ function PartsChecklist({
           const had = item.user_has_it
           const checked = had || isReceived(id)
           const seller = sellerOf.get(id)
+          const reportLine = reportLines.get(id)
+          const made = madeToOrder(reportLine) ? reportLine.fabrication : null
           const name = partName(item, reportLines.get(id)?.buyable_spec ?? item.buyable_spec)
           return (
             <li
@@ -295,6 +299,17 @@ function PartsChecklist({
                   'You had it'
                 ) : seller ? (
                   `From ${seller}`
+                ) : made ? (
+                  <>
+                    <span className="pb-part-made">Made to order</span>
+                    {made.services?.length ? (
+                      <>
+                        {' at '}
+                        <FirstService plan={made} />
+                      </>
+                    ) : null}
+                    {!checked && <> · upload {made.upload}</>}
+                  </>
                 ) : checked ? null : (
                   <>
                     <span className="pb-part-warn">Not bought yet</span>{' '}

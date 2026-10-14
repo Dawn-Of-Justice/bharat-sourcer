@@ -8,6 +8,7 @@ import {
   type ReportLine,
   type UnsourcedLine,
 } from './api'
+import { madeToOrder } from './fabrication'
 import { PartThumb, amountText, price } from './ReportBits'
 import { sellerName } from './SellerIdentity'
 import { reportPartName, qtyLabel } from './partName'
@@ -28,6 +29,7 @@ const unsourcedStatus: Record<UnsourcedLine['reason'], string> = {
 // One status per row, the most important first: what the user has to do, then whose pick it is.
 export function statusOf(line: ReportLine, plan?: OrderPlanLine, unsourced?: UnsourcedLine): Status {
   if (line.item.user_has_it) return { label: 'You have it', tone: 'muted' }
+  if (madeToOrder(line)) return { label: 'Made to order', tone: 'ok' }
   if (line.sourcing_error?.code === 'SOURCING_LIMIT') return { label: 'Not searched: run limit', tone: 'input' }
   if (line.sourcing_status === 'failed') return { label: 'Search failed', tone: 'input' }
   if (unsourced)
@@ -69,7 +71,12 @@ function Row({
   const offer = offersOf(line).find(entry => entry.url === (plan?.offer_url ?? line.selected_offer_url))
   const amount = plan ? rupees(plan.line_price_inr) : offer && !line.item.user_has_it ? rupees(offer.price_inr) : null
   const pack = plan?.pack_qty ? `${plan.packs} × pack of ${plan.pack_qty}` : null
-  const secondary = [showSeller && offer && !line.item.user_has_it ? sellerName(offer) : null, pack]
+  const service = madeToOrder(line) ? line.fabrication.services?.[0]?.name : null
+  const secondary = [
+    showSeller && offer && !line.item.user_has_it ? sellerName(offer) : null,
+    service ? `Order from ${service}` : null,
+    pack,
+  ]
     .filter(Boolean)
     .join(', ')
   const status = statusOf(line, plan, unsourced)
@@ -234,6 +241,14 @@ export default function PartsList({
       }
       for (const [title, entries] of bySeller) groups.push({ key: title, title, lines: entries })
     }
+    const made = report.lines.filter(line => madeToOrder(line))
+    if (made.length)
+      groups.push({
+        key: 'made',
+        title: 'Made to order',
+        note: 'Upload the design files to a 3D printing or PCB service. Open a part for the links.',
+        lines: made,
+      })
     const placed = new Set(groups.flatMap(group => group.lines.map(line => line.item.line_id)))
     const waiting = report.lines.filter(line => !placed.has(line.item.line_id) && !line.item.user_has_it)
     const owned = report.lines.filter(line => line.item.user_has_it)

@@ -1,4 +1,5 @@
 import { offersOf, reportOf, type BomItem, type Job } from './api'
+import { madeToOrder } from './fabrication'
 
 export type SellerSearchOutcome = {
   item: BomItem
@@ -11,6 +12,7 @@ export function sellerSearchOutcomes(job: Job, now = Date.now()): SellerSearchOu
   return job.items.map(item => {
     if (item.user_has_it) return { item, kind: 'owned', reason: 'You already have it' }
     const line = report?.lines.find(entry => entry.item.line_id === item.line_id)
+    if (madeToOrder(line)) return { item, kind: 'ready', reason: 'Made to order' }
     const spec = line?.buyable_spec ?? item.buyable_spec
     const needsValue =
       spec?.needs_value ||

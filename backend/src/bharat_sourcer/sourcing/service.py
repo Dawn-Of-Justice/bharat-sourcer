@@ -37,6 +37,7 @@ from bharat_sourcer.sourcing.buyer import (
     substitute_compatibility,
 )
 from bharat_sourcer.sourcing.cart_engine import CartEngine
+from bharat_sourcer.sourcing.fabrication import FabricationFinder
 from bharat_sourcer.sourcing.fetch import FetchError, SafeFetcher, validate_url
 from bharat_sourcer.sourcing.judge import Judge, review_candidates
 from bharat_sourcer.sourcing.listings import (
@@ -271,6 +272,7 @@ class SourcingService:
         buyer: "GeminiBuyer | None" = None,
         buyer_rounds: int = 2,
         carts: CartEngine | None = None,
+        fabrication: FabricationFinder | None = None,
     ):
         self.discovery = discovery
         self.fetcher = fetcher
@@ -290,6 +292,8 @@ class SourcingService:
         self.buyer_rounds = buyer_rounds
         # Cart engine: add-to-cart link recipes per store, decided once and cached.
         self.carts = carts
+        # Made-to-order lines link fabrication services instead of searching sellers.
+        self.fabrication = fabrication
         self._recent: dict[str, tuple[float, Future, str]] = {}
         self._recent_lock = threading.Lock()
 
@@ -357,6 +361,12 @@ class SourcingService:
             state.offers.append(offer)
             new.append(offer)
         return any(accepted_offer(offer) for offer in new)
+
+    def fabrication_line(self, item: BomItem, links: list[str]) -> ReportLine | None:
+        """Fabrication services for a made-to-order line; None searches sellers instead."""
+        if self.fabrication is None or item.fabrication == "none" or item.user_has_it:
+            return None
+        return self.fabrication.line(item, links)
 
     def source(self, item: BomItem) -> ReportLine:
         return self.source_for_project(item, [item])

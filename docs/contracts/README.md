@@ -1,4 +1,17 @@
-# Implemented API contract — v0.41.0
+# Implemented API contract — v0.42.0
+
+v0.42.0: made-to-order lines. New `BomItem.fabrication: "none"|"3d_print"|"pcb"` (default
+`none`), AI-decided by the reconcile pass. `ReportLine.sourcing_status` (and
+`RefreshLineResult.sourcing_status`) gains `fabrication_service`; such lines carry
+`ReportLine.fabrication: FabricationPlan` (`kind`, `services: FabricationService[]` (≤4:
+`name`, `url`, `note`, `ships_to_india: "yes"|"unknown"`, `checked_live`, `checked_at`),
+`upload` (what to upload), `design_links` (≤4, from the project's own sources), `method:
+"grounded_search_page_checked"|"curated_fallback"`, `note`) and no offers or
+recommendation. New `OrderPlan.made_to_order: MadeToOrderLine[]` (`line_id`, `name`,
+`fabrication`); these lines are never in `unsourced`, seller lines or carts, are not in
+`Report.unselected_line_ids`, and are listed in `costing.excluded_line_ids` (the service
+sets the price). `SourcingStage` gains `fabrication`. A `curated_fallback` service has
+`checked_live: false` and must be shown as not checked live.
 
 v0.41.0: new `BomItem.qty_as_needed: bool` (default false), set by the reconcile pass for
 lines whose amount is not a meaningful count (wire, heat shrink, solder, a printed case).

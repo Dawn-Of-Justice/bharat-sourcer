@@ -1,5 +1,23 @@
 # Backend
 
+v0.42.0 links fabrication services for made-to-order lines. The reconcile pass now also
+answers, per line, `made`: `3d_print` (this project's own printed part), `pcb` (a custom
+board made from Gerbers) or `none`, saved as `BomItem.fabrication`. Sourcing skips seller
+search for those lines and returns `sourcing_status: "fabrication_service"` with a
+`fabrication` plan (`sourcing/fabrication.py`): one grounded Gemini search per kind (site
+`fabrication`, low thinking; URLs only from grounding metadata), each page fetched under the
+usual robots and SSRF rules, then one structured call decides from the fetched text which
+pages are services that make the part from uploaded files and whether they say they ship
+to India. Up to three services are kept (one per domain, India shippers first) and cached
+in the shared cache (`fabrication`, 30 days). When discovery fails, a short curated list is
+used, labelled `checked_live: false` and `method: "curated_fallback"`, not cached, and not
+retried for ten minutes. The plan says what to upload (STL/STEP, or Gerbers) and lists design
+links from the job's own sources (submitted links, video description links) on known model,
+board and repository hosts. Made-to-order lines are not recommended, not in seller carts and
+not unsourced: they appear in `OrderPlan.made_to_order`, and cost estimates list them in
+`excluded_line_ids`. `BS_FABRICATION_ENABLED` turns it off (lines are then searched as
+before). Shipping and prices are the service's claims, not verified.
+
 v0.41.0 marks lines without a meaningful piece count. The reconcile pass (reconcile.py)
 now also answers, per line, `as_needed`: true when the amount is bought by length, pack
 or weight or made by the maker (hookup wire, heat shrink, solder, a 3D-printed case).

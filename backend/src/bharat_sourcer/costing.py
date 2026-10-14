@@ -410,8 +410,9 @@ def selection_picks(report: Report) -> list[Pick]:
     return picks
 
 
-def selection_costing(report: Report) -> CostBreakdown:
-    costing = cost_picks(selection_picks(report), list(report.unselected_line_ids))
+def selection_costing(report: Report, made: list[str] | None = None) -> CostBreakdown:
+    excluded = list(report.unselected_line_ids) + list(made or [])
+    costing = cost_picks(selection_picks(report), excluded)
     baseline = import_baseline(report.lines)
     costing.import_baseline = baseline
     if (
@@ -434,11 +435,14 @@ def selection_costing(report: Report) -> CostBreakdown:
 
 def update_costs(report: Report) -> None:
     subtotal = Decimal("0.00")
-    missing = []
+    missing, made = [], []
     for line in report.lines:
         line.subtotal_inr = None
         if line.item.user_has_it:
             line.subtotal_inr = "0.00"
+        elif line.fabrication is not None:
+            # Made to order: priced by the fabrication service, not selected from a seller.
+            made.append(line.item.line_id)
         elif line.selected_offer_url is not None and line.price_inr is not None:
             if line.item.qty is not None:
                 offer = next((o for o in line.offers if o.url == line.selected_offer_url), None)
@@ -451,10 +455,12 @@ def update_costs(report: Report) -> None:
             missing.append(line.item.line_id)
     report.unselected_line_ids = missing
     report.selected_parts_subtotal_inr = f"{subtotal:.2f}"
-    report.parts_subtotal_inr = f"{subtotal:.2f}" if not missing and not report.demo else None
+    report.parts_subtotal_inr = (
+        f"{subtotal:.2f}" if not missing and not made and not report.demo else None
+    )
     report.total_inr = None
     # Demo reports carry fixture data; no estimate is ever derived from it.
-    report.costing = None if report.demo else selection_costing(report)
+    report.costing = None if report.demo else selection_costing(report, made)
     # recommend.py builds on this module, so it is imported here rather than at the top.
     from bharat_sourcer.recommend import annotate
 

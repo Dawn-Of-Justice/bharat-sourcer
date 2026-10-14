@@ -36,6 +36,7 @@ from bharat_sourcer.costing import (
 )
 from bharat_sourcer.schemas import (
     LineRecommendation,
+    MadeToOrderLine,
     OrderPlan,
     OrderPlanLine,
     OrderPlanSeller,
@@ -475,6 +476,11 @@ class Basket:
     scores: dict[str, list[OfferScore]]
 
 
+def made_to_order(line: ReportLine) -> bool:
+    """Ordered from a fabrication service, not a seller: never recommended or unsourced."""
+    return line.fabrication is not None and not line.item.user_has_it
+
+
 def user_locked(line: ReportLine) -> bool:
     """A selection made through /selections (or saved before recommendations existed)."""
     return line.selection_source == "user" or (
@@ -546,7 +552,7 @@ def build_basket(report: Report, penalty: Decimal = SELLER_PENALTY_INR) -> Baske
     """Pure: the recommended offer per free line; user selections stay fixed."""
     fixed, choices, free, unsourced, all_scores, score_map = [], [], [], {}, {}, {}
     for line in report.lines:
-        if line.item.user_has_it:
+        if line.item.user_has_it or made_to_order(line):
             continue
         line_id = line.item.line_id
         if user_locked(line) and line.selected_offer_url is not None:
@@ -665,7 +671,7 @@ def apply_recommendations(report: Report | None, penalty: Decimal = SELLER_PENAL
         update_costs(report)
         return "none"
     for line in report.lines:
-        if line.item.user_has_it:
+        if line.item.user_has_it or made_to_order(line):
             line.recommendation = line.recommended_offer_url = None
             continue
         if user_locked(line):
@@ -766,10 +772,19 @@ def unsourced_entry(line: ReportLine) -> UnsourcedLine:
 
 def build_order_plan(report: Report) -> OrderPlan:
     """Seller-grouped plan from selections, else recommendations; nothing is applied here."""
-    entries, picks, unsourced = [], [], []
+    entries, picks, unsourced, made = [], [], [], []
     offers_by_line: dict[str, tuple[VerifiedOffer | None, int]] = {}
     for line in report.lines:
         if line.item.user_has_it:
+            continue
+        if made_to_order(line) and line.fabrication is not None:
+            made.append(
+                MadeToOrderLine(
+                    line_id=line.item.line_id,
+                    name=line.item.raw_name,
+                    fabrication=line.fabrication.model_copy(deep=True),
+                )
+            )
             continue
         offer, selected = plan_offer(line)
         if line.item.qty is None or (offer is None and not selected):
@@ -855,10 +870,12 @@ def build_order_plan(report: Report) -> OrderPlan:
             )
         )
     sellers.sort(key=lambda s: (-len(s.lines), -Decimal(s.subtotal_inr), s.seller))
-    excluded = [entry.line_id for entry in unsourced]
+    # Made-to-order lines are priced by the service, so the estimate excludes them too.
+    excluded = [entry.line_id for entry in unsourced] + [entry.line_id for entry in made]
     return OrderPlan(
         sellers=sellers,
         unsourced=unsourced,
+        made_to_order=made,
         seller_count=len(sellers),
         costing=cost_picks(picks, excluded, basis="plan"),
         ready=bool(sellers) and not unsourced,
