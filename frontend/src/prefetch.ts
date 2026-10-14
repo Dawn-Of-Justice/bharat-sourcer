@@ -53,8 +53,25 @@ export function withViewTransition(update: () => void) {
     update()
     return
   }
-  const transition = document.startViewTransition(() => flushSync(update))
+  let applied = false
+  const apply = () => {
+    if (applied) return
+    applied = true
+    flushSync(update)
+  }
+  const transition = document.startViewTransition(apply)
+  // A page that is visible but not painting (an occluded window, a hidden embedded browser) never reaches the
+  // transition's update, so the click would only land on the next one. Apply it without the animation then.
+  const fallback = window.setTimeout(() => {
+    if (applied) return
+    transition.skipTransition()
+    apply()
+  }, 250)
   // A skipped or aborted transition still applies the update; its animation promises then reject harmlessly.
+  transition.updateCallbackDone.then(
+    () => window.clearTimeout(fallback),
+    () => window.clearTimeout(fallback),
+  )
   transition.ready.catch(() => undefined)
   transition.finished.catch(() => undefined)
 }
