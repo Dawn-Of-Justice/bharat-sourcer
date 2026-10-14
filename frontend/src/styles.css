@@ -8603,7 +8603,8 @@ button.pp-row-summary {
 }
 
 /* --- Project page: "Build it" step (BuildPage.tsx) ---------------------------------------
-   Summary card, parts checklist, AI-written build steps, wiring and safety notes in one column. */
+   Summary card with the video, then the parts checklist beside tiles that jump to the build steps, wiring, code and
+   safety notes, which follow in full below. One column on narrow screens. */
 .pb-page {
   display: grid;
   gap: 36px;
@@ -8617,8 +8618,136 @@ button.pp-row-summary {
 }
 .pb-summary {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  gap: 18px 28px;
+}
+.pb-summary-main {
+  display: grid;
   justify-items: start;
   gap: 14px;
+  min-width: 0;
+}
+.pb-video {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  aspect-ratio: 16 / 9;
+  border-radius: 12px;
+  background: #1d2b28;
+  color: #fff;
+  text-decoration: none;
+}
+.pb-video img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0.82;
+  transition: opacity 0.15s ease;
+}
+.pb-video:hover img,
+.pb-video:focus-visible img {
+  opacity: 1;
+}
+.pb-video-play {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  padding-left: 3px;
+  border-radius: 50%;
+  background: rgb(0 0 0 / 0.62);
+  font-size: 18px;
+  transform: translate(-50%, -50%);
+}
+.pb-video-label {
+  position: absolute;
+  bottom: 8px;
+  left: 10px;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: rgb(0 0 0 / 0.62);
+  font-size: 13px;
+  font-weight: 700;
+}
+.pb-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  gap: 20px;
+  min-width: 0;
+}
+.pb-tiles {
+  display: grid;
+  gap: 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.pb-tile {
+  display: grid;
+  gap: 6px;
+  width: 100%;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+.pb-tile:hover {
+  border-color: var(--pp-teal);
+  box-shadow: 0 4px 14px rgb(23 94 85 / 0.08);
+}
+.pb-tile-title {
+  color: var(--pp-ink);
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+.pb-tile-text {
+  color: #4b625d;
+  font-size: 15px;
+  line-height: 1.5;
+}
+.pb-checklist .pb-parts {
+  border-top: 0;
+}
+.pb-checklist .pb-part:last-child {
+  border-bottom: 0;
+}
+.pb-links {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.pb-links a {
+  color: var(--pp-teal);
+  font-size: 15px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+  text-underline-offset: 3px;
+}
+.pb-section > h2:focus,
+.pb-wiring:focus {
+  outline: none;
+}
+@media (min-width: 760px) {
+  .pb-summary:has(.pb-video) {
+    grid-template-columns: minmax(0, 1.6fr) minmax(220px, 1fr);
+  }
+}
+@media (min-width: 900px) {
+  .pb-grid {
+    grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+    gap: 24px;
+  }
 }
 .pb-summary h2 {
   margin: 0;
