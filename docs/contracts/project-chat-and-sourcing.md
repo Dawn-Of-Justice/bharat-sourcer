@@ -5,7 +5,8 @@
 Live chat first classifies whether the latest request relates to the saved project,
 using its BOM and recent conversation. Unrelated or mixed-purpose requests receive
 a fixed project-only reply, with no BOM edits or refresh proposal. Failed scope
-checks return a retry message and do not run answer generation. The answer prompt
+checks are retried first (five backed-off HTTP attempts per check, two checks); only
+when all fail is a retry message returned, without running answer generation. The answer prompt
 also enforces the same scope. A short follow-up is allowed when its project context
 is clear. Existing 20-turn and one-active-reply limits still apply.
 
