@@ -13,6 +13,7 @@ import {
   type PartRequirement,
   type RefreshLineResult,
 } from './api'
+import { parseChatMarkdown, type Inline } from './chatMarkdown'
 import { ChatIcon } from './LandingIcons'
 
 function AttachmentIcon() {
@@ -45,6 +46,70 @@ function SendIcon() {
       <path d="M21 3 10 14" />
       <path d="m21 3-6 18-4.5-7.5L3 9l18-6Z" />
     </svg>
+  )
+}
+
+function InlineText({ parts }: { parts: Inline[] }) {
+  return parts.map((part, index) =>
+    part.kind === 'text' ? (
+      part.text
+    ) : part.kind === 'code' ? (
+      <code key={index}>{part.text}</code>
+    ) : part.kind === 'strong' ? (
+      <strong key={index}>
+        <InlineText parts={part.children} />
+      </strong>
+    ) : (
+      <em key={index}>
+        <InlineText parts={part.children} />
+      </em>
+    ),
+  )
+}
+
+function Lines({ lines }: { lines: Inline[][] }) {
+  return lines.map((line, index) => (
+    <span key={index}>
+      {index ? <br /> : null}
+      <InlineText parts={line} />
+    </span>
+  ))
+}
+
+// Assistant replies may use light markdown; render it as React elements, never raw HTML.
+function AssistantText({ text }: { text: string }) {
+  return (
+    <div className="chat-text">
+      {parseChatMarkdown(text).map((block, index) =>
+        block.kind === 'paragraph' ? (
+          <p key={index}>
+            <Lines lines={block.lines} />
+          </p>
+        ) : block.kind === 'heading' ? (
+          <p key={index}>
+            <strong>
+              <InlineText parts={block.children} />
+            </strong>
+          </p>
+        ) : block.ordered ? (
+          <ol key={index} start={block.start}>
+            {block.items.map((item, itemIndex) => (
+              <li key={itemIndex}>
+                <Lines lines={item} />
+              </li>
+            ))}
+          </ol>
+        ) : (
+          <ul key={index}>
+            {block.items.map((item, itemIndex) => (
+              <li key={itemIndex}>
+                <Lines lines={item} />
+              </li>
+            ))}
+          </ul>
+        ),
+      )}
+    </div>
   )
 }
 
@@ -669,7 +734,7 @@ export default function ChatPanel({
                   {new Date(message.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
                 </time>
               </div>
-              <p>{message.text}</p>
+              {message.role === 'user' ? <p>{message.text}</p> : <AssistantText text={message.text} />}
               {message.cited_line_ids.length ? (
                 <div className="chat-citations">
                   <span>Parts mentioned</span>
