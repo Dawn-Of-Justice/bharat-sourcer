@@ -1,5 +1,12 @@
 # Backend
 
+v0.41.0 marks lines without a meaningful piece count. The reconcile pass (reconcile.py)
+now also answers, per line, `as_needed`: true when the amount is bought by length, pack
+or weight or made by the maker (hookup wire, heat shrink, solder, a 3D-printed case).
+Such lines get `BomItem.qty_as_needed = true`; `qty` stays 1 (one pack) for sourcing and
+costs, and the UI shows "As needed". A maker's own count is never overridden, and setting
+a quantity in a confirm edit clears the flag.
+
 v0.40.0 adds the build page backend (`build_guide.py`). `POST /v1/jobs/{job_id}/build-progress`
 ticks or unticks one line as received (`Job.build_received`; owner only, `done` jobs,
 idempotent; a line removed by a later confirm drops out). `POST /v1/jobs/{job_id}/build-guide`

@@ -447,6 +447,10 @@ class BomItem(Model):
     # stated: the source gives the count; inferred: decided from project context; user: edited.
     qty_source: Literal["stated", "inferred", "user"] = "stated"
     qty_reason: str | None = Field(default=None, max_length=300)
+    # A count is not meaningful for this line (wire, heat shrink, solder, a printed case):
+    # decided by the reconcile pass (reconcile.py). `qty` stays one pack for sourcing; the
+    # UI shows "As needed". Cleared when the maker sets a quantity.
+    qty_as_needed: bool = False
     user_has_it: bool = False
     evidence: list[Evidence] = Field(default_factory=list)
     user_edited: bool = False

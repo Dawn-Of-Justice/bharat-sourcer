@@ -14,6 +14,7 @@ from bharat_sourcer.jobs import JobService
 from bharat_sourcer.reconcile import (
     GeminiReconciler,
     MergeDraft,
+    PartRoleDraft,
     ReconcileDraft,
     RemovalDraft,
     apply,
@@ -202,3 +203,37 @@ def test_a_duplicate_removal_is_applied_as_a_merge():
     assert [(c.action, c.raw_name, c.into) for c in changes] == [
         ("merged", "SSD1306 OLED display", "1.3-inch I2C OLED display module (SH1106)")
     ]
+
+
+def test_lines_without_a_meaningful_count_are_marked_as_needed():
+    items = [*desk(), line("L07", "Thin hookup wire")]
+    items[0].qty_source = "user"
+    draft = ReconcileDraft(
+        parts=[
+            PartRoleDraft(id=6, function="wiring", as_needed=True),
+            PartRoleDraft(id=0, function="controller", as_needed=True),  # maker's own count
+            PartRoleDraft(id=1, function="display"),
+        ]
+    )
+    kept, changes = reconcile_items(FakeReconciler(draft), items, PROJECT)
+    assert changes == []
+    assert [item.qty_as_needed for item in kept] == [False] * 6 + [True]
+    assert not items[6].qty_as_needed  # the input list is never changed
+
+
+def test_setting_a_quantity_clears_as_needed():
+    from bharat_sourcer.schemas import ConfirmJob, UpdateLine
+
+    class Extract:
+        def extract(self, url):
+            return [line("L01", "ESP32 board"), line("L02", "Thin hookup wire")]
+
+    draft = ReconcileDraft(parts=[PartRoleDraft(id=1, function="wiring", as_needed=True)])
+    service = JobService(Extract(), "synthetic-model", reconciler=FakeReconciler(draft))
+    job, token = service.create(CreateJob(url="https://youtu.be/abcdefghijk"))
+    service.extract(job.job_id)
+    assert service.get(job.job_id, token).items[1].qty_as_needed
+    edit = UpdateLine(op="update", line_id="L02", qty=1)
+    service.confirm(job.job_id, token, ConfirmJob(edits=[edit]))
+    item = service.get(job.job_id, token).items[1]
+    assert not item.qty_as_needed and item.qty_source == "user"
