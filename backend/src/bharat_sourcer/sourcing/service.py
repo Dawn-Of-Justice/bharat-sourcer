@@ -319,20 +319,20 @@ class SourcingService:
             return False
         if self.judge:
             stages.append("judge")
+            reasons: Counter[str] = Counter()
             try:
-                judged = review_candidates(spec, project, found, self.judge)
+                judged = review_candidates(spec, project, found, self.judge, reasons)
             except Exception:
                 logging.getLogger(__name__).warning("OFFER_JUDGE_FAILED", exc_info=True)
-                judged = None
-            if judged is None:
                 # Judge unavailable: fall back to the legacy title gate, unjudged.
                 judged = [
                     c.offer
                     for c in found
                     if c.offer and title_gate(resolution.query, c.offer.title)
                 ]
+                reasons = Counter({"unjudged_title_gate": len(found) - len(judged)})
             state.rejected += len(found) - len(judged)
-            state.reasons["judge_mismatch"] += len(found) - len(judged)
+            state.reasons.update(+reasons)
         else:
             judged = found
         new = []
@@ -799,6 +799,13 @@ class SourcingService:
                     f"offer, {state.blocked} could not be verified. "
                     + (f"{summary.message} " if summary else "")
                     + (f"{budget_note} " if budget_note else "")
+                    + (
+                        f"The match checker was unavailable for "
+                        f"{state.reasons['unjudged_title_gate']} candidates; refresh later to "
+                        "have them checked. "
+                        if state.reasons["unjudged_title_gate"]
+                        else ""
+                    )
                     + "Try a more specific part name or refresh later. No price was inferred. "
                     + (
                         f"Research retained {len(research.candidates)} cited candidates; "

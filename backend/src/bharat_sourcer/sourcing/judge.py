@@ -13,6 +13,7 @@ import logging
 import re
 import threading
 import time
+from collections import Counter
 from typing import Literal, Protocol
 
 import httpx
@@ -483,13 +484,20 @@ def judged_offer(candidate: Candidate, verdict: OfferMatch) -> VerifiedOffer | N
     return offer
 
 
+def fallback_gate(spec: BuyableSpec, title: str) -> bool:
+    """Unjudged listings: the title must match the part name or one of the spec's queries."""
+    names = [n for n in (spec.part_name, *spec.queries) if n and n.strip()]
+    return any(title_gate(name, title) for name in names or [" ".join(spec.queries)])
+
+
 def review_candidates(
     spec: BuyableSpec,
     project: ProjectContext | None,
     candidates: list[Candidate],
     judge: Judge,
-) -> list[VerifiedOffer] | None:
-    """Judged offers for one line, best first; None when the judge failed."""
+    rejections: Counter[str] | None = None,
+) -> list[VerifiedOffer]:
+    """Judged offers for one line, best first; rejections are counted by reason."""
     if not candidates:
         return []
     verdicts = judge.judge_candidates(spec, project, candidates)
@@ -497,16 +505,22 @@ def review_candidates(
         verdicts = [None] * len(candidates)
     rank = {"exact": 0, "compatible": 1, "partial": 2}
     offers = []
+    reasons: Counter[str] = Counter()
     for candidate, verdict in zip(candidates, verdicts, strict=True):
         if verdict is None:
-            if candidate.offer and title_gate(
-                spec.part_name or " ".join(spec.queries), candidate.offer.title
-            ):
+            # Judge unavailable (failed, budget, over the cap): a title gate decides, unjudged.
+            if candidate.offer and fallback_gate(spec, candidate.offer.title):
                 offer = candidate.offer.model_copy(deep=True)
                 offer.match = None
                 offers.append(offer)
+            else:
+                reasons["unjudged_title_gate"] += 1
         elif offer := judged_offer(candidate, verdict):
             offers.append(offer)
+        else:
+            reasons["judge_mismatch"] += 1
+    if rejections is not None:
+        rejections.update(reasons)
     return sorted(
         offers, key=lambda o: (rank[o.match.status], -o.match.score) if o.match else (3, 0)
     )

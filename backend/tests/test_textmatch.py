@@ -1,6 +1,6 @@
 import pytest
 
-from bharat_sourcer.sourcing.textmatch import title_gate, values
+from bharat_sourcer.sourcing.textmatch import model_numbers, title_gate, values
 
 
 @pytest.mark.parametrize(
@@ -57,3 +57,19 @@ def test_conflicts(query, title):
 
 def test_values_normalise_resistance():
     assert values("4K7 resistor")["resistance"] == values("4.7k resistor")["resistance"]
+
+
+@pytest.mark.parametrize(
+    "name,models",
+    [
+        ("1.3-inch I2C OLED display (SH1106)", ["SH1106"]),
+        ("0.96-inch OLED SSD1306", ["SSD1306"]),
+        ("1.44-inch TFT ST7735", ["ST7735"]),
+    ],
+)
+def test_hyphenated_inch_sizes_are_not_model_numbers(name, models):
+    assert model_numbers(name) == models
+
+
+def test_hyphenated_inch_size_still_matches_the_listing():
+    assert title_gate("1.3-inch I2C OLED display (SH1106)", "1.3 inch I2C OLED SH1106 Module")

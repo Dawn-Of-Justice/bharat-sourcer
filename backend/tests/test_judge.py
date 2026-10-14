@@ -6,6 +6,7 @@ historical snapshots used to exercise parsing; they are never current or verifie
 
 import json
 import re
+from collections import Counter
 from pathlib import Path
 
 import httpx
@@ -448,6 +449,35 @@ def test_service_falls_back_to_the_title_gate_when_the_judge_fails():
     assert {o.seller for o in line.offers} == {"probots.co.in", "www.lioncircuits.com"}
     assert all(o.match is None for o in line.offers)
     assert line.buyable_spec.origin == "seed"
+
+
+def test_failed_judge_title_gate_accepts_a_listing_matching_a_spec_query():
+    # A vague part name ("Thin hookup wire") must not reject listings that match the
+    # spec's own buying queries while the judge is down (Gemini 503).
+    wire = spec(category="wire", part_name="Thin hookup wire", queries=["30 AWG copper wire"])
+    reasons: Counter[str] = Counter()
+    offers = review_candidates(
+        wire,
+        PROJECT,
+        [candidate("zbotic_wire_30awg_ok_line.html"), candidate("probots_smd_0603_10k.html")],
+        Model(httpx.Response(503)).judge(),
+        reasons,
+    )
+    assert [o.title for o in offers] == ["0.5mm Copper Wire OK Line 30AWG 230m (Yellow)"]
+    assert offers[0].match is None
+    assert reasons == Counter({"unjudged_title_gate": 1})
+
+
+def test_judge_mismatches_are_counted_separately_from_unjudged_rejections():
+    reasons: Counter[str] = Counter()
+    offers = review_candidates(
+        CAP_22UF,
+        PROJECT,
+        [candidate("sharvi_cap_22uf_16v.html")],
+        Model(reply([verdict(0, "mismatch")])).judge(),
+        reasons,
+    )
+    assert offers == [] and reasons == Counter({"judge_mismatch": 1})
 
 
 def test_service_without_judge_keeps_the_legacy_gate():
