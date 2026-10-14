@@ -12,7 +12,7 @@ interface WatchJobOptions {
 // Known Firebase Hosting origins cannot deliver this stream incrementally.
 // Poll immediately there; retain stream detection for other proxies and direct Cloud Run.
 export function usesBufferedHosting(hostname: string): boolean {
-  return hostname === 'bharatsource.web.app' || hostname === 'bharatsource.firebaseapp.com'
+  return /^bharatsourcer?\.(web\.app|firebaseapp\.com)$/.test(hostname)
 }
 const FIRST_BYTE_MS = 10000
 const POLL_MS = 3000

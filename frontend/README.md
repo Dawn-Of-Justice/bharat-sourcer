@@ -85,10 +85,11 @@ gcloud run services update bharat-sourcer-web --project=hackathon-510415 --regio
 
 ## Public address (Firebase Hosting)
 
-`https://bharatsource.web.app` is a Firebase Hosting site (`firebase.json`) that sends every
+`https://bharatsourcer.web.app` is a Firebase Hosting site (`firebase.json`) that sends every
 request to the `bharat-sourcer-web` Cloud Run service; `hosting/` is intentionally empty. The
+old `bharatsource` site only redirects (301) to the same path on `bharatsourcer.web.app`. The
 Cloud Run URL keeps working. Firebase Hosting buffers responses and cuts them off after 60
-seconds, so `bharatsource.web.app` and `bharatsource.firebaseapp.com` immediately fetch the job
+seconds, so `bharatsourcer.web.app` and `bharatsourcer.firebaseapp.com` immediately fetch the job
 and poll every 3 seconds (`src/stream.ts`). They skip the old 10-second stream probe on each
 fresh page load. Direct Cloud Run keeps streaming, with timeout-based polling fallback for
 unrecognized buffering proxies. It forwards only a cookie named `__session`, which
