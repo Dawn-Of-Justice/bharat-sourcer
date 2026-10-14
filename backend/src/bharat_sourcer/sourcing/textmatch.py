@@ -26,7 +26,8 @@ def compact(text: str) -> str:
 def _text(text: str) -> str:
     text = unicodedata.normalize("NFKC", text).replace("μ", "u").replace("µ", "u")
     text = re.sub(r"(?i)\bmfd\b", "uF", text)
-    return re.sub(r"(?i)(\d)\s*(?:′′|″|”|\"|inches\b|inch\b|in\.)", r"\1 inch", text)
+    # "1.3-inch" is a size, not a "3-inch" model number.
+    return re.sub(r"(?i)(\d)\s*-?\s*(?:′′|″|”|\"|inches\b|inch\b|in\.)", r"\1 inch", text)
 
 
 def model_numbers(text: str) -> list[str]:
@@ -46,7 +47,7 @@ def model_numbers(text: str) -> list[str]:
             found.append(token)
         elif len(key) >= 3 and any(c.isdigit() for c in key) and any(c.isalpha() for c in key):
             if re.fullmatch(
-                r"(?i)\d+(?:mm|cm|mv|v|ma|a|w|uf|nf|pf|k|ohm|mah|mhz|pin|pcs|cell|x\d+mm)", key
+                r"(?i)\d+(?:mm|cm|inch|mv|v|ma|a|w|uf|nf|pf|k|ohm|mah|mhz|pin|pcs|cell|x\d+mm)", key
             ):
                 continue
             if re.fullmatch(r"(?i)(?:x\d+|\d+[rkm]\d+)", key):
