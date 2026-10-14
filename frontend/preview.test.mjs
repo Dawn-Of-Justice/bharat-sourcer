@@ -269,8 +269,10 @@ test('seller retry separates missing details and available offers from retryable
   const rows = sellerSearchOutcomes(fixture)
   assert.deepEqual(
     rows.filter(row => row.kind === 'ready').map(row => row.item.line_id),
-    ['L01', 'L02'],
+    ['L01', 'L02', 'L07'],
   )
+  // A made-to-order part is ordered from a fabrication service, never searched again.
+  assert.equal(rows.find(row => row.item.line_id === 'L07').reason, 'Made to order')
   assert.deepEqual(
     rows.filter(row => row.kind === 'details').map(row => row.item.line_id),
     ['L03', 'L04'],
