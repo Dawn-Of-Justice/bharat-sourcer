@@ -1,4 +1,4 @@
-import { Suspense, lazy, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { Suspense, lazy, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import {
   getBuildGuide,
   reportOf,
@@ -12,6 +12,7 @@ import {
   type ReportLine,
 } from './api'
 import { loadProjectOverview } from './prefetch'
+import { wireFlagged } from './partGeometry'
 import { NeedsList, safetyNeeds } from './ReportSummary'
 import { sellerName } from './SellerIdentity'
 import { Spinner } from './Skeleton'
@@ -30,6 +31,15 @@ function youtubeUrl(value: string): URL | null {
   } catch {
     return null
   }
+}
+
+// The YouTube video id for the thumbnail: the job's video metadata, else the id in the source URL.
+function videoIdOf(job: Job, url: URL | null): string | null {
+  const id =
+    job.video_meta?.video_id ||
+    (url?.hostname === 'youtu.be' ? url.pathname.slice(1) : url?.searchParams.get('v')) ||
+    url?.pathname.match(/^\/(?:shorts|embed|live)\/([\w-]+)/)?.[1]
+  return id && /^[\w-]{6,20}$/.test(id) ? id : null
 }
 
 // "MM:SS" or "H:MM:SS" to seconds; null when the text is not a timestamp.
@@ -128,45 +138,59 @@ function Summary({ job, inHand }: { job: Job; inHand: number }) {
   }, [summary, expanded])
   const total = job.items.length
   const video = youtubeUrl(job.input.url)
+  const videoId = videoIdOf(job, video)
   const facts = [
     ['Power', project?.power],
     ['Controller', project?.controller],
   ].filter((entry): entry is [string, string] => !!entry[1])
   return (
     <section className="pb-card pb-summary" aria-labelledby="pb-summary-title">
-      <h2 id="pb-summary-title">Your build</h2>
-      {summary && (
-        <div className="pb-summary-text">
-          <p ref={summaryRef} id="pb-summary-how" className={`pb-summary-how${expanded ? '' : ' is-clamped'}`}>
-            {summary}
-          </p>
-          {(overflows || expanded) && (
-            <button
-              type="button"
-              className="pp-text-button"
-              aria-expanded={expanded}
-              aria-controls="pb-summary-how"
-              onClick={() => setExpanded(open => !open)}
-            >
-              {expanded ? 'Show less' : 'Read more'}
-            </button>
-          )}
-        </div>
-      )}
-      <ul className="pb-chips" aria-label="Build facts">
-        <li className={`pb-chip${total > 0 && inHand === total ? ' is-done' : ''}`}>
-          {inHand} of {total} parts in hand
-        </li>
-        {facts.map(([label, value]) => (
-          <li key={label} className="pb-chip">
-            <span>{label}:</span> {value}
+      <div className="pb-summary-main">
+        <h2 id="pb-summary-title">Your build</h2>
+        {summary && (
+          <div className="pb-summary-text">
+            <p ref={summaryRef} id="pb-summary-how" className={`pb-summary-how${expanded ? '' : ' is-clamped'}`}>
+              {summary}
+            </p>
+            {(overflows || expanded) && (
+              <button
+                type="button"
+                className="pp-text-button"
+                aria-expanded={expanded}
+                aria-controls="pb-summary-how"
+                onClick={() => setExpanded(open => !open)}
+              >
+                {expanded ? 'Show less' : 'Read more'}
+              </button>
+            )}
+          </div>
+        )}
+        <ul className="pb-chips" aria-label="Build facts">
+          <li className={`pb-chip${total > 0 && inHand === total ? ' is-done' : ''}`}>
+            {inHand} of {total} parts in hand
           </li>
-        ))}
-      </ul>
-      {video && (
-        <a className="pb-video-link" href={video.toString()} target="_blank" rel="noopener noreferrer">
-          Watch the source video <span aria-hidden="true">↗</span>
-          <span className="visually-hidden"> (opens in a new tab)</span>
+          {facts.map(([label, value]) => (
+            <li key={label} className="pb-chip">
+              <span>{label}:</span> {value}
+            </li>
+          ))}
+        </ul>
+        {video && !videoId && (
+          <a className="pb-video-link" href={video.toString()} target="_blank" rel="noopener noreferrer">
+            Watch the source video <span aria-hidden="true">↗</span>
+            <span className="visually-hidden"> (opens in a new tab)</span>
+          </a>
+        )}
+      </div>
+      {video && videoId && (
+        <a className="pb-video" href={video.toString()} target="_blank" rel="noopener noreferrer">
+          <img src={`https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`} alt="" loading="lazy" />
+          <span className="pb-video-play" aria-hidden="true">
+            ▶
+          </span>
+          <span className="pb-video-label">
+            Source video<span className="visually-hidden"> (opens in a new tab)</span>
+          </span>
         </a>
       )}
     </section>
@@ -233,9 +257,9 @@ function PartsChecklist({
   }
 
   return (
-    <section className="pb-section" aria-labelledby="pb-parts-title">
+    <section className="pb-card pb-section pb-checklist" aria-labelledby="pb-parts-title">
       <h2 id="pb-parts-title">
-        Parts <span>{job.items.length}</span>
+        Parts checklist <span>{job.items.length}</span>
       </h2>
       <ul className="pb-parts">
         {job.items.map(item => {
@@ -342,7 +366,9 @@ function BuildSteps({ job, token }: { job: Job; token: string }) {
   const offer = !pending && (!guide || guide.status === 'failed' || guide.status === 'stale')
   return (
     <section className="pb-section" aria-labelledby="pb-steps-title">
-      <h2 id="pb-steps-title">Build steps</h2>
+      <h2 id="pb-steps-title" tabIndex={-1}>
+        Build steps
+      </h2>
       <div aria-live="polite">
         {pending && (
           <p className="pb-pending">
@@ -389,14 +415,16 @@ function Wiring({ job, onShowReview }: { job: Job; onShowReview: () => void }) {
   if (overview && overview.status !== 'failed' && overview.status !== 'pending' && overview.wiring.length > 0)
     return (
       <Suspense fallback={null}>
-        <div className="pb-wiring">
+        <div className="pb-wiring" id="pb-wiring" tabIndex={-1}>
           <WiringSection overview={overview} />
         </div>
       </Suspense>
     )
   return (
     <section className="pb-section" aria-labelledby="pb-wiring-title">
-      <h2 id="pb-wiring-title">How it’s wired</h2>
+      <h2 id="pb-wiring-title" tabIndex={-1}>
+        How it’s wired
+      </h2>
       <p className="pb-muted">
         {overview?.status === 'pending' ? 'The wiring drawing is still being made.' : 'No wiring drawing yet.'}{' '}
         <button type="button" className="pp-text-button" onClick={onShowReview}>
@@ -417,7 +445,9 @@ function BeforePower({ job }: { job: Job }) {
   if (!needs.length && !assumptions.length) return null
   return (
     <section className="pb-section" aria-labelledby="pb-power-title">
-      <h2 id="pb-power-title">Before you power it</h2>
+      <h2 id="pb-power-title" tabIndex={-1}>
+        Before you power it
+      </h2>
       {needs.length > 0 && <NeedsList needs={needs} showHeading={false} />}
       {assumptions.length > 0 && (
         <div className="pb-assumptions">
@@ -430,6 +460,113 @@ function BeforePower({ job }: { job: Job }) {
         </div>
       )}
     </section>
+  )
+}
+
+// The project's code: the GitHub sources that were read and the code changes drafted for swapped parts.
+function codeOf(job: Job) {
+  const repos = (job.source_reports ?? []).filter(source => source.kind === 'github' && source.status === 'read')
+  const patches = (reportOf(job)?.lines ?? []).filter(line => line.code_patch?.status === 'ready')
+  return { repos, patches }
+}
+
+function Code({ job, onShowPlan }: { job: Job; onShowPlan: () => void }) {
+  const { repos, patches } = codeOf(job)
+  if (!repos.length && !patches.length) return null
+  return (
+    <section className="pb-section" aria-labelledby="pb-code-title">
+      <h2 id="pb-code-title" tabIndex={-1}>
+        Code
+      </h2>
+      {repos.length > 0 && (
+        <ul className="pb-links">
+          {repos.map(repo => (
+            <li key={repo.url}>
+              <a href={repo.url} target="_blank" rel="noopener noreferrer">
+                {repo.url.replace(/^https?:\/\/(www\.)?/, '')} <span aria-hidden="true">↗</span>
+                <span className="visually-hidden"> (opens in a new tab)</span>
+              </a>
+            </li>
+          ))}
+        </ul>
+      )}
+      {patches.length > 0 && (
+        <p className="pb-muted">
+          Code changes for {plural(patches.length, 'swapped part')}:{' '}
+          {patches.map(line => partName(line.item, line.buyable_spec ?? line.item.buyable_spec)).join(', ')}.{' '}
+          <button type="button" className="pp-text-button" onClick={onShowPlan}>
+            See them in the order plan
+          </button>
+        </p>
+      )}
+    </section>
+  )
+}
+
+const plural = (count: number, one: string) => `${count} ${count === 1 ? one : `${one}s`}`
+
+// A tile beside the checklist: a one-line summary that jumps to its full section below.
+function Tile({ target, title, children }: { target: string; title: string; children: ReactNode }) {
+  function jump() {
+    const element = document.getElementById(target)
+    // The wiring drawing starts folded (ProjectOverview.tsx); jumping to it opens it.
+    element?.querySelector<HTMLButtonElement>('.po-wiring-toggle[aria-expanded="false"]')?.click()
+    element?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    element?.focus({ preventScroll: true })
+  }
+  return (
+    <li>
+      <button type="button" className="pb-card pb-tile" onClick={jump}>
+        <span className="pb-tile-title">{title}</span>
+        <span className="pb-tile-text">{children}</span>
+      </button>
+    </li>
+  )
+}
+
+function Tiles({ job }: { job: Job }) {
+  const guide = job.build_guide
+  const overview = job.overview
+  const wiring = overview && overview.status !== 'failed' && overview.status !== 'pending' ? overview.wiring : []
+  const toCheck = wiring.filter(wireFlagged).length
+  const { repos, patches } = codeOf(job)
+  const flags = job.safety_flags?.length ?? 0
+  const assumptions = job.project?.assumptions?.length ?? 0
+  const steps = guide && (guide.status === 'ready' || guide.status === 'stale') ? guide.steps.length : 0
+  return (
+    <ul className="pb-tiles" aria-label="Jump to a section">
+      <Tile target="pb-steps-title" title="Build steps">
+        {steps
+          ? `${plural(steps, 'step')}, written by AI from the project`
+          : guide?.status === 'pending'
+            ? 'Being written…'
+            : 'Step-by-step instructions for this build'}
+      </Tile>
+      <Tile target={wiring.length ? 'pb-wiring' : 'pb-wiring-title'} title="How it’s wired">
+        {wiring.length
+          ? `Diagram and pin list, ${plural(wiring.length, 'connection')}${toCheck ? ` · ${toCheck} to check` : ''}`
+          : overview?.status === 'pending'
+            ? 'The drawing is still being made'
+            : 'No wiring drawing yet'}
+      </Tile>
+      {(repos.length > 0 || patches.length > 0) && (
+        <Tile target="pb-code-title" title="Code">
+          {[
+            repos.length === 1 ? 'GitHub repo' : repos.length ? plural(repos.length, 'GitHub repo') : '',
+            patches.length ? 'code changes for swapped parts' : '',
+          ]
+            .filter(Boolean)
+            .join(' · ')}
+        </Tile>
+      )}
+      {(flags > 0 || assumptions > 0) && (
+        <Tile target="pb-power-title" title="Before you power it">
+          {[flags ? 'Safety checks' : '', assumptions ? `${plural(assumptions, 'assumption')} to confirm` : '']
+            .filter(Boolean)
+            .join(' and ')}
+        </Tile>
+      )}
+    </ul>
   )
 }
 
@@ -454,16 +591,20 @@ export default function BuildPage({
   return (
     <section className="job-panel pp-stage pb-page">
       <Summary job={job} inHand={inHand} />
-      <PartsChecklist
-        job={job}
-        token={token}
-        onJob={onJob}
-        onShowPlan={onShowPlan}
-        isReceived={isReceived}
-        setOverrides={setOverrides}
-      />
+      <div className="pb-grid">
+        <PartsChecklist
+          job={job}
+          token={token}
+          onJob={onJob}
+          onShowPlan={onShowPlan}
+          isReceived={isReceived}
+          setOverrides={setOverrides}
+        />
+        <Tiles job={job} />
+      </div>
       <BuildSteps job={job} token={token} />
       <Wiring job={job} onShowReview={onShowReview} />
+      <Code job={job} onShowPlan={onShowPlan} />
       <BeforePower job={job} />
     </section>
   )
