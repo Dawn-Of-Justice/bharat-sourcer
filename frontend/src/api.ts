@@ -150,6 +150,8 @@ export interface BomItem {
   // 'inferred' means the source gave no count and the model filled qty (see qty_reason); defaults to 'stated'.
   qty_source?: 'stated' | 'inferred' | 'user'
   qty_reason?: string | null
+  // A count is not meaningful (wire, heat shrink, a printed case): shown as "As needed"; qty is one pack.
+  qty_as_needed?: boolean
   user_has_it: boolean
   user_edited: boolean
   evidence: Evidence[]

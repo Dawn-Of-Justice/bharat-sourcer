@@ -3,7 +3,7 @@
   "info": {
     "title": "Bharat Sourcer API",
     "description": "Demo or live YouTube and project-page extraction with optional Firestore job persistence.",
-    "version": "0.40.0"
+    "version": "0.41.0"
   },
   "paths": {
     "/v1/session/guest": {
@@ -4407,6 +4407,11 @@
               }
             ],
             "title": "Qty Reason"
+          },
+          "qty_as_needed": {
+            "type": "boolean",
+            "title": "Qty As Needed",
+            "default": false
           },
           "user_has_it": {
             "type": "boolean",

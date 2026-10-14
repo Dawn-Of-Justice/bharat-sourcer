@@ -984,10 +984,13 @@ class JobService:
                     items[edit.line_id].buyable_spec = edit.buyable_spec.model_copy(
                         update={"origin": "user"}
                     )
-                if edit.qty is not None and edit.qty != items[edit.line_id].qty:
+                if edit.qty is not None and (
+                    edit.qty != items[edit.line_id].qty or items[edit.line_id].qty_as_needed
+                ):
                     items[edit.line_id].qty = edit.qty
                     items[edit.line_id].qty_source = "user"
                     items[edit.line_id].qty_reason = None
+                    items[edit.line_id].qty_as_needed = False
                 if edit.requirements is not None:
                     items[edit.line_id].requirements = edit.requirements
                 if edit.specs is not None:

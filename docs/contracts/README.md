@@ -1,4 +1,8 @@
-# Implemented API contract — v0.40.0
+# Implemented API contract — v0.41.0
+
+v0.41.0: new `BomItem.qty_as_needed: bool` (default false), set by the reconcile pass for
+lines whose amount is not a meaningful count (wire, heat shrink, solder, a printed case).
+`qty` stays 1 (one pack); clients show "As needed". An `update` edit with `qty` clears it.
 
 v0.40.0 adds the [build guide](build-guide.md) for the build page. New
 `Job.build_received: string[]` (at most 100 line ids) and

@@ -3,6 +3,11 @@ import type { BomItem, BuyableSpec, ReportLine } from './api'
 const reference = '(?:VR|IC|ZD|PZ|R|C|D|Q|T|U|L|J|SW)\\d+(?:\\s*[,/]\\s*(?:VR|IC|ZD|PZ|R|C|D|Q|T|U|L|J|SW)\\d+)*'
 const referenceOnly = new RegExp(`^${reference}$`, 'i')
 
+// How a line's amount reads in lists: "As needed" when a count is not meaningful (backend reconcile.py).
+export function qtyLabel(item: Pick<BomItem, 'qty' | 'qty_as_needed'>): string {
+  return item.qty_as_needed ? 'As needed' : `×${item.qty ?? '?'}`
+}
+
 // A selected listing describes the actual purchase, including its value and rating.
 // Keep the full seller title: blindly stripping suffixes can remove package/model data.
 export function reportPartName(line: ReportLine): string {
