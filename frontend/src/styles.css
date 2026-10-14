@@ -8822,7 +8822,14 @@ button.pp-row-summary {
   border-radius: 4px;
 }
 .pb-steps.is-single {
+  grid-template-areas: 'step';
   border-top: 0;
+}
+.pb-steps.is-single > .pb-step {
+  grid-area: step;
+}
+.pb-steps.is-single > .pb-step.is-behind {
+  visibility: hidden;
 }
 .pb-steps.is-single .pb-step {
   padding-top: 4px;
