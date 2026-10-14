@@ -1774,6 +1774,37 @@ svg {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
+.chat-text {
+  margin-top: 8px;
+  color: #304f4d;
+  font-size: 12px;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+.chat-text > p,
+.chat-text > ul,
+.chat-text > ol {
+  margin: 6px 0 0;
+}
+.chat-text > :first-child {
+  margin-top: 0;
+}
+.chat-text > ul,
+.chat-text > ol {
+  padding-left: 18px;
+}
+.chat-text li + li {
+  margin-top: 4px;
+}
+.chat-text strong {
+  color: #1f4643;
+}
+.chat-text code {
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: #edf3ee;
+  font-size: 11px;
+}
 .chat-citations {
   display: grid;
   gap: 6px;
@@ -3375,6 +3406,14 @@ svg {
   margin-top: 14px;
   font-size: 14px;
   line-height: 1.85;
+}
+.chat-text {
+  margin-top: 14px;
+  font-size: 14px;
+  line-height: 1.85;
+}
+.chat-text code {
+  font-size: 13px;
 }
 .message-meta {
   font-size: 12px;
