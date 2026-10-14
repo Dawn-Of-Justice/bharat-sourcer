@@ -53,6 +53,7 @@ import { ExtractionProgress } from './ExtractionProgress'
 import { PartIllustration } from './PartIllustration'
 import { useToast } from './toastContext'
 import {
+  loadBuildPage,
   loadChatPanel,
   loadProjectOverview,
   loadResults,
@@ -65,6 +66,7 @@ import {
 
 // Views off the landing path load on demand; hovering the control that opens one preloads its chunk.
 const Results = lazy(loadResults)
+const BuildPage = lazy(loadBuildPage)
 const SharedReport = lazy(loadSharedReport)
 const ChatPanel = lazy(loadChatPanel)
 const ProjectHero = lazy(() => loadProjectOverview().then(module => ({ default: module.ProjectHero })))
@@ -1823,14 +1825,22 @@ function JobPage({ id }: { id: string }) {
     }
   }
   // null follows the live stage; a number is an earlier step the user chose to look at.
-  const [viewStep, setViewStep] = useState<number | null>(null)
+  // The local preview's done/plan stages open on the order plan; stage=build opens on the build page.
+  const previewPlan =
+    localPreview &&
+    ['done', 'plan', 'search-results'].includes(new URLSearchParams(window.location.search).get('stage') ?? '')
+  const landing = (status: Job['status'] | undefined) => (previewPlan && status === 'done' ? 1 : null)
+  const [viewStep, setViewStep] = useState<number | null>(() => landing(job?.status))
   // Which way the content slides in: back to an earlier step, or forward.
   const [direction, setDirection] = useState<'back' | 'forward'>('forward')
-  // A new stage shows itself: drop any earlier step the user was looking at.
+  // A new stage shows itself: drop any earlier step the user was looking at. A project that finishes while the page
+  // is open shows its order plan first (what to buy); one that was already finished opens on "Build it".
   const [shownStatus, setShownStatus] = useState(job?.status)
   if (job?.status !== shownStatus) {
     setShownStatus(job?.status)
-    setViewStep(null)
+    const finishedLive =
+      job?.status === 'done' && !!shownStatus && ['resolving', 'sourcing', 'paused'].includes(shownStatus)
+    setViewStep(finishedLive ? 1 : shownStatus ? null : landing(job?.status))
     setDirection('forward')
   }
 
@@ -1957,14 +1967,40 @@ function JobPage({ id }: { id: string }) {
     heading.tabIndex = -1
     heading.focus({ preventScroll: true })
   }, [job, viewing, currentStep])
-  // The order plan's code is needed from the seller search on; fetch it ahead.
+  // The order plan's code is needed from the seller search on, the build page's once the project is done.
   useEffect(() => {
     if (currentStep >= 1) preload(loadResults)
+    if (currentStep >= 2) preload(loadBuildPage)
   }, [currentStep])
+  // Only shown while sellers are searched (a finished project's earlier steps are the Review and order plan pages).
   const back = {
-    label: job?.status === 'done' ? 'Back to order plan' : 'Back to seller search',
+    label: 'Back to seller search',
     onClick: () => view(currentStep),
   }
+  // A finished project's order plan: step 1, reached from the step strip or when sourcing finishes live.
+  const results = job ? (
+    <Suspense fallback={<ResultsSkeleton />}>
+      <Results
+        attentionOpen={attentionOpen}
+        onAttentionChange={setAttention}
+        job={job}
+        token={token}
+        onJob={applySnapshot}
+        onOpenChat={() => setChatOpen(true)}
+        openPart={openPart}
+        onOpenPart={setOpenPart}
+        onRetry={async ids => {
+          await refreshOffers(id, token, ids)
+          setOpenPart(null)
+          setChatOpen(false)
+          setAttention(false)
+          setViewStep(null)
+          setJob(previous => (previous ? { ...previous, status: 'resolving' } : previous))
+          setRevision(value => value + 1)
+        }}
+      />
+    </Suspense>
+  ) : null
   const pauseControl =
     job && !job.demo && ['resolving', 'sourcing', 'paused'].includes(job.status) ? (
       <button
@@ -2079,6 +2115,7 @@ function JobPage({ id }: { id: string }) {
               onView={view}
               onPrefetch={step => {
                 if (step === 1) preload(loadResults)
+                if (step === 2) preload(loadBuildPage)
               }}
               action={pauseControl}
             />
@@ -2107,6 +2144,8 @@ function JobPage({ id }: { id: string }) {
                   ) : (
                     <ConfirmedParts job={job} back={back} />
                   )
+                ) : job.status === 'done' ? (
+                  results
                 ) : (
                   <AnalysisProgress job={job} back={back} />
                 )
@@ -2131,25 +2170,13 @@ function JobPage({ id }: { id: string }) {
                     />
                   ) : null}
                   {job.status === 'done' ? (
-                    <Suspense fallback={<ResultsSkeleton />}>
-                      <Results
-                        attentionOpen={attentionOpen}
-                        onAttentionChange={setAttention}
+                    <Suspense fallback={<ResultsSkeleton label="Loading your build…" />}>
+                      <BuildPage
                         job={job}
                         token={token}
                         onJob={applySnapshot}
-                        onOpenChat={() => setChatOpen(true)}
-                        openPart={openPart}
-                        onOpenPart={setOpenPart}
-                        onRetry={async ids => {
-                          await refreshOffers(id, token, ids)
-                          setOpenPart(null)
-                          setChatOpen(false)
-                          setAttention(false)
-                          setViewStep(null)
-                          setJob(previous => (previous ? { ...previous, status: 'resolving' } : previous))
-                          setRevision(value => value + 1)
-                        }}
+                        onShowPlan={() => view(1)}
+                        onShowReview={() => view(0)}
                       />
                     </Suspense>
                   ) : null}
@@ -2200,6 +2227,7 @@ export default function App() {
           <a href="/job/ui-preview?preview=1&stage=sourcing">Parallel progress</a>
           <a href="/job/ui-preview?preview=1&stage=done">Results</a>
           <a href="/job/ui-preview?preview=1&stage=plan">Order plan</a>
+          <a href="/job/ui-preview?preview=1&stage=build">Build</a>
           <a href="/shared/ui-preview.dummy?preview=1">Shared link</a>
         </div>
       )}

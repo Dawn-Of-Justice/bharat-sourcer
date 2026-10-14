@@ -348,3 +348,19 @@ test('preview project overview is labelled sample data and every wire names an e
   assert.equal(previewRequest('/v1/jobs/ui-preview', {}).overview.status, 'ready')
   assert.equal(requests, 0)
 })
+
+test('preview build endpoints stay local, refuse unfinished projects, and the sample guide is labelled', async () => {
+  await assert.rejects(api.setBuildProgress('ui-preview', 'dummy-token', 'L01', true), error => error.status === 409)
+  await assert.rejects(api.requestBuildGuide('ui-preview', 'dummy-token'), error => error.status === 409)
+  const guide = load('./previewBuild').sampleBuildGuide()
+  assert.equal(guide.status, 'ready')
+  assert.equal(guide.demo, true)
+  assert.match(guide.message, /Dummy/)
+  assert.ok(guide.steps.length >= 3 && guide.steps.length <= 20)
+  for (const step of guide.steps) {
+    assert.match(step.title, /\(demo\)$/)
+    assert.equal(step.origin, 'ai_inferred')
+    if (step.timestamp) assert.match(step.timestamp, /^\d{1,2}(:\d{2}){1,2}$/)
+  }
+  assert.equal(requests, 0)
+})

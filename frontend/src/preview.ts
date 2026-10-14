@@ -3,6 +3,7 @@ import { reviewItems, reviewJobFields } from './previewReview'
 import type { ChatMessage, Job, JobStatus, BomItem, ProjectUnderstanding } from './api'
 import { planPreview, previewCities, previewReportRequest } from './previewReport'
 import { sampleOverview, sampleOverviewState } from './previewOverview'
+import { sampleBuildGuide } from './previewBuild'
 
 const items: BomItem[] = ['Sample controller board', 'Sample sensor module', 'Jumper wires'].map((raw_name, index) => ({
   line_id: 'L0' + (index + 1),
@@ -59,7 +60,7 @@ const project: ProjectUnderstanding = {
 }
 const phase = new URLSearchParams(window.location.search).get('stage')
 const status: JobStatus =
-  phase === 'done' || phase === 'plan' || phase === 'search-results'
+  phase === 'done' || phase === 'plan' || phase === 'search-results' || phase === 'build'
     ? 'done'
     : phase === 'sourcing'
       ? 'sourcing'
@@ -220,6 +221,24 @@ if (status === 'done') {
 }
 // Both completed stages use the current interactive report fixtures; preview requests stay local.
 if (status === 'done') job = planPreview(job)
+// stage=build opens on the build page with a ready sample guide, the sample wiring and a dummy video link for the
+// step timestamps. The other finished stages start without a guide, so opening "Build it" shows it being written.
+if (phase === 'build') {
+  job.input = { ...job.input, url: 'https://www.youtube.com/watch?v=demo-video' }
+  job.build_guide = sampleBuildGuide()
+  job.build_received = ['L01']
+  job.overview = sampleOverview()
+} else if (status === 'done') {
+  job.build_guide = null
+  job.build_received = []
+}
+let buildGuideReadyAt = 0
+function settleBuildGuide() {
+  if (job.build_guide?.status === 'pending' && Date.now() >= buildGuideReadyAt) {
+    job.build_guide = sampleBuildGuide()
+    job.updated_at = new Date().toISOString()
+  }
+}
 
 // Preview callers always send a JSON string body; JSON.parse coerces its argument to a string itself.
 function jsonBody<T>(options: RequestInit): T {
@@ -228,6 +247,7 @@ function jsonBody<T>(options: RequestInit): T {
 
 export function previewRequest(path: string, options: RequestInit): unknown {
   settleOverview()
+  settleBuildGuide()
   // The extra dummy project cards open the one sample project.
   path = path.replace(/^\/v1\/jobs\/ui-preview-[a-z]+(?=\/|$)/, '/v1/jobs/ui-preview')
   if (path === '/v1/countries')
@@ -444,6 +464,25 @@ export function previewRequest(path: string, options: RequestInit): unknown {
       ]
     }
     return structuredClone({ ...job, updated_at: new Date().toISOString() })
+  }
+  if (path === '/v1/jobs/ui-preview/build-progress' || path === '/v1/jobs/ui-preview/build-guide') {
+    if (job.status !== 'done') throw new ApiError('Dummy preview: the project is not finished.', 409, 'INVALID_STATE')
+    if (path.endsWith('/build-progress')) {
+      const { line_id, received } = jsonBody<{ line_id: string; received: boolean }>(options)
+      if (!job.items.some(item => item.line_id === line_id))
+        throw new ApiError('Dummy preview: no such line.', 422, 'INVALID_LINE')
+      const rest = (job.build_received ?? []).filter(id => id !== line_id)
+      job.build_received = received ? [...rest, line_id] : rest
+      job.updated_at = new Date().toISOString()
+      return structuredClone(job)
+    }
+    if (options.method === 'POST' && (!job.build_guide || ['failed', 'stale'].includes(job.build_guide.status))) {
+      job.build_guide = { ...sampleBuildGuide(), status: 'pending', message: null, steps: [] }
+      job.updated_at = new Date().toISOString()
+      buildGuideReadyAt = Date.now() + 5000
+    }
+    if (!job.build_guide) throw new ApiError('Dummy preview: no build guide yet.', 404, 'BUILD_GUIDE_NOT_FOUND')
+    return structuredClone(job.build_guide)
   }
   if (path === '/v1/jobs/ui-preview/overview') {
     if (

@@ -19,6 +19,7 @@ const once = <T>(load: () => Promise<T>) => {
     }))
 }
 export const loadResults = once(() => import('./Results'))
+export const loadBuildPage = once(() => import('./BuildPage'))
 export const loadSharedReport = once(() => import('./SharedReport'))
 export const loadChatPanel = once(() => import('./ChatPanel'))
 export const loadProjectOverview = once(() => import('./ProjectOverview'))

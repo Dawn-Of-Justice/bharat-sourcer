@@ -4,12 +4,20 @@ import { ChatIcon } from './LandingIcons'
 
 // The project page's three-step journey: the same order the user goes through.
 // Seller search and the order plan share one step: the plan shows what was found and what to search again.
-const steps = ['Review the parts', 'Sellers and order plan'] as const
+// A finished project goes on to "Build it": the parts checklist and build steps.
+const steps = ['Review the parts', 'Sellers and order plan', 'Build it'] as const
 
 export function stepOf(job: Job): number {
   if (['queued', 'extracting', 'awaiting_confirmation'].includes(job.status)) return 0
-  if (['resolving', 'sourcing', 'paused', 'done'].includes(job.status)) return 1
+  if (['resolving', 'sourcing', 'paused'].includes(job.status)) return 1
+  if (job.status === 'done') return 2
   return job.report || job.items.length ? 1 : 0
+}
+
+// Parts the maker has in hand: the ones they already had plus the ones ticked as received.
+function partsInHand(job: Job): number {
+  const received = new Set(job.build_received ?? [])
+  return job.items.filter(item => item.user_has_it || received.has(item.line_id)).length
 }
 
 function stageNote(job: Job, reading: string): string {
@@ -26,6 +34,7 @@ function stageNote(job: Job, reading: string): string {
     ).length
     return `Checking sellers, ${done} of ${job.items.length} parts done`
   }
+  if (job.status === 'done') return `${partsInHand(job)} of ${job.items.length} parts in hand`
   return 'Ready'
 }
 
@@ -47,7 +56,8 @@ export function StageSteps({
   action?: ReactNode
 }) {
   const current = stepOf(job)
-  const finished = job.status === 'done'
+  // A finished project marks the order plan done; "Build it" stays the current step while the maker builds.
+  const finished = job.status === 'done' && current < steps.length - 1
   const failed = job.status === 'failed'
   const working = ['queued', 'extracting', 'resolving', 'sourcing'].includes(job.status)
   return (
