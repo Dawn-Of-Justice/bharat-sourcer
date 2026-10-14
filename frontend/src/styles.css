@@ -8681,62 +8681,360 @@ button.pp-row-summary {
   gap: 20px;
   min-width: 0;
 }
-.pb-tiles {
-  display: grid;
-  gap: 14px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-.pb-tile {
-  display: grid;
-  gap: 6px;
-  width: 100%;
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-  transition:
-    border-color 0.15s ease,
-    box-shadow 0.15s ease;
-}
-.pb-tile:hover {
-  border-color: var(--pp-teal);
-  box-shadow: 0 4px 14px rgb(23 94 85 / 0.08);
-}
-.pb-tile-title {
-  color: var(--pp-ink);
-  font-size: 18px;
-  font-weight: 800;
-  letter-spacing: -0.02em;
-}
-.pb-tile-text {
-  color: #4b625d;
-  font-size: 15px;
-  line-height: 1.5;
-}
 .pb-checklist .pb-parts {
   border-top: 0;
 }
 .pb-checklist .pb-part:last-child {
   border-bottom: 0;
 }
-.pb-links {
+.pb-checklist .pb-part {
+  transition: background-color 0.2s ease;
+}
+.pb-part.is-in-step {
+  margin-inline: -10px;
+  padding-inline: 12px;
+  border-radius: 10px;
+  background: #fdf3e3;
+}
+.pb-part-tag {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: #f6dcb2;
+  color: #74501c;
+  font-size: 12px;
+  font-weight: 800;
+  vertical-align: 1px;
+}
+
+/* The build guide beside the checklist: Steps | Wiring | Code | Safety tabs shown in place. */
+.pb-guide {
   display: grid;
-  gap: 6px;
+  min-width: 0;
+  padding: 0;
+  overflow: hidden;
+}
+.pb-tabs {
+  display: flex;
+  gap: 2px;
+  padding: 0 14px;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--pp-line);
+  scrollbar-width: none;
+}
+.pb-tab {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 7px;
+  min-height: 52px;
+  padding: 0 12px;
+  border: 0;
+  border-bottom: 3px solid transparent;
+  background: none;
+  color: var(--pp-muted);
+  font: inherit;
+  font-size: 15px;
+  font-weight: 750;
+  cursor: pointer;
+}
+.pb-tab:hover {
+  color: var(--pp-ink);
+}
+.pb-tab.is-selected {
+  border-bottom-color: var(--pp-teal);
+  color: var(--pp-ink);
+}
+.pb-tab:focus-visible {
+  outline: 3px solid #d9802e;
+  outline-offset: -3px;
+  border-radius: 8px 8px 0 0;
+}
+.pb-tab-badge {
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--pp-mint);
+  color: #175e55;
+  font-size: 12px;
+  font-weight: 800;
+}
+.pb-tab-badge.is-warn {
+  background: #fdf0dc;
+  color: #74501c;
+}
+.pb-tab-panel {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+  padding: 20px 24px 24px;
+}
+.pb-tab-panel:focus-visible {
+  outline: 3px solid #d9802e;
+  outline-offset: -3px;
+}
+.pb-steps-tab {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+.pb-steps-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.pb-steps-count {
+  margin: 0;
+  color: var(--pp-ink);
+  font-size: 15px;
+  font-weight: 800;
+}
+.pb-pips {
+  display: flex;
+  gap: 4px;
   margin: 0;
   padding: 0;
   list-style: none;
 }
-.pb-links a {
-  color: var(--pp-teal);
-  font-size: 15px;
-  font-weight: 700;
-  overflow-wrap: anywhere;
-  text-underline-offset: 3px;
+.pb-pips li {
+  flex: 1;
 }
-.pb-section > h2:focus,
-.pb-wiring:focus {
-  outline: none;
+.pb-pip {
+  display: block;
+  width: 100%;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  background: linear-gradient(var(--pp-line), var(--pp-line)) center / 100% 6px no-repeat;
+  cursor: pointer;
+}
+.pb-pip.is-past {
+  background-image: linear-gradient(#8fc3b9, #8fc3b9);
+}
+.pb-pip.is-current {
+  background-image: linear-gradient(var(--pp-teal), var(--pp-teal));
+}
+.pb-pip:focus-visible {
+  outline: 3px solid #d9802e;
+  outline-offset: 1px;
+  border-radius: 4px;
+}
+.pb-steps.is-single {
+  border-top: 0;
+}
+.pb-steps.is-single .pb-step {
+  padding-top: 4px;
+  border-bottom: 0;
+}
+.pb-steps.is-single .pb-step-body h3 {
+  font-size: 19px;
+}
+.pb-step-nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding-top: 14px;
+  border-top: 1px solid var(--pp-line);
+}
+.pb-step-prev {
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1px solid var(--pp-line);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--pp-ink);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 750;
+  cursor: pointer;
+}
+.pb-step-prev:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.pb-step-last {
+  margin: 0;
+  color: var(--pp-muted);
+  font-size: 14px;
+  font-weight: 650;
+}
+.pb-guide .po-wiring.is-embedded {
+  margin: 0;
+  border: 0;
+  background: none;
+}
+.pb-guide .po-wiring.is-embedded .po-wiring-panel {
+  padding: 0;
+}
+.pb-guide .po-wiring.is-embedded .po-wiring-bar {
+  padding-top: 0;
+  border-top: 0;
+}
+.pb-wiring-full {
+  justify-self: start;
+  min-height: 40px;
+  margin-top: 12px;
+  padding: 0 14px;
+  border: 1px solid var(--pp-line);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--pp-ink);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 750;
+  cursor: pointer;
+}
+.pb-wiring-full:hover {
+  border-color: var(--pp-teal);
+}
+.pb-wiring-dialog {
+  width: min(1400px, calc(100% - 32px));
+  max-height: calc(100dvh - 32px);
+  padding: 20px 24px 24px;
+  overflow-y: auto;
+  border: 1px solid var(--pp-line);
+  border-radius: 20px;
+  background: var(--pp-paper);
+  color: var(--pp-ink);
+  box-shadow: 0 25px 100px #102c3940;
+}
+.pb-wiring-dialog::backdrop {
+  background: #102c3970;
+  backdrop-filter: blur(4px);
+}
+.pb-wiring-dialog-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.pb-wiring-dialog-head h2 {
+  margin: 0;
+  font-size: 22px;
+  letter-spacing: -0.03em;
+}
+.pb-wiring-dialog .dialog-close {
+  position: static;
+}
+.pb-wiring-dialog .po-wiring.is-embedded {
+  margin: 0;
+  border: 0;
+  background: none;
+}
+.pb-wiring-dialog .po-wiring-panel {
+  padding: 0;
+}
+.pb-wiring-dialog .po-wiring-bar {
+  padding-top: 0;
+  border-top: 0;
+}
+.pb-step-nav .nav-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--pp-teal);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 800;
+}
+.pb-step-nav .nav-cta:hover {
+  background: #135e57;
+}
+.pb-guide .pp-needs {
+  margin: 0;
+}
+.pb-guide .pp-needs > :first-child {
+  border-top: 0;
+}
+.pb-safety,
+.pb-code {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+.pb-repo {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  border: 1px solid var(--pp-line);
+  border-radius: 12px;
+  background: #fff;
+  color: var(--pp-ink);
+  text-decoration: none;
+  transition: border-color 0.15s ease;
+}
+.pb-repo:hover {
+  border-color: var(--pp-teal);
+}
+.pb-repo-icon {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: #1d2b28;
+  color: #fff;
+  font-family: ui-monospace, monospace;
+  font-size: 13px;
+  font-weight: 700;
+}
+.pb-repo-text {
+  display: grid;
+  flex: 1;
+  gap: 2px;
+  min-width: 0;
+}
+.pb-repo-text strong {
+  font-size: 15px;
+  overflow-wrap: anywhere;
+}
+.pb-repo-text span {
+  color: var(--pp-muted);
+  font-size: 13px;
+}
+.pb-repo-open {
+  flex-shrink: 0;
+  color: var(--pp-teal);
+  font-size: 14px;
+  font-weight: 750;
+}
+.pb-patches h3 {
+  margin: 0 0 8px;
+  color: var(--pp-ink);
+  font-size: 16px;
+}
+.pb-patches ul {
+  display: grid;
+  gap: 8px;
+  margin: 0 0 10px;
+  padding: 0;
+  list-style: none;
+}
+.pb-patches li {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 4px 12px;
+  font-size: 15px;
+}
+.pb-patch-name {
+  color: var(--pp-ink);
+  font-weight: 700;
+}
+.pb-patch-meta {
+  color: var(--pp-muted);
+  font-size: 14px;
 }
 @media (min-width: 760px) {
   .pb-summary:has(.pb-video) {
@@ -8745,8 +9043,13 @@ button.pp-row-summary {
 }
 @media (min-width: 900px) {
   .pb-grid {
-    grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
     gap: 24px;
+  }
+  /* The checklist stays in view while the steps are followed. */
+  .pb-checklist {
+    position: sticky;
+    top: 16px;
   }
 }
 .pb-summary h2 {
@@ -8981,9 +9284,6 @@ span.pb-step-time {
   color: var(--pp-muted);
   font-size: 14px;
   line-height: 1.55;
-}
-.pb-wiring .po-wiring {
-  margin: 0;
 }
 .pb-section .pp-needs {
   margin: 0;

@@ -1,4 +1,4 @@
-import { Suspense, lazy, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { Suspense, lazy, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import {
   getBuildGuide,
   reportOf,
@@ -221,6 +221,7 @@ function PartsChecklist({
   onShowPlan,
   isReceived,
   setOverrides,
+  highlight,
 }: {
   job: Job
   token: string
@@ -228,6 +229,7 @@ function PartsChecklist({
   onShowPlan: () => void
   isReceived: (id: string) => boolean
   setOverrides: (update: (current: Record<string, boolean>) => Record<string, boolean>) => void
+  highlight: string[]
 }) {
   // The rows being saved and one error per row; the page keeps the unconfirmed ticks (setOverrides).
   const [saving, setSaving] = useState<Record<string, boolean>>({})
@@ -269,7 +271,10 @@ function PartsChecklist({
           const seller = sellerOf.get(id)
           const name = partName(item, reportLines.get(id)?.buyable_spec ?? item.buyable_spec)
           return (
-            <li key={id} className={`pb-part${checked ? ' is-checked' : ''}`}>
+            <li
+              key={id}
+              className={`pb-part${checked ? ' is-checked' : ''}${highlight.includes(id) ? ' is-in-step' : ''}`}
+            >
               <label className="pp-review-have pb-check">
                 <input
                   id={`pb-part-${id}`}
@@ -279,7 +284,10 @@ function PartsChecklist({
                   aria-describedby={`pb-part-${id}-note`}
                   onChange={event => void toggle(id, event.target.checked)}
                 />
-                <span className="pb-part-name">{name}</span>
+                <span className="pb-part-name">
+                  {name}
+                  {highlight.includes(id) && <span className="pb-part-tag">This step</span>}
+                </span>
               </label>
               <span className="pb-part-qty">{qtyLabel(item)}</span>
               <span id={`pb-part-${id}-note`} className="pb-part-note">
@@ -358,17 +366,43 @@ function Step({ step, number, job, names }: { step: BuildStep; number: number; j
   )
 }
 
-function BuildSteps({ job, token }: { job: Job; token: string }) {
+// The step a viewer was on, kept in this browser only so a returning maker picks up where they left off.
+const stepKey = (jobId: string) => `bharat-sourcer:build-step:${jobId}`
+function savedStep(jobId: string): number {
+  try {
+    return Math.max(0, Number(localStorage.getItem(stepKey(jobId))) || 0)
+  } catch {
+    return 0
+  }
+}
+function saveStep(jobId: string, index: number) {
+  try {
+    localStorage.setItem(stepKey(jobId), String(index))
+  } catch {
+    // Storage blocked: the step simply starts at 1 next time.
+  }
+}
+
+function BuildSteps({ job, token, onStepParts }: { job: Job; token: string; onStepParts: (ids: string[]) => void }) {
   const { guide, busy, error, request } = useBuildGuide(job, token)
   const names = new Map(job.items.map(item => [item.line_id, partName(item)]))
   const pending = guide?.status === 'pending' || (busy && !guide)
-  const showSteps = (guide?.status === 'ready' || guide?.status === 'stale') && guide.steps.length > 0
+  const steps = (guide?.status === 'ready' || guide?.status === 'stale') && guide ? guide.steps : []
   const offer = !pending && (!guide || guide.status === 'failed' || guide.status === 'stale')
+  const [all, setAll] = useState(false)
+  const [picked, setPicked] = useState(() => savedStep(job.job_id))
+  const current = Math.min(picked, Math.max(steps.length - 1, 0))
+  const step = steps[current]
+  const focusParts = !all && step ? step.line_ids.join(' ') : ''
+  useEffect(() => {
+    onStepParts(focusParts ? focusParts.split(' ') : [])
+  }, [focusParts, onStepParts])
+  function go(index: number) {
+    setPicked(index)
+    saveStep(job.job_id, index)
+  }
   return (
-    <section className="pb-section" aria-labelledby="pb-steps-title">
-      <h2 id="pb-steps-title" tabIndex={-1}>
-        Build steps
-      </h2>
+    <div className="pb-steps-tab">
       <div aria-live="polite">
         {pending && (
           <p className="pb-pending">
@@ -378,7 +412,7 @@ function BuildSteps({ job, token }: { job: Job; token: string }) {
         )}
       </div>
       {offer && (
-        <div className="pb-card pb-offer">
+        <div className="pb-offer">
           <p>
             {guide?.message ||
               (guide?.status === 'failed'
@@ -396,58 +430,132 @@ function BuildSteps({ job, token }: { job: Job; token: string }) {
           {error}
         </p>
       )}
-      {showSteps && (
+      {step && (
         <>
-          <ol className="pb-steps">
-            {guide.steps.map((step, index) => (
-              <Step key={index} step={step} number={index + 1} job={job} names={names} />
-            ))}
-          </ol>
-          {guide.status === 'ready' && guide.message && <p className="pb-note">{guide.message}</p>}
+          <div className="pb-steps-bar">
+            <p className="pb-steps-count" aria-live="polite">
+              {all ? plural(steps.length, 'step') : `Step ${current + 1} of ${steps.length}`}
+            </p>
+            <div className="po-segmented" role="group" aria-label="Show steps">
+              {[false, true].map(option => (
+                <button
+                  key={String(option)}
+                  type="button"
+                  aria-pressed={all === option}
+                  className={all === option ? 'is-selected' : ''}
+                  onClick={() => setAll(option)}
+                >
+                  {option ? 'All' : 'One at a time'}
+                </button>
+              ))}
+            </div>
+          </div>
+          {all ? (
+            <ol className="pb-steps">
+              {steps.map((entry, index) => (
+                <Step key={index} step={entry} number={index + 1} job={job} names={names} />
+              ))}
+            </ol>
+          ) : (
+            <>
+              <ol className="pb-pips" aria-label="Steps">
+                {steps.map((entry, index) => (
+                  <li key={index}>
+                    <button
+                      type="button"
+                      className={`pb-pip${index < current ? ' is-past' : ''}${index === current ? ' is-current' : ''}`}
+                      aria-current={index === current ? 'step' : undefined}
+                      aria-label={`Step ${index + 1}: ${entry.title}`}
+                      title={entry.title}
+                      onClick={() => go(index)}
+                    />
+                  </li>
+                ))}
+              </ol>
+              <ol className="pb-steps is-single" start={current + 1}>
+                <Step step={step} number={current + 1} job={job} names={names} />
+              </ol>
+              <div className="pb-step-nav">
+                <button type="button" className="pb-step-prev" disabled={current === 0} onClick={() => go(current - 1)}>
+                  <span aria-hidden="true">←</span> Previous
+                </button>
+                {current < steps.length - 1 ? (
+                  <button type="button" className="nav-cta" onClick={() => go(current + 1)}>
+                    Next step <span aria-hidden="true">→</span>
+                  </button>
+                ) : (
+                  <p className="pb-step-last">Last step. Check the Safety tab before you power it.</p>
+                )}
+              </div>
+            </>
+          )}
+          {guide?.status === 'ready' && guide.message && <p className="pb-note">{guide.message}</p>}
         </>
       )}
-    </section>
+    </div>
+  )
+}
+
+// The wiring drawing over the whole window, for a diagram too wide for the tab.
+function FullWiring({ overview, close }: { overview: NonNullable<Job['overview']>; close: () => void }) {
+  const [element, setElement] = useState<HTMLDialogElement | null>(null)
+  useEffect(() => {
+    if (element && !element.open) element.showModal()
+    return () => element?.close()
+  }, [element])
+  return (
+    <dialog
+      ref={setElement}
+      className="pb-wiring-dialog"
+      aria-labelledby="pb-wiring-dialog-title"
+      onCancel={event => {
+        event.preventDefault()
+        close()
+      }}
+    >
+      <div className="pb-wiring-dialog-head">
+        <h2 id="pb-wiring-dialog-title">How it’s wired</h2>
+        <button type="button" className="dialog-close" onClick={close} aria-label="Close the wiring drawing">
+          ×
+        </button>
+      </div>
+      <WiringSection overview={overview} embedded />
+    </dialog>
   )
 }
 
 function Wiring({ job, onShowReview }: { job: Job; onShowReview: () => void }) {
   const overview = job.overview
+  const [full, setFull] = useState(false)
   if (overview && overview.status !== 'failed' && overview.status !== 'pending' && overview.wiring.length > 0)
     return (
-      <Suspense fallback={null}>
-        <div className="pb-wiring" id="pb-wiring" tabIndex={-1}>
-          <WiringSection overview={overview} />
-        </div>
+      <Suspense fallback={<Spinner />}>
+        <WiringSection overview={overview} embedded />
+        <button type="button" className="pb-wiring-full" onClick={() => setFull(true)}>
+          <span aria-hidden="true">⤢</span> Open full size
+        </button>
+        {full && <FullWiring overview={overview} close={() => setFull(false)} />}
       </Suspense>
     )
   return (
-    <section className="pb-section" aria-labelledby="pb-wiring-title">
-      <h2 id="pb-wiring-title" tabIndex={-1}>
-        How it’s wired
-      </h2>
-      <p className="pb-muted">
-        {overview?.status === 'pending' ? 'The wiring drawing is still being made.' : 'No wiring drawing yet.'}{' '}
-        <button type="button" className="pp-text-button" onClick={onShowReview}>
-          Go to Review the parts
-        </button>
-      </p>
-    </section>
+    <p className="pb-muted">
+      {overview?.status === 'pending' ? 'The wiring drawing is still being made.' : 'No wiring drawing yet.'}{' '}
+      <button type="button" className="pp-text-button" onClick={onShowReview}>
+        Go to Review the parts
+      </button>
+    </p>
   )
 }
 
-function BeforePower({ job }: { job: Job }) {
+function Safety({ job }: { job: Job }) {
   const needs = safetyNeeds(job, id => {
     const box = document.getElementById(`pb-part-${id}`)
     box?.scrollIntoView({ block: 'center' })
     box?.focus({ preventScroll: true })
   })
   const assumptions = job.project?.assumptions ?? []
-  if (!needs.length && !assumptions.length) return null
   return (
-    <section className="pb-section" aria-labelledby="pb-power-title">
-      <h2 id="pb-power-title" tabIndex={-1}>
-        Before you power it
-      </h2>
+    <div className="pb-safety">
       {needs.length > 0 && <NeedsList needs={needs} showHeading={false} />}
       {assumptions.length > 0 && (
         <div className="pb-assumptions">
@@ -459,7 +567,7 @@ function BeforePower({ job }: { job: Job }) {
           </ul>
         </div>
       )}
-    </section>
+    </div>
   )
 }
 
@@ -470,103 +578,163 @@ function codeOf(job: Job) {
   return { repos, patches }
 }
 
+// "github.com/owner/repo/tree/main/src" to its owner and repository.
+function repoName(url: string) {
+  try {
+    const [owner, repo] = new URL(url).pathname.split('/').filter(Boolean)
+    return owner && repo ? { owner, repo } : null
+  } catch {
+    return null
+  }
+}
+
+const checkLabel = { compiles: 'Compiles', compile_failed: 'Did not compile', not_checked: 'Not compiled yet' }
+
 function Code({ job, onShowPlan }: { job: Job; onShowPlan: () => void }) {
   const { repos, patches } = codeOf(job)
-  if (!repos.length && !patches.length) return null
   return (
-    <section className="pb-section" aria-labelledby="pb-code-title">
-      <h2 id="pb-code-title" tabIndex={-1}>
-        Code
-      </h2>
-      {repos.length > 0 && (
-        <ul className="pb-links">
-          {repos.map(repo => (
-            <li key={repo.url}>
-              <a href={repo.url} target="_blank" rel="noopener noreferrer">
-                {repo.url.replace(/^https?:\/\/(www\.)?/, '')} <span aria-hidden="true">↗</span>
-                <span className="visually-hidden"> (opens in a new tab)</span>
-              </a>
-            </li>
-          ))}
-        </ul>
-      )}
+    <div className="pb-code">
+      {repos.map(repo => {
+        const name = repoName(repo.url)
+        return (
+          <a key={repo.url} className="pb-repo" href={repo.url} target="_blank" rel="noopener noreferrer">
+            <span className="pb-repo-icon" aria-hidden="true">
+              {'</>'}
+            </span>
+            <span className="pb-repo-text">
+              <strong>{name ? `${name.owner} / ${name.repo}` : repo.url}</strong>
+              <span>
+                GitHub
+                {repo.code_item_count ? ` · ${plural(repo.code_item_count, 'part')} found in the code` : ''}
+              </span>
+            </span>
+            <span className="pb-repo-open">
+              Open <span aria-hidden="true">↗</span>
+              <span className="visually-hidden"> (opens in a new tab)</span>
+            </span>
+          </a>
+        )
+      })}
       {patches.length > 0 && (
-        <p className="pb-muted">
-          Code changes for {plural(patches.length, 'swapped part')}:{' '}
-          {patches.map(line => partName(line.item, line.buyable_spec ?? line.item.buyable_spec)).join(', ')}.{' '}
+        <div className="pb-patches">
+          <h3>Code changes for swapped parts</h3>
+          <ul>
+            {patches.map(line => {
+              const patch = line.code_patch!
+              return (
+                <li key={line.item.line_id}>
+                  <span className="pb-patch-name">
+                    {partName(line.item, line.buyable_spec ?? line.item.buyable_spec)}
+                  </span>
+                  <span className="pb-patch-meta">
+                    {plural(patch.files.length, 'file')} · {checkLabel[patch.check]}
+                    {patch.accepted ? ' · Accepted' : ''}
+                  </span>
+                </li>
+              )
+            })}
+          </ul>
           <button type="button" className="pp-text-button" onClick={onShowPlan}>
-            See them in the order plan
+            Review the changes in the order plan
           </button>
-        </p>
+        </div>
       )}
-    </section>
+    </div>
   )
 }
 
 const plural = (count: number, one: string) => `${count} ${count === 1 ? one : `${one}s`}`
 
-// A tile beside the checklist: a one-line summary that jumps to its full section below.
-function Tile({ target, title, children }: { target: string; title: string; children: ReactNode }) {
-  function jump() {
-    const element = document.getElementById(target)
-    // The wiring drawing starts folded (ProjectOverview.tsx); jumping to it opens it.
-    element?.querySelector<HTMLButtonElement>('.po-wiring-toggle[aria-expanded="false"]')?.click()
-    element?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-    element?.focus({ preventScroll: true })
-  }
-  return (
-    <li>
-      <button type="button" className="pb-card pb-tile" onClick={jump}>
-        <span className="pb-tile-title">{title}</span>
-        <span className="pb-tile-text">{children}</span>
-      </button>
-    </li>
-  )
-}
+type TabId = 'steps' | 'wiring' | 'code' | 'safety'
 
-function Tiles({ job }: { job: Job }) {
-  const guide = job.build_guide
+// Beside the checklist: the build steps, wiring, code and safety notes as tabs, each shown in place.
+function BuildGuidePanel({
+  job,
+  token,
+  onShowPlan,
+  onShowReview,
+  onStepParts,
+}: {
+  job: Job
+  token: string
+  onShowPlan: () => void
+  onShowReview: () => void
+  onStepParts: (ids: string[]) => void
+}) {
   const overview = job.overview
   const wiring = overview && overview.status !== 'failed' && overview.status !== 'pending' ? overview.wiring : []
   const toCheck = wiring.filter(wireFlagged).length
   const { repos, patches } = codeOf(job)
-  const flags = job.safety_flags?.length ?? 0
-  const assumptions = job.project?.assumptions?.length ?? 0
-  const steps = guide && (guide.status === 'ready' || guide.status === 'stale') ? guide.steps.length : 0
+  const safety = (job.safety_flags?.length ?? 0) + (job.project?.assumptions?.length ?? 0)
+  const guide = job.build_guide
+  const stepCount = guide && (guide.status === 'ready' || guide.status === 'stale') ? guide.steps.length : 0
+  const tabs: { id: TabId; label: string; badge?: string; warn?: boolean }[] = [
+    { id: 'steps', label: 'Steps', badge: stepCount ? String(stepCount) : undefined },
+    { id: 'wiring', label: 'Wiring', badge: toCheck ? `${toCheck} to check` : undefined, warn: toCheck > 0 },
+    ...(repos.length || patches.length ? [{ id: 'code' as const, label: 'Code' }] : []),
+    ...(safety ? [{ id: 'safety' as const, label: 'Safety', badge: String(safety), warn: true }] : []),
+  ]
+  const [chosen, setChosen] = useState<TabId>('steps')
+  const tab = tabs.some(entry => entry.id === chosen) ? chosen : 'steps'
+  const refs = useRef<Record<string, HTMLButtonElement | null>>({})
+
+  // Arrow keys move between tabs (WAI-ARIA tabs pattern).
+  function onKey(event: React.KeyboardEvent, index: number) {
+    const moves: Record<string, number> = {
+      ArrowRight: index + 1,
+      ArrowLeft: index - 1,
+      Home: 0,
+      End: tabs.length - 1,
+    }
+    if (!(event.key in moves)) return
+    event.preventDefault()
+    const next = tabs[(moves[event.key] + tabs.length) % tabs.length]
+    setChosen(next.id)
+    refs.current[next.id]?.focus()
+  }
+
+  // Leaving the Steps tab clears the step's highlight in the checklist.
+  useEffect(() => {
+    if (tab !== 'steps') onStepParts([])
+  }, [tab, onStepParts])
+
   return (
-    <ul className="pb-tiles" aria-label="Jump to a section">
-      <Tile target="pb-steps-title" title="Build steps">
-        {steps
-          ? `${plural(steps, 'step')}, written by AI from the project`
-          : guide?.status === 'pending'
-            ? 'Being written…'
-            : 'Step-by-step instructions for this build'}
-      </Tile>
-      <Tile target={wiring.length ? 'pb-wiring' : 'pb-wiring-title'} title="How it’s wired">
-        {wiring.length
-          ? `Diagram and pin list, ${plural(wiring.length, 'connection')}${toCheck ? ` · ${toCheck} to check` : ''}`
-          : overview?.status === 'pending'
-            ? 'The drawing is still being made'
-            : 'No wiring drawing yet'}
-      </Tile>
-      {(repos.length > 0 || patches.length > 0) && (
-        <Tile target="pb-code-title" title="Code">
-          {[
-            repos.length === 1 ? 'GitHub repo' : repos.length ? plural(repos.length, 'GitHub repo') : '',
-            patches.length ? 'code changes for swapped parts' : '',
-          ]
-            .filter(Boolean)
-            .join(' · ')}
-        </Tile>
-      )}
-      {(flags > 0 || assumptions > 0) && (
-        <Tile target="pb-power-title" title="Before you power it">
-          {[flags ? 'Safety checks' : '', assumptions ? `${plural(assumptions, 'assumption')} to confirm` : '']
-            .filter(Boolean)
-            .join(' and ')}
-        </Tile>
-      )}
-    </ul>
+    <section className="pb-card pb-guide" aria-label="Build guide">
+      <div className="pb-tabs" role="tablist" aria-label="Build guide">
+        {tabs.map((entry, index) => (
+          <button
+            key={entry.id}
+            ref={element => {
+              refs.current[entry.id] = element
+            }}
+            type="button"
+            role="tab"
+            id={`pb-tab-${entry.id}`}
+            aria-selected={tab === entry.id}
+            aria-controls={`pb-panel-${entry.id}`}
+            tabIndex={tab === entry.id ? 0 : -1}
+            className={`pb-tab${tab === entry.id ? ' is-selected' : ''}`}
+            onClick={() => setChosen(entry.id)}
+            onKeyDown={event => onKey(event, index)}
+          >
+            {entry.label}
+            {entry.badge && <span className={`pb-tab-badge${entry.warn ? ' is-warn' : ''}`}>{entry.badge}</span>}
+          </button>
+        ))}
+      </div>
+      <div
+        className="pb-tab-panel"
+        role="tabpanel"
+        id={`pb-panel-${tab}`}
+        aria-labelledby={`pb-tab-${tab}`}
+        tabIndex={0}
+      >
+        {tab === 'steps' && <BuildSteps job={job} token={token} onStepParts={onStepParts} />}
+        {tab === 'wiring' && <Wiring job={job} onShowReview={onShowReview} />}
+        {tab === 'code' && <Code job={job} onShowPlan={onShowPlan} />}
+        {tab === 'safety' && <Safety job={job} />}
+      </div>
+    </section>
   )
 }
 
@@ -588,6 +756,12 @@ export default function BuildPage({
   const received = new Set(job.build_received ?? [])
   const isReceived = (id: string) => overrides[id] ?? received.has(id)
   const inHand = job.items.filter(item => item.user_has_it || isReceived(item.line_id)).length
+  // The parts the open build step uses, highlighted in the checklist.
+  const [stepParts, setStepParts] = useState<string[]>([])
+  const onStepParts = useCallback(
+    (ids: string[]) => setStepParts(current => (current.join(' ') === ids.join(' ') ? current : ids)),
+    [],
+  )
   return (
     <section className="job-panel pp-stage pb-page">
       <Summary job={job} inHand={inHand} />
@@ -599,13 +773,16 @@ export default function BuildPage({
           onShowPlan={onShowPlan}
           isReceived={isReceived}
           setOverrides={setOverrides}
+          highlight={stepParts}
         />
-        <Tiles job={job} />
+        <BuildGuidePanel
+          job={job}
+          token={token}
+          onShowPlan={onShowPlan}
+          onShowReview={onShowReview}
+          onStepParts={onStepParts}
+        />
       </div>
-      <BuildSteps job={job} token={token} />
-      <Wiring job={job} onShowReview={onShowReview} />
-      <Code job={job} onShowPlan={onShowPlan} />
-      <BeforePower job={job} />
     </section>
   )
 }
