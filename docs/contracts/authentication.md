@@ -128,7 +128,12 @@ runtime service account has `roles/firebaseauth.viewer` on `hackathon-510415`,
 which supplies `firebaseauth.users.get`; `prepare_auth.py` preserves this setup.
 Live user revocation testing remains pending auth-enabled staging. The lookup uses Application
 Default Credentials, never a downloaded service-account key. Requests to the
-account-status endpoint have a 10-second timeout. Each new HTTP request checks
+account-status endpoint have a 10-second timeout. Each instance reuses one authorised
+session (credentials, access token and connection) for these lookups; the lookup itself
+still runs on every request. Firebase's public signing certificates are kept for their
+`Cache-Control` max-age (at most six hours; downloads time out after 10 seconds) instead
+of being downloaded per request. A token the cached certificates reject is checked once more
+against a fresh download, at most once every five minutes. Each new HTTP request checks
 status once; an already-open SSE stream can continue until its bounded 60-second
 end, and already-admitted queued work is not canceled by revocation.
 

@@ -301,7 +301,9 @@ class JobService:
 
     def get(self, job_id: str, token: str | None) -> Job:
         self._validate_id(job_id)
-        job = self._authorized(self.store.get(job_id), token).model_copy(deep=True)
+        # store.get returns a private copy, so it is not copied again: a deep copy costs
+        # several times the Firestore parse on every poll and stream tick.
+        job = self._authorized(self.store.get(job_id), token)
         return apply_retention(job)  # YouTube API data older than 30 days is not served.
 
     @staticmethod

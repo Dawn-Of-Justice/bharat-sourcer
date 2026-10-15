@@ -6,6 +6,7 @@ from unittest.mock import Mock, patch
 import pytest
 from test_identity import create, setup
 
+from bharat_sourcer import identity
 from bharat_sourcer.identity import FirebaseVerifier, IdentityUnavailable, lookup_account
 
 
@@ -53,27 +54,41 @@ def test_provider_outage_fails_closed_without_falling_back_to_guest_or_charging(
 def test_deleted_or_mismatched_account_is_rejected(users):
     session = Mock()
     session.post.return_value.json.return_value = {"users": users}
-    with (
-        patch("google.auth.default", return_value=(Mock(), "test")),
-        patch("bharat_sourcer.identity.AuthorizedSession") as factory,
-    ):
-        factory.return_value.__enter__.return_value = session
-        with pytest.raises(ValueError if not users else IdentityUnavailable):
-            lookup_account("test", "alice")
-        assert session.post.call_args.kwargs["json"] == {
-            "targetProjectId": "test",
-            "localId": ["alice"],
-        }
-        assert session.post.call_args.kwargs["timeout"] == 10
+    with pytest.raises(ValueError if not users else IdentityUnavailable):
+        lookup_account("test", "alice", session)
+    assert session.post.call_args.kwargs["json"] == {
+        "targetProjectId": "test",
+        "localId": ["alice"],
+    }
+    assert session.post.call_args.kwargs["timeout"] == 10
 
 
 def test_status_lookup_http_error_is_unavailable():
     session = Mock()
     session.post.return_value.raise_for_status.side_effect = RuntimeError("unavailable")
+    with pytest.raises(IdentityUnavailable):
+        lookup_account("test", "alice", session)
+
+
+def test_account_lookups_reuse_one_authorised_session(monkeypatch):
+    # Credentials, their access token and the HTTPS connection are built once, not per request.
+    monkeypatch.setattr(identity, "_session", None)
+    session = Mock()
+    session.post.return_value.json.return_value = {"users": [{"localId": "alice"}]}
     with (
-        patch("google.auth.default", return_value=(Mock(), "test")),
-        patch("bharat_sourcer.identity.AuthorizedSession") as factory,
+        patch("google.auth.default", return_value=(Mock(), "test")) as default,
+        patch("bharat_sourcer.identity.AuthorizedSession", return_value=session) as factory,
     ):
-        factory.return_value.__enter__.return_value = session
-        with pytest.raises(IdentityUnavailable):
-            lookup_account("test", "alice")
+        for _ in range(3):
+            assert lookup_account("test", "alice")["localId"] == "alice"
+    assert (default.call_count, factory.call_count, session.post.call_count) == (1, 1, 3)
+
+
+def test_missing_credentials_fail_closed_and_are_retried(monkeypatch):
+    monkeypatch.setattr(identity, "_session", None)
+    with (
+        patch("google.auth.default", side_effect=RuntimeError("no credentials")),
+        pytest.raises(IdentityUnavailable),
+    ):
+        lookup_account("test", "alice")
+    assert identity._session is None

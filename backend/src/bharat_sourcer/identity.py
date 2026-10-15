@@ -2,13 +2,21 @@
 
 import hashlib
 import hmac
+import re
 import secrets
+import threading
 import time
 from dataclasses import dataclass
 
 import google.auth
+import requests
 from google.auth.transport.requests import AuthorizedSession, Request
 from google.oauth2 import id_token
+
+# Firebase ID token signing certificates (what id_token.verify_firebase_token downloads).
+FIREBASE_CERTS_URL = (
+    "https://www.googleapis.com/robot/v1/metadata/x509/securetoken@system.gserviceaccount.com"
+)
 
 
 @dataclass(frozen=True)
@@ -22,21 +30,82 @@ class IdentityUnavailable(Exception):
     """Provider status could not be checked; never admit the request."""
 
 
-def lookup_account(project: str, uid: str) -> dict:
-    try:
-        credentials, _ = google.auth.default(
-            scopes=["https://www.googleapis.com/auth/cloud-platform"]
-        )
-        with AuthorizedSession(credentials) as session:
-            response = session.post(
-                "https://identitytoolkit.googleapis.com/v1/accounts:lookup",
-                json={"targetProjectId": project, "localId": [uid]},
-                timeout=10,
+class CachedCerts:
+    """google-auth transport that keeps downloaded signing certificates for their max-age.
+
+    google-auth fetches the certificates on every verification, costing every account
+    request a fresh HTTPS round trip. Google publishes them with a Cache-Control max-age
+    (hours) and rotates keys within it, so one download serves every request until then.
+    Only plain GETs are cached; anything else passes through.
+    """
+
+    max_age_cap_s = 6 * 3600
+    timeout_s = 10
+
+    def __init__(self, transport=None, clock=time.monotonic):
+        self.transport = transport or Request(requests.Session())
+        self.clock = clock
+        self._lock = threading.Lock()
+        self._cache: dict[str, tuple[float, float, object]] = {}
+
+    def __call__(self, url, method="GET", body=None, headers=None, timeout=None, **kwargs):
+        if method != "GET" or body is not None:
+            return self.transport(
+                url, method=method, body=body, headers=headers, timeout=timeout, **kwargs
             )
-            response.raise_for_status()
-            users = response.json().get("users", [])
-            if not isinstance(users, list):
-                raise ValueError("Invalid account response")
+        now = self.clock()
+        with self._lock:
+            cached = self._cache.get(url)
+        if cached and cached[1] > now:
+            return cached[2]
+        response = self.transport(
+            url, method="GET", headers=headers, timeout=timeout or self.timeout_s, **kwargs
+        )
+        match = re.search(r"max-age=(\d+)", response.headers.get("Cache-Control", ""))
+        if response.status == 200 and match and int(match.group(1)) > 0:
+            lifetime = min(int(match.group(1)), self.max_age_cap_s)
+            with self._lock:
+                self._cache[url] = (now, now + lifetime, response)
+        return response
+
+    def expire(self, url: str, older_than_s: float) -> bool:
+        """Drop the cached copy of `url` if it was fetched over `older_than_s` ago."""
+        with self._lock:
+            cached = self._cache.get(url)
+            if cached is None or self.clock() - cached[0] < older_than_s:
+                return False
+            del self._cache[url]
+            return True
+
+
+_session_lock = threading.Lock()
+_session: AuthorizedSession | None = None
+
+
+def account_session() -> AuthorizedSession:
+    """One authorised session per process. Credentials, their access token (refreshed when
+    it expires) and the HTTPS connection are reused instead of rebuilt on every request."""
+    global _session  # noqa: PLW0603 - one shared session per process, built on first use
+    with _session_lock:
+        if _session is None:
+            credentials, _ = google.auth.default(
+                scopes=["https://www.googleapis.com/auth/cloud-platform"]
+            )
+            _session = AuthorizedSession(credentials)
+        return _session
+
+
+def lookup_account(project: str, uid: str, session: AuthorizedSession | None = None) -> dict:
+    try:
+        response = (session or account_session()).post(
+            "https://identitytoolkit.googleapis.com/v1/accounts:lookup",
+            json={"targetProjectId": project, "localId": [uid]},
+            timeout=10,
+        )
+        response.raise_for_status()
+        users = response.json().get("users", [])
+        if not isinstance(users, list):
+            raise ValueError("Invalid account response")
     except Exception as exc:
         raise IdentityUnavailable("Account verification unavailable") from exc
     if not users:
@@ -47,12 +116,25 @@ def lookup_account(project: str, uid: str) -> dict:
 
 
 class FirebaseVerifier:
-    def __init__(self, project: str, account_lookup=None):
+    # A token the cached certificates reject gets one retry with a fresh download (keys
+    # rotate), at most once per this interval so bad tokens cannot force repeated fetches.
+    refetch_after_s = 300
+
+    def __init__(self, project: str, account_lookup=None, certs: CachedCerts | None = None):
         self.project = project
         self.account_lookup = account_lookup or lookup_account
+        self.certs = certs or CachedCerts()
+
+    def claims(self, token: str) -> dict:
+        try:
+            return id_token.verify_firebase_token(token, self.certs, audience=self.project)
+        except ValueError:
+            if not self.certs.expire(FIREBASE_CERTS_URL, self.refetch_after_s):
+                raise
+            return id_token.verify_firebase_token(token, self.certs, audience=self.project)
 
     def verify(self, token: str) -> Principal:
-        claims = id_token.verify_firebase_token(token, Request(), audience=self.project)
+        claims = self.claims(token)
         uid = claims.get("sub")
         if (
             claims.get("iss") != f"https://securetoken.google.com/{self.project}"

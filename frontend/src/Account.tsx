@@ -14,7 +14,7 @@ import {
   type Session,
   type Project,
 } from './api'
-import { auth, firebaseLogout, googleLogin, localPreview } from './auth'
+import { currentAuth, firebaseLogout, googleLogin, localPreview } from './auth'
 import ProjectCard from './ProjectCard'
 import { ProjectsSkeleton } from './Skeleton'
 import { useToast } from './toastContext'
@@ -126,7 +126,7 @@ export function AccountProvider({ children }: { children: ReactNode }) {
       .catch(cause => {
         if (!active) return
         if (cause instanceof ApiError && cause.code === 'AUTH_DISABLED') setIdentity('legacy')
-        else if (!(cause instanceof ApiError && cause.status === 401 && !auth?.currentUser)) {
+        else if (!(cause instanceof ApiError && cause.status === 401 && !currentAuth()?.currentUser)) {
           setError(
             cause instanceof ApiError && cause.status === 503
               ? 'The account service is temporarily unavailable. Your project remains saved. Please try signing in again later.'

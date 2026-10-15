@@ -99,7 +99,10 @@ the backend's `BS_CORS_ORIGINS`. Redeploy the config with
 Run deploy.
 
 Google sign-in, guest sessions and saved-project UI are implemented. The deployed
-backend has authentication enabled. Real Google account and guest-claim browser checks
+backend has authentication enabled. The Firebase Auth SDK is its own JavaScript chunk
+(`src/firebase.ts`, about 32 KB gzipped): `src/auth.ts` starts downloading it when the app
+starts, the page renders without waiting for it, and API calls wait for it before attaching
+the account token. Without a Firebase configuration (and in `?preview=1`) it never loads. Real Google account and guest-claim browser checks
 remain outstanding. For local checks without a live backend, use `?preview=1`; its
 API replies are labelled dummy data.
 
