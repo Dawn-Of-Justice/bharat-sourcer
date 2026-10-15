@@ -16,6 +16,7 @@ from bharat_sourcer.dispatch import Work, work_once
 from bharat_sourcer.main import create_app
 from bharat_sourcer.schemas import (
     BomItem,
+    BuildGuide,
     CreateJob,
     Evidence,
     ProjectContext,
@@ -92,7 +93,7 @@ class Gemini:
         return json.loads(self.sent[-1]["contents"][0]["parts"][0]["text"])
 
 
-def setup(gemini=None, cache=None, status="done", **settings):
+def setup(gemini=None, cache=None, status="done", lines=items, **settings):
     values = {"_env_file": None, "demo_mode": True, "gemini_api_key": "test"} | settings
     app = create_app(Settings(**values))
     service = app.state.job_service
@@ -104,7 +105,7 @@ def setup(gemini=None, cache=None, status="done", **settings):
     def seed(record):
         record.job.demo = False
         record.job.status = status
-        record.job.items = items()
+        record.job.items = lines()
         record.job.project = ProjectContext(summary="A synthetic desk lamp with an LED ring.")
         record.job.report = Report(
             demo=False,
@@ -256,6 +257,101 @@ def test_cached_by_parts_and_input():
     assert second.get(f"/v1/jobs/{other}").json()["cost_estimate"]["cache_hits"] == {
         "build_guide": 1
     }
+
+
+# -- step timestamps ----------------------------------------------------------------------
+def station():
+    """A synthetic weather-station parts list: each part seen at its own video moment."""
+
+    def line(line_id, name, timestamp, observation):
+        return BomItem(
+            line_id=line_id,
+            raw_name=name,
+            evidence=[Evidence(timestamp=timestamp, observation=f"Synthetic: {observation}")],
+        )
+
+    return [
+        line("L01", "Synthetic ESP32 board", "00:12", "ESP32 board shown on the bench"),
+        line("L02", "Synthetic BME280 sensor", "00:20", "sensor soldered to header pins"),
+        line("L03", "Synthetic OLED display", "00:28", "display wired to the board"),
+        line("L04", "Synthetic 3D printed case", "00:35", "black 3D printed compact enclosure"),
+    ]
+
+
+def guide_times(answer):
+    client, _, job_id = setup(Gemini(reply(answer)), lines=station)
+    client.post(f"/v1/jobs/{job_id}/build-guide")
+    guide = client.get(f"/v1/jobs/{job_id}/build-guide").json()
+    assert guide["status"] == "ready"
+    return [s["timestamp"] for s in guide["steps"]]
+
+
+def test_one_part_moment_copied_onto_every_step_is_dropped():
+    # The reported bug: every step came back with the enclosure's evidence time (00:35),
+    # which is where that part is seen, not where each step happens.
+    answer = {
+        "steps": [
+            step("Check the parts", ["L01", "L02", "L03", "L04"], "00:35"),
+            step("Solder the sensor headers", ["L02"], "00:35"),
+            step("Wire the display to the board", ["L01", "L03"], "00:35"),
+            step("Flash the weather station code", ["L01"], "00:35"),
+            step("Test the readings", ["L01", "L02", "L03"], "00:35"),
+            step("Fit everything into the case", ["L04"], "00:35"),
+        ]
+    }
+    assert guide_times(answer) == [None] * 6
+
+
+def test_each_step_keeps_its_own_moment_from_its_own_parts():
+    answer = {
+        "steps": [
+            step("Solder the sensor headers", ["L02"], "00:20"),
+            step("Wire the display to the board", ["L01", "L03"], "0:28"),
+            step("Flash the weather station code", ["L01"], ""),
+            step("Fit everything into the case", ["L04"], "00:35"),
+        ]
+    }
+    assert guide_times(answer) == ["00:20", "00:28", None, "00:35"]
+
+
+def test_shared_or_borrowed_moments_are_cleared():
+    answer = {
+        "steps": [
+            # Two steps cannot both happen at one moment: neither keeps it.
+            step("Solder the sensor headers", ["L02"], "00:20"),
+            step("Test the sensor", ["L02"], "0:20"),
+            # The case's moment does not show flashing the board, a part it does not use.
+            step("Flash the weather station code", ["L01"], "00:35"),
+            # A step with no parts has no evidence of its own to cite.
+            step("Check the serial monitor", [], "00:12"),
+            step("Wire the display to the board", ["L01", "L03"], "00:28"),
+        ]
+    }
+    assert guide_times(answer) == [None, None, None, None, "00:28"]
+
+
+def test_stored_guides_drop_timestamps_shared_by_several_steps():
+    # Guides saved before the guard (as on the reported run) are cleaned when loaded.
+    stored = {
+        "status": "ready",
+        "steps": [
+            {"title": "Check the parts", "timestamp": "00:35"},
+            {"title": "Solder the sensor", "timestamp": "00:35"},
+            {"title": "Flash the code", "timestamp": "0:00:35"},
+            {"title": "Fit the case", "timestamp": "01:10"},
+        ],
+    }
+    guide = BuildGuide.model_validate(stored)
+    assert [s.timestamp for s in guide.steps] == [None, None, None, "01:10"]
+
+
+def test_prompt_asks_for_step_specific_distinct_moments():
+    gemini = Gemini()
+    client, _, job_id = setup(gemini)
+    client.post(f"/v1/jobs/{job_id}/build-guide")
+    prompt = " ".join(gemini.sent[0]["systemInstruction"]["parts"][0]["text"].split())
+    assert "never give two steps the same timestamp" in prompt
+    assert "this step's line_ids" in prompt
 
 
 def test_owner_only_needs_a_finished_job_and_respects_settings():
