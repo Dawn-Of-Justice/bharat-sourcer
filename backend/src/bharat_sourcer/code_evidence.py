@@ -10,6 +10,12 @@ limits). `#include` lines, Python imports, `lib_deps`/dependencies and `board =`
 are mapped to part hints with the curated `data/library_parts.json` table. No model is
 involved, every hint cites `file:line`, and code never establishes how many of a part the
 build uses.
+
+A deep read (no README, or a README that names no parts) also reads up to
+`MAX_SCHEMATICS` KiCad schematics (`*.kicad_sch`) from the tree. Each placed symbol that is
+fitted and on the BOM becomes a line named by its value and designator kind, counted by its
+references, and citing the `Value` property line. Test points, power flags and
+do-not-fit symbols are skipped.
 """
 
 import json
@@ -50,6 +56,39 @@ MAX_LINES = 5000
 MAX_CODE_ITEMS = 30
 MAX_EVIDENCE = 5
 CODE_SUFFIXES = (".ino", ".cpp", ".c", ".h", ".hpp", ".py")
+SCHEMATIC_SUFFIX = ".kicad_sch"
+SCHEMATIC_BYTES = 1_000_000
+MAX_SCHEMATICS = 3
+MAX_SCHEMATIC_ITEMS = 40
+MAX_REFS_IN_NAME = 6
+LIB_ID = re.compile(r'^\s*\(lib_id\s+"([^"]{1,200})"')
+PROPERTY = re.compile(r'^\s*\(property\s+"([^"]{1,60})"\s+"([^"]{0,200})"')
+FLAG = re.compile(r"^\s*\((in_bom|dnp|exclude_from_bom)\s+(yes|no)\)")
+REFERENCE = re.compile(r"^([A-Z]+)\d+$")
+# Designator prefixes (IEEE 315 / KiCad convention) to a part kind for the line name.
+DESIGNATORS = {
+    "R": "resistor",
+    "C": "capacitor",
+    "L": "inductor",
+    "D": "diode",
+    "Q": "transistor",
+    "SW": "switch",
+    "S": "switch",
+    "J": "connector",
+    "P": "connector",
+    "Y": "crystal",
+    "X": "crystal",
+    "F": "fuse",
+    "BT": "battery",
+    "LS": "speaker",
+    "SP": "speaker",
+    "BZ": "buzzer",
+    "K": "relay",
+}
+# KiCad libraries of generic symbols, whose default value is just the symbol name ('R').
+GENERIC_LIBRARIES = {"device", "connector", "connector_generic", "switch"}
+# Library symbols that are board features, not parts to buy.
+NOT_PARTS = ("testpoint", "mountinghole", "fiducial", "pwr_flag", "net_tie", "logo")
 BUILD_FILES = {"platformio.ini", "library.json", "requirements.txt"}
 PATH_SEGMENT = re.compile(r"[A-Za-z0-9._~ +-]{1,100}")
 QTY_REASON = "Code names the library or board, not how many are used; assumed one."
@@ -202,6 +241,84 @@ def wanted(path: str) -> bool:
     return name in BUILD_FILES or name.endswith(CODE_SUFFIXES)
 
 
+def schematic(path: str) -> bool:
+    return path.casefold().endswith(SCHEMATIC_SUFFIX)
+
+
+def placed_symbols(text: str) -> list[dict]:
+    """Fitted, on-BOM symbols placed in a KiCad 6+ schematic, one per reference.
+
+    Library definitions (under `lib_symbols`) have no `lib_id`, so only placed symbols are
+    collected; multi-unit symbols repeat a reference and are kept once.
+    """
+    symbols: list[dict] = []
+    current: dict | None = None
+    for number, line in enumerate(text.splitlines()[: MAX_LINES * 20], start=1):
+        if match := LIB_ID.match(line):
+            current = {"lib_id": match.group(1), "props": {}, "flags": {}}
+            symbols.append(current)
+        elif current is None:
+            continue
+        elif match := PROPERTY.match(line):
+            current["props"].setdefault(match.group(1), (match.group(2), number, line))
+        elif match := FLAG.match(line):
+            current["flags"].setdefault(match.group(1), match.group(2))
+    placed: list[dict] = []
+    seen: set[str] = set()
+    for symbol in symbols:
+        reference = symbol["props"].get("Reference", ("", 0, ""))[0]
+        value = symbol["props"].get("Value")
+        flags = symbol["flags"]
+        lib = symbol["lib_id"].casefold()
+        if (
+            not reference
+            or reference.startswith("#")
+            or value is None
+            or not value[0].strip()
+            or reference in seen
+            or flags.get("in_bom") == "no"
+            or flags.get("exclude_from_bom") == "yes"
+            or flags.get("dnp") == "yes"
+            or lib.startswith("power:")
+            or any(word in lib for word in NOT_PARTS)
+        ):
+            continue
+        seen.add(reference)
+        placed.append(
+            {
+                "reference": reference,
+                "lib_id": symbol["lib_id"],
+                "value": " ".join(value[0].split()),
+                "line": value[1],
+                "quote": " ".join(value[2].split()),
+                "footprint": symbol["props"].get("Footprint", ("", 0, ""))[0],
+            }
+        )
+    return placed
+
+
+def part_kind(reference: str, lib_id: str) -> str | None:
+    match = REFERENCE.match(reference)
+    kind = DESIGNATORS.get(match.group(1)) if match else None
+    symbol = lib_id.rsplit(":", 1)[-1].casefold()
+    if kind == "capacitor" and ("polarized" in symbol or symbol.startswith("cp")):
+        return "electrolytic capacitor"
+    if kind == "diode" and symbol.startswith("led"):
+        return "LED"
+    return kind
+
+
+def schematic_name(value: str, lib_id: str, kind: str | None) -> str:
+    """'220uF/16V electrolytic capacitor'; a generic symbol's unset value ('R') names only the
+    kind. A part-number symbol ('Transistor_FET:AO3400A') keeps its value."""
+    library, _, symbol = lib_id.rpartition(":")
+    if value.casefold() == symbol.casefold() and library.casefold() in GENERIC_LIBRARIES:
+        return kind or value
+    if kind and kind.casefold() not in value.casefold():
+        return f"{value} {kind}"
+    return value
+
+
 def linked_files(owner: str, repo: str, readme: str) -> list[tuple[str, str]]:
     """(ref, path) of repository code files the README links to, in order of appearance."""
     found = []
@@ -246,9 +363,12 @@ def discover_files(fetcher: Fetcher, owner: str, repo: str) -> list[str] | None:
         if not isinstance(entry, dict) or entry.get("type") != "blob":
             continue
         path, size = entry.get("path"), entry.get("size")
-        if not isinstance(path, str) or not wanted(path) or safe_path(path) != path:
+        if not isinstance(path, str) or safe_path(path) != path:
             continue
-        if isinstance(size, int) and size > CODE_FILE_BYTES:
+        if not (wanted(path) or schematic(path)):
+            continue
+        limit = SCHEMATIC_BYTES if schematic(path) else CODE_FILE_BYTES
+        if isinstance(size, int) and size > limit:
             continue
         if any(segment.casefold() in SKIP_DIRS for segment in path.split("/")[:-1]):
             continue
@@ -294,25 +414,34 @@ def candidate_files(
     return unique[:MAX_CODE_FILES]
 
 
-def read_code(fetcher: Fetcher, repository_url: str, readme: str) -> list[BomItem]:
+def read_code(
+    fetcher: Fetcher, repository_url: str, readme: str, deep: bool = False
+) -> list[BomItem]:
     """Fetch the bounded file list and turn every mapped hint into a code-evidence BOM line.
 
-    Without a README (empty `readme`) the repository tree chooses the files. With one, the
+    Without a README (empty `readme`) or with `deep` (the README named no parts) the
+    repository tree chooses the files and KiCad schematics are read too. Otherwise the
     README links and conventional names are tried first and the tree is read only when no
     code file was found that way. Missing, refused (including robots.txt) or oversized
     files are skipped silently: code evidence is supplementary and never fails a job.
     """
     owner, repo = urlsplit(repository_url).path.strip("/").split("/")[:2]
     items: dict[str, list[Evidence]] = {}
-    no_readme = not readme.strip()
-    discovered = discover_files(fetcher, owner, repo) if no_readme else None
+    deep = deep or not readme.strip()
+    tree = discover_files(fetcher, owner, repo) if deep else None
+    discovered = [path for path in tree or [] if not schematic(path)] or None
     tried = candidate_files(owner, repo, readme, discovered)
     found_code = scan_files(fetcher, owner, repo, tried, items)
-    if not no_readme and not found_code:
-        discovered = discover_files(fetcher, owner, repo)
-        if discovered:
-            extra = [c for c in candidate_files(owner, repo, "", discovered) if c not in tried]
+    if not deep and not found_code:
+        found = [path for path in discover_files(fetcher, owner, repo) or [] if not schematic(path)]
+        if found:
+            extra = [c for c in candidate_files(owner, repo, "", found) if c not in tried]
             scan_files(fetcher, owner, repo, extra, items)
+    boards = [path for path in tree or [] if schematic(path)][:MAX_SCHEMATICS]
+    return [*code_lines(items), *read_schematics(fetcher, owner, repo, boards)]
+
+
+def code_lines(items: dict[str, list[Evidence]]) -> list[BomItem]:
     return [
         BomItem(
             line_id=f"C{index:02d}",
@@ -325,6 +454,71 @@ def read_code(fetcher: Fetcher, repository_url: str, readme: str) -> list[BomIte
         for index, (part, evidence) in enumerate(items.items(), start=1)
         if evidence
     ][:MAX_CODE_ITEMS]
+
+
+def read_schematics(fetcher: Fetcher, owner: str, repo: str, paths: list[str]) -> list[BomItem]:
+    """BOM lines from KiCad schematics: one per (symbol, value), counted by its references."""
+    groups: dict[tuple[str, str], dict[str, list[dict]]] = {}
+    for path in paths:
+        page = fetch_raw(fetcher, owner, repo, path, SCHEMATIC_BYTES)
+        if page is None:
+            continue
+        text = page.body.decode("utf-8", errors="replace")
+        if not text.lstrip().startswith("(kicad_sch"):
+            continue
+        for symbol in placed_symbols(text):
+            key = (symbol["lib_id"].casefold(), symbol["value"].casefold())
+            groups.setdefault(key, {}).setdefault(path, []).append(symbol)
+    items: list[BomItem] = []
+    for files in list(groups.values())[:MAX_SCHEMATIC_ITEMS]:
+        first = next(iter(files.values()))[0]
+        kind = part_kind(first["reference"], first["lib_id"])
+        references = [symbol["reference"] for symbols in files.values() for symbol in symbols]
+        name = schematic_name(first["value"], first["lib_id"], kind)
+        if len(files) == 1 and len(references) <= MAX_REFS_IN_NAME:
+            name = f"{name} ({', '.join(references)})"
+        evidence = []
+        for path, symbols in list(files.items())[:MAX_EVIDENCE]:
+            symbol = symbols[0]
+            footprint = f", footprint {symbol['footprint']}" if symbol["footprint"] else ""
+            placed = ", ".join(s["reference"] for s in symbols)
+            evidence.append(
+                Evidence(
+                    source="code",
+                    observation=(
+                        f"KiCad schematic {path} places {placed} ({symbol['lib_id']}"
+                        f"{footprint}) with value {symbol['value']}."
+                    )[:1000],
+                    quote=symbol["quote"][:500],
+                    url=f"https://github.com/{owner}/{repo}/blob/HEAD/{path}#L{symbol['line']}",
+                    file=path,
+                    line=symbol["line"],
+                )
+            )
+        items.append(
+            BomItem(
+                line_id=f"K{len(items) + 1:02d}",
+                raw_name=name[:200],
+                qty=min(len(references), 10000),
+                qty_source="stated",
+                evidence=evidence,
+            )
+        )
+    return items
+
+
+def fetch_raw(fetcher: Fetcher, owner: str, repo: str, path: str, max_bytes: int) -> Page | None:
+    """A text file from raw.githubusercontent.com, or None when missing, refused or binary."""
+    raw = f"https://{RAW_HOST}/{owner}/{repo}/HEAD/{path}"
+    try:
+        page = fetcher.get(raw, max_bytes=max_bytes)
+    except FetchError:
+        return None
+    if page.status != 200 or (urlsplit(page.url).hostname or "").lower() != RAW_HOST:
+        return None
+    if b"\0" in page.body[:4096]:
+        return None
+    return page
 
 
 def scan_files(

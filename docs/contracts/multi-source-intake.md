@@ -43,6 +43,17 @@ All fetches go through `SafeFetcher` (HTTPS, public-address pinning, robots.txt,
 limits). Page quotes are still checked verbatim against the text the model saw; unverified
 quotes are dropped.
 
+One bad field no longer fails a read. The generation schema carries `maxLength`, `minimum`
+and `maximum` (the live endpoints reject `maxItems` on the full BOM schema), and the output is tidied before strict validation: over-long text
+is truncated at a word boundary; looping optional text (mostly repeated words) becomes null
+and looping required text is cut where the loop starts (evidence quotes are only
+truncated); out-of-range or wrongly typed optional values (e.g. `suggested_qty` of
+1475712128) become null; over-long lists are cut. An invalid `project` block is dropped. A
+part that still fails is retried without its buying spec, requirements, look-alikes and
+suggested count, and dropped if it fails again (logged as `EXTRACTION_ITEMS_DROPPED`). Only
+when every returned part is malformed does the read fail with `INVALID_EXTRACTION` (and is
+retried).
+
 ## 2. Code evidence (GitHub)
 
 After the README is read, up to **8** more files are fetched from the same public
@@ -53,6 +64,19 @@ links or `github.com/<owner>/<repo>/blob/<ref>/<path>`; `..` and odd paths are r
 `requirements.txt`, `library.json`. Missing (404), robots-blocked, binary or oversized files
 are skipped silently; code never fails a job.
 
+**Deep read.** When the README yields no quoted parts, or the model's README read fails with
+`INVALID_EXTRACTION` (the source then keeps only its code lines), the repository tree picks
+the files as for a repository without a README, and up to **3** KiCad schematics
+(`*.kicad_sch`, 1 MB each, shallowest first) are read too. Each placed symbol that is on the
+BOM and fitted (not `dnp`) becomes evidence; power symbols, `#` references, test points,
+mounting holes and fiducials are skipped. Symbols with the same library symbol and value are
+one line named from the value and the designator kind (`R` resistor, `C` capacitor or
+electrolytic capacitor, `D` diode or LED, `Q` transistor, `SW` switch, `J`/`P` connector,
+...), with the references in parentheses when they come from one schematic, e.g.
+`220uF/16V electrolytic capacitor (C5)`. The schematic places them, so `qty` is the number of
+references and `qty_source` is `"stated"`. Evidence is `source: "code"` citing the symbol's
+`(property "Value" ...)` line. Schematic lines have ids `K01`, `K02`, ...
+
 When none of those files is a code file (`.ino .cpp .c .h .hpp .py`), or the repository has
 **no README** at all, the file list comes from the repository tree instead: one request to
 `api.github.com/repos/<owner>/<repo>/git/trees/HEAD?recursive=1` through the same guarded
@@ -62,7 +86,7 @@ files, shallowest first; files over 200 KB and paths under `lib/`, `libraries/`,
 If the tree cannot be read, the conventional names above are tried. A repository without a
 README makes no page model call: its source report is `read` with `item_count: 0` and
 `code_item_count` set, or the source fails with `SOURCE_UNAVAILABLE` ("no README and no code
-files that name a known part library or board") when no code hint is found.
+or schematic files that name a part") when no code or schematic hint is found.
 
 Deterministic rules, no model call:
 

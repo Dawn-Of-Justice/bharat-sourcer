@@ -7,7 +7,7 @@ import re
 import threading
 import time
 from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
-from typing import Annotated, Literal, Protocol
+from typing import Annotated, Literal, Protocol, get_args
 from urllib.parse import parse_qs, urlsplit
 
 import httpx
@@ -302,23 +302,31 @@ def generation_schema(model=ExtractedBom) -> dict:
     """Keep the generation grammar simple; enforce all bounds locally afterward.
 
     The full Pydantic schema is rejected by the live endpoint with INVALID_ARGUMENT.
-    Inline references and omit validation constraints from the provider schema.
+    Inline references and omit most validation constraints from the provider schema. Both
+    routes accept and enforce `maxLength`, `minimum` and `maximum` on these schemas
+    (checked live 2026-10-16), so constrained decoding caps runaway strings and counts: one
+    page read returned a 36 KB repeated title and another a suggested_qty of 1475712128.
+    `maxItems` is rejected (INVALID_ARGUMENT) on the full BOM schemas; lists are cut locally.
     ExtractedBom remains the authoritative validator for returned content.
     """
+    return inline_schema(
+        model,
+        {
+            "$defs",
+            "title",
+            "additionalProperties",
+            "minLength",
+            "pattern",
+            "minItems",
+            "maxItems",
+            "discriminator",
+        },
+    )
+
+
+def inline_schema(model: type[Model], omitted: set[str]) -> dict:
+    """`model`'s JSON schema with references inlined and `omitted` keywords dropped."""
     original = model.model_json_schema()
-    omitted = {
-        "$defs",
-        "title",
-        "additionalProperties",
-        "minLength",
-        "maxLength",
-        "pattern",
-        "minimum",
-        "maximum",
-        "minItems",
-        "maxItems",
-        "discriminator",
-    }
 
     def simplify(node):
         if isinstance(node, list):
@@ -338,6 +346,152 @@ def generation_schema(model=ExtractedBom) -> dict:
         }
 
     return simplify(original)
+
+
+# A free-text field whose words are mostly repeats is a decoding loop, not content.
+LOOP_MIN_WORDS = 12
+LOOP_UNIQUE_RATIO = 0.35
+
+
+def looping(text: str) -> bool:
+    words = text.casefold().split()
+    return len(words) >= LOOP_MIN_WORDS and len(set(words)) / len(words) < LOOP_UNIQUE_RATIO
+
+
+def cut_loop(text: str) -> str:
+    """`text` up to where a four-word sequence first repeats."""
+    words = text.split()
+    seen: set[tuple[str, ...]] = set()
+    for index in range(len(words) - 3):
+        gram = tuple(word.casefold() for word in words[index : index + 4])
+        if gram in seen:
+            return " ".join(words[: index + 3])
+        seen.add(gram)
+    return " ".join(words)
+
+
+def truncate(text: str, limit: int) -> str:
+    """At most `limit` characters, cut at a word boundary when there is one.
+
+    A prefix of a verbatim quote is still verbatim, so evidence checks keep working.
+    """
+    if len(text) <= limit:
+        return text
+    head = text[:limit]
+    if not text[limit].isspace() and " " in head.strip():
+        head = head.rstrip().rsplit(" ", 1)[0]
+    return head.rstrip()
+
+
+def tidy(value, schema: dict, verbatim: bool = False):
+    """Repair one model value against its (inlined) JSON schema before strict validation.
+
+    Over-long strings are truncated, looping optional strings become null (required ones are
+    cut where the loop starts), out-of-range or wrongly typed optional values become null,
+    over-long lists are cut. Anything else is left for the validator to reject. `verbatim`
+    strings (evidence quotes, checked against the source later) are only truncated.
+    """
+    options = schema.get("anyOf", [schema])
+    nullable = any(option.get("type") == "null" for option in options)
+    kinds = {str: "string", bool: "boolean", int: "integer", float: "number"}
+    kind = (
+        "array"
+        if isinstance(value, list)
+        else "object"
+        if isinstance(value, dict)
+        else kinds.get(type(value))
+    )
+    matches = [
+        o
+        for o in options
+        if o.get("type") == kind or (kind == "integer" and o.get("type") == "number")
+    ]
+    if value is None or not matches:
+        return None if nullable else value
+    option = matches[0]
+    if kind == "string" and "enum" not in option:
+        if not verbatim and looping(value):
+            if nullable:
+                return None
+            value = cut_loop(value)
+        limit = option.get("maxLength")
+        return truncate(value, limit) if limit else value
+    if kind in ("integer", "number"):
+        low, high = option.get("minimum"), option.get("maximum")
+        if (low is not None and value < low) or (high is not None and value > high):
+            return None if nullable else value
+        return value
+    if kind == "array":
+        entries = [tidy(entry, option.get("items", {})) for entry in value]
+        if option.get("items", {}).get("type") == "string":
+            entries = [entry for entry in entries if isinstance(entry, str) and entry.strip()]
+        limit = option.get("maxItems")
+        return entries[:limit] if limit else entries
+    if kind == "object":
+        properties = option.get("properties", {})
+        result = {}
+        for key, entry in value.items():
+            if key not in properties:
+                result[key] = entry
+                continue
+            fixed = tidy(entry, properties[key], verbatim=key == "quote")
+            if fixed is not None or entry is None or key in option.get("required", []):
+                result[key] = fixed
+            elif any(o.get("type") == "null" for o in properties[key].get("anyOf", [])):
+                result[key] = None
+            # Otherwise drop the key so the field's default applies.
+        return result
+    return value
+
+
+# Optional extras a part can lose before the part itself is dropped.
+PART_EXTRAS: dict[str, object] = {
+    "buyable": None,
+    "requirements": [],
+    "lookalikes": [],
+    "suggested_qty": None,
+}
+
+
+def lenient_bom(model: type[Model], data) -> Model:
+    """Validate a model BOM so that one bad field or part does not fail the whole read.
+
+    The output is tidied against the schema first. A project block that still fails is
+    dropped; a part that still fails is retried without its optional extras (buying spec,
+    requirements, look-alikes, suggested count) and dropped if it fails again. Evidence
+    rules are unchanged: every part still needs evidence the caller verifies.
+    """
+    if not isinstance(data, dict) or not isinstance(data.get("items"), list):
+        raise ValueError("The output has no items list")
+    schema = inline_schema(model, {"$defs"})
+    data = tidy(data, schema)
+    (item_model,) = get_args(model.model_fields["items"].annotation)
+    project = None
+    if data.get("project") is not None:
+        try:
+            project = ProjectDraft.model_validate(data["project"])
+        except ValidationError:
+            log.warning("EXTRACTION_PROJECT_DROPPED invalid project block")
+    items = []
+    dropped = 0
+    for raw in data["items"]:
+        part = None
+        for candidate in (raw, {**raw, **PART_EXTRAS} if isinstance(raw, dict) else raw):
+            try:
+                part = item_model.model_validate(candidate)
+                break
+            except ValidationError:
+                continue
+        if part is None:
+            dropped += 1
+        else:
+            items.append(part)
+    if dropped:
+        log.warning("EXTRACTION_ITEMS_DROPPED dropped=%d kept=%d", dropped, len(items))
+        if not items:
+            # Every part was malformed: an invalid read (retried), not an empty BOM.
+            raise ValueError("No valid parts in the output")
+    return model.model_validate({"project": project, "items": items})
 
 
 def described(entry: DescribedEvidenceDraft, haystack: str, url: str) -> Evidence | None:
@@ -650,7 +804,7 @@ class GeminiExtractor:
                 for part in candidate["content"]["parts"]
                 if not part.get("thought", False)
             )
-            return model.model_validate_json(output)
+            return lenient_bom(model, json.loads(output))
         except httpx.TimeoutException as exc:
             raise ExtractionError(
                 "UPSTREAM_TIMEOUT", f"{noun.capitalize()} extraction timed out"
@@ -804,8 +958,8 @@ class GeminiExtractor:
             if not code_items:
                 raise ExtractionError(
                     "SOURCE_UNAVAILABLE",
-                    "This public GitHub repository has no README and no code files that "
-                    "name a known part library or board",
+                    "This public GitHub repository has no README and no code or schematic "
+                    "files that name a part",
                 )
             return ExtractionResult(items=[], code_items=code_items)
         document = {
@@ -814,9 +968,19 @@ class GeminiExtractor:
             "document_url": document_url,
             "page_text": text,
         }
-        bom = self._generate(
-            [{"text": json.dumps(document)}], PAGE_PROMPT, ExtractedPageBom, "project page"
-        )
+        try:
+            bom = self._generate(
+                [{"text": json.dumps(document)}], PAGE_PROMPT, ExtractedPageBom, "project page"
+            )
+        except ExtractionError as exc:
+            # A GitHub README the model could not read still leaves the repository's files.
+            if source.kind != "github" or exc.code != "INVALID_EXTRACTION":
+                raise
+            code_items = read_code(self.fetcher, source.url, text, deep=True)
+            if not code_items:
+                raise
+            log.warning("README extraction failed (%s); kept code and PCB evidence", exc.code)
+            return ExtractionResult(items=[], code_items=code_items)
         haystack = normalise(text)
         items: list[BomItem] = []
         dropped = 0
@@ -849,8 +1013,13 @@ class GeminiExtractor:
                 len(items),
                 len(bom.items),
             )
-        # GitHub: add deterministic hints from the repository's code and build files.
-        code_items = read_code(self.fetcher, source.url, text) if source.kind == "github" else []
+        # GitHub: add deterministic hints from the repository's code and build files. When the
+        # README names no parts, the whole repository tree (firmware, KiCad schematics) is read.
+        code_items = (
+            read_code(self.fetcher, source.url, text, deep=not items)
+            if source.kind == "github"
+            else []
+        )
         if not items and not code_items:
             raise ExtractionError(
                 "NO_BOM", "No parts with verifiable quotes were found on the project page"

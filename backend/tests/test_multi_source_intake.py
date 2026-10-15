@@ -400,7 +400,7 @@ def test_github_without_readme_or_code_reports_a_clear_message():
     with pytest.raises(ExtractionError) as captured:
         extractor(fetcher, lambda request: gemini({"items": []})).extract(REPO)
     assert captured.value.code == "SOURCE_UNAVAILABLE"
-    assert "no README and no code files" in captured.value.message
+    assert "no README and no code or schematic files" in captured.value.message
 
 
 def test_github_tree_is_a_fallback_when_conventional_guesses_miss():
