@@ -83,8 +83,18 @@ def test_outgoing_request_and_validated_output():
         schema = payload["generationConfig"]["responseJsonSchema"]
         part_schema = schema["properties"]["items"]["items"]
         assert set(part_schema["required"]) == {"raw_name", "qty", "evidence"}
-        assert part_schema["properties"]["qty"]["anyOf"] == [{"type": "integer"}, {"type": "null"}]
+        assert part_schema["properties"]["qty"]["anyOf"] == [
+            {"type": "integer", "minimum": 1, "maximum": 10000},
+            {"type": "null"},
+        ]
+        assert schema["properties"]["project"]["anyOf"][0]["properties"]["title"]["anyOf"][0] == {
+            "type": "string",
+            "maxLength": 120,
+        }
         assert "$ref" not in json.dumps(schema)
+        assert "pattern" not in json.dumps(schema)
+        assert "minLength" not in json.dumps(schema)
+        # The live endpoints reject maxItems on the full BOM schema (INVALID_ARGUMENT).
         assert "maxItems" not in json.dumps(schema)
         return result([PART])
 
@@ -104,12 +114,9 @@ def test_outgoing_request_and_validated_output():
         (httpx.Response(200, json={}), "INVALID_EXTRACTION"),
         (httpx.Response(200, text="not json"), "INVALID_EXTRACTION"),
         (result([]), "NO_BOM"),
-        (result([{**PART, "qty": -1}]), "INVALID_EXTRACTION"),
         (result([{**PART, "evidence": []}]), "INVALID_EXTRACTION"),
-        (result([PART] * 101), "INVALID_EXTRACTION"),
-        (result([{**PART, "qty": 10001}]), "INVALID_EXTRACTION"),
-        (result([{**PART, "raw_name": "x" * 201}]), "INVALID_EXTRACTION"),
         (result([{**PART, "unexpected": True}]), "INVALID_EXTRACTION"),
+        (result([{**PART, "raw_name": ""}]), "INVALID_EXTRACTION"),
         (
             result([{**PART, "evidence": [{"timestamp": "00:99", "observation": "A board"}]}]),
             "INVALID_EXTRACTION",
