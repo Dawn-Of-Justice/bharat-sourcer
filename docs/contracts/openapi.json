@@ -3,7 +3,7 @@
   "info": {
     "title": "Bharat Sourcer API",
     "description": "Demo or live YouTube and project-page extraction with optional Firestore job persistence.",
-    "version": "0.42.0"
+    "version": "0.42.1"
   },
   "paths": {
     "/v1/session/guest": {
@@ -7273,6 +7273,8 @@
           },
           "line_id": {
             "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
             "title": "Line Id"
           },
           "user_has_it": {
@@ -7324,7 +7326,8 @@
         "properties": {
           "failed_urls": {
             "items": {
-              "type": "string"
+              "type": "string",
+              "maxLength": 4096
             },
             "type": "array",
             "maxItems": 10,
@@ -10231,7 +10234,9 @@
         "properties": {
           "line_ids": {
             "items": {
-              "type": "string"
+              "type": "string",
+              "maxLength": 64,
+              "minLength": 1
             },
             "type": "array",
             "maxItems": 30,
@@ -10305,6 +10310,8 @@
           },
           "line_id": {
             "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
             "title": "Line Id"
           }
         },
@@ -11065,6 +11072,8 @@
         "properties": {
           "line_id": {
             "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
             "title": "Line Id"
           },
           "purpose": {
@@ -11119,6 +11128,8 @@
         "properties": {
           "line_id": {
             "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
             "title": "Line Id"
           },
           "purpose": {
@@ -11479,6 +11490,8 @@
         "properties": {
           "line_id": {
             "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
             "title": "Line Id"
           },
           "offer_url": {
@@ -11755,6 +11768,8 @@
         "properties": {
           "line_id": {
             "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
             "title": "Line Id"
           },
           "price_usd": {
@@ -12551,6 +12566,8 @@
           },
           "line_id": {
             "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
             "title": "Line Id"
           },
           "raw_name": {
@@ -12627,6 +12644,8 @@
         "properties": {
           "line_id": {
             "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
             "title": "Line Id"
           },
           "specs": {

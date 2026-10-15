@@ -1,4 +1,18 @@
-# Implemented API contract — v0.42.0
+# Implemented API contract — v0.42.1
+
+v0.42.1: security hardening; no change for normal requests. Request bodies above 1 MiB
+(`BS_MAX_BODY_BYTES`; 8 MiB on `POST /v1/jobs/{job_id}/scan`) get `413 BODY_TOO_LARGE`
+before parsing. Unhandled errors return `500 INTERNAL_ERROR` with a generic message (never
+exception text). Client-sent line ids (`line_id` in confirm edits, selections, specs,
+import references, resistor inputs, and `RefreshOffers.line_ids[]`) are at most 64
+characters and `ImageRequest.failed_urls[]` items at most 4096; longer values get
+`422 VALIDATION_ERROR`. Buying specs saved from a client edit keep `must[]` items to 60
+and `reasons[]` items to 300 characters. `POST /v1/projects/{job_id}/claim` allows 20
+attempts per account per minute (`429 USAGE_LIMIT` with `Retry-After`). A code-patch zip
+is refused with `409 PATCH_UNSAFE` if a stored file path is absolute or traverses
+(`..`). Outbound fetches also refuse `metadata.google.internal` and other internal names,
+and IPv6 answers that embed a private IPv4 address. With auth enabled, `BS_CORS_ORIGINS`
+must not contain `*`.
 
 v0.42.0: made-to-order lines. New `BomItem.fabrication: "none"|"3d_print"|"pcb"` (default
 `none`), AI-decided by the reconcile pass. `ReportLine.sourcing_status` (and

@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import os
+import re
 import secrets
 from contextlib import asynccontextmanager, suppress
 from datetime import timedelta
@@ -21,6 +22,7 @@ from bharat_sourcer.conversation import Assistant, ConversationService, GeminiAs
 from bharat_sourcer.dispatch import CloudDispatcher, Work, work_once
 from bharat_sourcer.extraction import Extractor, GeminiExtractor
 from bharat_sourcer.gemini_extras import GeminiExtras, add_extras_routes
+from bharat_sourcer.guards import BodyLimit
 from bharat_sourcer.identity import Principal
 from bharat_sourcer.images import PartImageService
 from bharat_sourcer.jobs import JobError, JobService
@@ -74,6 +76,8 @@ from bharat_sourcer.storage import FirestoreJobStore, JobStore, MemoryJobStore, 
 from bharat_sourcer.streaming import snapshots
 
 JobToken = ProjectAccess
+# Body cap for the parts-bin scan route: above ScanRequest's 7,000,000-character photo.
+SCAN_BODY_BYTES = 8_388_608
 
 
 def create_app(
@@ -208,7 +212,7 @@ def create_app(
 
     app = FastAPI(
         title="Bharat Sourcer API",
-        version="0.42.0",
+        version="0.42.1",
         description=(
             "Demo or live YouTube and project-page extraction with optional Firestore job "
             "persistence."
@@ -257,11 +261,26 @@ def create_app(
             content={"error": {"code": "STORAGE_ERROR", "message": "Job storage operation failed"}},
         )
 
+    @app.exception_handler(Exception)
+    async def unexpected_error_handler(request: Request, exc: Exception):
+        # Never echo exception text or tracebacks; the server log keeps the traceback.
+        route = getattr(request.scope.get("route"), "path", "unmatched")
+        logging.getLogger(__name__).error(
+            "UNHANDLED_ERROR route=%s type=%s", route, type(exc).__name__
+        )
+        return JSONResponse(
+            status_code=500,
+            content={"error": {"code": "INTERNAL_ERROR", "message": "Internal server error"}},
+        )
+
     @app.middleware("http")
     async def integration_access(request: Request, call_next):
         if settings.integration_key and request.url.path.startswith("/v1/"):
-            supplied = request.headers.get("X-Integration-Key", "")
-            if not secrets.compare_digest(supplied, settings.integration_key.get_secret_value()):
+            # Header values are latin-1 decoded; compare bytes so non-ASCII input is a
+            # plain mismatch (compare_digest raises TypeError on non-ASCII str).
+            supplied = request.headers.get("X-Integration-Key", "").encode("latin-1")
+            expected = settings.integration_key.get_secret_value().encode()
+            if not secrets.compare_digest(supplied, expected):
                 return JSONResponse(
                     status_code=401,
                     content={
@@ -317,6 +336,14 @@ def create_app(
         if request.url.path.startswith("/v1/"):
             result.headers["Cache-Control"] = "no-store"
         return result
+
+    # Inside CORS so a 413 still carries CORS headers for allowed origins.
+    app.add_middleware(
+        BodyLimit,
+        limit=settings.max_body_bytes,
+        # The scan photo is base64 JSON (ScanRequest caps it at 7,000,000 characters).
+        overrides=((r"/v1/jobs/[^/]+/scan", SCAN_BODY_BYTES),),
+    )
 
     app.add_middleware(
         CORSMiddleware,
@@ -476,10 +503,11 @@ def create_app(
     )
     def download_code_patch(job_id: str, line_id: str, x_job_token: JobToken = None):
         content = code_patches.download(job_id, line_id, x_job_token)
+        name = re.sub(r"[^A-Za-z0-9_-]", "_", line_id)[:40]
         return Response(
             content,
             media_type="application/zip",
-            headers={"Content-Disposition": f'attachment; filename="code-patch-{line_id}.zip"'},
+            headers={"Content-Disposition": f'attachment; filename="code-patch-{name}.zip"'},
         )
 
     @app.get("/v1/compile/boards", response_model=CompileBoards, tags=["code"])

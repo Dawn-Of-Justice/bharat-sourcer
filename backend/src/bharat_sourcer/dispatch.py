@@ -71,6 +71,9 @@ class CloudDispatcher:
             logging.getLogger(__name__).error("TASK_ENQUEUE_FAILED job=%s kind=%s", job_id, kind)
 
     def authorize(self, authorization):
+        # Without an audience the token check would accept any Google ID token audience.
+        if not self.settings.tasks_url or not self.settings.tasks_service_account:
+            return False
         if not authorization or not authorization.startswith("Bearer "):
             return False
         try:

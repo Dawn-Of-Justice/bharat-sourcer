@@ -206,6 +206,9 @@ class Settings(BaseSettings):
     markets_global_daily_limit: int = Field(default=50, ge=1)
     markets_cache_ttl_s: int = Field(default=7 * 86400, ge=0, le=30 * 86400)
     cors_origins: list[str] = ["http://localhost:5173", "http://127.0.0.1:5173"]
+    # Largest accepted request body; the parts-bin scan route alone allows 8 MiB for its
+    # base64 photo (main.py). Larger bodies get 413 BODY_TOO_LARGE before parsing.
+    max_body_bytes: int = Field(default=1_048_576, ge=65_536, le=8_388_608)
 
     @model_validator(mode="after")
     def require_project(self):
@@ -215,6 +218,9 @@ class Settings(BaseSettings):
             or len(self.guest_session_secret.get_secret_value()) < 32
         ):
             raise ValueError("Authentication requires a project and a 32-character guest secret")
+        if self.auth_enabled and "*" in self.cors_origins:
+            # Credentialed CORS with a wildcard would let any site use a visitor's session.
+            raise ValueError("Authentication requires explicit CORS origins, not '*'")
         if self.trusted_proxy_ip_header and not self.integration_key:
             raise ValueError("Trusted proxy IP requires integration authentication")
         if self.dispatch_backend == "cloud_tasks" and (
