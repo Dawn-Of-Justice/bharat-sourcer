@@ -18,6 +18,74 @@ const contentTypes = {
   '.webp': 'image/webp',
 }
 
+// Security headers sent on every response: static files, index.html, /config.js, proxied API
+// responses, redirects and errors. Browsers ignore HSTS over plain-HTTP localhost, so it is harmless
+// in development. COOP is same-origin-allow-popups (not same-origin) because Google sign-in uses
+// Firebase signInWithPopup (src/auth.ts), whose popup must keep talking to this page.
+// Non-HTML responses carry only the frame-ancestors part of the CSP; HTML gets the full policy.
+export const SECURITY_HEADERS = {
+  'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
+  'X-Content-Type-Options': 'nosniff',
+  'Referrer-Policy': 'strict-origin-when-cross-origin',
+  'X-Frame-Options': 'DENY',
+  'Content-Security-Policy': "frame-ancestors 'none'",
+  'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
+  'Cross-Origin-Opener-Policy': 'same-origin-allow-popups',
+}
+
+// The one Content-Security-Policy for HTML pages, derived from what the app actually loads:
+// - script-src: the Vite bundle and /config.js are same-origin. Firebase Auth's popup flow loads
+//   the gapi loader from https://apis.google.com. No 'unsafe-inline' and no 'unsafe-eval'.
+// - style-src: the bundled CSS plus React style props, which need 'unsafe-inline'.
+// - img-src: YouTube thumbnails (i.ytimg.com) and seller product photos from arbitrary HTTPS hosts,
+//   plus data: and blob: images.
+// - font-src: Source Sans 3 is bundled by @fontsource and served from this origin.
+// - connect-src: the /api proxy is same-origin. Firebase Auth calls identitytoolkit.googleapis.com
+//   (project config, sign-in, account lookup) and securetoken.googleapis.com (ID token refresh).
+// - frame-src: Firebase Auth's hidden iframe at https://<FIREBASE_AUTH_DOMAIN>/__/auth/iframe; the
+//   auth domain comes from the runtime config, so contentSecurityPolicy() appends it.
+export const CONTENT_SECURITY_POLICY = {
+  'default-src': ["'self'"],
+  'script-src': ["'self'", 'https://apis.google.com'],
+  'style-src': ["'self'", "'unsafe-inline'"],
+  'img-src': ["'self'", 'data:', 'blob:', 'https:'],
+  'font-src': ["'self'", 'data:'],
+  'connect-src': ["'self'", 'https://identitytoolkit.googleapis.com', 'https://securetoken.googleapis.com'],
+  'frame-src': ["'self'"],
+  'object-src': ["'none'"],
+  'base-uri': ["'self'"],
+  'form-action': ["'self'"],
+  'frame-ancestors': ["'none'"],
+}
+
+export function contentSecurityPolicy(authDomain = process.env.FIREBASE_AUTH_DOMAIN) {
+  const directives = structuredClone(CONTENT_SECURITY_POLICY)
+  if (authDomain && /^[a-z0-9.-]+$/i.test(authDomain)) directives['frame-src'].push('https://' + authDomain)
+  return Object.entries(directives)
+    .map(([name, sources]) => name + ' ' + sources.join(' '))
+    .join('; ')
+}
+
+const localHosts = new Set(['localhost', '127.0.0.1', '[::1]'])
+
+// Firebase Hosting and Cloud Run terminate TLS and already serve browsers over HTTPS only. This is
+// defence in depth: a request a proxy marks as plain HTTP is sent to the same URL over HTTPS.
+// Local hosts (development, tests) are left alone.
+function httpsRedirect(req) {
+  const proto = String(req.headers['x-forwarded-proto'] || '')
+    .split(',')[0]
+    .trim()
+    .toLowerCase()
+  if (proto !== 'http') return null
+  const host = String(req.headers['x-forwarded-host'] || req.headers.host || '')
+    .split(',')[0]
+    .trim()
+  if (!/^(?:[a-z0-9.-]+|\[[0-9a-f:]+\])(?::\d+)?$/i.test(host)) return null
+  const hostname = host.startsWith('[') ? host.slice(0, host.indexOf(']') + 1) : host.split(':')[0]
+  if (localHosts.has(hostname.toLowerCase())) return null
+  return 'https://' + host + (req.url?.startsWith('/') ? req.url : '/')
+}
+
 function send(res, status, body) {
   res.writeHead(status, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' })
   res.end(body)
@@ -99,7 +167,7 @@ async function staticFile(req, res, distDir) {
   res.writeHead(200, {
     'Content-Type': contentTypes[path.extname(target)] || 'application/octet-stream',
     'Cache-Control': pathname.startsWith('/assets/') ? 'public, max-age=31536000, immutable' : 'no-store',
-    'X-Content-Type-Options': 'nosniff',
+    ...(path.extname(target) === '.html' ? { 'Content-Security-Policy': contentSecurityPolicy() } : {}),
   })
   if (req.method === 'HEAD') return res.end()
   await pipeline(createReadStream(target), res)
@@ -111,6 +179,12 @@ export function createServer({ backendBase, integrationKey, distDir = defaultDis
   if (!integrationKey) throw new Error('INTEGRATION_KEY is required')
   const root = path.resolve(distDir)
   return http.createServer((req, res) => {
+    for (const [name, value] of Object.entries(SECURITY_HEADERS)) res.setHeader(name, value)
+    const secureUrl = httpsRedirect(req)
+    if (secureUrl) {
+      res.writeHead(301, { Location: secureUrl, 'Cache-Control': 'no-store' })
+      return res.end()
+    }
     if (req.url === '/config.js') {
       if (req.method !== 'GET') return send(res, 405, 'Method not allowed')
       const config = {
@@ -123,7 +197,6 @@ export function createServer({ backendBase, integrationKey, distDir = defaultDis
       res.writeHead(200, {
         'Content-Type': 'text/javascript; charset=utf-8',
         'Cache-Control': 'no-store',
-        'X-Content-Type-Options': 'nosniff',
       })
       return res.end(body)
     }

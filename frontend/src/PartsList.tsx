@@ -9,6 +9,7 @@ import {
   type UnsourcedLine,
 } from './api'
 import { madeToOrder } from './fabrication'
+import { safeHref } from './safeUrl'
 import { PartThumb, amountText, price } from './ReportBits'
 import { sellerName } from './SellerIdentity'
 import { reportPartName, qtyLabel } from './partName'
@@ -148,7 +149,7 @@ function CartLinks({ seller, names }: { seller: OrderPlanSeller; names: Map<stri
     const rest = entries.filter(entry => !added.has(entry.line_id))
     return (
       <div className="pp-cart">
-        <a className="primary-button" href={seller.cart_url} target="_blank" rel="noopener noreferrer">
+        <a className="primary-button" href={safeHref(seller.cart_url)} target="_blank" rel="noopener noreferrer">
           Add {added.size} {added.size === 1 ? 'item' : 'items'} to cart <span aria-hidden="true">↗</span>
         </a>
         <p>
@@ -168,7 +169,7 @@ function CartLinks({ seller, names }: { seller: OrderPlanSeller; names: Map<stri
       <ul>
         {single.map(entry => (
           <li key={entry.line_id}>
-            <a className="nav-cta" href={entry.cart_url!} target="_blank" rel="noopener noreferrer">
+            <a className="nav-cta" href={safeHref(entry.cart_url)} target="_blank" rel="noopener noreferrer">
               Add {name(entry.line_id)} ×{entry.packs} <span aria-hidden="true">↗</span>
             </a>
           </li>

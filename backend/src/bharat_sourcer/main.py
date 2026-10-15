@@ -75,6 +75,14 @@ from bharat_sourcer.streaming import snapshots
 
 JobToken = ProjectAccess
 
+# Sent on every API response (the web server in frontend/server.mjs adds its own set too).
+SECURITY_HEADERS = {
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "Referrer-Policy": "strict-origin-when-cross-origin",
+    "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
+}
+
 
 def create_app(
     settings: Settings | None = None,
@@ -332,6 +340,14 @@ def create_app(
         allow_credentials=True,
         expose_headers=["Retry-After"],
     )
+
+    # Registered last so it wraps CORS and the access checks: preflights, 401s and errors get it.
+    @app.middleware("http")
+    async def security_headers(request: Request, call_next):
+        result = await call_next(request)
+        for name, value in SECURITY_HEADERS.items():
+            result.headers.setdefault(name, value)
+        return result
 
     @app.exception_handler(JobError)
     async def job_error_handler(request: Request, exc: JobError):
