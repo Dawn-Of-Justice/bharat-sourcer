@@ -35,7 +35,8 @@ leaves `build_received`.
 BuildGuide { status: pending|ready|failed|stale, message, generated_at, items_hash,
              demo, steps: BuildStep[] (at most 20) }
 BuildStep  { title (≤120), detail (≤600), line_ids: string[], timestamp: "MM:SS" or
-             "H:MM:SS" | null, caution (≤200) | null, origin: "ai_inferred" }
+             "H:MM:SS" | null (unique within the guide), caution (≤200) | null,
+             origin: "ai_inferred" }
 ```
 
 `failed` and `stale` carry a `message`. A guide becomes `stale` when the parts list changes
@@ -50,13 +51,18 @@ confirmed lines (id, name, count, whether the maker has it, up to four evidence
 observations with their video timestamps), the overview wiring when the overview is
 `ready` (from/to line and pin, signal, label), code-patch notes (applied changes and notes)
 and the safety flags. The prompt asks for ordered steps a beginner can follow (prepare
-parts, solder or connect, flash code, test, enclose) with the video timestamp where the
-evidence shows that moment.
+parts, solder or connect, flash code, test, enclose). A step gets a video timestamp only
+when the evidence of one of its own parts shows that step's work being done; evidence
+timestamps are where a part was seen, not a timeline of the build, so most steps have none.
 
 Validation in code (`build_guide.py`): text fields are cut to their limits; line ids not
-on the job are dropped; a timestamp must equal one of the job's video evidence timestamps
-(compared as seconds, returned in the stored form) or it becomes null; steps without a
-title are dropped. An answer with fewer than 3 or more than 20 usable steps, invalid JSON,
+on the job are dropped; a timestamp is kept only when it equals a video evidence timestamp
+of one of the step's own lines (compared as seconds, returned in the stored form) and no
+other step in the answer cites the same moment; otherwise it becomes null (one part's
+moment copied onto several steps, or borrowed from a part the step does not use, is never
+shown). Steps without a title are dropped. `BuildGuide` also clears any timestamp shared by
+two or more steps when a guide is built or loaded, so guides saved before this rule show no
+duplicated moment. An answer with fewer than 3 or more than 20 usable steps, invalid JSON,
 or a finish reason other than `STOP` (for example `MAX_TOKENS`) fails; the call is retried
 once, then the guide is stored `failed`.
 

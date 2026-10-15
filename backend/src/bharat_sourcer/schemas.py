@@ -1,3 +1,4 @@
+from collections import Counter
 from datetime import UTC, date, datetime
 from typing import Annotated, Literal
 from uuid import UUID
@@ -1619,10 +1620,31 @@ class BuildStep(Model):
     # Parts used in this step; every id is a line on the job.
     line_ids: list[str] = Field(default_factory=list, max_length=40)
     # A moment in the source video (MM:SS or H:MM:SS) where the evidence shows this step;
-    # always one of the job's video evidence timestamps.
+    # always a video evidence timestamp of a line used in this step, and never shared with
+    # another step of the same guide (null when the evidence has no moment of its own).
     timestamp: str | None = Field(default=None, pattern=r"^\d+:[0-5]\d(:[0-5]\d)?$")
     caution: str | None = Field(default=None, max_length=200)
     origin: Literal["ai_inferred"] = "ai_inferred"
+
+
+def step_seconds(timestamp: str) -> int:
+    """A BuildStep timestamp ("MM:SS" or "H:MM:SS") in seconds."""
+    total = 0
+    for part in timestamp.split(":"):
+        total = total * 60 + int(part)
+    return total
+
+
+def clear_shared_timestamps(steps: list[BuildStep]) -> None:
+    """Clear every timestamp that more than one step cites.
+
+    One video moment cannot be the moment of two different steps; a shared time is a part
+    sighting reused across steps, so no step keeps it (never a guess at which one owns it).
+    """
+    counts = Counter(step_seconds(s.timestamp) for s in steps if s.timestamp)
+    for step in steps:
+        if step.timestamp and counts[step_seconds(step.timestamp)] > 1:
+            step.timestamp = None
 
 
 class BuildGuide(Model):
@@ -1634,6 +1656,12 @@ class BuildGuide(Model):
     items_hash: str | None = Field(default=None, max_length=64)
     demo: bool = False
     steps: list[BuildStep] = Field(default_factory=list, max_length=20)
+
+    @model_validator(mode="after")
+    def distinct_timestamps(self):
+        # Also cleans guides stored before the build_guide.py guard existed.
+        clear_shared_timestamps(self.steps)
+        return self
 
 
 class BuildProgress(Model):
