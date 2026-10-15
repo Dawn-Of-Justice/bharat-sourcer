@@ -25,6 +25,8 @@ class Model(BaseModel):
 
 
 Name = Annotated[str, Field(min_length=1, max_length=200)]
+# A BOM line id sent by a client (server ids look like L01); bounded, never trusted.
+LineRef = Annotated[str, Field(min_length=1, max_length=64)]
 Quantity = Annotated[int, Field(strict=True, ge=1, le=10000)]
 Money = Annotated[str, Field(pattern=r"^\d+\.\d{2}$")]
 Status = Literal[
@@ -480,7 +482,7 @@ class BomItem(Model):
 
 class UpdateLine(Model):
     op: Literal["update"]
-    line_id: str
+    line_id: LineRef
     raw_name: Name | None = None
     qty: Quantity | None = None
     specs: PartSpecs | None = None
@@ -502,12 +504,12 @@ class UpdateLine(Model):
 
 class RemoveLine(Model):
     op: Literal["remove"]
-    line_id: str
+    line_id: LineRef
 
 
 class HaveLine(Model):
     op: Literal["have_it"]
-    line_id: str
+    line_id: LineRef
     user_has_it: bool = True
 
 
@@ -527,7 +529,7 @@ class ConfirmJob(Model):
 
 
 class SelectOffer(Model):
-    line_id: str
+    line_id: LineRef
     offer_url: HttpUrl | None = None
     accept_changes: bool = False
     accept_research_assessment: bool = False
@@ -538,11 +540,11 @@ class SelectOffers(Model):
 
 
 class RefreshOffers(Model):
-    line_ids: list[str] = Field(min_length=1, max_length=30)
+    line_ids: list[LineRef] = Field(min_length=1, max_length=30)
 
 
 class UpdatePartSpecs(Model):
-    line_id: str
+    line_id: LineRef
     specs: PartSpecs | None = None
     requirements: list[PartRequirement] | None = Field(default=None, max_length=20)
 
@@ -574,13 +576,13 @@ class ProposalDecision(Model):
 
 
 class ResistorQuestion(Model):
-    line_id: str
+    line_id: LineRef
     purpose: Literal["unknown", "led_series", "piezo_input", "pull_up", "other"] = "unknown"
     question: str = Field(min_length=1, max_length=1000)
 
 
 class ResistorInputs(Model):
-    line_id: str
+    line_id: LineRef
     purpose: Literal["led_series"]
     supply_max_v: float = Field(gt=0, le=24, allow_inf_nan=False)
     led_forward_min_v: float = Field(gt=0, le=24, allow_inf_nan=False)
@@ -885,7 +887,9 @@ class PartImages(Model):
 
 
 class ImageRequest(Model):
-    failed_urls: list[str] = Field(default_factory=list, max_length=10)
+    failed_urls: list[Annotated[str, Field(max_length=4096)]] = Field(
+        default_factory=list, max_length=10
+    )
 
 
 CostStatus = Literal["known", "estimated", "unknown"]
@@ -1143,7 +1147,7 @@ class OrderPlan(Model):
 
 
 class SetImportReference(Model):
-    line_id: str
+    line_id: LineRef
     price_usd: Money | None = None
     source_url: HttpUrl | None = None
 

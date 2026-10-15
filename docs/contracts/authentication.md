@@ -95,7 +95,8 @@ Additional defaults: 100 job POST attempts/IP/day, 1,000 across the service/day;
 guest cookie does not consume session quota. POST attempts consume quota before
 body validation, including retries and idempotent repeats. Unauthorized ownership
 attempts do not consume the project action quota. Reads, claims, logout and pause
-are excluded. In v0.17.1, `429 USAGE_LIMIT` includes `Retry-After` seconds until the
+are excluded. Since v0.42.1 claims have their own limit of 20 attempts per account per
+minute (`429 USAGE_LIMIT` with `Retry-After`). In v0.17.1, `429 USAGE_LIMIT` includes `Retry-After` seconds until the
 latest reset of the exhausted limits: next minute for burst limits, midnight UTC
 for daily limits. The header is exposed through CORS. Avoid retrying mutations
 automatically because attempts themselves consume quota.

@@ -18,6 +18,8 @@ from bharat_sourcer.jobs import JobError
 from bharat_sourcer.schemas import AccountSettings, CountryCode, Job, Model, Status
 
 log = logging.getLogger(__name__)
+# Claim attempts per account per minute (claims are otherwise quota-free).
+CLAIMS_PER_MINUTE = 20
 
 
 def credential(request: Request, x_job_token: str | None = Header(default=None)):
@@ -188,6 +190,18 @@ class Access:
                 retry_after=max(1, math.ceil(max(resets, default=timestamp + 60) - time.time())),
             )
 
+    def burst(self, kind, principal, cap):
+        """Per-identity per-minute cap for quota-free mutations (claims); 429 when spent."""
+        timestamp = time.time()
+        owner = hashlib.sha256(principal.owner.encode()).hexdigest()
+        if not self.service.store.consume({f"{kind}-{int(timestamp) // 60}-{owner}": cap}):
+            raise JobError(
+                429,
+                "USAGE_LIMIT",
+                "Too many requests; retry in a minute",
+                retry_after=max(1, 60 - int(timestamp) % 60),
+            )
+
     def usage(self, principal):
         timestamp = int(time.time())
         day = datetime.fromtimestamp(timestamp, UTC).strftime("%Y%m%d")
@@ -345,6 +359,8 @@ def add_access_routes(app, access):
             raise JobError(401, "ACCOUNT_REQUIRED", "Sign in before claiming a project")
         access.csrf(request)
         access.service._validate_id(job_id)
+        # Claims never use the action budget; bound token guessing and write bursts instead.
+        access.burst("claim", principal, CLAIMS_PER_MINUTE)
         try:
             guest = access.sessions.verify(access.sessions.cookie(request))
         except ValueError:

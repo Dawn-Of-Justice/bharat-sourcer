@@ -32,7 +32,40 @@ class ApiRoute(FetchError):
         self.url = url
 
 
+# Cloud metadata and other internal names are refused before any DNS lookup.
+BLOCKED_HOSTS = frozenset({"metadata.google.internal", "metadata.goog", "metadata", "localhost"})
+BLOCKED_SUFFIXES = (".internal", ".localhost", ".local")
+# Well-known NAT64 prefix (RFC 6052): the last 32 bits are an IPv4 address.
+NAT64 = ipaddress.ip_network("64:ff9b::/96")
+
+
+def blocked_host(host: str) -> bool:
+    name = host.lower().rstrip(".")
+    return name in BLOCKED_HOSTS or name.endswith(BLOCKED_SUFFIXES)
+
+
+def is_public(value: str) -> bool:
+    """True only for a global address, including any IPv4 address embedded in IPv6."""
+    try:
+        address = ipaddress.ip_address(value)
+    except ValueError:  # an answer that is not an IP address is never trusted
+        return False
+    if not address.is_global:
+        return False
+    if isinstance(address, ipaddress.IPv6Address):
+        low = ipaddress.IPv4Address(int(address) & 0xFFFFFFFF)
+        embedded = [address.ipv4_mapped, address.sixtofour]
+        if address.teredo:
+            embedded.append(address.teredo[1])
+        if address in NAT64 or int(address) >> 32 == 0:  # NAT64 or IPv4-compatible ::a.b.c.d
+            embedded.append(low)
+        return all(ip is None or ip.is_global for ip in embedded)
+    return True
+
+
 def public_addresses(host: str) -> list[str]:
+    if blocked_host(host):
+        raise FetchError("Non-public address rejected")
     try:
         addresses = list(
             dict.fromkeys(
@@ -42,7 +75,7 @@ def public_addresses(host: str) -> list[str]:
         )
     except OSError as exc:
         raise FetchError("DNS lookup failed") from exc
-    if not addresses or any(not ipaddress.ip_address(value).is_global for value in addresses):
+    if not addresses or not all(is_public(value) for value in addresses):
         raise FetchError("Non-public address rejected")
     return addresses
 
@@ -60,7 +93,7 @@ def validate_url(url: str) -> tuple[str, str]:
         ):
             raise ValueError
         host = parsed.hostname.encode("idna").decode("ascii")
-        if any(c in host for c in "\r\n\t /\\"):
+        if any(c in host for c in "\r\n\t /\\") or blocked_host(host):
             raise ValueError
         path = parsed.path or "/"
         if parsed.query:
