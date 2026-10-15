@@ -54,6 +54,7 @@ import { ExtractionProgress } from './ExtractionProgress'
 import { PartIllustration } from './PartIllustration'
 import { useToast } from './toastContext'
 import { safeHref } from './safeUrl'
+import { checkLinks, linkKind } from './sourceLink'
 import {
   loadBuildPage,
   loadChatPanel,
@@ -229,18 +230,6 @@ const sourceFields: Record<LinkSource, { label: string; placeholder: string }> =
   github: { label: 'Paste a GitHub repository link', placeholder: 'https://github.com/creator/project' },
 }
 
-const bareHost = (url: URL) => url.hostname.toLowerCase().replace(/^www\./, '')
-function linkKind(url: URL): LinkSource | 'hackster' | null {
-  const host = bareHost(url)
-  if (['youtube.com', 'm.youtube.com', 'youtu.be'].includes(host)) return 'youtube'
-  if (host === 'github.com') return 'github'
-  if (host === 'hackster.io') return 'hackster'
-  // Public personal blogs are accepted too; the backend validates and safely fetches them.
-  return host.includes('.') && !url.username && !url.password ? 'article' : null
-}
-const hacksterMessage =
-  'Hackster blocks automated reading, so its projects cannot be read yet. Try the project’s GitHub repository or video instead.'
-
 function Landing({ onCreated }: { onCreated: (id: string) => void }) {
   const account = useAccount()
   const [source, setSource] = useState<SourceType>('youtube')
@@ -284,56 +273,16 @@ function Landing({ onCreated }: { onCreated: (id: string) => void }) {
     event.preventDefault()
     setError('')
     if (source === 'document') return
-    let parsed: URL
-    try {
-      parsed = new URL(sourceUrls[source].trim())
-      if (!['http:', 'https:'].includes(parsed.protocol)) throw new Error()
-    } catch {
-      setError('Enter a full project URL, starting with https://.')
-      return
-    }
-    if (source === 'article' && !['article', 'github'].includes(linkKind(parsed) ?? '')) {
-      setError(
-        linkKind(parsed) === 'hackster'
-          ? hacksterMessage
-          : 'Use a public project page, personal blog or GitHub repository link.',
-      )
-      return
-    }
-    if (source === 'github' && linkKind(parsed) !== 'github') {
-      setError('Enter a github.com repository URL.')
-      return
-    }
-    const sources: string[] = []
-    for (const [index, extra] of extras.entries()) {
-      if (!extra.trim()) continue
-      let url: URL
-      try {
-        url = new URL(extra.trim())
-        if (url.protocol !== 'https:' && url.protocol !== 'http:') throw new Error()
-      } catch {
-        setError(`Extra source ${index + 1}: enter a full URL, starting with https://.`)
-        return
-      }
-      const kind = linkKind(url)
-      if (kind === 'hackster') {
-        setError(`Extra source ${index + 1}: ${hacksterMessage}`)
-        return
-      }
-      if (!kind) {
-        setError(`Extra source ${index + 1}: use a YouTube video, GitHub repository or public project/blog page.`)
-        return
-      }
-      sources.push(url.toString())
-    }
-    if ([parsed.toString(), ...sources].filter(url => linkKind(new URL(url)) === 'youtube').length > 1) {
-      setError('Only one YouTube video can be read per project. Remove the extra video link.')
+    // Any supported link works in any field; the backend reads each by what it is.
+    const checked = checkLinks(sourceUrls[source], extras)
+    if ('error' in checked) {
+      setError(checked.error)
       return
     }
     if (!account.requireIdentity()) return
     setSubmitting(true)
     try {
-      const job = await createJob(parsed.toString(), sources)
+      const job = await createJob(checked.url, checked.sources)
       sessionStorage.setItem(`bharat-sourcer:job:${job.job_id}`, job.job_token)
       onCreated(job.job_id)
     } catch (cause) {
@@ -457,7 +406,9 @@ function Landing({ onCreated }: { onCreated: (id: string) => void }) {
                     <input
                       id="source-url"
                       name="url"
-                      type="url"
+                      type="text"
+                      spellCheck={false}
+                      autoCapitalize="off"
                       inputMode="url"
                       autoComplete="url"
                       placeholder={sourceFields[source].placeholder}
@@ -487,7 +438,9 @@ function Landing({ onCreated }: { onCreated: (id: string) => void }) {
                         <div>
                           <input
                             id={`extra-source-${index}`}
-                            type="url"
+                            type="text"
+                            spellCheck={false}
+                            autoCapitalize="off"
                             inputMode="url"
                             placeholder="https://github.com/creator/project"
                             value={extra}
