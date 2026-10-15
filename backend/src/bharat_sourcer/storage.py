@@ -47,6 +47,7 @@ def check_size(record: StoredJob) -> None:
 
 class JobStore(Protocol):
     def create(self, record: StoredJob) -> None: ...
+    # Returns a private copy the caller may change; it never aliases stored state.
     def get(self, job_id: str) -> StoredJob | None: ...
     def mutate(self, job_id: str, change: Callable[[StoredJob], None]) -> StoredJob | None: ...
     def delete(self, job_id: str) -> bool: ...
@@ -161,10 +162,12 @@ class FirestoreJobStore:
         @firestore.transactional
         def apply(transaction):
             refs = {key: self.usage.document(key) for key in limits}
-            counts = {
-                key: (ref.get(transaction=transaction).to_dict() or {}).get("count", 0)
-                for key, ref in refs.items()
+            # One batched read for every window, not a round trip per counter.
+            stored = {
+                snapshot.id: (snapshot.to_dict() or {}).get("count", 0)
+                for snapshot in transaction.get_all(list(refs.values()))
             }
+            counts = {key: stored.get(key, 0) for key in limits}
             if any(counts[key] >= cap for key, cap in limits.items()):
                 return False
             for key, ref in refs.items():

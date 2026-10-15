@@ -6,7 +6,7 @@ import pytest
 
 from bharat_sourcer.jobs import JobError, JobService
 from bharat_sourcer.schemas import BomItem, ConfirmJob, CreateJob, now
-from bharat_sourcer.storage import MemoryJobStore, StoredJob
+from bharat_sourcer.storage import FirestoreJobStore, MemoryJobStore, StoredJob
 
 
 def test_new_service_can_read_and_confirm_existing_job():
@@ -20,6 +20,20 @@ def test_new_service_can_read_and_confirm_existing_job():
     second.finish(job.job_id)
     assert first.get(job.job_id, token).status == "done"
     assert token not in store.get(job.job_id).model_dump_json()
+
+
+def test_job_reads_never_alias_stored_state():
+    # JobService.get relies on store.get returning a private copy instead of copying again.
+    store = MemoryJobStore()
+    service = JobService(store=store)
+    job, token = service.create(CreateJob(url="https://example.com"))
+    service.extract(job.job_id)
+    read = service.get(job.job_id, token)
+    read.items.clear()
+    read.status = "failed"
+    again = service.get(job.job_id, token)
+    assert again.status == "awaiting_confirmation"
+    assert again.items
 
 
 def test_transaction_rollback():
@@ -161,3 +175,59 @@ def test_requeued_extraction_rejects_old_worker_and_recovers():
     assert result.items[0].raw_name == "Recovered result"
     assert result.recovery_attempts == 1
     assert provider.calls == 2
+
+
+class UsageRef:
+    def __init__(self, key):
+        self.id = key
+
+    def get(self, **kwargs):
+        raise AssertionError("usage counters are read in one batch, not one by one")
+
+
+class UsageSnapshot:
+    def __init__(self, key, data):
+        self.id, self.data = key, data
+
+    def to_dict(self):
+        return self.data
+
+
+class UsageTransaction:
+    def __init__(self, counts):
+        self.counts, self.batches, self.writes = counts, [], {}
+
+    def get_all(self, refs):
+        self.batches.append([ref.id for ref in refs])
+        # Firestore may answer in any order; a missing counter has no data.
+        for ref in reversed(refs):
+            count = self.counts.get(ref.id)
+            yield UsageSnapshot(ref.id, None if count is None else {"count": count})
+
+    def set(self, ref, data):
+        self.writes[ref.id] = data["count"]
+
+
+def usage_store(monkeypatch, counts):
+    import google.cloud.firestore
+
+    monkeypatch.setattr(google.cloud.firestore, "transactional", lambda apply: apply)
+    transaction = UsageTransaction(counts)
+    store = FirestoreJobStore.__new__(FirestoreJobStore)
+    store.usage = type("Usage", (), {"document": staticmethod(UsageRef)})()
+    store.client = type("Client", (), {"transaction": staticmethod(lambda: transaction)})()
+    return store, transaction
+
+
+def test_firestore_usage_charge_reads_every_counter_in_one_batch(monkeypatch):
+    store, transaction = usage_store(monkeypatch, {"day": 2, "burst": 4})
+    assert store.consume({"day": 5, "burst": 5, "global": 100}) is True
+    assert transaction.batches == [["day", "burst", "global"]]
+    assert transaction.writes == {"day": 3, "burst": 5, "global": 1}
+
+
+def test_firestore_usage_charge_at_a_cap_writes_nothing(monkeypatch):
+    store, transaction = usage_store(monkeypatch, {"day": 2, "burst": 5})
+    assert store.consume({"day": 5, "burst": 5}) is False
+    assert len(transaction.batches) == 1
+    assert transaction.writes == {}
