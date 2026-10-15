@@ -1,4 +1,4 @@
-import { auth } from './auth'
+import { loadAuth } from './auth'
 import type { ErrorBody, Job } from './api'
 
 interface WatchJobOptions {
@@ -75,6 +75,7 @@ async function pollJob({ jobId, token, signal, onSnapshot, onError }: WatchJobOp
   while (!signal.aborted) {
     let wait = POLL_MS
     try {
+      const auth = await loadAuth()
       if (auth) await auth.authStateReady()
       const bearer = await auth?.currentUser?.getIdToken()
       if (signal.aborted) return
@@ -123,6 +124,7 @@ export async function watchJob(options: WatchJobOptions): Promise<void> {
       attempt.abort()
     }, FIRST_BYTE_MS)
     try {
+      const auth = await loadAuth()
       if (auth) await auth.authStateReady()
       // Force a refresh on every connection, including recovery from an expired token.
       const bearer = await auth?.currentUser?.getIdToken(true)
