@@ -45,6 +45,11 @@ Open:
 - Health: <http://127.0.0.1:8000/healthz>
 
 By default, backend runs in demo mode and does not require cloud credentials.
+[`backend/.env.example`](backend/.env.example) lists the common `BS_*` settings (the full set
+is in [`config.py`](backend/src/bharat_sourcer/config.py)).
+For live extraction, set `BS_DEMO_MODE=false` and your own `BS_GEMINI_API_KEY` in the
+ignored `backend/.env` (see
+[Live YouTube extraction](backend/README.md#live-youtube-extraction)).
 
 ### 2) Run frontend locally
 
@@ -57,6 +62,10 @@ npm run dev
 ```
 
 Open <http://127.0.0.1:5173>. The frontend defaults to backend origin `http://127.0.0.1:8000`.
+Google sign-in and other backends need an ignored `frontend/.env.local` based on
+[`frontend/.env.example`](frontend/.env.example); <http://127.0.0.1:5173/?preview=1>
+runs the UI on local sample data with no backend or Firebase project. See
+[`frontend/README.md`](frontend/README.md) for details.
 
 ## Development checks
 
@@ -106,6 +115,11 @@ git config blame.ignoreRevsFile .git-blame-ignore-revs
 - Seller prices are snapshots from checked pages; tax, shipping, and final payable totals are not guaranteed.
 - Compatibility grades are limited to declared-spec checks and are not full electrical/mechanical validation.
 - Keep secrets in ignored local env files (`.env`, `.env.local`), never in source control.
+
+## Security
+
+Please report vulnerabilities privately as described in [`SECURITY.md`](SECURITY.md), not in
+public issues.
 
 ## Additional reading
 

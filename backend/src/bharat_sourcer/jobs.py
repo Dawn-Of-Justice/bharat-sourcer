@@ -985,8 +985,15 @@ class JobService:
                         items[edit.line_id].ai_specs = PartSpecs()
                     items[edit.line_id].raw_name = edit.raw_name
                 if edit.buyable_spec is not None:
-                    items[edit.line_id].buyable_spec = edit.buyable_spec.model_copy(
-                        update={"origin": "user"}
+                    spec = edit.buyable_spec
+                    items[edit.line_id].buyable_spec = spec.model_copy(
+                        update={
+                            "origin": "user",
+                            # The schema leaves these list items unbounded for stored AI specs;
+                            # bound what a client can save (`must` is a param name).
+                            "must": [name[:60] for name in spec.must],
+                            "reasons": [reason[:300] for reason in spec.reasons],
+                        }
                     )
                 if edit.qty is not None and (
                     edit.qty != items[edit.line_id].qty or items[edit.line_id].qty_as_needed

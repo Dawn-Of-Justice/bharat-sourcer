@@ -7,7 +7,8 @@ __pycache__/
 *.egg-info/
 .coverage
 htmlcov/
-backend/.data/
+.mypy_cache/
+.data/
 
 # Frontend
 node_modules/
@@ -20,11 +21,28 @@ frontend/HANDOFF.md
 .env
 .env.*
 !.env.example
+# Google Cloud / Firebase credentials (service-account keys, OAuth client secrets)
+*service-account*.json
+*serviceaccount*.json
+*-sa-key.json
+*firebase-adminsdk*.json
+application_default_credentials.json
+client_secret*.json
+credentials*.json
+*.pem
+*.p12
 .DS_Store
 Thumbs.db
 .idea/
 .vscode/
 build/
 
+# Logs and local tool output
+*.log
+.firebase/
+brag-output*/
+
 .agents
 .playwright-mcp/
+.claude/worktrees/
+.claude/settings.local.json

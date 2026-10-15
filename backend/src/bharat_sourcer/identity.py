@@ -171,17 +171,29 @@ class GuestSessions:
         return hmac.new(self.secret, value.encode(), hashlib.sha256).hexdigest()
 
     def issue(self):
+        if not self.secret:
+            # An empty HMAC key would make every session forgeable.
+            raise RuntimeError("Guest session secret is not configured")
         value = f"{secrets.token_hex(24)}.{int(time.time()) + self.lifetime}"
         return value + "." + self.signature(value)
 
     def verify(self, cookie: str | None) -> Principal:
-        if not cookie or len(cookie) > 200:
+        """The guest principal of a valid cookie; ValueError for anything else."""
+        if not self.secret:
+            raise ValueError("Guest sessions are not configured")
+        if not cookie or len(cookie) > 200 or not cookie.isascii():
             raise ValueError("Guest session required")
-        key, expiry, signature = cookie.split(".")
+        parts = cookie.split(".")
+        if len(parts) != 3:
+            raise ValueError("Invalid guest session")
+        key, expiry, signature = parts
         if (
             len(key) != 48
             or not all(c in "0123456789abcdef" for c in key)
-            or not hmac.compare_digest(signature, self.signature(key + "." + expiry))
+            or not expiry.isdigit()
+            or not hmac.compare_digest(
+                signature.encode(), self.signature(key + "." + expiry).encode()
+            )
             or int(expiry) <= time.time()
         ):
             raise ValueError("Invalid guest session")

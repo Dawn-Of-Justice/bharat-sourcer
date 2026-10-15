@@ -12,6 +12,7 @@ import {
   type ReportLine,
 } from './api'
 import { madeToOrder } from './fabrication'
+import { safeHref } from './safeUrl'
 import { FirstService } from './MadeToOrder'
 import { loadProjectOverview } from './prefetch'
 import { wireFlagged } from './partGeometry'
@@ -635,7 +636,7 @@ function Code({ job, onShowPlan }: { job: Job; onShowPlan: () => void }) {
       {repos.map(repo => {
         const name = repoName(repo.url)
         return (
-          <a key={repo.url} className="pb-repo" href={repo.url} target="_blank" rel="noopener noreferrer">
+          <a key={repo.url} className="pb-repo" href={safeHref(repo.url)} target="_blank" rel="noopener noreferrer">
             <span className="pb-repo-icon" aria-hidden="true">
               {'</>'}
             </span>

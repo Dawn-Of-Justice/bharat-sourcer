@@ -16,7 +16,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test:server": "node --test server.test.mjs",
-    "test:preview": "node --test preview.test.mjs job-title.test.mjs part-name.test.mjs chat-markdown.test.mjs auth.test.mjs",
+    "test:preview": "node --test preview.test.mjs job-title.test.mjs part-name.test.mjs chat-markdown.test.mjs safe-url.test.mjs auth.test.mjs",
     "test:integration": "node --test integration.test.mjs"
   },
   "dependencies": {

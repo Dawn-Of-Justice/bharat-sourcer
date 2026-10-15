@@ -1,5 +1,24 @@
 # Backend
 
+v0.42.1 hardens request handling without changing normal behaviour. `guards.BodyLimit`
+refuses request bodies above `BS_MAX_BODY_BYTES` (default 1 MiB; the scan route allows
+8 MiB for its base64 photo) with `413 BODY_TOO_LARGE`, checking `Content-Length` first and
+counting streamed bodies. Unhandled exceptions return a generic `500 INTERNAL_ERROR`; the
+log keeps the route and exception type, never the message in the response. Client line
+ids are bounded (64 characters) as are `failed_urls` items (4096), and a client-edited
+buying spec keeps `must`/`reasons` items to 60/300 characters. Account claims are limited to
+20 per account per minute. The integration key and guest cookie signature are compared as
+bytes, so non-ASCII input is a plain 401/new session instead of a 500; guest sessions
+refuse to issue or verify with an empty secret; Cloud Tasks and compile-runner identity
+checks fail closed when their audience or service account is unset. `SafeFetcher` refuses
+`metadata.google.internal`, `metadata`, `localhost` and `*.internal`/`*.localhost`/`*.local`
+before DNS, and treats IPv6 answers embedding a private IPv4 address (mapped, NAT64,
+IPv4-compatible, 6to4, Teredo) as non-public; every redirect hop is still re-validated and
+the connection is pinned to the checked address. Code-patch zips never contain absolute or
+`..` paths (such evidence paths are not read). With auth enabled, `BS_CORS_ORIGINS` may not
+contain `*`. Known limit: per-IP quotas still use the socket peer (the frontend proxy), so
+they act as service-wide caps until trusted client-IP forwarding is enabled.
+
 v0.42.0 links fabrication services for made-to-order lines. The reconcile pass now also
 answers, per line, `made`: `3d_print` (this project's own printed part), `pcb` (a custom
 board made from Gerbers) or `none`, saved as `BomItem.fabrication`. Sourcing skips seller
@@ -804,6 +823,11 @@ an atomic lease prevents duplicate concurrent generation. `GET` never generates.
 With authentication enabled, image requests still require identity, CSRF header and job
 ownership, but are exempt from the per-account action quota so broken-image retries
 cannot block project actions.
+
+Every response carries `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`,
+`Referrer-Policy: strict-origin-when-cross-origin` and
+`Strict-Transport-Security: max-age=31536000; includeSubDomains` (`SECURITY_HEADERS` in
+`main.py`), including CORS preflights and integration-key rejections.
 
 General research accepts any part category, reads source text and text PDFs, and
 extracts quoted specifications and candidate assessments. Discovery searches globally

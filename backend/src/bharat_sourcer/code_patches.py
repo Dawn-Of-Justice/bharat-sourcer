@@ -30,6 +30,7 @@ AI_MAX_FILES = 3
 AI_MAX_BYTES = 60_000
 BLOB = re.compile(r"^https://github\.com/([\w.-]+)/([\w.-]+)/blob/([\w.-]+)/([^#?]+)")
 LICENSE_NAMES = ("LICENSE", "LICENSE.md", "LICENSE.txt", "COPYING")
+DRIVE = re.compile(r"^[A-Za-z]:")
 
 
 def source_files(job: Job) -> dict[str, str]:
@@ -45,8 +46,20 @@ def source_files(job: Job) -> dict[str, str]:
             if not match:
                 continue
             owner, repo, ref, path = match.groups()
+            if archive_name(path) is None:
+                continue  # never read, patch or zip a traversal or absolute path
             found.setdefault(path, f"https://{RAW_HOST}/{owner}/{repo}/{ref}/{path}")
     return dict(list(found.items())[:MAX_FILES])
+
+
+def archive_name(path: str) -> str | None:
+    """A relative, traversal-free zip entry name for a repository path, else None."""
+    if not path or len(path) > 300 or "\\" in path or "\0" in path or DRIVE.match(path):
+        return None
+    segments = path.split("/")
+    if any(segment in {"", ".", ".."} for segment in segments):
+        return None  # leading "/", "//", "./" or "../" segments
+    return path
 
 
 def repo_root(raw_url: str) -> str:
@@ -311,6 +324,9 @@ class CodePatchService:
         buffer = io.BytesIO()
         with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
             for file in patch.files:
+                name = archive_name(file.path)
+                if name is None:
+                    raise JobError(409, "PATCH_UNSAFE", "This patch cannot be downloaded")
                 text = read.get(file.path, (None,))[0]
                 if text is None or digest(text) != file.sha256:
                     raise JobError(
@@ -319,7 +335,7 @@ class CodePatchService:
                         "The project's code changed since this patch was made; request a new patch",
                     )
                 try:
-                    archive.writestr(file.path, apply_unified_diff(text, file.diff))
+                    archive.writestr(name, apply_unified_diff(text, file.diff))
                 except PatchError as exc:
                     raise JobError(409, "SOURCE_CHANGED", "The patch no longer applies") from exc
             license_text = self.license(patch.files[0].source_url) if patch.files else None

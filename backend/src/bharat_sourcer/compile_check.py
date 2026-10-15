@@ -292,7 +292,12 @@ def runner_identity(settings, authorization: str | None) -> bool:
     from google.oauth2 import id_token
 
     audience = settings.compile_audience or settings.tasks_url
-    if not authorization or not authorization.startswith("Bearer ") or not audience:
+    if (
+        not authorization
+        or not authorization.startswith("Bearer ")
+        or not audience
+        or not settings.compile_service_account
+    ):
         return False
     try:
         claims = id_token.verify_oauth2_token(authorization[7:], Request(), audience=audience)
