@@ -805,6 +805,11 @@ With authentication enabled, image requests still require identity, CSRF header 
 ownership, but are exempt from the per-account action quota so broken-image retries
 cannot block project actions.
 
+Every response carries `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`,
+`Referrer-Policy: strict-origin-when-cross-origin` and
+`Strict-Transport-Security: max-age=31536000; includeSubDomains` (`SECURITY_HEADERS` in
+`main.py`), including CORS preflights and integration-key rejections.
+
 General research accepts any part category, reads source text and text PDFs, and
 extracts quoted specifications and candidate assessments. Discovery searches globally
 for technical documentation and Indian sellers. Missing or blocked sources stay visible.

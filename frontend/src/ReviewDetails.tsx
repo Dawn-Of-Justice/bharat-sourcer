@@ -8,6 +8,7 @@ import {
   type SpecEvidence,
 } from './api'
 import { kindLabel } from './sourceChips'
+import { safeHref } from './safeUrl'
 
 // Review-page details from multi-source intake (docs/contracts/multi-source-intake.md). All are rule or model outputs, not verified facts.
 const sourceLabel: Record<EvidenceSource, string> = {
@@ -35,7 +36,7 @@ export function EvidenceList({ evidence }: { evidence: Evidence[] }) {
           <li key={index}>
             <span className={`evidence-kind evidence-${sourceOf(entry)}`}>{sourceLabel[sourceOf(entry)]}</span>{' '}
             {entry.url ? (
-              <a href={entry.url} target="_blank" rel="noopener noreferrer">
+              <a href={safeHref(entry.url)} target="_blank" rel="noopener noreferrer">
                 {evidenceDetail(entry)} <span aria-hidden="true">↗</span>
                 <span className="visually-hidden"> (opens in a new tab)</span>
               </a>
@@ -127,7 +128,7 @@ export function ConflictNotes({ item }: { item: BomItem }) {
                     {' '}
                     ·{' '}
                     {value.url ? (
-                      <a href={value.url} target="_blank" rel="noopener noreferrer">
+                      <a href={safeHref(value.url)} target="_blank" rel="noopener noreferrer">
                         {value.locator} <span aria-hidden="true">↗</span>
                       </a>
                     ) : (
@@ -138,7 +139,7 @@ export function ConflictNotes({ item }: { item: BomItem }) {
                   <>
                     {' '}
                     ·{' '}
-                    <a href={value.url} target="_blank" rel="noopener noreferrer">
+                    <a href={safeHref(value.url)} target="_blank" rel="noopener noreferrer">
                       source <span aria-hidden="true">↗</span>
                     </a>
                   </>
@@ -188,7 +189,7 @@ export function SourcesCard({ job }: { job: Job }) {
                     <span className="inferred-tag">Found in the video description</span>
                   )}
                   <br />
-                  <a href={report.url} target="_blank" rel="noopener noreferrer">
+                  <a href={safeHref(report.url)} target="_blank" rel="noopener noreferrer">
                     {report.url} <span aria-hidden="true">↗</span>
                   </a>
                   {report.status === 'read' ? (
@@ -219,7 +220,7 @@ export function SourcesCard({ job }: { job: Job }) {
             {meta.links.map((link, index) => (
               <li key={index}>
                 <span className={`link-kind link-${link.kind}`}>{linkKind[link.kind]}</span>{' '}
-                <a href={link.url} target="_blank" rel="nofollow noopener noreferrer">
+                <a href={safeHref(link.url)} target="_blank" rel="nofollow noopener noreferrer">
                   {link.url} <span aria-hidden="true">↗</span>
                 </a>
                 {link.kind === 'store' ? (

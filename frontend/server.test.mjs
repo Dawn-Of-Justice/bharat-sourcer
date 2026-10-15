@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import { once } from 'node:events'
+import http from 'node:http'
 import { afterEach, test } from 'node:test'
 import { createServer } from './server.mjs'
 
@@ -151,4 +152,107 @@ test('proxy forwards DELETE without a body so owners can revoke share links', as
   assert.equal(received.options.body, undefined)
   assert.equal(received.options.headers['X-Job-Token'], 'job-token')
   assert.equal((await fetch(base + '/api/v1/jobs/abc/share', { method: 'PUT' })).status, 405)
+})
+
+function assertSecurityHeaders(response) {
+  assert.equal(response.headers.get('strict-transport-security'), 'max-age=31536000; includeSubDomains')
+  assert.equal(response.headers.get('x-content-type-options'), 'nosniff')
+  assert.equal(response.headers.get('referrer-policy'), 'strict-origin-when-cross-origin')
+  assert.equal(response.headers.get('x-frame-options'), 'DENY')
+  assert.match(response.headers.get('content-security-policy'), /frame-ancestors 'none'/)
+  assert.equal(response.headers.get('permissions-policy'), 'camera=(), microphone=(), geolocation=()')
+  assert.equal(response.headers.get('cross-origin-opener-policy'), 'same-origin-allow-popups')
+}
+
+test('every response carries the security headers', async () => {
+  const base = await start(async url => {
+    if (url.pathname === '/v1/broken') throw new Error('backend down')
+    return Response.json({ ok: true }, { headers: { 'X-Frame-Options': 'SAMEORIGIN' } })
+  })
+  const responses = await Promise.all([
+    fetch(base + '/'),
+    fetch(base + '/shared/abc.def'),
+    fetch(base + '/favicon.svg'),
+    fetch(base + '/config.js'),
+    fetch(base + '/api/v1/projects'),
+    fetch(base + '/api/v1/broken'),
+    fetch(base + '/api/admin'),
+    fetch(base + '/assets/missing-file.js'),
+    fetch(base + '/', { method: 'POST' }),
+  ])
+  assert.deepEqual(
+    responses.map(response => response.status),
+    [200, 200, 200, 200, 200, 502, 404, 404, 405],
+  )
+  responses.forEach(assertSecurityHeaders)
+})
+
+test('HTML pages get the full CSP without unsafe-eval or inline scripts', async () => {
+  const previous = process.env.FIREBASE_AUTH_DOMAIN
+  process.env.FIREBASE_AUTH_DOMAIN = 'demo-project.firebaseapp.com'
+  try {
+    const base = await start(async () => Response.json({}))
+    const csp = (await fetch(base + '/')).headers.get('content-security-policy')
+    const directives = Object.fromEntries(
+      csp.split(';').map(part => {
+        const [name, ...sources] = part.trim().split(/\s+/)
+        return [name, sources]
+      }),
+    )
+    assert.deepEqual(directives['default-src'], ["'self'"])
+    assert.deepEqual(directives['script-src'], ["'self'", 'https://apis.google.com'])
+    assert.ok(directives['frame-src'].includes('https://demo-project.firebaseapp.com'))
+    assert.ok(directives['img-src'].includes('https:'))
+    assert.ok(directives['connect-src'].includes('https://identitytoolkit.googleapis.com'))
+    assert.deepEqual(directives['object-src'], ["'none'"])
+    assert.deepEqual(directives['frame-ancestors'], ["'none'"])
+    assert.doesNotMatch(csp, /unsafe-eval/)
+    assert.doesNotMatch(directives['script-src'].join(' '), /unsafe-inline/)
+    const api = await fetch(base + '/api/v1/projects')
+    assert.equal(api.headers.get('content-security-policy'), "frame-ancestors 'none'")
+  } finally {
+    if (previous === undefined) delete process.env.FIREBASE_AUTH_DOMAIN
+    else process.env.FIREBASE_AUTH_DOMAIN = previous
+  }
+})
+
+function rawGet(base, pathname, headers) {
+  const { port } = new URL(base)
+  return new Promise((resolve, reject) => {
+    const req = http.request({ host: '127.0.0.1', port, path: pathname, headers }, res => {
+      res.resume()
+      res.on('end', () => resolve(res))
+    })
+    req.on('error', reject)
+    req.end()
+  })
+}
+
+test('plain-HTTP requests behind the proxy are redirected to HTTPS', async () => {
+  let backendCalls = 0
+  const base = await start(async () => {
+    backendCalls += 1
+    return Response.json({})
+  })
+  const page = await rawGet(base, '/job/abc?x=1', { Host: 'bharatsourcer.web.app', 'X-Forwarded-Proto': 'http' })
+  assert.equal(page.statusCode, 301)
+  assert.equal(page.headers.location, 'https://bharatsourcer.web.app/job/abc?x=1')
+  assert.equal(page.headers['strict-transport-security'], 'max-age=31536000; includeSubDomains')
+  const api = await rawGet(base, '/api/v1/projects', {
+    Host: 'bharat-sourcer-web.a.run.app',
+    'X-Forwarded-Host': 'bharatsourcer.web.app',
+    'X-Forwarded-Proto': 'http',
+  })
+  assert.equal(api.statusCode, 301)
+  assert.equal(api.headers.location, 'https://bharatsourcer.web.app/api/v1/projects')
+  assert.equal(backendCalls, 0)
+
+  const secure = await rawGet(base, '/', { Host: 'bharatsourcer.web.app', 'X-Forwarded-Proto': 'https' })
+  assert.equal(secure.statusCode, 200)
+  for (const host of ['localhost:8080', '127.0.0.1', '[::1]:5173']) {
+    const local = await rawGet(base, '/', { Host: host, 'X-Forwarded-Proto': 'http' })
+    assert.equal(local.statusCode, 200, host)
+  }
+  const odd = await rawGet(base, '/', { Host: 'evil.example/phish', 'X-Forwarded-Proto': 'http' })
+  assert.equal(odd.headers.location, undefined)
 })

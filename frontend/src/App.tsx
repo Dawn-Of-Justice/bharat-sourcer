@@ -53,6 +53,7 @@ import { useOverview } from './useOverview'
 import { ExtractionProgress } from './ExtractionProgress'
 import { PartIllustration } from './PartIllustration'
 import { useToast } from './toastContext'
+import { safeHref } from './safeUrl'
 import {
   loadBuildPage,
   loadChatPanel,
@@ -1592,7 +1593,7 @@ function Review({
                       className={report.status === 'failed' ? 'is-skipped' : undefined}
                     >
                       <a
-                        href={report.url}
+                        href={safeHref(report.url)}
                         target="_blank"
                         rel="noopener noreferrer"
                         title={
