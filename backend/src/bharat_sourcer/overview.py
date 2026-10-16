@@ -16,6 +16,7 @@ board. See docs/contracts/project-overview.md.
 import json
 import logging
 import re
+import time
 from collections.abc import Callable, Iterable
 from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
 from dataclasses import dataclass
@@ -34,6 +35,7 @@ from bharat_sourcer.config import Settings, site_generation, site_model
 from bharat_sourcer.extraction import generation_schema
 from bharat_sourcer.gemini_api import VertexUnavailable, endpoint, uses_vertex
 from bharat_sourcer.jobs import JobError, JobService
+from bharat_sourcer.observability import stage_finished
 from bharat_sourcer.project_pages import project_page_source
 from bharat_sourcer.resilience import post_with_retry
 from bharat_sourcer.schemas import (
@@ -1427,11 +1429,13 @@ class OverviewService:
             except Exception:  # Progress is best effort; the final save still happens
                 log.warning("OVERVIEW_PROGRESS_SAVE_FAILED job=%s", job_id, exc_info=True)
 
+        started = time.perf_counter()
         try:
             result = self.build(claimed.job, ledger, publish=publish)
         except Exception:  # Never leave a drawing pending because of a bug
             log.exception("OVERVIEW_FAILED job=%s", job_id)
             result = failed(UNEXPECTED, claimed.job)
+        stage_finished("overview", started, result.status, job_id=job_id)
 
         def complete(record: StoredJob):
             if record.overview_run_id != run_id:
@@ -1745,7 +1749,9 @@ class OverviewService:
             vertex = False
             url, headers = endpoint(self.settings, site, model, vertex=False)
         with httpx.Client(timeout=timeout, transport=self.transport) as client:
-            response = post_with_retry(client, url, headers=headers, json=body, attempts=attempts)
+            response = post_with_retry(
+                client, url, headers=headers, json=body, attempts=attempts, site=site
+            )
             if vertex and response.status_code in {401, 403, 404}:
                 # Vertex refused (API off, no role, model not served there): use the API key.
                 log.warning(
@@ -1756,7 +1762,7 @@ class OverviewService:
                 )
                 url, headers = endpoint(self.settings, site, model, vertex=False)
                 response = post_with_retry(
-                    client, url, headers=headers, json=body, attempts=attempts
+                    client, url, headers=headers, json=body, attempts=attempts, site=site
                 )
         if response.status_code in {429, 500, 502, 503, 504}:
             raise Overloaded(response.status_code)

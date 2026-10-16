@@ -2,6 +2,7 @@
 
 import json
 import logging
+import time
 from datetime import timedelta
 from hashlib import sha256
 from typing import Protocol
@@ -14,6 +15,7 @@ from bharat_sourcer.actions import record_action
 from bharat_sourcer.config import Settings, site_generation, site_model
 from bharat_sourcer.extraction import generation_schema
 from bharat_sourcer.jobs import JobError, JobService
+from bharat_sourcer.observability import stage_finished
 from bharat_sourcer.resilience import post_with_retry
 from bharat_sourcer.resistor_rules import calculate
 from bharat_sourcer.schemas import (
@@ -99,6 +101,7 @@ class GeminiAssistant:
                 client,
                 f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",
                 attempts=SCOPE_HTTP_ATTEMPTS,
+                site="chat_scope",
                 headers={"x-goog-api-key": self.settings.gemini_api_key.get_secret_value()},
                 json={
                     "systemInstruction": {"parts": [{"text": SCOPE_PROMPT}]},
@@ -223,6 +226,7 @@ class GeminiAssistant:
                 client,
                 "https://generativelanguage.googleapis.com/v1beta/models/"
                 f"{self.settings.gemini_model}:generateContent",
+                site="chat_reply",
                 headers={"x-goog-api-key": self.settings.gemini_api_key.get_secret_value()},
                 json={
                     "systemInstruction": {"parts": [{"text": prompt}]},
@@ -298,6 +302,7 @@ class ConversationService:
         claimed = self.store.mutate(job_id, claim)
         if claimed is None or claimed.chat_run_id != run_id:
             return
+        started = time.perf_counter()
         error, reply = None, None
         try:
             reply = (
@@ -365,6 +370,13 @@ class ConversationService:
             record.job.updated_at = now()
 
         self.store.mutate(job_id, complete)
+        stage_finished(
+            "chat",
+            started,
+            "failed" if error else "ok",
+            job_id=job_id,
+            code=error.code if error else None,
+        )
 
     def decide(
         self, job_id: str, token: str | None, message_id: str, decision: ProposalDecision

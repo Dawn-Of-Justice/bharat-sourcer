@@ -554,6 +554,7 @@ class GeminiResearch:
                     client,
                     f"https://generativelanguage.googleapis.com/v1beta/models/{model}"
                     ":generateContent",
+                    site="research",
                     headers={"x-goog-api-key": self.settings.gemini_api_key.get_secret_value()},
                     json=payload,
                 )

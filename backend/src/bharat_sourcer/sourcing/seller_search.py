@@ -10,6 +10,7 @@ Requests go through `Politeness` (pacing, caching, backoff, challenge detection)
 reported, never circumvented.
 """
 
+import contextvars
 import html
 import json
 import logging
@@ -509,6 +510,8 @@ class SellerSearch:
         try:
             futures = {
                 pool.submit(
+                    # A copy of this context per seller keeps the request's trace on its logs.
+                    contextvars.copy_context().run,
                     self._search_one,
                     seller,
                     queries,

@@ -91,7 +91,76 @@ function send(res, status, body) {
   res.end(body)
 }
 
-async function proxy(req, res, backendBase, integrationKey, fetchImpl) {
+// Trace headers forwarded to the API so one Cloud Trace id spans this server and the backend
+// (backend/infra/observability.md). Only well-formed values are forwarded or logged.
+const CLOUD_TRACE = /^([0-9a-f]{32})(?:\/(\d{1,20}))?(?:;o=\d)?$/i
+const TRACEPARENT = /^[0-9a-f]{2}-([0-9a-f]{32})-([0-9a-f]{16})-[0-9a-f]{2}$/i
+
+function traceHeaders(req) {
+  const headers = {}
+  const cloud = String(req.headers['x-cloud-trace-context'] || '').trim()
+  if (CLOUD_TRACE.test(cloud)) headers['X-Cloud-Trace-Context'] = cloud
+  const parent = String(req.headers.traceparent || '').trim()
+  if (TRACEPARENT.test(parent)) headers.traceparent = parent
+  return headers
+}
+
+// Cloud Logging trace fields for a request: X-Cloud-Trace-Context first, as Cloud Run uses it.
+function traceFields(req, project) {
+  if (!project) return {}
+  const cloud = CLOUD_TRACE.exec(String(req.headers['x-cloud-trace-context'] || '').trim())
+  const parent = TRACEPARENT.exec(String(req.headers.traceparent || '').trim())
+  let traceId = null
+  let spanId = null
+  if (cloud && !/^0+$/.test(cloud[1])) {
+    traceId = cloud[1].toLowerCase()
+    const span = cloud[2] ? BigInt(cloud[2]) : 0n
+    if (span > 0n && span < 2n ** 64n) spanId = span.toString(16).padStart(16, '0')
+  } else if (parent && !/^0+$/.test(parent[1])) {
+    traceId = parent[1].toLowerCase()
+    spanId = parent[2].toLowerCase()
+  }
+  if (!traceId) return {}
+  const fields = { 'logging.googleapis.com/trace': 'projects/' + project + '/traces/' + traceId }
+  if (spanId) fields['logging.googleapis.com/spanId'] = spanId
+  return fields
+}
+
+// A low-cardinality route for logs: share tokens and job ids never reach a log line.
+function routeLabel(pathname) {
+  return pathname
+    .replace(/^\/v1\/shared\/[^/]+/, '/v1/shared/:token')
+    .replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi, ':id')
+    .slice(0, 200)
+}
+
+// One JSON line per proxy failure, in the shape Cloud Logging parses (successes are covered by
+// Cloud Run's request log). No URLs with query strings, headers, cookies or tokens.
+function proxyError(log, req, context, details) {
+  try {
+    const entry = {
+      severity: 'ERROR',
+      message:
+        'PROXY_ERROR ' + req.method + ' ' + context.route + ' status=' + details.status + ' reason=' + details.reason,
+      event: 'PROXY_ERROR',
+      method: req.method,
+      route: context.route,
+      status: details.status,
+      upstream_status: details.upstreamStatus ?? null,
+      reason: details.reason,
+      error: details.error ?? null,
+      duration_ms: Math.round(performance.now() - context.started),
+      ...traceFields(req, context.project),
+    }
+    log(JSON.stringify(entry))
+  } catch {
+    // Logging must never affect the response.
+  }
+}
+
+const writeLine = line => process.stdout.write(line + '\n')
+
+async function proxy(req, res, backendBase, integrationKey, fetchImpl, log, project) {
   // DELETE is needed to revoke share links (DELETE /v1/jobs/{id}/share).
   if (!['GET', 'POST', 'DELETE'].includes(req.method)) return send(res, 405, 'Method not allowed')
   const parsed = new URL(req.url, 'http://localhost')
@@ -118,9 +187,12 @@ async function proxy(req, res, backendBase, integrationKey, fetchImpl) {
   for (const name of ['Authorization', 'Cookie', 'X-Requested-With', 'Origin']) {
     if (req.headers[name.toLowerCase()]) headers[name] = req.headers[name.toLowerCase()]
   }
+  Object.assign(headers, traceHeaders(req))
   const target = new URL(upstreamPath + parsed.search, backendBase)
+  const context = { route: routeLabel(upstreamPath), started: performance.now(), project }
+  let upstream = null
   try {
-    const upstream = await fetchImpl(target, {
+    upstream = await fetchImpl(target, {
       method: req.method,
       headers,
       body: req.method === 'POST' ? Buffer.concat(chunks) : undefined,
@@ -133,10 +205,26 @@ async function proxy(req, res, backendBase, integrationKey, fetchImpl) {
     }
     const cookies = upstream.headers.getSetCookie()
     if (cookies.length) responseHeaders['Set-Cookie'] = cookies
+    if (upstream.status >= 502 && upstream.status <= 504) {
+      // Gateway-type answers (backend down, overloaded or timed out) are passed through as before.
+      proxyError(log, req, context, {
+        status: upstream.status,
+        upstreamStatus: upstream.status,
+        reason: 'upstream_status',
+      })
+    }
     res.writeHead(upstream.status, responseHeaders)
     if (upstream.body) await pipeline(Readable.fromWeb(upstream.body), res)
     else res.end()
-  } catch {
+  } catch (error) {
+    const reason = upstream ? 'stream_failed' : 'fetch_failed'
+    const status = res.headersSent ? (upstream?.status ?? null) : 502
+    proxyError(log, req, context, {
+      status,
+      upstreamStatus: upstream?.status ?? null,
+      reason,
+      error: error?.name || 'Error',
+    })
     if (!res.headersSent) send(res, 502, 'Backend unavailable')
     else res.destroy()
   }
@@ -173,7 +261,16 @@ async function staticFile(req, res, distDir) {
   await pipeline(createReadStream(target), res)
 }
 
-export function createServer({ backendBase, integrationKey, distDir = defaultDist, fetchImpl = fetch } = {}) {
+export function createServer({
+  backendBase,
+  integrationKey,
+  distDir = defaultDist,
+  fetchImpl = fetch,
+  log = writeLine,
+  // The trace field names the GCP project; the deploy script requires the Firebase project to be
+  // the deployment project, so FIREBASE_PROJECT_ID is the fallback.
+  project = process.env.GOOGLE_CLOUD_PROJECT || process.env.FIREBASE_PROJECT_ID,
+} = {}) {
   const backend = new URL(backendBase)
   if (backend.protocol !== 'https:') throw new Error('BACKEND_BASE_URL must be HTTPS')
   if (!integrationKey) throw new Error('INTEGRATION_KEY is required')
@@ -201,7 +298,7 @@ export function createServer({ backendBase, integrationKey, distDir = defaultDis
       return res.end(body)
     }
     const work = req.url?.startsWith('/api/')
-      ? proxy(req, res, backend, integrationKey, fetchImpl)
+      ? proxy(req, res, backend, integrationKey, fetchImpl, log, project)
       : staticFile(req, res, root)
     work.catch(() => {
       if (!res.headersSent) send(res, 500, 'Server error')
