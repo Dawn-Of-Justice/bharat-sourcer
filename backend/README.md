@@ -224,6 +224,14 @@ See [seller search](../docs/contracts/seller-search.md),
 [seller trust](../docs/contracts/seller-trust.md) and
 [part matching](../docs/contracts/part-matching.md).
 
+Logs are structured JSON for Cloud Logging on Cloud Run (`K_SERVICE` set, or
+`BS_LOG_FORMAT=json`) and plain text elsewhere (`BS_LOG_FORMAT=text` forces it). Each line keeps
+its event tag first in `message`, carries the request's trace from `X-Cloud-Trace-Context` or
+`traceparent`, and has tokens, cookies, emails and URL query strings redacted; uvicorn's access
+log is off on Cloud Run. App events with durations (`JOB_FINISHED`, `STAGE_FINISHED`,
+`GEMINI_CALL`, `SELLER_FETCH`) are the contract for log-based metrics; every field and unit is
+listed in [observability](infra/observability.md).
+
 `BS_LOG_LEVEL` defaults to `INFO`; set it to `WARNING` to reduce diagnostics.
 `SELLER_SEARCH` and `SOURCING_LINE` logs report stages, candidate counts and rejection
 reasons. `BS_SELLER_PAGE_CACHE_S` bounds both local and shared page caches. Refreshing

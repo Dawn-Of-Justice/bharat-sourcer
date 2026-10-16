@@ -16,6 +16,7 @@ import httpx
 from PIL import Image
 
 from bharat_sourcer.jobs import JobError
+from bharat_sourcer.resilience import post_with_retry
 from bharat_sourcer.schemas import LineImage, PartImage, PartImages
 from bharat_sourcer.usage import record_usage
 
@@ -167,9 +168,13 @@ class PartImageService:
 
     def generate(self, name):
         with httpx.Client(timeout=75) as client:
-            response = client.post(
+            # One attempt, as before; the helper only adds the GEMINI_CALL log line.
+            response = post_with_retry(
+                client,
                 "https://generativelanguage.googleapis.com/v1beta/models/"
                 f"{self.settings.image_model}:generateContent",
+                attempts=1,
+                site="image",
                 headers={"x-goog-api-key": self.settings.gemini_api_key.get_secret_value()},
                 json={
                     "contents": [

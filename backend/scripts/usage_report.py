@@ -102,9 +102,11 @@ def main() -> None:
         with open(args.file, encoding="utf-8") as handle:
             lines = handle.read().splitlines()
     else:
+        # Plain-text lines (before structured logging) and JSON lines keep the same message.
         query = (
             f'resource.labels.service_name="{args.service}" AND '
-            '(textPayload:"GEMINI_USAGE" OR textPayload:"GEMINI_CACHE_HIT")'
+            '(textPayload:"GEMINI_USAGE" OR textPayload:"GEMINI_CACHE_HIT" OR '
+            'jsonPayload.message:"GEMINI_USAGE" OR jsonPayload.message:"GEMINI_CACHE_HIT")'
         )
         lines = subprocess.run(
             [
@@ -115,7 +117,7 @@ def main() -> None:
                 f"--project={args.project}",
                 f"--freshness={args.days}d",
                 "--limit=10000",
-                "--format=value(textPayload)",
+                "--format=value(textPayload,jsonPayload.message)",
             ],
             check=True,
             capture_output=True,

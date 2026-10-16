@@ -15,6 +15,7 @@ list and input, and never verified. See docs/contracts/build-guide.md.
 
 import json
 import logging
+import time
 from collections import Counter
 from collections.abc import Callable
 from datetime import timedelta
@@ -27,6 +28,7 @@ from bharat_sourcer.config import Settings, site_generation, site_model
 from bharat_sourcer.extraction import generation_schema
 from bharat_sourcer.gemini_api import VertexUnavailable, post_generate
 from bharat_sourcer.jobs import JobError, JobService
+from bharat_sourcer.observability import stage_finished
 from bharat_sourcer.overview import compact_project, items_hash, merge_cost
 from bharat_sourcer.schemas import BuildGuide, BuildStep, Job, Model, now
 from bharat_sourcer.sourcing.cache import TTL, SharedCache, cache_key, stable_hash
@@ -435,11 +437,13 @@ class BuildGuideService:
         if claimed is None or claimed.build_guide_run_id != run_id:
             return
         ledger = JobLedger(job_id, self.settings.job_gemini_budget_usd)
+        started = time.perf_counter()
         try:
             result = self.build(claimed.job, ledger)
         except Exception:  # Never leave a guide pending because of a bug
             log.exception("BUILD_GUIDE_FAILED job=%s", job_id)
             result = failed(UNEXPECTED, claimed.job)
+        stage_finished("build_guide", started, result.status, job_id=job_id)
 
         def complete(record: StoredJob):
             if record.build_guide_run_id != run_id:

@@ -48,9 +48,12 @@ The internal response reports `dispatched`, `failed`, `stale` and `truncated` co
 
 Pending work whose `updated_at` is older than `BS_QUEUE_AGE_ALERT_MINUTES` (default 30)
 logs `QUEUE_AGE_EXCEEDED job=<id> kinds=<workflow|chat> age_s=<seconds>`, and a capped
-sweep logs `SWEEP_TRUNCATED`. These are warning-level Cloud Logging entries. No alert
-policy is provisioned; to be paged, create a log-based alert on
-`textPayload:"QUEUE_AGE_EXCEEDED" OR textPayload:"SWEEP_TRUNCATED"` for the service.
+sweep logs `SWEEP_TRUNCATED`. These are warning-level Cloud Logging entries; on Cloud Run
+they are structured JSON with the tag at the start of `jsonPayload.message` (and `job_id`,
+`kinds`, `age_s` or `limit` as fields; see `backend/infra/observability.md`). To be paged,
+use a log-based alert on `jsonPayload.message:"QUEUE_AGE_EXCEEDED" OR
+jsonPayload.message:"SWEEP_TRUNCATED"` (plus the `textPayload` forms for older entries), as
+`backend/infra/queue-age-alert.json` does.
 Public API shapes are unchanged.
 
 ## Operations

@@ -12,6 +12,7 @@ of three extras and the usual dedupe), and the description gets its own source r
 
 import contextvars
 import logging
+import time
 from collections.abc import Callable
 from concurrent.futures import Future, ThreadPoolExecutor
 from functools import partial
@@ -24,6 +25,7 @@ from bharat_sourcer.extraction import (
     supported_source,
 )
 from bharat_sourcer.fusion import fuse
+from bharat_sourcer.observability import stage_finished
 from bharat_sourcer.schemas import ErrorDetail, JobVideoMeta, SourceReport
 from bharat_sourcer.youtube_meta import DESCRIPTION_SOURCE, description_page_source
 
@@ -177,8 +179,11 @@ def extract_sources(
                 if position not in futures:
                     key = f"source:{canonical}"
                     progress(key, "running", source_label(kind, canonical), None)
-                    context = contextvars.copy_context()  # keeps the job's cost attribution
-                    future = pool.submit(context.run, _attempt, extractor, submitted)
+                    # Keeps the job's cost attribution and the request's trace.
+                    context = contextvars.copy_context()
+                    future = pool.submit(
+                        context.run, _attempt, extractor, submitted, kind, canonical
+                    )
                     # Ticks off as each source finishes, in whatever order they finish.
                     future.add_done_callback(partial(_finished, progress, key))
                     futures[position] = future
@@ -250,9 +255,24 @@ def _finished(progress: Progress, key: str, future: Future) -> None:
         progress(key, "done", None, found(outcome))
 
 
-def _attempt(extractor: Extractor, url: str):
-    """The source's result, or the exception it raised (handled in source order)."""
+def _attempt(extractor: Extractor, url: str, kind: str = "unknown", canonical: str = ""):
+    """The source's result, or the exception it raised (handled in source order).
+
+    Logs STAGE_FINISHED (stage `extraction`, `kind` the source report kind) for the read."""
+    started = time.perf_counter()
     try:
-        return extractor.extract(url)
+        result = extractor.extract(url)
     except Exception as exc:
+        code = exc.code if isinstance(exc, ExtractionError) else type(exc).__name__
+        label = _stage_kind(kind, canonical)
+        stage_finished("extraction", started, "failed", kind=label, code=code)
         return exc
+    stage_finished("extraction", started, "ok", kind=_stage_kind(kind, canonical), code=None)
+    return result
+
+
+def _stage_kind(kind: str, canonical: str) -> str:
+    try:
+        return report_kind(kind, canonical)
+    except Exception:  # Telemetry only; the source report computes its kind separately
+        return kind
