@@ -80,8 +80,8 @@ cannot overwrite it. See [Cloud Run integration deployment](cloud-run.md).
 The sweeper runs inside the API process, so Cloud Run needs CPU allocated outside requests.
 This is not a durable task queue: recovery needs a running API instance, and graceful
 shutdown can wait for an active recovery call. A queue/worker remains a later improvement.
-Snapshots are capped at 800 KB and BOMs at 100 lines. There is no automated retention
-policy yet. Keep development usage small. Shared project/database/collection settings
+Snapshots are capped at 800 KB and BOMs at 100 lines. Retention is described under
+[Project retention](#project-retention). Keep development usage small. Shared project/database/collection settings
 are required across workers; use separate collections for dev and production.
 
 ## Local emulator test
@@ -124,6 +124,60 @@ To add a policy for a new collection group:
 gcloud firestore fields ttls update expires_at --collection-group=<group> \
   --enable-ttl --project hackathon-510415 --database="(default)"
 ```
+
+## Project retention
+
+v0.43.0 deletes projects after a period without an update, measured from `job.updated_at`:
+
+- Guest-owned and unowned projects: 30 days (`BS_GUEST_RETENTION_DAYS`).
+- Account-owned projects: 365 days (`BS_ACCOUNT_RETENTION_DAYS`).
+- Claiming a guest project moves it to the account period.
+
+Each save writes the deadline to the job document as the Timestamp field `expires_at`.
+Expired jobs read as 404 straight away. Removal happens in two ways:
+
+1. **TTL policy (not enabled yet).** Enable it once v0.43.0 is deployed:
+
+   ```bash
+   gcloud firestore fields ttls update expires_at \
+     --collection-group=backend_integration_jobs \
+     --enable-ttl --project hackathon-510415 --database="(default)"
+   ```
+
+   Check it with `gcloud firestore fields ttls list --project hackathon-510415`.
+   - TTL deletes usually land within 24 hours of the deadline.
+   - TTL only applies to documents that have a Timestamp `expires_at`. Documents written
+     before v0.43.0 get one on their next save or from the sweep backfill.
+2. **Sweep pass.** The Cloud Scheduler job that calls `/internal/sweep` (every five
+   minutes, worker identity) also runs one bounded retention batch of `BS_RETENTION_BATCH`
+   documents per phase (default 200):
+   - Delete jobs whose stored `expires_at` has passed.
+   - Advance a resumable scan, with its cursor in `backend_integration_jobs_meta/retention`,
+     that deletes expired legacy jobs and backfills `expires_at`.
+
+   One phase-1 query uses the automatic single-field index on `expires_at`. No composite
+   index is needed.
+
+Share links and derived data live on the job document. The shared `_cache`, `_audio` and
+`_images` collections are content-keyed and carry no owner, so no per-project cleanup is
+needed.
+
+## Delete my data
+
+`DELETE /v1/account` (see `docs/contracts/retention-and-deletion.md`) deletes an
+identity's projects, settings and identity-keyed usage counters. For accounts it also
+calls the Identity Toolkit admin API,
+`POST https://identitytoolkit.googleapis.com/v1/projects/hackathon-510415/accounts:delete`,
+with the runtime service account's ADC token.
+
+That account (`bharat-sourcer-api@hackathon-510415.iam.gserviceaccount.com`) needs
+`firebaseauth.users.delete`, for example through `roles/firebaseauth.admin`. If it lacks
+the permission:
+- The data is still deleted.
+- The response reports `auth_user_deleted: false`.
+- The log shows `AUTH_USER_DELETE_FAILED type=HTTPError`.
+
+Check the grant before announcing the feature. This release does not change IAM.
 
 ## YouTube Data API key
 

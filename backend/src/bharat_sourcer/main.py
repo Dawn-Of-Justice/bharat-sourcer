@@ -72,7 +72,13 @@ from bharat_sourcer.sourcing.service import GeminiDiscovery, SourcingService
 from bharat_sourcer.sourcing.spec_writer import GeminiSpecWriter
 from bharat_sourcer.sourcing.trust import TrustChecker
 from bharat_sourcer.spec_fill import GeminiSpecFiller
-from bharat_sourcer.storage import FirestoreJobStore, JobStore, MemoryJobStore, StorageError
+from bharat_sourcer.storage import (
+    FirestoreJobStore,
+    JobStore,
+    MemoryJobStore,
+    Retention,
+    StorageError,
+)
 from bharat_sourcer.streaming import snapshots
 
 JobToken = ProjectAccess
@@ -105,14 +111,20 @@ def create_app(
         app_logger.addHandler(handler)
     settings = settings or Settings()
     live_extractor = None if settings.demo_mode else (extractor or GeminiExtractor(settings))
+    retention = Retention(settings.guest_retention_days, settings.account_retention_days)
     if store is None:
         store = (
             FirestoreJobStore(
-                settings.gcp_project, settings.firestore_database, settings.firestore_collection
+                settings.gcp_project,
+                settings.firestore_database,
+                settings.firestore_collection,
+                retention,
             )
             if settings.storage_backend == "firestore"
-            else MemoryJobStore()
+            else MemoryJobStore(retention)
         )
+    else:
+        store.retention = retention
     # Cross-job cache for paid sourcing results, beside the job store (cost-controls.md).
     shared_cache = build_cache(settings, store)
     searcher = seller_search.from_settings(settings, cache=shared_cache)
@@ -220,7 +232,7 @@ def create_app(
 
     app = FastAPI(
         title="Bharat Sourcer API",
-        version="0.42.1",
+        version="0.43.0",
         description=(
             "Demo or live YouTube and project-page extraction with optional Firestore job "
             "persistence."
@@ -767,7 +779,25 @@ def create_app(
                 log.error("SWEEP_READ_FAILED job=%s type=%s", key, type(exc).__name__)
         if stats["truncated"]:
             log.warning("SWEEP_TRUNCATED limit=%d", settings.sweep_limit)
-        return {"status": "ok"} | stats
+        return {"status": "ok"} | stats | {"retention": retention_pass()}
+
+    def retention_pass():
+        """Bounded retention batch (docs/contracts/retention-and-deletion.md); a failure
+        never fails the redispatch sweep."""
+        log = logging.getLogger(__name__)
+        try:
+            result = service.store.retention_pass(settings.retention_batch)
+        except (StorageError, GoogleAPICallError) as exc:
+            log.error("RETENTION_PASS_FAILED type=%s", type(exc).__name__)
+            return {"failed": True}
+        if result.get("deleted") or result.get("backfilled"):
+            log.info(
+                "RETENTION_PASS deleted=%d backfilled=%d scanned=%d",
+                result["deleted"],
+                result["backfilled"],
+                result["scanned"],
+            )
+        return result
 
     return app
 

@@ -160,6 +160,7 @@ def test_sweep_isolates_enqueue_failures_and_reports_counts(monkeypatch, caplog)
     client, _, keys = sweep_app(monkeypatch, enqueue)
     body = client.post("/internal/sweep").json()
     assert sorted(calls) == sorted(keys)
+    assert body.pop("retention")["deleted"] == 0
     assert body == {"status": "ok", "dispatched": 2, "failed": 1, "stale": 0, "truncated": False}
     assert "TASK_ENQUEUE_FAILED" in caplog.text
 

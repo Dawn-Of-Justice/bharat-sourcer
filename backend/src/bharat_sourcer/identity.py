@@ -115,6 +115,19 @@ def lookup_account(project: str, uid: str, session: AuthorizedSession | None = N
     return users[0]
 
 
+def delete_auth_user(project: str, uid: str, session: AuthorizedSession | None = None) -> None:
+    """Delete a Firebase Auth user with the Identity Toolkit admin API (the service
+    account's ADC token). An already-deleted user counts as deleted; raises otherwise."""
+    response = (session or account_session()).post(
+        f"https://identitytoolkit.googleapis.com/v1/projects/{project}/accounts:delete",
+        json={"localId": uid},
+        timeout=10,
+    )
+    if response.status_code == 400 and "USER_NOT_FOUND" in response.text:
+        return
+    response.raise_for_status()
+
+
 class FirebaseVerifier:
     # A token the cached certificates reject gets one retry with a fresh download (keys
     # rotate), at most once per this interval so bad tokens cannot force repeated fetches.

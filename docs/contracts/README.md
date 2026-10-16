@@ -1,4 +1,21 @@
-# Implemented API contract — v0.42.1
+# Implemented API contract — v0.43.0
+
+v0.43.0: [retention and delete my data](retention-and-deletion.md).
+- Retention: projects are deleted 30 days after their last update for guests and unowned
+  token projects (`BS_GUEST_RETENTION_DAYS`), and 365 days for accounts
+  (`BS_ACCOUNT_RETENTION_DAYS`), measured from `Job.updated_at`. Claiming a guest project
+  switches it to the account period. An expired project reads as `404 JOB_NOT_FOUND`, its
+  share link as `404 SHARE_NOT_FOUND`, and it drops out of `GET /v1/projects`.
+- New `DELETE /v1/account` with body `{"confirm": "DELETE"}`. It deletes every project of
+  the current account or guest session, with their share links, saved settings and the
+  identity's usage counters. It clears the guest cookie, or deletes the Firebase Auth user
+  for an account.
+  - Returns `AccountDeletion`: `kind`, `projects_deleted`, `share_links_revoked`,
+    `settings_deleted`, `auth_user_deleted` (`false` when only the auth deletion failed;
+    `null` for guests).
+  - Errors: `400 CONFIRMATION_REQUIRED`, 401, 403, 422, and `429 USAGE_LIMIT` above
+    5 calls per minute.
+  - Idempotent. Per-IP counters are kept.
 
 v0.42.1: security hardening; no change for normal requests. Request bodies above 1 MiB
 (`BS_MAX_BODY_BYTES`; 8 MiB on `POST /v1/jobs/{job_id}/scan`) get `413 BODY_TOO_LARGE`
