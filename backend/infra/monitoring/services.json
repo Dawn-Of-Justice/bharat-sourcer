@@ -20,7 +20,7 @@
       },
       {
         "serviceLevelObjectiveId": "api-latency",
-        "displayName": "API latency 95% < 1000 ms (28 d, excl. SSE and /internal/*)",
+        "displayName": "API latency 95% < 1 s (28 d, excl. SSE and /internal/*)",
         "goal": 0.95,
         "rollingPeriod": "2419200s",
         "serviceLevelIndicator": {

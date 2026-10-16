@@ -235,7 +235,7 @@
         "width": 16,
         "height": 10,
         "widget": {
-          "title": "API: latency p50 / p95 / p99 (ms, includes SSE streams)",
+          "title": "API: latency p50 / p95 / p99 (s, includes SSE streams)",
           "xyChart": {
             "dataSets": [
               {
@@ -243,8 +243,8 @@
                 "legendTemplate": "p50",
                 "targetAxis": "Y1",
                 "timeSeriesQuery": {
-                  "prometheusQuery": "histogram_quantile(0.5, sum by (le) (rate(run_googleapis_com:request_latencies_bucket{monitored_resource=\"cloud_run_revision\",service_name=\"bharat-sourcer-integration\"}[5m])))",
-                  "unitOverride": "ms"
+                  "prometheusQuery": "histogram_quantile(0.5, sum by (le) (rate(run_googleapis_com:request_latencies_bucket{monitored_resource=\"cloud_run_revision\",service_name=\"bharat-sourcer-integration\"}[5m]))) / 1000",
+                  "unitOverride": "s"
                 }
               },
               {
@@ -252,8 +252,8 @@
                 "legendTemplate": "p95",
                 "targetAxis": "Y1",
                 "timeSeriesQuery": {
-                  "prometheusQuery": "histogram_quantile(0.95, sum by (le) (rate(run_googleapis_com:request_latencies_bucket{monitored_resource=\"cloud_run_revision\",service_name=\"bharat-sourcer-integration\"}[5m])))",
-                  "unitOverride": "ms"
+                  "prometheusQuery": "histogram_quantile(0.95, sum by (le) (rate(run_googleapis_com:request_latencies_bucket{monitored_resource=\"cloud_run_revision\",service_name=\"bharat-sourcer-integration\"}[5m]))) / 1000",
+                  "unitOverride": "s"
                 }
               },
               {
@@ -261,8 +261,8 @@
                 "legendTemplate": "p99",
                 "targetAxis": "Y1",
                 "timeSeriesQuery": {
-                  "prometheusQuery": "histogram_quantile(0.99, sum by (le) (rate(run_googleapis_com:request_latencies_bucket{monitored_resource=\"cloud_run_revision\",service_name=\"bharat-sourcer-integration\"}[5m])))",
-                  "unitOverride": "ms"
+                  "prometheusQuery": "histogram_quantile(0.99, sum by (le) (rate(run_googleapis_com:request_latencies_bucket{monitored_resource=\"cloud_run_revision\",service_name=\"bharat-sourcer-integration\"}[5m]))) / 1000",
+                  "unitOverride": "s"
                 }
               }
             ],
@@ -486,7 +486,7 @@
         "width": 16,
         "height": 10,
         "widget": {
-          "title": "Web: latency p50 / p95 / p99 (ms, includes SSE streams)",
+          "title": "Web: latency p50 / p95 / p99 (s, includes SSE streams)",
           "xyChart": {
             "dataSets": [
               {
@@ -494,8 +494,8 @@
                 "legendTemplate": "p50",
                 "targetAxis": "Y1",
                 "timeSeriesQuery": {
-                  "prometheusQuery": "histogram_quantile(0.5, sum by (le) (rate(run_googleapis_com:request_latencies_bucket{monitored_resource=\"cloud_run_revision\",service_name=\"bharat-sourcer-web\"}[5m])))",
-                  "unitOverride": "ms"
+                  "prometheusQuery": "histogram_quantile(0.5, sum by (le) (rate(run_googleapis_com:request_latencies_bucket{monitored_resource=\"cloud_run_revision\",service_name=\"bharat-sourcer-web\"}[5m]))) / 1000",
+                  "unitOverride": "s"
                 }
               },
               {
@@ -503,8 +503,8 @@
                 "legendTemplate": "p95",
                 "targetAxis": "Y1",
                 "timeSeriesQuery": {
-                  "prometheusQuery": "histogram_quantile(0.95, sum by (le) (rate(run_googleapis_com:request_latencies_bucket{monitored_resource=\"cloud_run_revision\",service_name=\"bharat-sourcer-web\"}[5m])))",
-                  "unitOverride": "ms"
+                  "prometheusQuery": "histogram_quantile(0.95, sum by (le) (rate(run_googleapis_com:request_latencies_bucket{monitored_resource=\"cloud_run_revision\",service_name=\"bharat-sourcer-web\"}[5m]))) / 1000",
+                  "unitOverride": "s"
                 }
               },
               {
@@ -512,8 +512,8 @@
                 "legendTemplate": "p99",
                 "targetAxis": "Y1",
                 "timeSeriesQuery": {
-                  "prometheusQuery": "histogram_quantile(0.99, sum by (le) (rate(run_googleapis_com:request_latencies_bucket{monitored_resource=\"cloud_run_revision\",service_name=\"bharat-sourcer-web\"}[5m])))",
-                  "unitOverride": "ms"
+                  "prometheusQuery": "histogram_quantile(0.99, sum by (le) (rate(run_googleapis_com:request_latencies_bucket{monitored_resource=\"cloud_run_revision\",service_name=\"bharat-sourcer-web\"}[5m]))) / 1000",
+                  "unitOverride": "s"
                 }
               }
             ],

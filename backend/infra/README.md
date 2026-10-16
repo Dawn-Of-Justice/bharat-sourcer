@@ -213,3 +213,21 @@ monthly billing budget are kept as code in `monitoring/` and applied with
 `python scripts/setup_monitoring.py` (plan only by default; `--apply` changes things). What
 each metric, SLO and alert means, how to read the dashboard and the known limits are in
 [monitoring.md](monitoring.md).
+
+## Operations
+
+| Document | Use it for |
+| --- | --- |
+| [Alert runbooks](runbooks.md) | What to do for each alert: queries, causes, rollback, pausing dispatch, raising limits |
+| [Incident response](incident-response.md) | Severity, roles, steps, status posts, postmortem template, data incidents |
+| [SLOs](slos.md) | Targets, error-budget policy, measuring p50/p95/p99, review cadence |
+| [Data inventory](data-inventory.md) | Every data store: contents, personal data, retention, deletion, access |
+| [Release checklist](release-checklist.md) | Before and after a merge to `main`, smoke test, rollback |
+| [Monitoring](monitoring.md) | Uptime checks, log-based metrics, SLOs, alert policies, dashboard and budget kept as code in `monitoring/` |
+| [Observability](observability.md) | Structured log format and app events the metrics are built on |
+| [Cost guardrails](cost-guardrails.md) | Budget, Gemini spend alert, scaling, quotas, cutting cost fast |
+| [GitHub deployments](github-actions.md) | How merges to `main` deploy |
+| [Cloud Run deployment](cloud-run.md) | Service configuration and deploy history |
+
+Related documents on branches not merged yet: `backups.md` (`ops/firestore-backups`) and
+`docs/contracts/retention-and-deletion.md` (`feat/retention-and-deletion`).

@@ -112,13 +112,13 @@ services. All periods are rolling 28 days.
 | Service / SLO id | Goal | Good / total |
 | --- | --- | --- |
 | `bharat-sourcer-api` / `api-availability` | 99.5% | `api_request_count` with status not 5xx, over all requests. Excludes `/internal/*` and SSE |
-| `bharat-sourcer-api` / `api-latency` | 95% under 1000 ms | `api_request_latency` in [0, 1.0 s]. Excludes `/internal/*` and SSE |
+| `bharat-sourcer-api` / `api-latency` | 95% under 1 s | `api_request_latency` in [0, 1.0 s]. Excludes `/internal/*` and SSE |
 | `bharat-sourcer-web` / `web-availability` | 99.5% | `run.googleapis.com/request_count` with `response_code_class` other than `5xx` on `bharat-sourcer-web` |
 | `bharat-sourcer-jobs` / `job-success` | 95% | `job_finished_count`, `demo="false"`: `status="done"` over `status` in (`done`, `failed`) |
 
 Latency threshold: in the week to 17 October 2026, 97.2% of all API requests finished under
-1000 ms, SSE included. About 98.9% did once SSE is removed (the median is about 450 ms), so
-1000 ms at 95% leaves headroom without hiding regressions.
+1 s, SSE included. About 98.9% did once SSE is removed (the median is about 0.45 s), so
+1 s at 95% leaves headroom without hiding regressions.
 
 Job success excludes `paused`, which is a user action, not a failure. A resume, refresh or
 re-confirm that finishes the job again counts as another finish.
@@ -159,7 +159,8 @@ Ordered by importance:
 1. **Health**: uptime check status, then compliance and error budget left for each SLO.
 2. **API** and **Web**, each with:
    - requests/s by status class;
-   - p50/p95/p99 latency;
+   - p50/p95/p99 latency in seconds (Cloud Run's `request_latencies`, which is in ms, divided by
+     1000);
    - 5xx ratio;
    - instances (active and idle);
    - container CPU and memory utilization (p50 and p95).

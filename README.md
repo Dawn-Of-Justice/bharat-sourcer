@@ -119,7 +119,8 @@ git config blame.ignoreRevsFile .git-blame-ignore-revs
 ## Security
 
 Please report vulnerabilities privately as described in [`SECURITY.md`](SECURITY.md), not in
-public issues.
+public issues. Operations docs (runbooks, incident response, SLOs, data inventory, release
+checklist, cost guardrails): [`backend/infra/README.md#operations`](backend/infra/README.md#operations).
 
 ## Additional reading
 
