@@ -107,6 +107,12 @@ References: [database creation](https://cloud.google.com/firestore/docs/manage-d
 [server authentication](https://firebase.google.com/docs/firestore/quickstart-server),
 [emulator configuration](https://cloud.google.com/firestore/native/docs/emulator).
 
+## Backups and restore
+
+Point-in-time recovery (7 days) and a weekly export to Cloud Storage (kept 30 days) are set up
+by `scripts/setup_backups.py`. Restore commands, RPO/RTO, the quarterly restore drill and the
+cost estimate are in [Firestore backups](backups.md).
+
 ## Firestore TTL policies
 
 Firestore deletes expired documents through TTL policies on the `expires_at` timestamp
