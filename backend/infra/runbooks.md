@@ -1,9 +1,9 @@
 # Alert runbooks
 
 One section per alert. Alert policies, the dashboard and SLOs are defined in
-`backend/infra/monitoring.md` and `backend/scripts/setup_monitoring.py` (branch
-`ops/monitoring`); event fields are defined in `backend/infra/observability.md` (branch
-`obs/instrumentation`). If those disagree with this page, they win; fix this page.
+[monitoring.md](monitoring.md), `backend/infra/monitoring/` and
+`backend/scripts/setup_monitoring.py`; event fields are defined in
+[observability.md](observability.md). If those disagree with this page, they win; fix this page.
 
 Severity and communication: [incident response](incident-response.md). Budget policy:
 [SLOs](slos.md).
@@ -365,8 +365,8 @@ max 1; raise max afterwards).
 ## queue-stuck
 
 **Means:** `QUEUE_AGE_EXCEEDED` (pending work older than `BS_QUEUE_AGE_ALERT_MINUTES`,
-default 30) or `SWEEP_TRUNCATED` (sweep hit `BS_SWEEP_LIMIT`, default 200). Existing policy:
-[queue-age-alert.json](queue-age-alert.json).
+default 30) or `SWEEP_TRUNCATED` (sweep hit `BS_SWEEP_LIMIT`, default 200). Policy:
+[monitoring/alerts/queue-age.json](monitoring/alerts/queue-age.json).
 
 **First 5 minutes**
 

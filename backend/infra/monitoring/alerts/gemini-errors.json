@@ -1,0 +1,27 @@
+{
+  "displayName": "Bharat Sourcer: Gemini errors high",
+  "documentation": {
+    "content": "More than 20% of Gemini calls in the last 30 minutes ended with outcome error or timeout (GEMINI_CALL), with at least 5 calls.\n\nRunbook: [backend/infra/runbooks.md#gemini-errors](https://github.com/Dawn-Of-Justice/bharat-sourcer/blob/main/backend/infra/runbooks.md#gemini-errors)\n\nSpecs: backend/infra/monitoring/, guide: backend/infra/monitoring.md",
+    "mimeType": "text/markdown"
+  },
+  "combiner": "OR",
+  "conditions": [
+    {
+      "displayName": "Gemini error/timeout > 20% over 30 min (>= 5 calls)",
+      "conditionPrometheusQueryLanguage": {
+        "query": "(sum(increase(logging_googleapis_com:user_gemini_call_duration_ms_count{monitored_resource=\"cloud_run_revision\",outcome=~\"error|timeout\"}[30m])) / sum(increase(logging_googleapis_com:user_gemini_call_duration_ms_count{monitored_resource=\"cloud_run_revision\"}[30m])) > 0.2) and (sum(increase(logging_googleapis_com:user_gemini_call_duration_ms_count{monitored_resource=\"cloud_run_revision\"}[30m])) >= 5)",
+        "duration": "0s",
+        "evaluationInterval": "60s",
+        "disableMetricValidation": true
+      }
+    }
+  ],
+  "alertStrategy": {
+    "autoClose": "1800s"
+  },
+  "severity": "WARNING",
+  "notificationChannels": [
+    "projects/hackathon-510415/notificationChannels/16148970600683421140"
+  ],
+  "enabled": true
+}

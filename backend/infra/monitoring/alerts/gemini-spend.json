@@ -1,0 +1,27 @@
+{
+  "displayName": "Bharat Sourcer: Gemini spend high",
+  "documentation": {
+    "content": "Estimated Gemini spend (sum of GEMINI_USAGE usd_est) over the last rolling 24 hours is above $2. This is the app's estimate, not Google's bill; the billing budget covers the real bill.\n\nRunbook: [backend/infra/runbooks.md#gemini-spend](https://github.com/Dawn-Of-Justice/bharat-sourcer/blob/main/backend/infra/runbooks.md#gemini-spend)\n\nSpecs: backend/infra/monitoring/, guide: backend/infra/monitoring.md",
+    "mimeType": "text/markdown"
+  },
+  "combiner": "OR",
+  "conditions": [
+    {
+      "displayName": "Gemini estimated spend > $2 over 24 h",
+      "conditionPrometheusQueryLanguage": {
+        "query": "sum(increase(logging_googleapis_com:user_gemini_cost_usd_sum{monitored_resource=\"cloud_run_revision\"}[1d])) > 2",
+        "duration": "0s",
+        "evaluationInterval": "300s",
+        "disableMetricValidation": true
+      }
+    }
+  ],
+  "alertStrategy": {
+    "autoClose": "86400s"
+  },
+  "severity": "WARNING",
+  "notificationChannels": [
+    "projects/hackathon-510415/notificationChannels/16148970600683421140"
+  ],
+  "enabled": true
+}

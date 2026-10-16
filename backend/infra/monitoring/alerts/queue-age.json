@@ -1,7 +1,7 @@
 {
   "displayName": "Bharat Sourcer: stuck sourcing queue",
   "documentation": {
-    "content": "QUEUE_AGE_EXCEEDED or SWEEP_TRUNCATED was logged by bharat-sourcer-integration: queued work is older than expected or the scheduled sweep hit its limit. See docs/contracts/queued-dispatch.md.",
+    "content": "QUEUE_AGE_EXCEEDED or SWEEP_TRUNCATED was logged by bharat-sourcer-integration: queued work is older than expected or the scheduled sweep hit its limit. See docs/contracts/queued-dispatch.md.\n\nRunbook: [backend/infra/runbooks.md#queue-stuck](https://github.com/Dawn-Of-Justice/bharat-sourcer/blob/main/backend/infra/runbooks.md#queue-stuck)\n\nSpecs: backend/infra/monitoring/, guide: backend/infra/monitoring.md",
     "mimeType": "text/markdown"
   },
   "combiner": "OR",
@@ -14,8 +14,12 @@
     }
   ],
   "alertStrategy": {
-    "notificationRateLimit": { "period": "3600s" },
+    "notificationRateLimit": {
+      "period": "3600s"
+    },
     "autoClose": "3600s"
   },
-  "notificationChannels": ["projects/hackathon-510415/notificationChannels/16148970600683421140"]
+  "notificationChannels": [
+    "projects/hackathon-510415/notificationChannels/16148970600683421140"
+  ]
 }

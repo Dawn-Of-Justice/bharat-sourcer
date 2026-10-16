@@ -1,7 +1,7 @@
 # Service level objectives
 
 SLO resources and burn-rate alerts are created by `backend/scripts/setup_monitoring.py`
-(branch `ops/monitoring`, documented in `backend/infra/monitoring.md`). If the SLI filters
+(documented in [monitoring.md](monitoring.md)). If the SLI filters
 there differ from this page, the script is what runs; update this page.
 
 ## SLOs
@@ -10,7 +10,7 @@ there differ from this page, the script is what runs; update this page.
 | --- | --- | --- | --- |
 | API availability | 99.5% | 28 days rolling | Non-5xx / all requests to `bharat-sourcer-integration` |
 | Web availability | 99.5% | 28 days rolling | Non-5xx / all requests to `bharat-sourcer-web` (serves <https://bharatsourcer.web.app> through Firebase Hosting) |
-| API latency | 95% of requests < 1 s | 28 days rolling | Requests under 1,000 ms / all requests to `bharat-sourcer-integration` |
+| API latency | 95% of requests < 1 s | 28 days rolling | Requests under 1 s / all requests to `bharat-sourcer-integration`, excluding `/internal/*` and SSE `/stream` (`api_request_latency`, seconds) |
 | Job success | 95% of non-demo jobs `done` | 28 days rolling | `JOB_FINISHED` with `status="done"` / `JOB_FINISHED` with `status` `done` or `failed`, `demo=false` |
 
 Error budgets over 28 days: 99.5% allows about 3 h 22 min of full outage or 0.5% of
@@ -75,7 +75,7 @@ fetch cloud_run_revision
 ```
 
 **Pipeline latency (log-based distributions).** Created from structured events
-(`observability.md`, branch `obs/instrumentation`):
+([observability.md](observability.md)):
 
 | Distribution | Filter | Value field | Labels |
 | --- | --- | --- | --- |

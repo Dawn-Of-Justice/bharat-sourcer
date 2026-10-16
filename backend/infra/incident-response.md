@@ -55,7 +55,7 @@ Frontend issues: involve the frontend teammate (`frontend/` is theirs).
 - Internal coordination: `<OWNER TO DECIDE>`
 - Alert notification channel: as configured by `setup_monitoring.py` (existing channel
   `projects/hackathon-510415/notificationChannels/16148970600683421140` is used by
-  [queue-age-alert.json](queue-age-alert.json)).
+  [monitoring/alerts/queue-age.json](monitoring/alerts/queue-age.json)).
 
 ## Postmortem template (blameless)
 

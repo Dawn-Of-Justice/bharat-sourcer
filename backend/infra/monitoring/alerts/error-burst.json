@@ -1,0 +1,27 @@
+{
+  "displayName": "Bharat Sourcer: app error burst",
+  "documentation": {
+    "content": "More than 10 app log lines at ERROR or above (including UNHANDLED_ERROR and PROXY_ERROR) on one service in 5 minutes.\n\nRunbook: [backend/infra/runbooks.md#error-burst](https://github.com/Dawn-Of-Justice/bharat-sourcer/blob/main/backend/infra/runbooks.md#error-burst)\n\nSpecs: backend/infra/monitoring/, guide: backend/infra/monitoring.md",
+    "mimeType": "text/markdown"
+  },
+  "combiner": "OR",
+  "conditions": [
+    {
+      "displayName": "app_errors > 10 in 5 min (per service)",
+      "conditionPrometheusQueryLanguage": {
+        "query": "sum by (service) (increase(logging_googleapis_com:user_app_errors{monitored_resource=\"cloud_run_revision\"}[5m])) > 10",
+        "duration": "0s",
+        "evaluationInterval": "60s",
+        "disableMetricValidation": true
+      }
+    }
+  ],
+  "alertStrategy": {
+    "autoClose": "1800s"
+  },
+  "severity": "ERROR",
+  "notificationChannels": [
+    "projects/hackathon-510415/notificationChannels/16148970600683421140"
+  ],
+  "enabled": true
+}

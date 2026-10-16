@@ -7,7 +7,7 @@ What caps spend on `hackathon-510415`, and how to cut it fast. Background:
 ## Billing budget
 
 - Budget: **2,000 INR / month** (default), created by `backend/scripts/setup_monitoring.py`
-  (branch `ops/monitoring`). A budget alerts; it does not stop spending.
+  (`monitoring/budget.json`). A budget alerts; it does not stop spending.
 - Thresholds and recipients: as set by that script (see `backend/infra/monitoring.md`).
 - Check: `gcloud billing budgets list --billing-account=BILLING_ACCOUNT_ID` (find the id
   with `gcloud billing projects describe hackathon-510415`). Console:

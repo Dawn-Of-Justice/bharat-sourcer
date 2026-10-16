@@ -1,0 +1,68 @@
+[
+  {
+    "displayName": "Bharat Sourcer: web home",
+    "monitoredResource": {
+      "type": "uptime_url",
+      "labels": {
+        "project_id": "hackathon-510415",
+        "host": "bharatsourcer.web.app"
+      }
+    },
+    "httpCheck": {
+      "requestMethod": "GET",
+      "path": "/",
+      "port": 443,
+      "useSsl": true,
+      "validateSsl": true,
+      "acceptedResponseStatusCodes": [
+        {
+          "statusValue": 200
+        }
+      ]
+    },
+    "period": "300s",
+    "timeout": "30s",
+    "selectedRegions": [
+      "ASIA_PACIFIC",
+      "EUROPE",
+      "USA_VIRGINIA"
+    ],
+    "checkerType": "STATIC_IP_CHECKERS"
+  },
+  {
+    "displayName": "Bharat Sourcer: API health via web",
+    "monitoredResource": {
+      "type": "uptime_url",
+      "labels": {
+        "project_id": "hackathon-510415",
+        "host": "bharatsourcer.web.app"
+      }
+    },
+    "httpCheck": {
+      "requestMethod": "GET",
+      "path": "/api/healthz",
+      "port": 443,
+      "useSsl": true,
+      "validateSsl": true,
+      "acceptedResponseStatusCodes": [
+        {
+          "statusValue": 200
+        }
+      ]
+    },
+    "period": "300s",
+    "timeout": "30s",
+    "selectedRegions": [
+      "ASIA_PACIFIC",
+      "EUROPE",
+      "USA_VIRGINIA"
+    ],
+    "checkerType": "STATIC_IP_CHECKERS",
+    "contentMatchers": [
+      {
+        "content": "\"status\":\"ok\"",
+        "matcher": "CONTAINS_STRING"
+      }
+    ]
+  }
+]
