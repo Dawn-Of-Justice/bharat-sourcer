@@ -205,3 +205,20 @@ $1/month above the free 0.5 GB. The VPC and subnet have no charge without NAT. `
 **Disable.** `gcloud run services update bharat-sourcer-integration --region asia-south1
 --update-env-vars BS_COMPILE_BACKEND=none` (the route then answers 503). Jobs cost nothing
 while idle.
+
+## Operations
+
+| Document | Use it for |
+| --- | --- |
+| [Alert runbooks](runbooks.md) | What to do for each alert: queries, causes, rollback, pausing dispatch, raising limits |
+| [Incident response](incident-response.md) | Severity, roles, steps, status posts, postmortem template, data incidents |
+| [SLOs](slos.md) | Targets, error-budget policy, measuring p50/p95/p99, review cadence |
+| [Data inventory](data-inventory.md) | Every data store: contents, personal data, retention, deletion, access |
+| [Release checklist](release-checklist.md) | Before and after a merge to `main`, smoke test, rollback |
+| [Cost guardrails](cost-guardrails.md) | Budget, Gemini spend alert, scaling, quotas, cutting cost fast |
+| [GitHub deployments](github-actions.md) | How merges to `main` deploy |
+| [Cloud Run deployment](cloud-run.md) | Service configuration and deploy history |
+
+Related documents on branches not merged yet: `observability.md` (`obs/instrumentation`),
+`backups.md` (`ops/firestore-backups`), `monitoring.md` (`ops/monitoring`) and
+`docs/contracts/retention-and-deletion.md` (`feat/retention-and-deletion`).
