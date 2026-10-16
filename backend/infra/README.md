@@ -205,3 +205,11 @@ $1/month above the free 0.5 GB. The VPC and subnet have no charge without NAT. `
 **Disable.** `gcloud run services update bharat-sourcer-integration --region asia-south1
 --update-env-vars BS_COMPILE_BACKEND=none` (the route then answers 503). Jobs cost nothing
 while idle.
+
+## Monitoring and alerting
+
+Uptime checks, log-based metrics, SLOs, alert policies, the production dashboard and the
+monthly billing budget are kept as code in `monitoring/` and applied with
+`python scripts/setup_monitoring.py` (plan only by default; `--apply` changes things). What
+each metric, SLO and alert means, how to read the dashboard and the known limits are in
+[monitoring.md](monitoring.md).

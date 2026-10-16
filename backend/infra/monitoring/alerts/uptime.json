@@ -1,0 +1,42 @@
+{
+  "displayName": "Bharat Sourcer: uptime check failing",
+  "documentation": {
+    "content": "An uptime check on https://bharatsourcer.web.app (/ or /api/healthz) failed from two or more checker locations in the last 20 minutes.\n\nRunbook: [backend/infra/runbooks.md#uptime-failure](https://github.com/Dawn-Of-Justice/bharat-sourcer/blob/main/backend/infra/runbooks.md#uptime-failure)\n\nSpecs: backend/infra/monitoring/, guide: backend/infra/monitoring.md",
+    "mimeType": "text/markdown"
+  },
+  "combiner": "OR",
+  "conditions": [
+    {
+      "displayName": "Uptime check failing from 2+ locations",
+      "conditionThreshold": {
+        "filter": "metric.type=\"monitoring.googleapis.com/uptime_check/check_passed\" AND resource.type=\"uptime_url\" AND resource.labels.host=\"bharatsourcer.web.app\"",
+        "aggregations": [
+          {
+            "alignmentPeriod": "1200s",
+            "perSeriesAligner": "ALIGN_NEXT_OLDER",
+            "crossSeriesReducer": "REDUCE_COUNT_FALSE",
+            "groupByFields": [
+              "resource.label.project_id",
+              "resource.label.host",
+              "metric.label.check_id"
+            ]
+          }
+        ],
+        "comparison": "COMPARISON_GT",
+        "thresholdValue": 1,
+        "duration": "60s",
+        "trigger": {
+          "count": 1
+        }
+      }
+    }
+  ],
+  "alertStrategy": {
+    "autoClose": "1800s"
+  },
+  "severity": "CRITICAL",
+  "notificationChannels": [
+    "projects/hackathon-510415/notificationChannels/16148970600683421140"
+  ],
+  "enabled": true
+}

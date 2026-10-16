@@ -1,0 +1,924 @@
+{
+  "displayName": "Bharat Sourcer — production",
+  "mosaicLayout": {
+    "columns": 48,
+    "tiles": [
+      {
+        "xPos": 0,
+        "yPos": 0,
+        "width": 48,
+        "height": 4,
+        "widget": {
+          "title": "Health",
+          "sectionHeader": {
+            "subtitle": "Uptime, SLOs, then per-service traffic, latency, errors and capacity",
+            "dividerBelow": true
+          }
+        }
+      },
+      {
+        "xPos": 0,
+        "yPos": 4,
+        "width": 16,
+        "height": 16,
+        "widget": {
+          "title": "Uptime checks passing (1 = pass, by check)",
+          "xyChart": {
+            "dataSets": [
+              {
+                "plotType": "LINE",
+                "legendTemplate": "{{check_id}}",
+                "targetAxis": "Y1",
+                "timeSeriesQuery": {
+                  "prometheusQuery": "min by (check_id) (monitoring_googleapis_com:uptime_check_check_passed{monitored_resource=\"uptime_url\"})"
+                }
+              }
+            ],
+            "chartOptions": {
+              "mode": "COLOR"
+            }
+          }
+        }
+      },
+      {
+        "xPos": 16,
+        "yPos": 4,
+        "width": 8,
+        "height": 8,
+        "widget": {
+          "title": "API availability: compliance (28 d)",
+          "scorecard": {
+            "timeSeriesQuery": {
+              "timeSeriesFilter": {
+                "filter": "select_slo_compliance(\"projects/hackathon-510415/services/bharat-sourcer-api/serviceLevelObjectives/api-availability\")"
+              }
+            },
+            "sparkChartView": {
+              "sparkChartType": "SPARK_LINE"
+            }
+          }
+        }
+      },
+      {
+        "xPos": 24,
+        "yPos": 4,
+        "width": 8,
+        "height": 8,
+        "widget": {
+          "title": "API availability: error budget left",
+          "scorecard": {
+            "timeSeriesQuery": {
+              "timeSeriesFilter": {
+                "filter": "select_slo_budget_fraction(\"projects/hackathon-510415/services/bharat-sourcer-api/serviceLevelObjectives/api-availability\")"
+              }
+            },
+            "sparkChartView": {
+              "sparkChartType": "SPARK_LINE"
+            }
+          }
+        }
+      },
+      {
+        "xPos": 32,
+        "yPos": 4,
+        "width": 8,
+        "height": 8,
+        "widget": {
+          "title": "API latency: compliance (28 d)",
+          "scorecard": {
+            "timeSeriesQuery": {
+              "timeSeriesFilter": {
+                "filter": "select_slo_compliance(\"projects/hackathon-510415/services/bharat-sourcer-api/serviceLevelObjectives/api-latency\")"
+              }
+            },
+            "sparkChartView": {
+              "sparkChartType": "SPARK_LINE"
+            }
+          }
+        }
+      },
+      {
+        "xPos": 40,
+        "yPos": 4,
+        "width": 8,
+        "height": 8,
+        "widget": {
+          "title": "API latency: error budget left",
+          "scorecard": {
+            "timeSeriesQuery": {
+              "timeSeriesFilter": {
+                "filter": "select_slo_budget_fraction(\"projects/hackathon-510415/services/bharat-sourcer-api/serviceLevelObjectives/api-latency\")"
+              }
+            },
+            "sparkChartView": {
+              "sparkChartType": "SPARK_LINE"
+            }
+          }
+        }
+      },
+      {
+        "xPos": 16,
+        "yPos": 12,
+        "width": 8,
+        "height": 8,
+        "widget": {
+          "title": "Web availability: compliance (28 d)",
+          "scorecard": {
+            "timeSeriesQuery": {
+              "timeSeriesFilter": {
+                "filter": "select_slo_compliance(\"projects/hackathon-510415/services/bharat-sourcer-web/serviceLevelObjectives/web-availability\")"
+              }
+            },
+            "sparkChartView": {
+              "sparkChartType": "SPARK_LINE"
+            }
+          }
+        }
+      },
+      {
+        "xPos": 24,
+        "yPos": 12,
+        "width": 8,
+        "height": 8,
+        "widget": {
+          "title": "Web availability: error budget left",
+          "scorecard": {
+            "timeSeriesQuery": {
+              "timeSeriesFilter": {
+                "filter": "select_slo_budget_fraction(\"projects/hackathon-510415/services/bharat-sourcer-web/serviceLevelObjectives/web-availability\")"
+              }
+            },
+            "sparkChartView": {
+              "sparkChartType": "SPARK_LINE"
+            }
+          }
+        }
+      },
+      {
+        "xPos": 32,
+        "yPos": 12,
+        "width": 8,
+        "height": 8,
+        "widget": {
+          "title": "Job success: compliance (28 d)",
+          "scorecard": {
+            "timeSeriesQuery": {
+              "timeSeriesFilter": {
+                "filter": "select_slo_compliance(\"projects/hackathon-510415/services/bharat-sourcer-jobs/serviceLevelObjectives/job-success\")"
+              }
+            },
+            "sparkChartView": {
+              "sparkChartType": "SPARK_LINE"
+            }
+          }
+        }
+      },
+      {
+        "xPos": 40,
+        "yPos": 12,
+        "width": 8,
+        "height": 8,
+        "widget": {
+          "title": "Job success: error budget left",
+          "scorecard": {
+            "timeSeriesQuery": {
+              "timeSeriesFilter": {
+                "filter": "select_slo_budget_fraction(\"projects/hackathon-510415/services/bharat-sourcer-jobs/serviceLevelObjectives/job-success\")"
+              }
+            },
+            "sparkChartView": {
+              "sparkChartType": "SPARK_LINE"
+            }
+          }
+        }
+      },
+      {
+        "xPos": 0,
+        "yPos": 20,
+        "width": 48,
+        "height": 4,
+        "widget": {
+          "title": "API (bharat-sourcer-integration)",
+          "sectionHeader": {
+            "subtitle": "",
+            "dividerBelow": true
+          }
+        }
+      },
+      {
+        "xPos": 0,
+        "yPos": 24,
+        "width": 16,
+        "height": 10,
+        "widget": {
+          "title": "API: requests/s by class",
+          "xyChart": {
+            "dataSets": [
+              {
+                "plotType": "STACKED_AREA",
+                "legendTemplate": "{{response_code_class}}",
+                "targetAxis": "Y1",
+                "timeSeriesQuery": {
+                  "prometheusQuery": "sum by (response_code_class) (rate(run_googleapis_com:request_count{monitored_resource=\"cloud_run_revision\",service_name=\"bharat-sourcer-integration\"}[5m]))"
+                }
+              }
+            ],
+            "chartOptions": {
+              "mode": "COLOR"
+            }
+          }
+        }
+      },
+      {
+        "xPos": 16,
+        "yPos": 24,
+        "width": 16,
+        "height": 10,
+        "widget": {
+          "title": "API: latency p50 / p95 / p99 (ms, includes SSE streams)",
+          "xyChart": {
+            "dataSets": [
+              {
+                "plotType": "LINE",
+                "legendTemplate": "p50",
+                "targetAxis": "Y1",
+                "timeSeriesQuery": {
+                  "prometheusQuery": "histogram_quantile(0.5, sum by (le) (rate(run_googleapis_com:request_latencies_bucket{monitored_resource=\"cloud_run_revision\",service_name=\"bharat-sourcer-integration\"}[5m])))",
+                  "unitOverride": "ms"
+                }
+              },
+              {
+                "plotType": "LINE",
+                "legendTemplate": "p95",
+                "targetAxis": "Y1",
+                "timeSeriesQuery": {
+                  "prometheusQuery": "histogram_quantile(0.95, sum by (le) (rate(run_googleapis_com:request_latencies_bucket{monitored_resource=\"cloud_run_revision\",service_name=\"bharat-sourcer-integration\"}[5m])))",
+                  "unitOverride": "ms"
+                }
+              },
+              {
+                "plotType": "LINE",
+                "legendTemplate": "p99",
+                "targetAxis": "Y1",
+                "timeSeriesQuery": {
+                  "prometheusQuery": "histogram_quantile(0.99, sum by (le) (rate(run_googleapis_com:request_latencies_bucket{monitored_resource=\"cloud_run_revision\",service_name=\"bharat-sourcer-integration\"}[5m])))",
+                  "unitOverride": "ms"
+                }
+              }
+            ],
+            "chartOptions": {
+              "mode": "COLOR"
+            }
+          }
+        }
+      },
+      {
+        "xPos": 32,
+        "yPos": 24,
+        "width": 16,
+        "height": 10,
+        "widget": {
+          "title": "API: 5xx ratio (excl. SSE and /internal/*)",
+          "xyChart": {
+            "dataSets": [
+              {
+                "plotType": "LINE",
+                "legendTemplate": "5xx ratio",
+                "targetAxis": "Y1",
+                "timeSeriesQuery": {
+                  "prometheusQuery": "sum(rate(logging_googleapis_com:user_api_request_count{monitored_resource=\"cloud_run_revision\",status=~\"5..\"}[10m])) / sum(rate(logging_googleapis_com:user_api_request_count{monitored_resource=\"cloud_run_revision\"}[10m]))"
+                }
+              }
+            ],
+            "chartOptions": {
+              "mode": "COLOR"
+            },
+            "thresholds": [
+              {
+                "value": 0.05,
+                "label": "alert 5%"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "xPos": 0,
+        "yPos": 34,
+        "width": 16,
+        "height": 10,
+        "widget": {
+          "title": "API: instances",
+          "xyChart": {
+            "dataSets": [
+              {
+                "plotType": "STACKED_AREA",
+                "legendTemplate": "{{state}}",
+                "targetAxis": "Y1",
+                "timeSeriesQuery": {
+                  "prometheusQuery": "sum by (state) (run_googleapis_com:container_instance_count{monitored_resource=\"cloud_run_revision\",service_name=\"bharat-sourcer-integration\"})"
+                }
+              }
+            ],
+            "chartOptions": {
+              "mode": "COLOR"
+            }
+          }
+        }
+      },
+      {
+        "xPos": 16,
+        "yPos": 34,
+        "width": 16,
+        "height": 10,
+        "widget": {
+          "title": "API: container CPU utilization p50 / p95",
+          "xyChart": {
+            "dataSets": [
+              {
+                "plotType": "LINE",
+                "legendTemplate": "p50",
+                "targetAxis": "Y1",
+                "timeSeriesQuery": {
+                  "prometheusQuery": "histogram_quantile(0.5, sum by (le) (rate(run_googleapis_com:container_cpu_utilizations_bucket{monitored_resource=\"cloud_run_revision\",service_name=\"bharat-sourcer-integration\"}[5m])))"
+                }
+              },
+              {
+                "plotType": "LINE",
+                "legendTemplate": "p95",
+                "targetAxis": "Y1",
+                "timeSeriesQuery": {
+                  "prometheusQuery": "histogram_quantile(0.95, sum by (le) (rate(run_googleapis_com:container_cpu_utilizations_bucket{monitored_resource=\"cloud_run_revision\",service_name=\"bharat-sourcer-integration\"}[5m])))"
+                }
+              }
+            ],
+            "chartOptions": {
+              "mode": "COLOR"
+            }
+          }
+        }
+      },
+      {
+        "xPos": 32,
+        "yPos": 34,
+        "width": 16,
+        "height": 10,
+        "widget": {
+          "title": "API: container memory utilization p50 / p95",
+          "xyChart": {
+            "dataSets": [
+              {
+                "plotType": "LINE",
+                "legendTemplate": "p50",
+                "targetAxis": "Y1",
+                "timeSeriesQuery": {
+                  "prometheusQuery": "histogram_quantile(0.5, sum by (le) (rate(run_googleapis_com:container_memory_utilizations_bucket{monitored_resource=\"cloud_run_revision\",service_name=\"bharat-sourcer-integration\"}[5m])))"
+                }
+              },
+              {
+                "plotType": "LINE",
+                "legendTemplate": "p95",
+                "targetAxis": "Y1",
+                "timeSeriesQuery": {
+                  "prometheusQuery": "histogram_quantile(0.95, sum by (le) (rate(run_googleapis_com:container_memory_utilizations_bucket{monitored_resource=\"cloud_run_revision\",service_name=\"bharat-sourcer-integration\"}[5m])))"
+                }
+              }
+            ],
+            "chartOptions": {
+              "mode": "COLOR"
+            }
+          }
+        }
+      },
+      {
+        "xPos": 0,
+        "yPos": 44,
+        "width": 48,
+        "height": 10,
+        "widget": {
+          "title": "API: latency p50 / p95 / p99 excl. SSE and /internal/* (s, alerting source)",
+          "xyChart": {
+            "dataSets": [
+              {
+                "plotType": "LINE",
+                "legendTemplate": "p50",
+                "targetAxis": "Y1",
+                "timeSeriesQuery": {
+                  "prometheusQuery": "histogram_quantile(0.5, sum by (le) (rate(logging_googleapis_com:user_api_request_latency_bucket{monitored_resource=\"cloud_run_revision\"}[5m])))",
+                  "unitOverride": "s"
+                }
+              },
+              {
+                "plotType": "LINE",
+                "legendTemplate": "p95",
+                "targetAxis": "Y1",
+                "timeSeriesQuery": {
+                  "prometheusQuery": "histogram_quantile(0.95, sum by (le) (rate(logging_googleapis_com:user_api_request_latency_bucket{monitored_resource=\"cloud_run_revision\"}[5m])))",
+                  "unitOverride": "s"
+                }
+              },
+              {
+                "plotType": "LINE",
+                "legendTemplate": "p99",
+                "targetAxis": "Y1",
+                "timeSeriesQuery": {
+                  "prometheusQuery": "histogram_quantile(0.99, sum by (le) (rate(logging_googleapis_com:user_api_request_latency_bucket{monitored_resource=\"cloud_run_revision\"}[5m])))",
+                  "unitOverride": "s"
+                }
+              }
+            ],
+            "chartOptions": {
+              "mode": "COLOR"
+            },
+            "thresholds": [
+              {
+                "value": 2,
+                "label": "p95 alert 2 s"
+              },
+              {
+                "value": 5,
+                "label": "p99 alert 5 s"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "xPos": 0,
+        "yPos": 54,
+        "width": 48,
+        "height": 4,
+        "widget": {
+          "title": "Web (bharat-sourcer-web)",
+          "sectionHeader": {
+            "subtitle": "",
+            "dividerBelow": true
+          }
+        }
+      },
+      {
+        "xPos": 0,
+        "yPos": 58,
+        "width": 16,
+        "height": 10,
+        "widget": {
+          "title": "Web: requests/s by class",
+          "xyChart": {
+            "dataSets": [
+              {
+                "plotType": "STACKED_AREA",
+                "legendTemplate": "{{response_code_class}}",
+                "targetAxis": "Y1",
+                "timeSeriesQuery": {
+                  "prometheusQuery": "sum by (response_code_class) (rate(run_googleapis_com:request_count{monitored_resource=\"cloud_run_revision\",service_name=\"bharat-sourcer-web\"}[5m]))"
+                }
+              }
+            ],
+            "chartOptions": {
+              "mode": "COLOR"
+            }
+          }
+        }
+      },
+      {
+        "xPos": 16,
+        "yPos": 58,
+        "width": 16,
+        "height": 10,
+        "widget": {
+          "title": "Web: latency p50 / p95 / p99 (ms, includes SSE streams)",
+          "xyChart": {
+            "dataSets": [
+              {
+                "plotType": "LINE",
+                "legendTemplate": "p50",
+                "targetAxis": "Y1",
+                "timeSeriesQuery": {
+                  "prometheusQuery": "histogram_quantile(0.5, sum by (le) (rate(run_googleapis_com:request_latencies_bucket{monitored_resource=\"cloud_run_revision\",service_name=\"bharat-sourcer-web\"}[5m])))",
+                  "unitOverride": "ms"
+                }
+              },
+              {
+                "plotType": "LINE",
+                "legendTemplate": "p95",
+                "targetAxis": "Y1",
+                "timeSeriesQuery": {
+                  "prometheusQuery": "histogram_quantile(0.95, sum by (le) (rate(run_googleapis_com:request_latencies_bucket{monitored_resource=\"cloud_run_revision\",service_name=\"bharat-sourcer-web\"}[5m])))",
+                  "unitOverride": "ms"
+                }
+              },
+              {
+                "plotType": "LINE",
+                "legendTemplate": "p99",
+                "targetAxis": "Y1",
+                "timeSeriesQuery": {
+                  "prometheusQuery": "histogram_quantile(0.99, sum by (le) (rate(run_googleapis_com:request_latencies_bucket{monitored_resource=\"cloud_run_revision\",service_name=\"bharat-sourcer-web\"}[5m])))",
+                  "unitOverride": "ms"
+                }
+              }
+            ],
+            "chartOptions": {
+              "mode": "COLOR"
+            }
+          }
+        }
+      },
+      {
+        "xPos": 32,
+        "yPos": 58,
+        "width": 16,
+        "height": 10,
+        "widget": {
+          "title": "Web: 5xx ratio",
+          "xyChart": {
+            "dataSets": [
+              {
+                "plotType": "LINE",
+                "legendTemplate": "5xx ratio",
+                "targetAxis": "Y1",
+                "timeSeriesQuery": {
+                  "prometheusQuery": "sum(rate(run_googleapis_com:request_count{monitored_resource=\"cloud_run_revision\",service_name=\"bharat-sourcer-web\",response_code_class=\"5xx\"}[10m])) / sum(rate(run_googleapis_com:request_count{monitored_resource=\"cloud_run_revision\",service_name=\"bharat-sourcer-web\"}[10m]))"
+                }
+              }
+            ],
+            "chartOptions": {
+              "mode": "COLOR"
+            },
+            "thresholds": [
+              {
+                "value": 0.05,
+                "label": "alert 5%"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "xPos": 0,
+        "yPos": 68,
+        "width": 16,
+        "height": 10,
+        "widget": {
+          "title": "Web: instances",
+          "xyChart": {
+            "dataSets": [
+              {
+                "plotType": "STACKED_AREA",
+                "legendTemplate": "{{state}}",
+                "targetAxis": "Y1",
+                "timeSeriesQuery": {
+                  "prometheusQuery": "sum by (state) (run_googleapis_com:container_instance_count{monitored_resource=\"cloud_run_revision\",service_name=\"bharat-sourcer-web\"})"
+                }
+              }
+            ],
+            "chartOptions": {
+              "mode": "COLOR"
+            }
+          }
+        }
+      },
+      {
+        "xPos": 16,
+        "yPos": 68,
+        "width": 16,
+        "height": 10,
+        "widget": {
+          "title": "Web: container CPU utilization p50 / p95",
+          "xyChart": {
+            "dataSets": [
+              {
+                "plotType": "LINE",
+                "legendTemplate": "p50",
+                "targetAxis": "Y1",
+                "timeSeriesQuery": {
+                  "prometheusQuery": "histogram_quantile(0.5, sum by (le) (rate(run_googleapis_com:container_cpu_utilizations_bucket{monitored_resource=\"cloud_run_revision\",service_name=\"bharat-sourcer-web\"}[5m])))"
+                }
+              },
+              {
+                "plotType": "LINE",
+                "legendTemplate": "p95",
+                "targetAxis": "Y1",
+                "timeSeriesQuery": {
+                  "prometheusQuery": "histogram_quantile(0.95, sum by (le) (rate(run_googleapis_com:container_cpu_utilizations_bucket{monitored_resource=\"cloud_run_revision\",service_name=\"bharat-sourcer-web\"}[5m])))"
+                }
+              }
+            ],
+            "chartOptions": {
+              "mode": "COLOR"
+            }
+          }
+        }
+      },
+      {
+        "xPos": 32,
+        "yPos": 68,
+        "width": 16,
+        "height": 10,
+        "widget": {
+          "title": "Web: container memory utilization p50 / p95",
+          "xyChart": {
+            "dataSets": [
+              {
+                "plotType": "LINE",
+                "legendTemplate": "p50",
+                "targetAxis": "Y1",
+                "timeSeriesQuery": {
+                  "prometheusQuery": "histogram_quantile(0.5, sum by (le) (rate(run_googleapis_com:container_memory_utilizations_bucket{monitored_resource=\"cloud_run_revision\",service_name=\"bharat-sourcer-web\"}[5m])))"
+                }
+              },
+              {
+                "plotType": "LINE",
+                "legendTemplate": "p95",
+                "targetAxis": "Y1",
+                "timeSeriesQuery": {
+                  "prometheusQuery": "histogram_quantile(0.95, sum by (le) (rate(run_googleapis_com:container_memory_utilizations_bucket{monitored_resource=\"cloud_run_revision\",service_name=\"bharat-sourcer-web\"}[5m])))"
+                }
+              }
+            ],
+            "chartOptions": {
+              "mode": "COLOR"
+            }
+          }
+        }
+      },
+      {
+        "xPos": 0,
+        "yPos": 78,
+        "width": 48,
+        "height": 4,
+        "widget": {
+          "title": "Jobs",
+          "sectionHeader": {
+            "subtitle": "Pipeline outcomes and durations from the JOB_FINISHED, STAGE_FINISHED, GEMINI_CALL and SELLER_FETCH log events",
+            "dividerBelow": true
+          }
+        }
+      },
+      {
+        "xPos": 0,
+        "yPos": 82,
+        "width": 16,
+        "height": 10,
+        "widget": {
+          "title": "Jobs finished by status (per hour)",
+          "xyChart": {
+            "dataSets": [
+              {
+                "plotType": "STACKED_BAR",
+                "legendTemplate": "{{status}}",
+                "targetAxis": "Y1",
+                "timeSeriesQuery": {
+                  "prometheusQuery": "sum by (status) (increase(logging_googleapis_com:user_job_finished_count{monitored_resource=\"cloud_run_revision\"}[1h]))"
+                }
+              }
+            ],
+            "chartOptions": {
+              "mode": "COLOR"
+            }
+          }
+        }
+      },
+      {
+        "xPos": 16,
+        "yPos": 82,
+        "width": 16,
+        "height": 10,
+        "widget": {
+          "title": "Job duration p50 / p95 / p99 (first finish, non-demo, ms)",
+          "xyChart": {
+            "dataSets": [
+              {
+                "plotType": "LINE",
+                "legendTemplate": "p50",
+                "targetAxis": "Y1",
+                "timeSeriesQuery": {
+                  "prometheusQuery": "histogram_quantile(0.5, sum by (le) (rate(logging_googleapis_com:user_job_duration_ms_bucket{monitored_resource=\"cloud_run_revision\",demo=\"false\"}[1h])))",
+                  "unitOverride": "ms"
+                }
+              },
+              {
+                "plotType": "LINE",
+                "legendTemplate": "p95",
+                "targetAxis": "Y1",
+                "timeSeriesQuery": {
+                  "prometheusQuery": "histogram_quantile(0.95, sum by (le) (rate(logging_googleapis_com:user_job_duration_ms_bucket{monitored_resource=\"cloud_run_revision\",demo=\"false\"}[1h])))",
+                  "unitOverride": "ms"
+                }
+              },
+              {
+                "plotType": "LINE",
+                "legendTemplate": "p99",
+                "targetAxis": "Y1",
+                "timeSeriesQuery": {
+                  "prometheusQuery": "histogram_quantile(0.99, sum by (le) (rate(logging_googleapis_com:user_job_duration_ms_bucket{monitored_resource=\"cloud_run_revision\",demo=\"false\"}[1h])))",
+                  "unitOverride": "ms"
+                }
+              }
+            ],
+            "chartOptions": {
+              "mode": "COLOR"
+            }
+          }
+        }
+      },
+      {
+        "xPos": 32,
+        "yPos": 82,
+        "width": 16,
+        "height": 10,
+        "widget": {
+          "title": "Stage duration p95 by stage (ms)",
+          "xyChart": {
+            "dataSets": [
+              {
+                "plotType": "LINE",
+                "legendTemplate": "{{stage}}",
+                "targetAxis": "Y1",
+                "timeSeriesQuery": {
+                  "prometheusQuery": "histogram_quantile(0.95, sum by (le, stage) (rate(logging_googleapis_com:user_stage_duration_ms_bucket{monitored_resource=\"cloud_run_revision\"}[30m])))",
+                  "unitOverride": "ms"
+                }
+              }
+            ],
+            "chartOptions": {
+              "mode": "COLOR"
+            }
+          }
+        }
+      },
+      {
+        "xPos": 0,
+        "yPos": 92,
+        "width": 16,
+        "height": 10,
+        "widget": {
+          "title": "Gemini call p95 by site (ms)",
+          "xyChart": {
+            "dataSets": [
+              {
+                "plotType": "LINE",
+                "legendTemplate": "{{site}}",
+                "targetAxis": "Y1",
+                "timeSeriesQuery": {
+                  "prometheusQuery": "histogram_quantile(0.95, sum by (le, site) (rate(logging_googleapis_com:user_gemini_call_duration_ms_bucket{monitored_resource=\"cloud_run_revision\"}[30m])))",
+                  "unitOverride": "ms"
+                }
+              }
+            ],
+            "chartOptions": {
+              "mode": "COLOR"
+            }
+          }
+        }
+      },
+      {
+        "xPos": 16,
+        "yPos": 92,
+        "width": 16,
+        "height": 10,
+        "widget": {
+          "title": "Gemini calls by outcome (per 10 min)",
+          "xyChart": {
+            "dataSets": [
+              {
+                "plotType": "STACKED_BAR",
+                "legendTemplate": "{{outcome}}",
+                "targetAxis": "Y1",
+                "timeSeriesQuery": {
+                  "prometheusQuery": "sum by (outcome) (increase(logging_googleapis_com:user_gemini_call_duration_ms_count{monitored_resource=\"cloud_run_revision\"}[10m]))"
+                }
+              }
+            ],
+            "chartOptions": {
+              "mode": "COLOR"
+            }
+          }
+        }
+      },
+      {
+        "xPos": 32,
+        "yPos": 92,
+        "width": 16,
+        "height": 10,
+        "widget": {
+          "title": "Seller fetches by outcome (per 10 min)",
+          "xyChart": {
+            "dataSets": [
+              {
+                "plotType": "STACKED_BAR",
+                "legendTemplate": "{{outcome}}",
+                "targetAxis": "Y1",
+                "timeSeriesQuery": {
+                  "prometheusQuery": "sum by (outcome) (increase(logging_googleapis_com:user_seller_fetch_count{monitored_resource=\"cloud_run_revision\"}[10m]))"
+                }
+              }
+            ],
+            "chartOptions": {
+              "mode": "COLOR"
+            }
+          }
+        }
+      },
+      {
+        "xPos": 0,
+        "yPos": 102,
+        "width": 48,
+        "height": 8,
+        "widget": {
+          "title": "App errors by service (per 5 min)",
+          "xyChart": {
+            "dataSets": [
+              {
+                "plotType": "STACKED_BAR",
+                "legendTemplate": "{{service}}",
+                "targetAxis": "Y1",
+                "timeSeriesQuery": {
+                  "prometheusQuery": "sum by (service) (increase(logging_googleapis_com:user_app_errors{monitored_resource=\"cloud_run_revision\"}[5m]))"
+                }
+              }
+            ],
+            "chartOptions": {
+              "mode": "COLOR"
+            },
+            "thresholds": [
+              {
+                "value": 10,
+                "label": "alert 10"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "xPos": 0,
+        "yPos": 110,
+        "width": 48,
+        "height": 4,
+        "widget": {
+          "title": "Cost",
+          "sectionHeader": {
+            "subtitle": "Gemini spend estimate (GEMINI_USAGE usd_est); the billing budget tracks the real bill",
+            "dividerBelow": true
+          }
+        }
+      },
+      {
+        "xPos": 0,
+        "yPos": 114,
+        "width": 24,
+        "height": 10,
+        "widget": {
+          "title": "Gemini estimated cost, rolling 24 h (USD)",
+          "xyChart": {
+            "dataSets": [
+              {
+                "plotType": "LINE",
+                "legendTemplate": "USD / 24 h",
+                "targetAxis": "Y1",
+                "timeSeriesQuery": {
+                  "prometheusQuery": "sum(increase(logging_googleapis_com:user_gemini_cost_usd_sum{monitored_resource=\"cloud_run_revision\"}[1d]))"
+                }
+              }
+            ],
+            "chartOptions": {
+              "mode": "COLOR"
+            },
+            "thresholds": [
+              {
+                "value": 2,
+                "label": "alert $2"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "xPos": 24,
+        "yPos": 114,
+        "width": 24,
+        "height": 10,
+        "widget": {
+          "title": "Gemini estimated cost per hour (USD)",
+          "xyChart": {
+            "dataSets": [
+              {
+                "plotType": "STACKED_BAR",
+                "legendTemplate": "USD / h",
+                "targetAxis": "Y1",
+                "timeSeriesQuery": {
+                  "prometheusQuery": "sum(increase(logging_googleapis_com:user_gemini_cost_usd_sum{monitored_resource=\"cloud_run_revision\"}[1h]))"
+                }
+              }
+            ],
+            "chartOptions": {
+              "mode": "COLOR"
+            }
+          }
+        }
+      }
+    ]
+  },
+  "labels": {
+    "bharat-sourcer": ""
+  }
+}

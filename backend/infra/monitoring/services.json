@@ -1,0 +1,82 @@
+[
+  {
+    "serviceId": "bharat-sourcer-api",
+    "displayName": "Bharat Sourcer API (bharat-sourcer-integration)",
+    "custom": {},
+    "slos": [
+      {
+        "serviceLevelObjectiveId": "api-availability",
+        "displayName": "API availability 99.5% (28 d, excl. SSE and /internal/*)",
+        "goal": 0.995,
+        "rollingPeriod": "2419200s",
+        "serviceLevelIndicator": {
+          "requestBased": {
+            "goodTotalRatio": {
+              "badServiceFilter": "metric.type=\"logging.googleapis.com/user/api_request_count\" AND resource.type=\"cloud_run_revision\" AND metric.labels.status=monitoring.regex.full_match(\"5[0-9][0-9]\")",
+              "totalServiceFilter": "metric.type=\"logging.googleapis.com/user/api_request_count\" AND resource.type=\"cloud_run_revision\""
+            }
+          }
+        }
+      },
+      {
+        "serviceLevelObjectiveId": "api-latency",
+        "displayName": "API latency 95% < 1000 ms (28 d, excl. SSE and /internal/*)",
+        "goal": 0.95,
+        "rollingPeriod": "2419200s",
+        "serviceLevelIndicator": {
+          "requestBased": {
+            "distributionCut": {
+              "distributionFilter": "metric.type=\"logging.googleapis.com/user/api_request_latency\" AND resource.type=\"cloud_run_revision\"",
+              "range": {
+                "min": 0,
+                "max": 1.0
+              }
+            }
+          }
+        }
+      }
+    ]
+  },
+  {
+    "serviceId": "bharat-sourcer-web",
+    "displayName": "Bharat Sourcer web (bharat-sourcer-web)",
+    "custom": {},
+    "slos": [
+      {
+        "serviceLevelObjectiveId": "web-availability",
+        "displayName": "Web availability 99.5% (28 d)",
+        "goal": 0.995,
+        "rollingPeriod": "2419200s",
+        "serviceLevelIndicator": {
+          "requestBased": {
+            "goodTotalRatio": {
+              "badServiceFilter": "metric.type=\"run.googleapis.com/request_count\" AND resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"bharat-sourcer-web\" AND metric.labels.response_code_class=\"5xx\"",
+              "totalServiceFilter": "metric.type=\"run.googleapis.com/request_count\" AND resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"bharat-sourcer-web\""
+            }
+          }
+        }
+      }
+    ]
+  },
+  {
+    "serviceId": "bharat-sourcer-jobs",
+    "displayName": "Bharat Sourcer jobs (pipeline)",
+    "custom": {},
+    "slos": [
+      {
+        "serviceLevelObjectiveId": "job-success",
+        "displayName": "Job success 95% of non-demo finishes are done (28 d)",
+        "goal": 0.95,
+        "rollingPeriod": "2419200s",
+        "serviceLevelIndicator": {
+          "requestBased": {
+            "goodTotalRatio": {
+              "goodServiceFilter": "metric.type=\"logging.googleapis.com/user/job_finished_count\" AND resource.type=\"cloud_run_revision\" AND metric.labels.demo=\"false\" AND metric.labels.status=\"done\"",
+              "totalServiceFilter": "metric.type=\"logging.googleapis.com/user/job_finished_count\" AND resource.type=\"cloud_run_revision\" AND metric.labels.demo=\"false\" AND metric.labels.status=one_of(\"done\", \"failed\")"
+            }
+          }
+        }
+      }
+    ]
+  }
+]

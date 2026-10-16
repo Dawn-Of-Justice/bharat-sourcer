@@ -9,7 +9,8 @@ Cost: no new service, agent or exporter. Lines go to stdout, which Cloud Run alr
 Cloud Logging; log-based metrics and the Logs Explorer read them. Cloud Run's own request log
 and built-in metrics keep covering request count and latency, so the app adds only what Cloud
 Run cannot see: job, stage, Gemini and seller-fetch outcomes and durations. The added volume
-is a few lines per pipeline stage and one per Gemini call or seller fetch.
+is a few lines per pipeline stage and one per Gemini call or seller fetch. The metrics, SLOs,
+alerts and dashboard built on these events are described in [monitoring.md](monitoring.md).
 
 ## Log line format (backend)
 
@@ -21,7 +22,7 @@ forces plain text on Cloud Run.
 | Field | Type | Meaning |
 | --- | --- | --- |
 | `severity` | string | `DEBUG`, `INFO`, `WARNING`, `ERROR` or `CRITICAL` |
-| `message` | string | The event tag first, then details: `GEMINI_CALL {json}`, `QUEUE_AGE_EXCEEDED job=... age_s=...`. A traceback, when logged, follows on new lines. Existing filters such as `jsonPayload.message:"QUEUE_AGE_EXCEEDED"` (`infra/queue-age-alert.json`) keep matching. |
+| `message` | string | The event tag first, then details: `GEMINI_CALL {json}`, `QUEUE_AGE_EXCEEDED job=... age_s=...`. A traceback, when logged, follows on new lines. Existing filters such as `jsonPayload.message:"QUEUE_AGE_EXCEEDED"` (`infra/monitoring/alerts/queue-age.json`) keep matching. |
 | `event` | string | The event name: set by the event helpers, or taken from a leading `UPPER_SNAKE` tag of a legacy line. Absent on untagged lines. |
 | `time` | string | RFC 3339 UTC timestamp with microseconds |
 | `logger` | string | Python logger name (`bharat_sourcer.events` for the events below) |

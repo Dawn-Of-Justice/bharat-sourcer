@@ -1,0 +1,27 @@
+{
+  "displayName": "Bharat Sourcer: API 5xx ratio high",
+  "documentation": {
+    "content": "More than 5% of API requests (bharat-sourcer-integration, excluding /internal/* and SSE /stream) answered 5xx over 10 minutes, with at least 10 requests.\n\nRunbook: [backend/infra/runbooks.md#high-5xx](https://github.com/Dawn-Of-Justice/bharat-sourcer/blob/main/backend/infra/runbooks.md#high-5xx)\n\nSpecs: backend/infra/monitoring/, guide: backend/infra/monitoring.md",
+    "mimeType": "text/markdown"
+  },
+  "combiner": "OR",
+  "conditions": [
+    {
+      "displayName": "API 5xx ratio > 5% over 10 min",
+      "conditionPrometheusQueryLanguage": {
+        "query": "(sum(increase(logging_googleapis_com:user_api_request_count{monitored_resource=\"cloud_run_revision\",status=~\"5..\"}[10m])) / sum(increase(logging_googleapis_com:user_api_request_count{monitored_resource=\"cloud_run_revision\"}[10m])) > 0.05) and (sum(increase(logging_googleapis_com:user_api_request_count{monitored_resource=\"cloud_run_revision\"}[10m])) >= 10)",
+        "duration": "0s",
+        "evaluationInterval": "60s",
+        "disableMetricValidation": true
+      }
+    }
+  ],
+  "alertStrategy": {
+    "autoClose": "1800s"
+  },
+  "severity": "ERROR",
+  "notificationChannels": [
+    "projects/hackathon-510415/notificationChannels/16148970600683421140"
+  ],
+  "enabled": true
+}

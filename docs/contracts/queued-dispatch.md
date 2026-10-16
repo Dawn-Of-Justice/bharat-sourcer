@@ -53,7 +53,7 @@ they are structured JSON with the tag at the start of `jsonPayload.message` (and
 `kinds`, `age_s` or `limit` as fields; see `backend/infra/observability.md`). To be paged,
 use a log-based alert on `jsonPayload.message:"QUEUE_AGE_EXCEEDED" OR
 jsonPayload.message:"SWEEP_TRUNCATED"` (plus the `textPayload` forms for older entries), as
-`backend/infra/queue-age-alert.json` does.
+`backend/infra/monitoring/alerts/queue-age.json` does.
 Public API shapes are unchanged.
 
 ## Operations
