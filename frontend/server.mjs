@@ -92,7 +92,7 @@ function send(res, status, body) {
 }
 
 async function proxy(req, res, backendBase, integrationKey, fetchImpl) {
-  // DELETE is needed to revoke share links (DELETE /v1/jobs/{id}/share).
+  // DELETE is needed to revoke share links (DELETE /v1/jobs/{id}/share) and delete my data (DELETE /v1/account).
   if (!['GET', 'POST', 'DELETE'].includes(req.method)) return send(res, 405, 'Method not allowed')
   const parsed = new URL(req.url, 'http://localhost')
   const upstreamPath =
@@ -123,7 +123,8 @@ async function proxy(req, res, backendBase, integrationKey, fetchImpl) {
     const upstream = await fetchImpl(target, {
       method: req.method,
       headers,
-      body: req.method === 'POST' ? Buffer.concat(chunks) : undefined,
+      // DELETE /v1/account carries a {"confirm":"DELETE"} body; a bodyless DELETE stays bodyless.
+      body: req.method === 'POST' || (req.method === 'DELETE' && size > 0) ? Buffer.concat(chunks) : undefined,
       redirect: 'manual',
     })
     const responseHeaders = { 'Cache-Control': upstream.headers.get('cache-control') || 'no-store' }

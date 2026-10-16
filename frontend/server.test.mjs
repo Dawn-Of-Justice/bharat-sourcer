@@ -154,6 +154,34 @@ test('proxy forwards DELETE without a body so owners can revoke share links', as
   assert.equal((await fetch(base + '/api/v1/jobs/abc/share', { method: 'PUT' })).status, 405)
 })
 
+test('proxy forwards the DELETE body that delete my data needs', async () => {
+  let received
+  const base = await start(async (url, options) => {
+    received = { url: url.toString(), options }
+    return Response.json({ kind: 'guest', projects_deleted: 0 })
+  })
+  const response = await fetch(base + '/api/v1/account', {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'BharatSourcer', Cookie: '__session=abc' },
+    body: '{"confirm":"DELETE"}',
+  })
+  assert.equal(response.status, 200)
+  assert.equal(received.url, 'https://backend.example/v1/account')
+  assert.equal(received.options.method, 'DELETE')
+  assert.equal(received.options.body.toString(), '{"confirm":"DELETE"}')
+  assert.equal(received.options.headers['X-Requested-With'], 'BharatSourcer')
+  assert.equal(received.options.headers.Cookie, '__session=abc')
+})
+
+test('privacy and terms pages load the app', async () => {
+  const base = await start(async () => Response.json({}))
+  for (const page of ['/privacy', '/terms']) {
+    const response = await fetch(base + page)
+    assert.equal(response.status, 200)
+    assert.match(await response.text(), /id="root"/)
+  }
+})
+
 function assertSecurityHeaders(response) {
   assert.equal(response.headers.get('strict-transport-security'), 'max-age=31536000; includeSubDomains')
   assert.equal(response.headers.get('x-content-type-options'), 'nosniff')

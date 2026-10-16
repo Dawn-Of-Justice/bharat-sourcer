@@ -439,7 +439,13 @@ async function request<T>(path: string, options: RequestInit = {}, token?: strin
 
   if (!response.ok) {
     const data = (await response.json().catch(() => null)) as ErrorBody | null
-    if (path !== '/v1/session' && response.status === 401 && data?.error?.code === 'IDENTITY_REQUIRED')
+    // The delete-my-data flow reports a missing identity inline instead of reopening sign-in.
+    if (
+      path !== '/v1/session' &&
+      path !== '/v1/account' &&
+      response.status === 401 &&
+      data?.error?.code === 'IDENTITY_REQUIRED'
+    )
       window.dispatchEvent(new Event('bs-signin-required'))
     const wait = Number(response.headers.get('Retry-After'))
     if (response.status === 429)
@@ -630,6 +636,19 @@ export function deleteProject(id: string) {
   invalidateProjects()
   jobCache.delete(id)
   return request<void>('/v1/projects/' + encodeURIComponent(id), { method: 'DELETE' })
+}
+/** Result of DELETE /v1/account: what was removed for the current account or guest session. */
+export type AccountDeletion = {
+  kind: 'account' | 'guest'
+  projects_deleted: number
+  share_links_revoked: number
+  settings_deleted: boolean
+  auth_user_deleted: boolean | null
+}
+// Deletes every project, share link and setting of the current identity (and the sign-in record for accounts).
+export function deleteAccount() {
+  clearApiCache()
+  return request<AccountDeletion>('/v1/account', { method: 'DELETE', body: JSON.stringify({ confirm: 'DELETE' }) })
 }
 export const claimProject = (id: string, token?: string) =>
   request('/v1/projects/' + encodeURIComponent(id) + '/claim', {
