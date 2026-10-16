@@ -144,7 +144,8 @@ def differences(want, have, path=""):
         found = []
         for key, value in want.items():
             if key not in have:
-                if not empty(value):
+                # The API omits defaults, e.g. a log metric label's valueType STRING.
+                if not empty(value) and not (key == "valueType" and value == "STRING"):
                     found.append(f"{path}.{key}".lstrip("."))
                 continue
             found += differences(value, have[key], f"{path}.{key}".lstrip("."))
@@ -152,6 +153,10 @@ def differences(want, have, path=""):
     if isinstance(want, list):
         if not isinstance(have, list) or len(want) != len(have):
             return [] if empty(want) and empty(have) else [path or "."]
+        if all(isinstance(item, dict) and "key" in item for item in want + have):
+            # Labels come back sorted by key; their order carries no meaning.
+            want = sorted(want, key=lambda item: item["key"])
+            have = sorted(have, key=lambda item: item["key"])
         found = []
         for index, (a, b) in enumerate(zip(want, have, strict=True)):
             found += differences(a, b, f"{path}[{index}]")

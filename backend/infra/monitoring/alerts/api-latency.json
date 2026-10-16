@@ -1,24 +1,15 @@
 {
   "displayName": "Bharat Sourcer: API latency high",
   "documentation": {
-    "content": "API request latency over the last 15 minutes is above target: p95 > 2 s or p99 > 5 s. Excludes SSE /stream and /internal/* (from the request log, api_request_latency); needs at least 20 requests.\n\nRunbook: [backend/infra/runbooks.md#high-latency](https://github.com/Dawn-Of-Justice/bharat-sourcer/blob/main/backend/infra/runbooks.md#high-latency)\n\nSpecs: backend/infra/monitoring/, guide: backend/infra/monitoring.md",
+    "content": "API request latency over the last 15 minutes is above target: p95 > 2 s or p99 > 5 s. Excludes SSE /stream and /internal/* (from the request log, api_request_latency); needs at least 20 requests. One PromQL condition (Cloud Monitoring allows only one per PromQL policy).\n\nRunbook: [backend/infra/runbooks.md#high-latency](https://github.com/Dawn-Of-Justice/bharat-sourcer/blob/main/backend/infra/runbooks.md#high-latency)\n\nSpecs: backend/infra/monitoring/, guide: backend/infra/monitoring.md",
     "mimeType": "text/markdown"
   },
   "combiner": "OR",
   "conditions": [
     {
-      "displayName": "API p95 latency > 2 s over 15 min",
+      "displayName": "API p95 latency > 2 s or p99 > 5 s over 15 min",
       "conditionPrometheusQueryLanguage": {
-        "query": "(histogram_quantile(0.95, sum by (le) (rate(logging_googleapis_com:user_api_request_latency_bucket{monitored_resource=\"cloud_run_revision\"}[15m]))) > 2) and (sum(increase(logging_googleapis_com:user_api_request_latency_count{monitored_resource=\"cloud_run_revision\"}[15m])) >= 20)",
-        "duration": "0s",
-        "evaluationInterval": "60s",
-        "disableMetricValidation": true
-      }
-    },
-    {
-      "displayName": "API p99 latency > 5 s over 15 min",
-      "conditionPrometheusQueryLanguage": {
-        "query": "(histogram_quantile(0.99, sum by (le) (rate(logging_googleapis_com:user_api_request_latency_bucket{monitored_resource=\"cloud_run_revision\"}[15m]))) > 5) and (sum(increase(logging_googleapis_com:user_api_request_latency_count{monitored_resource=\"cloud_run_revision\"}[15m])) >= 20)",
+        "query": "((histogram_quantile(0.95, sum by (le) (rate(logging_googleapis_com:user_api_request_latency_bucket{monitored_resource=\"cloud_run_revision\"}[15m]))) > 2) or (histogram_quantile(0.99, sum by (le) (rate(logging_googleapis_com:user_api_request_latency_bucket{monitored_resource=\"cloud_run_revision\"}[15m]))) > 5)) and on() (sum(increase(logging_googleapis_com:user_api_request_latency_count{monitored_resource=\"cloud_run_revision\"}[15m])) >= 20)",
         "duration": "0s",
         "evaluationInterval": "60s",
         "disableMetricValidation": true
