@@ -11,8 +11,6 @@
 >
 > It meets WCAG 2.2 AA and has a lite mode for low bandwidth. This work targets the 10% UX criterion and the separate **Best UI/UX** prize ($2,000).
 
-Research: [research/05 §4](../../research/05-competition-ux-judging.md), [research/04 §C](../../research/04-frontier-wow-factors.md).
-
 ---
 
 ## 1. Stack

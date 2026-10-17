@@ -20,16 +20,16 @@ Their parts lists link to Adafruit, SparkFun, Pololu, Digi-Key, Mouser and Amazo
 
 | Failure mode | Example | Source |
 |---|---|---|
-| **Price gap** (brand original vs Indian clone) | Pololu DRV8825 carrier **$15.95**; clone DRV8825 with heatsink on Zbotic **₹85 + GST = ₹100.30** (≈13× cheaper) | [research/02 §3.2](../../research/02-india-parts-market.md) |
-| **Not stocked / sold out** | Adafruit ESP32-S3 Reverse TFT Feather **sold out** at Thingbits (₹2,889.82). Teensy 4.1 listed at Zbotic ₹3,538.82 but **out of stock** | research/02 §3.2 |
-| **Brand ecosystems with few Indian equivalents** | Feather, Qwiic/STEMMA QT, Teensy, Pololu gearmotors. Substituting these needs *functional* reasoning (same chip, different form factor/connector) | research/02 §4 |
-| **Import cost** | Personal imports (CTH 9804): BCD cut **20% → 10% from 1 Apr 2026** + 10% social welfare surcharge on BCD + IGST (Mumbai Customs quotes 42.08% total at the old 28% IGST ⚠️ verify current IGST). Plus international courier, often more than the part itself | research/02 §3.1 |
-| **AliExpress blocked** | Blocked since 24 Nov 2020 (IT Act §69A). Forum users describe "local monopoly pricing" | research/02 §3.1 |
-| **Chip import paperwork** | LCSC shipments of chips to India need **CHIMS** registration + DHL KYC | research/02 §3.1 |
-| **Electrical standards** | US: **120 V / 60 Hz, plugs A/B**. India: **230 V / 50 Hz, plugs D (6 A) and M (16 A)**. A 60 Hz synchronous motor runs ≈17% slower at 50 Hz, and a 60 Hz transformer on 50 Hz sees ≈20% more core flux (saturation, overheating) | research/02 §4.1 |
-| **Look-alike / fake parts** | Cheap "BME280" modules are often BMP280s (no humidity). Chip-ID register 0xD0 reads 0x60 on a real BME280 and 0x58 on a BMP280 | research/03 §1.3 |
-| **Price display inconsistency** | Some stores show prices **ex-GST** (Evelta), others incl. GST. Free-shipping thresholds vary (₹499/₹999/₹2,000) | research/02 §1.3 |
-| **Store reliability varies** | TechEnclave users report problems with some budget stores (partial shipments, wrong quantities) | research/05 §2.2 |
+| **Price gap** (brand original vs Indian clone) | Pololu DRV8825 carrier **$15.95**; clone DRV8825 with heatsink on Zbotic **₹85 + GST = ₹100.30** (≈13× cheaper) | Team research, 30 Sep 2026 |
+| **Not stocked / sold out** | Adafruit ESP32-S3 Reverse TFT Feather **sold out** at Thingbits (₹2,889.82). Teensy 4.1 listed at Zbotic ₹3,538.82 but **out of stock** | Team research, 30 Sep 2026 |
+| **Brand ecosystems with few Indian equivalents** | Feather, Qwiic/STEMMA QT, Teensy, Pololu gearmotors. Substituting these needs *functional* reasoning (same chip, different form factor/connector) | Team research, 30 Sep 2026 |
+| **Import cost** | Personal imports (CTH 9804): BCD cut **20% → 10% from 1 Apr 2026** + 10% social welfare surcharge on BCD + IGST (Mumbai Customs quotes 42.08% total at the old 28% IGST ⚠️ verify current IGST). Plus international courier, often more than the part itself | Team research, 30 Sep 2026 |
+| **AliExpress blocked** | Blocked since 24 Nov 2020 (IT Act §69A). Forum users describe "local monopoly pricing" | Team research, 30 Sep 2026 |
+| **Chip import paperwork** | LCSC shipments of chips to India need **CHIMS** registration + DHL KYC | Team research, 30 Sep 2026 |
+| **Electrical standards** | US: **120 V / 60 Hz, plugs A/B**. India: **230 V / 50 Hz, plugs D (6 A) and M (16 A)**. A 60 Hz synchronous motor runs ≈17% slower at 50 Hz, and a 60 Hz transformer on 50 Hz sees ≈20% more core flux (saturation, overheating) | Team research, 30 Sep 2026 |
+| **Look-alike / fake parts** | Cheap "BME280" modules are often BMP280s (no humidity). Chip-ID register 0xD0 reads 0x60 on a real BME280 and 0x58 on a BMP280 | Team research, 30 Sep 2026 |
+| **Price display inconsistency** | Some stores show prices **ex-GST** (Evelta), others incl. GST. Free-shipping thresholds vary (₹499/₹999/₹2,000) | Team research, 30 Sep 2026 |
+| **Store reliability varies** | TechEnclave users report problems with some budget stores (partial shipments, wrong quantities) | Team research, 30 Sep 2026 |
 
 ### 1.3 What people do today
 
@@ -45,7 +45,7 @@ The TechEnclave thread (89 Indian retailer sites) confirms three pains:
 - specialty items that are hard to find (e.g. "pancake NEMA17")
 - unreliable stores
 
-([research/05 §2.2](../../research/05-competition-ux-judging.md))
+(Team research, 30 Sep 2026)
 
 ## 2. Size of the opportunity (impact slide numbers)
 

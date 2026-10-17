@@ -2,7 +2,7 @@
 
 > **In one minute.** These are 13 realistic substitutions, written the way the agent should output them: original → Indian alternative → grade → what changes (wiring / power / code / risk). They serve three purposes: few-shot examples for prompt P5, unit tests for the rules engine, and demo material.
 
-Source: [research/03 §4](../../research/03-compatibility-intelligence.md). Grades: A drop-in · B config · C rewire/add part · D functional alternative · X don't use.
+Grades: A drop-in · B config · C rewire/add part · D functional alternative · X don't use.
 
 ---
 

@@ -73,7 +73,7 @@ Priority order:
 3. **Public, documented storefront endpoints** (Shopify `/products.json`, WooCommerce Store API), at a low rate with caching and robots.txt respected.
 4. **Gemini grounding with Google Search** for everything else. We show snippets, citations and deep links, and present prices as "last seen".
 
-Indian law context (from [research/02 §5](../../research/02-india-parts-market.md)):
+Indian law context:
 
 - **IT Act 2000 §43/§66** covers unauthorised access or extraction, both civil and criminal.
 - **Copyright Act 1957:** factual price data is weakly protected, but text and images are protected (*Eastern Book Co. v. D.B. Modak*, 2007).

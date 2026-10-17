@@ -9,7 +9,7 @@
 >
 > We found **no tool that turns a maker video into a localised, compatibility-checked, costed BOM**. We say "no known tool", not "nobody".
 
-Source: [research/05 §2](../../research/05-competition-ux-judging.md). All links were opened on 30 Sep 2026.
+All links were opened on 30 Sep 2026.
 
 ---
 

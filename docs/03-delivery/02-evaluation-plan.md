@@ -10,8 +10,6 @@
 >
 > Everything runs through `adk eval` plus a pytest metrics script in CI. The numbers go into the deck and the video ("91% part recall on 15 projects" — only if true).
 
-Research: [research/03 §6](../../research/03-compatibility-intelligence.md).
-
 ---
 
 ## 1. Eval set (15 projects)

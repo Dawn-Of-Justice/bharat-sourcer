@@ -10,8 +10,6 @@
 >
 > We follow the recipe the research supports. LLMs are good at code but weak at physical pin and voltage reasoning, so rules decide and the LLM explains.
 
-Deep research: [research/03-compatibility-intelligence.md](../../research/03-compatibility-intelligence.md).
-
 ---
 
 ## 1. Why hybrid (rules + LLM)

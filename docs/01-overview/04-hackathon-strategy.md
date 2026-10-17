@@ -6,7 +6,7 @@
 > - **Scoring:** 65% of the score is technical merit plus innovation, so make the agents *visible*.
 > - **Extra prizes in reach:** Best UI/UX, Most Impactful, Best use of Google Cloud AI tools.
 
-Sources: [aibuildercup.com](https://aibuildercup.com/index.html), [themes](https://aibuildercup.com/themes.html), [FAQ](https://aibuildercup.com/Faqs.html), [rewards](https://aibuildercup.com/rewards.html), [T&C](https://docs.google.com/document/d/e/2PACX-1vRm7ChZ6Ij9fG7uFDkxzUMpwgVeBmnQ6cMDnAIEEX84AiLBOOQ9cYbl3S5OzFBbcVb8TF55s-eVpiXb/pub). Research: [research/05](../../research/05-competition-ux-judging.md).
+Sources: [aibuildercup.com](https://aibuildercup.com/index.html), [themes](https://aibuildercup.com/themes.html), [FAQ](https://aibuildercup.com/Faqs.html), [rewards](https://aibuildercup.com/rewards.html), [T&C](https://docs.google.com/document/d/e/2PACX-1vRm7ChZ6Ij9fG7uFDkxzUMpwgVeBmnQ6cMDnAIEEX84AiLBOOQ9cYbl3S5OzFBbcVb8TF55s-eVpiXb/pub).
 
 ---
 
@@ -88,8 +88,6 @@ Implications:
 3. Lead with multimodal input.
 4. Name a local beneficiary (Ravi in Coimbatore).
 5. Show production signals: Cloud Run, evals, cache, cost per query.
-
-Sources: [research/05 §3](../../research/05-competition-ux-judging.md).
 
 ## 7. Team shape (2–4 people)
 

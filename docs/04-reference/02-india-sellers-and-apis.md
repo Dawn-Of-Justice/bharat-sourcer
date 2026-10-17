@@ -1,6 +1,6 @@
 # Indian sellers and data APIs (reference)
 
-> **In one minute.** This is the lookup table for the sourcing layer. For every Indian maker store and distributor API it lists the platform, endpoint, limits, shipping terms and brand authorisation, as observed on **30 Sep 2026**. The tables are copied from [research/02](../../research/02-india-parts-market.md), where every row has its evidence links. How we *use* this data is described in [../02-architecture/06-sourcing-and-seller-data.md](../02-architecture/06-sourcing-and-seller-data.md).
+> **In one minute.** This is the lookup table for the sourcing layer. For every Indian maker store and distributor API it lists the platform, endpoint, limits, shipping terms and brand authorisation, as observed on **30 Sep 2026**. The tables come from the team's research on that date. How we *use* this data is described in [../02-architecture/06-sourcing-and-seller-data.md](../02-architecture/06-sourcing-and-seller-data.md).
 
 **These are seed sellers only.** Sourcing is open-world ([D-16](05-decision-log.md)): any Indian seller found by discovery is auto-onboarded and can appear in results. The table below is the fast path.
 
@@ -95,7 +95,6 @@ Pitfall: **some stores show prices ex-GST** (Evelta, and Zbotic shows both). Tec
 
 ---
 
-
 ## 2. Official component APIs usable from India
 
 | API | Auth | Limits | Cost | INR? | Parametric | Alternates / similar | Notes |
@@ -129,7 +128,6 @@ Sources:
 - Shopify: Storefront MCP https://shopify.dev/docs/agents/catalog/storefront-mcp; Global Catalog https://shopify.dev/docs/agents/catalog/global-catalog; rename thread https://community.shopify.dev/t/storefront-mcp-search-shop-catalog-returning-tool-not-found-renamed-to-search-catalog/33256
 - UCP launch (Google + Shopify, 12 Jan 2026): https://www.shopifreaks.com/google-and-shopify-launch-universal-commerce-protocol/
 - Gemini grounding: https://ai.google.dev/gemini-api/docs/pricing; community clarification https://discuss.ai.google.dev/t/grounding-free-quota-clarifying-2026-rules-for-gemini-2-5-flash-paid-tier-1/144593 (2.5 Flash: 1,500 RPD free, then $35 per 1,000 grounded prompts)
-
 
 ### 3.3 Who stocks originals (for "genuine" mode)
 
