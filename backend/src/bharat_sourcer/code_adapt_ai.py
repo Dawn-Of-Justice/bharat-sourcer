@@ -588,6 +588,7 @@ def make_gemini_generate(
             response = post_with_retry(
                 client,
                 endpoint,
+                site=USAGE_SITE,
                 headers={"x-goog-api-key": settings.gemini_api_key.get_secret_value()},
                 json=payload,
             )

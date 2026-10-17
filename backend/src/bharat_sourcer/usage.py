@@ -8,18 +8,20 @@ Estimates are for budgeting only; they are not Google's bill.
 
 import json
 import logging
-import sys
+import re
 from collections.abc import Iterator
 from contextlib import contextmanager
 from contextvars import ContextVar
 from datetime import UTC, date, datetime
 from threading import RLock
+from urllib.parse import urlsplit
 
 from bharat_sourcer.config import (
     GEMINI_PRICES,
     GEMINI_PRICES_CHECKED,
     GEMINI_SEARCH_QUERY_USD,
 )
+from bharat_sourcer.observability import elapsed_ms, log_event, stdout_handler
 
 log = logging.getLogger("bharat_sourcer.usage")
 
@@ -27,25 +29,11 @@ BUDGET_MESSAGE = (
     "Skipped paid search to stay within the job budget. Refresh this line to try again."
 )
 
-
-class _Stdout(logging.StreamHandler):
-    """Resolve sys.stdout at write time (servers and test runners may replace it)."""
-
-    @property
-    def stream(self):
-        return sys.stdout
-
-    @stream.setter
-    def stream(self, value):
-        pass
-
-
-# The app has no logging config, so INFO would be dropped by the root logger's WARNING
-# default. Usage lines go to stdout, which Cloud Run ships to Cloud Logging.
+# Usage lines always reach stdout at INFO (which Cloud Run ships to Cloud Logging), whatever
+# the rest of the logging setup: plain `GEMINI_USAGE {json}` locally, a structured JSON line
+# with the same message on Cloud Run (observability.py).
 if not log.handlers:
-    _handler = _Stdout()
-    _handler.setFormatter(logging.Formatter("%(message)s"))
-    log.addHandler(_handler)
+    log.addHandler(stdout_handler("%(message)s"))
     log.setLevel(logging.INFO)
     log.propagate = False
 
@@ -164,11 +152,45 @@ def record_cache_hit(namespace: str) -> None:
         ledger, line_id = _current.get()
         if ledger is not None:
             ledger.hit(namespace)
-        fields = {"namespace": namespace, "job_id": ledger.job_id if ledger else None}
-        fields["line_id"] = line_id
-        log.info("GEMINI_CACHE_HIT %s", json.dumps(fields, sort_keys=True))
+        values = {"namespace": namespace, "job_id": ledger.job_id if ledger else None}
+        values["line_id"] = line_id
+        log.info(
+            "GEMINI_CACHE_HIT %s",
+            json.dumps(values, sort_keys=True),
+            extra={"bs_event": "GEMINI_CACHE_HIT", "bs_fields": values},
+        )
     except Exception:  # Metering must never break a request
         log.debug("GEMINI_CACHE_HIT unavailable for %s", namespace)
+
+
+def usage_fields(site: str, model: str, data: object, queries: int | None = None) -> dict:
+    """Token, grounding and estimated-USD fields of one generateContent response."""
+    meta = data.get("usageMetadata") or {} if isinstance(data, dict) else {}
+    candidates = data.get("candidates") or [] if isinstance(data, dict) else []
+    grounding = [c.get("groundingMetadata") or {} for c in candidates if isinstance(c, dict)]
+    grounded = any(g.get("groundingChunks") for g in grounding)
+    # Gemini 3 bills grounding per executed search query, so count them.
+    if queries is None:
+        queries = sum(len(g.get("webSearchQueries") or []) for g in grounding)
+    values = {
+        "site": site,
+        "model": model,
+        "prompt": meta.get("promptTokenCount", 0),
+        "output": meta.get("candidatesTokenCount", 0),
+        "thoughts": meta.get("thoughtsTokenCount", 0),
+        "cached": meta.get("cachedContentTokenCount", 0),
+        "tool_prompt": meta.get("toolUsePromptTokenCount", 0),
+        "total": meta.get("totalTokenCount", 0),
+        "grounded": grounded,
+        "search_queries": queries,
+        "by_modality": {
+            d.get("modality", "?"): d.get("tokenCount", 0)
+            for d in meta.get("promptTokensDetails") or []
+            if isinstance(d, dict)
+        },
+    }
+    values["usd_est"] = estimate_usd(model, values)
+    return values
 
 
 def record_usage(site: str, model: str, data: object, queries: int | None = None) -> None:
@@ -178,36 +200,102 @@ def record_usage(site: str, model: str, data: object, queries: int | None = None
     executed queries are not listed in `webSearchQueries`.
     """
     try:
-        meta = data.get("usageMetadata") or {} if isinstance(data, dict) else {}
-        candidates = data.get("candidates") or [] if isinstance(data, dict) else []
-        grounding = [c.get("groundingMetadata") or {} for c in candidates if isinstance(c, dict)]
-        grounded = any(g.get("groundingChunks") for g in grounding)
-        # Gemini 3 bills grounding per executed search query, so count them.
-        if queries is None:
-            queries = sum(len(g.get("webSearchQueries") or []) for g in grounding)
-        fields = {
-            "site": site,
-            "model": model,
-            "prompt": meta.get("promptTokenCount", 0),
-            "output": meta.get("candidatesTokenCount", 0),
-            "thoughts": meta.get("thoughtsTokenCount", 0),
-            "cached": meta.get("cachedContentTokenCount", 0),
-            "tool_prompt": meta.get("toolUsePromptTokenCount", 0),
-            "total": meta.get("totalTokenCount", 0),
-            "grounded": grounded,
-            "search_queries": queries,
-            "by_modality": {
-                d.get("modality", "?"): d.get("tokenCount", 0)
-                for d in meta.get("promptTokensDetails") or []
-                if isinstance(d, dict)
-            },
-        }
-        fields["usd_est"] = estimate_usd(model, fields)
+        values = usage_fields(site, model, data, queries)
         ledger, line_id = _current.get()
-        fields["job_id"] = ledger.job_id if ledger else None
-        fields["line_id"] = line_id
+        values["job_id"] = ledger.job_id if ledger else None
+        values["line_id"] = line_id
         if ledger is not None:
-            ledger.add(site, fields["usd_est"], queries)
-        log.info("GEMINI_USAGE %s", json.dumps(fields, sort_keys=True))
+            ledger.add(site, values["usd_est"], values["search_queries"])
+        log.info(
+            "GEMINI_USAGE %s",
+            json.dumps(values, sort_keys=True),
+            extra={"bs_event": "GEMINI_USAGE", "bs_fields": values},
+        )
     except Exception:  # Metering must never break a request
         log.debug("GEMINI_USAGE unavailable for %s", site)
+
+
+# The model in a generateContent URL (Gemini API and Vertex AI paths alike).
+URL_MODEL = re.compile(r"/models/([^/:]+):generateContent$")
+
+
+def call_route(url: str) -> tuple[str, str]:
+    """(route, model) of a generateContent URL; route is `vertex`, `api_key` or `other`."""
+    parts = urlsplit(str(url))
+    host = (parts.hostname or "").lower()
+    if host.endswith("aiplatform.googleapis.com"):
+        route = "vertex"
+    elif host == "generativelanguage.googleapis.com":
+        route = "api_key"
+    else:
+        route = "other"
+    match = URL_MODEL.search(parts.path)
+    return route, match[1] if match else "unknown"
+
+
+def call_outcome(response, error: BaseException | None) -> tuple[str, dict | None]:
+    """(outcome, parsed body of a 2xx answer) for one finished call."""
+    import httpx
+
+    if error is not None:
+        return ("timeout" if isinstance(error, httpx.TimeoutException) else "error"), None
+    if response.status_code == 429:
+        return "quota", None
+    if response.status_code >= 400:
+        return "error", None
+    try:
+        data = response.json()
+    except ValueError:
+        return "invalid", None
+    if not isinstance(data, dict):
+        return "invalid", None
+    candidates = data.get("candidates")
+    candidate = candidates[0] if isinstance(candidates, list) and candidates else None
+    if not isinstance(candidate, dict):
+        return "invalid", data
+    # Sites accept only a complete answer; a model that stopped early is an invalid call.
+    return ("ok" if candidate.get("finishReason") in {"STOP", None} else "invalid"), data
+
+
+def record_call(
+    site: str | None,
+    url: str,
+    started: float,
+    attempts: int,
+    *,
+    response=None,
+    error: BaseException | None = None,
+) -> None:
+    """Log one GEMINI_CALL line for a finished generateContent call; never raises.
+
+    One line per routed call (`resilience.post_with_retry`), its retries on the same route
+    included; a Vertex-to-API-key fallback logs one line per route. Unlike GEMINI_USAGE it is
+    also logged for timeouts, quota and HTTP errors, so latency and outcome share one event.
+    `usd_est` here counts tokens and web-search queries only; GEMINI_USAGE stays the cost record.
+    """
+    try:
+        route, model = call_route(url)
+        outcome, data = call_outcome(response, error)
+        values = None
+        if data is not None:
+            try:
+                values = usage_fields(site or "unknown", model, data)
+            except Exception:  # Malformed usage metadata: log the call without tokens
+                values = None
+        ledger, line_id = _current.get()
+        log_event(
+            "GEMINI_CALL",
+            site=site or "unknown",
+            model=model,
+            route=route,
+            duration_ms=elapsed_ms(started),
+            outcome=outcome,
+            http_status=response.status_code if response is not None else None,
+            attempts=attempts,
+            tokens=values["total"] if values else None,
+            usd_est=values["usd_est"] if values else None,
+            job_id=ledger.job_id if ledger else None,
+            line_id=line_id,
+        )
+    except Exception:  # Telemetry must never break a request
+        log.debug("GEMINI_CALL unavailable for %s", site)

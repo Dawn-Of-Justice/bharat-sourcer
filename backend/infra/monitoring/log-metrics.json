@@ -1,0 +1,232 @@
+[
+  {
+    "name": "job_duration_ms",
+    "description": "JOB_FINISHED total_duration_ms on a job's first finish (prior_finishes=0): created_at to done/failed/paused, including time waiting for the user to confirm parts.",
+    "filter": "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"bharat-sourcer-integration\" AND jsonPayload.event=\"JOB_FINISHED\" AND jsonPayload.prior_finishes=0",
+    "valueExtractor": "EXTRACT(jsonPayload.total_duration_ms)",
+    "labelExtractors": {
+      "status": "EXTRACT(jsonPayload.status)",
+      "demo": "EXTRACT(jsonPayload.demo)"
+    },
+    "metricDescriptor": {
+      "metricKind": "DELTA",
+      "valueType": "DISTRIBUTION",
+      "unit": "ms",
+      "labels": [
+        {
+          "key": "status",
+          "valueType": "STRING",
+          "description": "done, failed or paused"
+        },
+        {
+          "key": "demo",
+          "valueType": "STRING",
+          "description": "true for fixture jobs"
+        }
+      ]
+    },
+    "bucketOptions": {
+      "exponentialBuckets": {
+        "numFiniteBuckets": 19,
+        "growthFactor": 1.5,
+        "scale": 1000
+      }
+    }
+  },
+  {
+    "name": "job_finished_count",
+    "description": "Every JOB_FINISHED line (first finishes and re-finishes after resume, refresh or re-confirm).",
+    "filter": "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"bharat-sourcer-integration\" AND jsonPayload.event=\"JOB_FINISHED\"",
+    "labelExtractors": {
+      "status": "EXTRACT(jsonPayload.status)",
+      "code": "EXTRACT(jsonPayload.code)",
+      "demo": "EXTRACT(jsonPayload.demo)"
+    },
+    "metricDescriptor": {
+      "metricKind": "DELTA",
+      "valueType": "INT64",
+      "unit": "1",
+      "labels": [
+        {
+          "key": "status",
+          "valueType": "STRING",
+          "description": "done, failed or paused"
+        },
+        {
+          "key": "code",
+          "valueType": "STRING",
+          "description": "error code when failed (bounded set of ExtractionError/job codes); empty otherwise"
+        },
+        {
+          "key": "demo",
+          "valueType": "STRING",
+          "description": "true for fixture jobs"
+        }
+      ]
+    }
+  },
+  {
+    "name": "gemini_call_duration_ms",
+    "description": "GEMINI_CALL duration_ms per routed generateContent call (retries included).",
+    "filter": "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"bharat-sourcer-integration\" AND jsonPayload.event=\"GEMINI_CALL\"",
+    "valueExtractor": "EXTRACT(jsonPayload.duration_ms)",
+    "labelExtractors": {
+      "site": "EXTRACT(jsonPayload.site)",
+      "outcome": "EXTRACT(jsonPayload.outcome)"
+    },
+    "metricDescriptor": {
+      "metricKind": "DELTA",
+      "valueType": "DISTRIBUTION",
+      "unit": "ms",
+      "labels": [
+        {
+          "key": "site",
+          "valueType": "STRING",
+          "description": "Gemini call site"
+        },
+        {
+          "key": "outcome",
+          "valueType": "STRING",
+          "description": "ok, invalid, timeout, quota, error"
+        }
+      ]
+    },
+    "bucketOptions": {
+      "exponentialBuckets": {
+        "numFiniteBuckets": 18,
+        "growthFactor": 1.6,
+        "scale": 100
+      }
+    }
+  },
+  {
+    "name": "gemini_cost_usd",
+    "description": "GEMINI_USAGE usd_est per call: an estimate from tokens and search queries, not Google's bill. Use the _sum series for spend.",
+    "filter": "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"bharat-sourcer-integration\" AND jsonPayload.event=\"GEMINI_USAGE\" AND jsonPayload.usd_est>=0",
+    "valueExtractor": "EXTRACT(jsonPayload.usd_est)",
+    "metricDescriptor": {
+      "metricKind": "DELTA",
+      "valueType": "DISTRIBUTION",
+      "unit": "{USD}"
+    },
+    "bucketOptions": {
+      "exponentialBuckets": {
+        "numFiniteBuckets": 16,
+        "growthFactor": 2,
+        "scale": 0.0001
+      }
+    }
+  },
+  {
+    "name": "stage_duration_ms",
+    "description": "STAGE_FINISHED duration_ms per pipeline stage run.",
+    "filter": "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"bharat-sourcer-integration\" AND jsonPayload.event=\"STAGE_FINISHED\"",
+    "valueExtractor": "EXTRACT(jsonPayload.duration_ms)",
+    "labelExtractors": {
+      "stage": "EXTRACT(jsonPayload.stage)",
+      "outcome": "EXTRACT(jsonPayload.outcome)"
+    },
+    "metricDescriptor": {
+      "metricKind": "DELTA",
+      "valueType": "DISTRIBUTION",
+      "unit": "ms",
+      "labels": [
+        {
+          "key": "stage",
+          "valueType": "STRING",
+          "description": "pipeline stage"
+        },
+        {
+          "key": "outcome",
+          "valueType": "STRING",
+          "description": "stage outcome"
+        }
+      ]
+    },
+    "bucketOptions": {
+      "exponentialBuckets": {
+        "numFiniteBuckets": 18,
+        "growthFactor": 2,
+        "scale": 10
+      }
+    }
+  },
+  {
+    "name": "seller_fetch_count",
+    "description": "SELLER_FETCH lines (seller pages and searches), by outcome.",
+    "filter": "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"bharat-sourcer-integration\" AND jsonPayload.event=\"SELLER_FETCH\"",
+    "labelExtractors": {
+      "outcome": "EXTRACT(jsonPayload.outcome)"
+    },
+    "metricDescriptor": {
+      "metricKind": "DELTA",
+      "valueType": "INT64",
+      "unit": "1",
+      "labels": [
+        {
+          "key": "outcome",
+          "valueType": "STRING",
+          "description": "ok, http_error, cache, cooldown, blocked, robots, timeout, api_route, error"
+        }
+      ]
+    }
+  },
+  {
+    "name": "app_errors",
+    "description": "App log lines at ERROR or above (including UNHANDLED_ERROR and PROXY_ERROR) on both services. Cloud Run request-log lines are excluded; 5xx responses have their own alert.",
+    "filter": "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=(\"bharat-sourcer-integration\" OR \"bharat-sourcer-web\") AND NOT log_id(\"run.googleapis.com/requests\") AND (severity>=ERROR OR jsonPayload.event=\"UNHANDLED_ERROR\" OR jsonPayload.event=\"PROXY_ERROR\")",
+    "labelExtractors": {
+      "service": "EXTRACT(resource.labels.service_name)"
+    },
+    "metricDescriptor": {
+      "metricKind": "DELTA",
+      "valueType": "INT64",
+      "unit": "1",
+      "labels": [
+        {
+          "key": "service",
+          "valueType": "STRING",
+          "description": "Cloud Run service name"
+        }
+      ]
+    }
+  },
+  {
+    "name": "api_request_count",
+    "description": "API requests from the Cloud Run request log, excluding /internal/* (Cloud Tasks work answers 503 on purpose to retry) and SSE /stream requests. Used for API availability and the API 5xx alert.",
+    "filter": "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"bharat-sourcer-integration\" AND log_id(\"run.googleapis.com/requests\") AND NOT httpRequest.requestUrl:\"/internal/\" AND NOT httpRequest.requestUrl:\"/stream\"",
+    "labelExtractors": {
+      "status": "EXTRACT(httpRequest.status)"
+    },
+    "metricDescriptor": {
+      "metricKind": "DELTA",
+      "valueType": "INT64",
+      "unit": "1",
+      "labels": [
+        {
+          "key": "status",
+          "valueType": "STRING",
+          "description": "HTTP status code"
+        }
+      ]
+    }
+  },
+  {
+    "name": "api_request_latency",
+    "description": "API request latency in seconds from the Cloud Run request log, excluding /internal/* and SSE /stream requests. Used for the latency SLO and alerts.",
+    "filter": "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"bharat-sourcer-integration\" AND log_id(\"run.googleapis.com/requests\") AND NOT httpRequest.requestUrl:\"/internal/\" AND NOT httpRequest.requestUrl:\"/stream\"",
+    "valueExtractor": "REGEXP_EXTRACT(httpRequest.latency, \"([0-9.]+)\")",
+    "metricDescriptor": {
+      "metricKind": "DELTA",
+      "valueType": "DISTRIBUTION",
+      "unit": "s"
+    },
+    "bucketOptions": {
+      "exponentialBuckets": {
+        "numFiniteBuckets": 24,
+        "growthFactor": 1.4142135623730951,
+        "scale": 0.0625
+      }
+    }
+  }
+]

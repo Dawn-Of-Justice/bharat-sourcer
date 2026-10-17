@@ -1,0 +1,27 @@
+{
+  "displayName": "Bharat Sourcer: job failure ratio high",
+  "documentation": {
+    "content": "More than 30% of non-demo jobs that finished in the last hour failed, with at least 3 finished (done or failed) jobs. Check the code label on job_finished_count.\n\nRunbook: [backend/infra/runbooks.md#job-failures](https://github.com/Dawn-Of-Justice/bharat-sourcer/blob/main/backend/infra/runbooks.md#job-failures)\n\nSpecs: backend/infra/monitoring/, guide: backend/infra/monitoring.md",
+    "mimeType": "text/markdown"
+  },
+  "combiner": "OR",
+  "conditions": [
+    {
+      "displayName": "Job failure ratio > 30% over 1 h (>= 3 jobs)",
+      "conditionPrometheusQueryLanguage": {
+        "query": "(sum(increase(logging_googleapis_com:user_job_finished_count{monitored_resource=\"cloud_run_revision\",demo=\"false\",status=\"failed\"}[1h])) / sum(increase(logging_googleapis_com:user_job_finished_count{monitored_resource=\"cloud_run_revision\",demo=\"false\",status=~\"done|failed\"}[1h])) > 0.3) and (sum(increase(logging_googleapis_com:user_job_finished_count{monitored_resource=\"cloud_run_revision\",demo=\"false\",status=~\"done|failed\"}[1h])) >= 3)",
+        "duration": "0s",
+        "evaluationInterval": "60s",
+        "disableMetricValidation": true
+      }
+    }
+  ],
+  "alertStrategy": {
+    "autoClose": "3600s"
+  },
+  "severity": "WARNING",
+  "notificationChannels": [
+    "projects/hackathon-510415/notificationChannels/16148970600683421140"
+  ],
+  "enabled": true
+}

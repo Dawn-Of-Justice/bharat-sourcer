@@ -20,6 +20,7 @@ from bharat_sourcer.identity import (
     delete_auth_user,
 )
 from bharat_sourcer.jobs import JobError
+from bharat_sourcer.observability import log_event
 from bharat_sourcer.schemas import (
     AccountSettings,
     CountryCode,
@@ -400,16 +401,20 @@ def add_access_routes(app, access):
                 auth_user_deleted = True
             except Exception as exc:  # data is already gone: report the failure, never fail
                 auth_user_deleted = False
-                log.error("AUTH_USER_DELETE_FAILED type=%s", type(exc).__name__)
+                log_event("AUTH_USER_DELETE_FAILED", logging.ERROR, type=type(exc).__name__)
         response.headers["Cache-Control"] = "no-store"
-        log.info(
-            "ACCOUNT_DATA_DELETED kind=%s projects=%d share_links=%d",
-            "guest" if principal.guest else "account",
-            removed.projects,
-            removed.share_links,
+        kind = "guest" if principal.guest else "account"
+        # Counts only: never the uid, owner id, email or job ids.
+        log_event(
+            "ACCOUNT_DELETED",
+            kind=kind,
+            projects=removed.projects,
+            share_links=removed.share_links,
+            settings_deleted=settings_deleted,
+            auth_user_deleted=auth_user_deleted,
         )
         return AccountDeletion(
-            kind="guest" if principal.guest else "account",
+            kind=kind,
             projects_deleted=removed.projects,
             share_links_revoked=removed.share_links,
             settings_deleted=settings_deleted,

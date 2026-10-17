@@ -80,7 +80,8 @@ def post_generate(client, settings: Settings, site: str, model: str, payload: di
     """POST a generateContent payload: Vertex AI first when enabled for `site`, then the
     API key. The API key is used when Vertex refuses (400/401/403/404, no credentials) and
     also when it stays overloaded (429/5xx after two tries) or times out, since the two
-    run on separate capacity. Extra kwargs go to `post_with_retry` for the API-key call."""
+    run on separate capacity. Extra kwargs go to `post_with_retry` for the API-key call.
+    Each route tried logs its own GEMINI_CALL line under `site` (usage.record_call)."""
     import httpx
 
     from bharat_sourcer.resilience import post_with_retry
@@ -88,11 +89,13 @@ def post_generate(client, settings: Settings, site: str, model: str, payload: di
     if uses_vertex(settings, site):
         try:
             url, headers = endpoint(settings, site, model)
-            response = post_with_retry(client, url, headers=headers, json=payload, attempts=2)
+            response = post_with_retry(
+                client, url, headers=headers, json=payload, attempts=2, site=site
+            )
             if response.status_code not in FALLBACK_STATUS:
                 return response
             log.warning("GEMINI_VERTEX_FALLBACK site=%s http_status=%s", site, response.status_code)
         except (VertexUnavailable, httpx.TimeoutException, httpx.NetworkError) as exc:
             log.warning("GEMINI_VERTEX_FALLBACK site=%s reason=%s", site, type(exc).__name__)
     url, headers = endpoint(settings, site, model, vertex=False)
-    return post_with_retry(client, url, headers=headers, json=payload, **kwargs)
+    return post_with_retry(client, url, headers=headers, json=payload, site=site, **kwargs)

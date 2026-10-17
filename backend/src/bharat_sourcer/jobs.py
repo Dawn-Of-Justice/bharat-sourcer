@@ -1,8 +1,10 @@
 """Atomic job transitions. External I/O stays outside storage transactions."""
 
+import contextvars
 import logging
 import secrets
 import time
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import timedelta
 from decimal import Decimal
@@ -17,6 +19,7 @@ from bharat_sourcer.countries import DEFAULT_COUNTRY
 from bharat_sourcer.extraction import ExtractionError, Extractor
 from bharat_sourcer.identity import Principal
 from bharat_sourcer.intake import extract_sources, validate_sources
+from bharat_sourcer.observability import log_event, stage_finished
 from bharat_sourcer.recommend import (
     SELLER_PENALTY_INR,
     apply_recommendations,
@@ -61,6 +64,24 @@ from bharat_sourcer.usage import JobLedger, attribute
 from bharat_sourcer.youtube_meta import apply_retention
 
 log = logging.getLogger(__name__)
+
+# Statuses that end a run of work; reaching one logs JOB_FINISHED (observability.md).
+FINISHED = frozenset({"done", "failed", "paused"})
+
+
+def log_finished(job: Job) -> None:
+    """Log JOB_FINISHED for a job that just reached done, failed or paused."""
+    log_event(
+        "JOB_FINISHED",
+        job_id=job.job_id,
+        status=job.status,
+        code=job.error.code if job.status == "failed" and job.error else None,
+        total_duration_ms=max(0, round((now() - job.created_at).total_seconds() * 1000)),
+        part_count=len(job.items),
+        demo=job.demo,
+        prior_finishes=sum(event.status in FINISHED for event in job.events[:-1]),
+        usd_est=job.cost_estimate.total_usd if job.cost_estimate else None,
+    )
 
 
 def same_part(before: BomItem, after: BomItem) -> bool:
@@ -153,6 +174,25 @@ class JobService:
         job.status = status
         job.updated_at = now()
         job.events.append(Event(seq=len(job.events) + 1, status=status, message=message))
+
+    def _mutate(self, job_id: str, change: Callable[[StoredJob], None]) -> StoredJob | None:
+        """`store.mutate`, logging JOB_FINISHED once the saved change moved the job into done,
+        failed or paused. Logged after the commit: a transaction may run `change` again."""
+        before: list[str] = []
+
+        def tracked(record: StoredJob) -> None:
+            before[:] = [record.job.status]
+            change(record)
+
+        saved = self.store.mutate(job_id, tracked)
+        if (
+            saved is not None
+            and before
+            and saved.job.status in FINISHED
+            and saved.job.status != before[0]
+        ):
+            log_finished(saved.job)
+        return saved
 
     def create(
         self, request: CreateJob, principal: Principal | None = None, part_limit: int | None = None
@@ -371,9 +411,15 @@ class JobService:
                 # (named differently by different sources) or drops ones that are not bought.
                 if self.reconciler is not None:
                     progress("reconcile", "running", None, None)
+                started = time.perf_counter()
                 with attribute(ledger):
                     items, reconciled = reconcile_items(self.reconciler, items, project)
                 if self.reconciler is not None:
+                    # reconcile_items never raises: a failed review keeps the list (and logs
+                    # RECONCILE_FAILED), so the stage itself always completes.
+                    stage_finished(
+                        "reconcile", started, "ok", job_id=job_id, changes=len(reconciled)
+                    )
                     merged = sum(change.action == "merged" for change in reconciled)
                     progress(
                         "reconcile",
@@ -387,9 +433,12 @@ class JobService:
                 # are not asked; saved on the items, so later draft edits reuse them.
                 if self.spec_filler is not None:
                     progress("spec_fill", "running", None, None)
+                started = time.perf_counter()
                 with attribute(ledger):
                     fill_missing_specs(self.spec_filler, items, project)
                 if self.spec_filler is not None:
+                    # Like reconcile, a failed fill keeps the questions and logs SPEC_FILL_FAILED.
+                    stage_finished("spec_fill", started, "ok", job_id=job_id)
                     progress("spec_fill", "done", None, None)
         except Exception as exc:
             error = (
@@ -425,7 +474,7 @@ class JobService:
                 if self.overviews is not None:
                     self.overviews.prepare(record)  # pending (or the demo drawing); no I/O
 
-        saved = self.store.mutate(job_id, complete)
+        saved = self._mutate(job_id, complete)
         if self.overviews is not None and saved and saved.job.status == "awaiting_confirmation":
             # Runs after the review page is available; never fails the extraction.
             self.overviews.after_extraction(job_id)
@@ -510,7 +559,7 @@ class JobService:
                         complete_refresh(current.job, failed=True)
                     self._transition(current.job, "failed", current.job.error.message)
 
-                self.store.mutate(key, expire)
+                self._mutate(key, expire)
 
     def _pause_at_checkpoint(self, record: StoredJob) -> None:
         record.run_id = None
@@ -532,7 +581,7 @@ class JobService:
             else:
                 self._transition(job, "sourcing", "Pause requested; current part may finish first.")
 
-        record = self.store.mutate(job_id, change)
+        record = self._mutate(job_id, change)
         if record is None:
             raise JobError(404, "JOB_NOT_FOUND", "Job not found or token invalid")
         return record.job.model_copy(deep=True)
@@ -1078,7 +1127,7 @@ class JobService:
             update_costs(job.report)
             self._transition(job, "done", "Report ready. Prices and grades are unavailable.")
 
-        self.store.mutate(job_id, change)
+        self._mutate(job_id, change)
 
     def _write_specs(self, job_id, run_id, claimed, pending, searched, ledger, save_cost):
         """One batched call writes AI buying specs for lines without one (older jobs).
@@ -1185,9 +1234,21 @@ class JobService:
                         code="SOURCING_LIMIT", message="Per-job sourcing limit reached"
                     ),
                 )
-            # Context variables do not cross the pool, so attribute inside the worker.
+            # The pool runs each item in a copy of this context (request trace); the cost
+            # attribution is entered inside the worker.
             with attribute(ledger, item.line_id):
-                return attributed_source(item)
+                started = time.perf_counter()
+                line = attributed_source(item)
+                error = getattr(line, "sourcing_error", None)
+                stage_finished(
+                    "sourcing",
+                    started,
+                    str(getattr(line, "sourcing_status", "unknown")),
+                    job_id=job_id,
+                    line_id=item.line_id,
+                    code=getattr(error, "code", None),
+                )
+                return line
 
         def attributed_source(item):
             try:
@@ -1224,7 +1285,7 @@ class JobService:
                     if record.run_id == run_id and record.job.status == "sourcing":
                         self._pause_at_checkpoint(record)
 
-                self.store.mutate(job_id, acknowledge)
+                self._mutate(job_id, acknowledge)
                 return
             batch = pending[offset : offset + self.sourcing_parallelism]
             with ThreadPoolExecutor(max_workers=self.sourcing_parallelism) as pool:
@@ -1236,7 +1297,8 @@ class JobService:
                     limited = not item.user_has_it and searched >= limit
                     if not item.user_has_it and not limited:
                         searched += 1
-                    futures.append(pool.submit(source_item, item, limited))
+                    context = contextvars.copy_context()  # keeps the request's trace
+                    futures.append(pool.submit(context.run, source_item, item, limited))
                 for future in as_completed(futures):
                     line = future.result()
 
@@ -1269,7 +1331,7 @@ class JobService:
                     record.run_id = record.lease_until = None
                     self._transition(record.job, "resolving", "Batch saved; remaining work queued.")
 
-            self.store.mutate(job_id, batch_complete)
+            self._mutate(job_id, batch_complete)
             if one_line:
                 return
 
@@ -1300,4 +1362,4 @@ class JobService:
             complete_refresh(record.job)
             self._transition(record.job, "done", "Sourcing report ready for review.")
 
-        self.store.mutate(job_id, complete)
+        self._mutate(job_id, complete)

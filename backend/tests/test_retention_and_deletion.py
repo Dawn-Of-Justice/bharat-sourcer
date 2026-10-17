@@ -379,7 +379,8 @@ def test_auth_user_failure_still_deletes_the_data(caplog):
     assert response.json()["auth_user_deleted"] is False
     assert response.json()["projects_deleted"] == 1
     assert key not in store._records
-    assert "AUTH_USER_DELETE_FAILED type=RuntimeError" in caplog.text
+    assert "AUTH_USER_DELETE_FAILED" in caplog.text and "RuntimeError" in caplog.text
+    assert "ACCOUNT_DELETED" in caplog.text
     # No identifiers or provider messages in the log.
     assert "alice" not in caplog.text
 

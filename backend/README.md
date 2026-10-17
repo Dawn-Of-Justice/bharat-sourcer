@@ -18,7 +18,7 @@ Retention:
   2. A name-ordered scan, with its cursor in `<collection>_meta/retention`, deletes expired
      legacy documents and backfills `expires_at`.
 
-  The sweep reports `retention` stats.
+  The sweep reports `retention` stats and logs a `RETENTION_PASS` event.
 - Share links and derived project data live on the job document and go with it.
 
 `DELETE /v1/account` (`access.py`):
@@ -32,8 +32,11 @@ Retention:
 - Accounts also have their Firebase Auth user deleted: `identity.delete_auth_user`, an
   Identity Toolkit `projects/{project}/accounts:delete` call with the service account's
   ADC token. `USER_NOT_FOUND` counts as deleted. If that call fails, the data is still
-  deleted, the response has `auth_user_deleted: false`, and the log keeps only
-  `AUTH_USER_DELETE_FAILED type=<exception>`.
+  deleted, the response has `auth_user_deleted: false`, and an `AUTH_USER_DELETE_FAILED`
+  event records only the exception type.
+- Structured events `RETENTION_PASS`, `RETENTION_PASS_FAILED`, `ACCOUNT_DELETED` and
+  `AUTH_USER_DELETE_FAILED` (counts and exception types only, no ids or PII) are listed in
+  `infra/observability.md`.
 - The TTL policy on the jobs collection group is documented in `infra/README.md` and is not
   enabled by this release.
 
@@ -260,6 +263,14 @@ retain earlier seller evidence, and per-line rejection reasons are logged.
 See [seller search](../docs/contracts/seller-search.md),
 [seller trust](../docs/contracts/seller-trust.md) and
 [part matching](../docs/contracts/part-matching.md).
+
+Logs are structured JSON for Cloud Logging on Cloud Run (`K_SERVICE` set, or
+`BS_LOG_FORMAT=json`) and plain text elsewhere (`BS_LOG_FORMAT=text` forces it). Each line keeps
+its event tag first in `message`, carries the request's trace from `X-Cloud-Trace-Context` or
+`traceparent`, and has tokens, cookies, emails and URL query strings redacted; uvicorn's access
+log is off on Cloud Run. App events with durations (`JOB_FINISHED`, `STAGE_FINISHED`,
+`GEMINI_CALL`, `SELLER_FETCH`) are the contract for log-based metrics; every field and unit is
+listed in [observability](infra/observability.md).
 
 `BS_LOG_LEVEL` defaults to `INFO`; set it to `WARNING` to reduce diagnostics.
 `SELLER_SEARCH` and `SOURCING_LINE` logs report stages, candidate counts and rejection

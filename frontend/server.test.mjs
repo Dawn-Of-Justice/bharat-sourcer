@@ -9,11 +9,13 @@ afterEach(async () => {
   await Promise.all(openServers.splice(0).map(server => new Promise(resolve => server.close(resolve))))
 })
 
-async function start(fetchImpl) {
+async function start(fetchImpl, options = {}) {
   const server = createServer({
     backendBase: 'https://backend.example/',
     integrationKey: 'server-only-key',
     fetchImpl,
+    log: () => {},
+    ...options,
   })
   openServers.push(server)
   server.listen(0, '127.0.0.1')
@@ -283,4 +285,84 @@ test('plain-HTTP requests behind the proxy are redirected to HTTPS', async () =>
   }
   const odd = await rawGet(base, '/', { Host: 'evil.example/phish', 'X-Forwarded-Proto': 'http' })
   assert.equal(odd.headers.location, undefined)
+})
+
+const TRACE_ID = '105445aa7843bc8bf206b12000100000'
+const W3C_TRACE = '4bf92f3577b34da6a3ce929d0e0e4736'
+const TRACEPARENT = '00-' + W3C_TRACE + '-00f067aa0ba902b7-01'
+
+test('proxy forwards well-formed trace headers so one trace spans both services', async () => {
+  const received = []
+  const base = await start(async (url, options) => {
+    received.push(options.headers)
+    return Response.json({})
+  })
+  await fetch(base + '/api/v1/projects', {
+    headers: { 'X-Cloud-Trace-Context': TRACE_ID + '/1;o=1', traceparent: TRACEPARENT },
+  })
+  assert.equal(received[0]['X-Cloud-Trace-Context'], TRACE_ID + '/1;o=1')
+  assert.equal(received[0].traceparent, TRACEPARENT)
+
+  await fetch(base + '/api/v1/projects', {
+    headers: { 'X-Cloud-Trace-Context': 'not-a-trace', traceparent: '00-xyz' },
+  })
+  assert.equal(received[1]['X-Cloud-Trace-Context'], undefined)
+  assert.equal(received[1].traceparent, undefined)
+  await fetch(base + '/api/v1/projects')
+  assert.deepEqual(
+    Object.keys(received[2]).filter(name => /trace/i.test(name)),
+    [],
+  )
+})
+
+test('proxy failures log one structured JSON line with the trace and no secrets', async () => {
+  const lines = []
+  const base = await start(
+    async url => {
+      if (url.pathname.endsWith('/overloaded')) return new Response('busy', { status: 503 })
+      if (url.pathname.startsWith('/v1/shared/')) throw new TypeError('fetch failed')
+      return Response.json({})
+    },
+    { log: line => lines.push(line), project: 'synthetic-project' },
+  )
+  const failed = await fetch(base + '/api/v1/shared/0b8f5a3e.secret-share-token?code=private', {
+    headers: {
+      'X-Cloud-Trace-Context': TRACE_ID + '/10;o=1',
+      Cookie: 'bs_session=private-cookie',
+      Authorization: 'Bearer private-id-token',
+    },
+  })
+  assert.equal(failed.status, 502)
+  assert.equal(lines.length, 1)
+  const entry = JSON.parse(lines[0])
+  assert.equal(entry.severity, 'ERROR')
+  assert.equal(entry.event, 'PROXY_ERROR')
+  assert.equal(entry.message, 'PROXY_ERROR GET /v1/shared/:token status=502 reason=fetch_failed')
+  assert.equal(entry.status, 502)
+  assert.equal(entry.upstream_status, null)
+  assert.equal(entry.reason, 'fetch_failed')
+  assert.equal(entry.error, 'TypeError')
+  assert.equal(entry.route, '/v1/shared/:token')
+  assert.equal(typeof entry.duration_ms, 'number')
+  assert.equal(entry['logging.googleapis.com/trace'], 'projects/synthetic-project/traces/' + TRACE_ID)
+  assert.equal(entry['logging.googleapis.com/spanId'], '000000000000000a')
+  for (const secret of ['secret-share-token', 'private', 'bs_session', 'Bearer']) {
+    assert.doesNotMatch(lines[0], new RegExp(secret))
+  }
+
+  const busy = await fetch(base + '/api/v1/jobs/0b8f5a3e-1c2d-4e5f-8a9b-0c1d2e3f4a5b/overloaded', {
+    headers: { traceparent: TRACEPARENT },
+  })
+  assert.equal(busy.status, 503)
+  assert.equal(await busy.text(), 'busy')
+  const gateway = JSON.parse(lines[1])
+  assert.equal(gateway.reason, 'upstream_status')
+  assert.equal(gateway.status, 503)
+  assert.equal(gateway.upstream_status, 503)
+  assert.equal(gateway.route, '/v1/jobs/:id/overloaded')
+  assert.equal(gateway['logging.googleapis.com/trace'], 'projects/synthetic-project/traces/' + W3C_TRACE)
+  assert.equal(gateway['logging.googleapis.com/spanId'], '00f067aa0ba902b7')
+
+  assert.equal((await fetch(base + '/api/v1/projects')).status, 200)
+  assert.equal(lines.length, 2) // successes are left to Cloud Run's request log
 })

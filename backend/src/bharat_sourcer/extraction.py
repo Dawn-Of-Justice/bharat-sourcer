@@ -16,6 +16,7 @@ from pydantic import Field, ValidationError
 from bharat_sourcer.code_evidence import read_code
 from bharat_sourcer.config import Settings
 from bharat_sourcer.gemini_api import endpoint, post_generate
+from bharat_sourcer.observability import fields
 from bharat_sourcer.project_pages import (
     ProjectPageSource,
     document_text,
@@ -699,7 +700,9 @@ class GeminiExtractor:
             url, headers = endpoint(
                 self.settings, "extraction", self.settings.gemini_model, vertex=False
             )
-            return post_with_retry(client, url, headers=headers, json=payload, attempts=2)
+            return post_with_retry(
+                client, url, headers=headers, json=payload, attempts=2, site="extraction"
+            )
         return post_generate(
             client, self.settings, "extraction", self.settings.gemini_model, payload
         )
@@ -755,6 +758,7 @@ class GeminiExtractor:
                             noun,
                             route,
                             exc.code,
+                            extra=fields(noun=noun, route=route, code=exc.code),
                         )
                         error = error or exc
                         if routes and len(running) < 2:
