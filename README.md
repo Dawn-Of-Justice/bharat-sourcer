@@ -20,7 +20,6 @@ See the backend details and limits in [`backend/README.md`](backend/README.md) a
 - [`frontend/`](frontend/) — React/Vite client application and frontend deployment tooling
 - [`docs/contracts/`](docs/contracts/) — source-of-truth contract for implemented API behavior
 - [`docs/`](docs/) — architecture, delivery, and reference documentation
-- [`research/`](research/) — cited background research
 
 ## Quick start
 

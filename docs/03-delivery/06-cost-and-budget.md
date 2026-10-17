@@ -40,8 +40,6 @@ All prices were checked on 30 Sep 2026 ([pricing](https://ai.google.dev/gemini-a
 
 With the cost levers below, the total comes to **≈ $0.40–0.60**. A cached library hit costs almost nothing, since only the price re-verification runs.
 
-Source: [research/01 §8](../../research/01-google-stack.md).
-
 ## 3. Cost levers (in order of effect)
 
 1. **Library cache by video id.** Repeat videos cost almost nothing.

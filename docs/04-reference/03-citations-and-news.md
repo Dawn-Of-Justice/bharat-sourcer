@@ -1,6 +1,6 @@
 # Citations, news and statistics
 
-> **In one minute.** This file lists everything worth citing in the deck, the video or the README: research papers (for rigor), dated AI news items (to show we use brand-new capabilities) and impact statistics. All links were opened by the research agents on 30 Sep 2026. The full source lists are at the end of each [research/](../../research) report.
+> **In one minute.** This file lists everything worth citing in the deck, the video or the README: research papers (for rigor), dated AI news items (to show we use brand-new capabilities) and impact statistics. All links were opened by the research agents on 30 Sep 2026.
 
 ---
 

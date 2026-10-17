@@ -12,8 +12,6 @@
 >
 > All facts are as of 30 Sep 2026. Re-check the [models](https://ai.google.dev/gemini-api/docs/models) and [pricing](https://ai.google.dev/gemini-api/docs/pricing) pages on day 1.
 
-Primary source: [research/01-google-stack.md](../../research/01-google-stack.md) (every row below is linked there).
-
 ---
 
 ## 1. What changed in 2026

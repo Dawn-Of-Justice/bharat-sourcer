@@ -6,8 +6,6 @@
 > - **Deck:** 12 slides mapped to the judging criteria (use Hack2skill's template if the dashboard provides one).
 > - **Submission:** everything goes in by 17 Oct.
 
-Research: [research/05 §3](../../research/05-competition-ux-judging.md), [research/04 §6](../../research/04-frontier-wow-factors.md).
-
 ---
 
 ## 1. Demo projects (choose on day 12)

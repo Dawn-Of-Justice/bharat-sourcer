@@ -10,7 +10,7 @@
 >
 > Known stores (Robocraze, Robu, Quartz…) are only a *seed* that speeds things up and adds quality. They are never a limit.
 
-Seller-by-seller reference for the seed set: [../04-reference/02-india-sellers-and-apis.md](../04-reference/02-india-sellers-and-apis.md). Research: [research/02](../../research/02-india-parts-market.md).
+Seller-by-seller reference for the seed set: [../04-reference/02-india-sellers-and-apis.md](../04-reference/02-india-sellers-and-apis.md).
 
 ---
 

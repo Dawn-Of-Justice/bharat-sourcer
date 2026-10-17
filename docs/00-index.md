@@ -17,7 +17,7 @@ of shipped features. External prices, schedules and product claims retain their 
 Two ways through these docs:
 
 - **Skim path** (≈10 min): files marked ⭐. Each starts with a short "In one minute" box so you can stop after it.
-- **Deep path**: read in order. Every section links to its sources (`research/` reports or primary URLs).
+- **Deep path**: read in order. Sections link to primary sources where available.
 
 Conventions used everywhere:
 
@@ -73,15 +73,3 @@ Conventions used everywhere:
 | [03-citations-and-news.md](04-reference/03-citations-and-news.md) | Research papers, dated AI news for the deck, impact statistics, all with links. |
 | [04-glossary.md](04-reference/04-glossary.md) | BOM, MPN, Qwiic, UCP, A2UI, grounding, Vref… |
 | [05-decision-log.md](04-reference/05-decision-log.md) | Every major decision (ADR-style) with alternatives considered, plus open questions. |
-
-## research/ — raw reports
-
-Five research agents, 30 Sep 2026, every fact linked. Read these when a doc says "see research".
-
-| File | Topic |
-|---|---|
-| [01-google-stack.md](../research/01-google-stack.md) | Gemini models & features, ADK 2.x, Agent Platform (ex-Vertex), Firebase, Cloud Run, commerce protocols, costs |
-| [02-india-parts-market.md](../research/02-india-parts-market.md) | Indian sellers, platforms & endpoints, distributor APIs, import duty, problem parts, legal, maker-community numbers |
-| [03-compatibility-intelligence.md](../research/03-compatibility-intelligence.md) | BOM extraction, parametric matching, code impact, KG design, eval set, papers |
-| [04-frontier-wow-factors.md](../research/04-frontier-wow-factors.md) | 2026 AI advances (incl. AlphaSignal), ranked wow features, pitch news timeline |
-| [05-competition-ux-judging.md](../research/05-competition-ux-judging.md) | Official rules, competitors, past winners, UX patterns, naming |
