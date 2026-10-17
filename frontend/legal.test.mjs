@@ -34,12 +34,12 @@ const text = html =>
     .replace(/&#x27;|’/g, "'")
     .replace(/\s+/g, ' ')
 
-test('privacy page renders the draft notice, retention rules, controls and contact', () => {
+test('privacy page renders the retention rules, controls and contact', () => {
   const html = render(legal.PrivacyPage, { onNavigate: () => {} })
   const body = text(html)
   assert.match(html, /<h1>Privacy<\/h1>/)
   assert.match(body, /Last updated: /)
-  assert.match(body, /Draft notice/)
+  assert.doesNotMatch(body, /Draft notice/)
   assert.match(body, /30 days after their last update/)
   assert.match(body, /365 days without an update/)
   assert.match(body, /Delete my data/)

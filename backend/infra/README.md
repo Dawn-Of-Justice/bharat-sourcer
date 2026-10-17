@@ -205,8 +205,10 @@ responses 30 days after `video_meta.fetched_at`. The snapshot itself is not purg
 ## Demo and judging scaling (approved 7 October 2026)
 
 - **Max instances:** `bharat-sourcer-integration` was raised from 1 to 3 on 7 October 2026
-  (revision `bharat-sourcer-integration-00045-q4w`). Leases and Firestore transactions are
-  multi-instance safe; daily quotas bound spend. The deploy workflow keeps scaling settings.
+  (revision `bharat-sourcer-integration-00045-q4w`), but the service-level cap stayed at 1. On
+  17 October 2026 the owner chose 1 for both; see
+  [cost guardrails](cost-guardrails.md#max-instances). Leases and Firestore transactions are
+  multi-instance safe if it is raised again. The deploy workflow keeps scaling settings.
 - **Min instances (15 October – 6 November 2026):** keep one warm instance of each service
   during recording and judging (about $0.65/day for both, about $15 in total):
 

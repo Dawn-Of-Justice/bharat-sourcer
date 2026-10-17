@@ -69,7 +69,6 @@ function Contact() {
 export function PrivacyPage({ onNavigate }: { onNavigate: (path: string) => void }) {
   return (
     <LegalPage title="Privacy" documentTitle="Privacy — Bharat Sourcer" onNavigate={onNavigate}>
-      <p className="demo-alert">Draft notice: this page is a draft and may change before it is final.</p>
       <p>
         Bharat Sourcer turns an electronics project link into a parts list and finds sellers. This page explains what we
         keep, why, and how to delete it.

@@ -32,13 +32,17 @@ What caps spend on `hackathon-510415`, and how to cut it fast. Background:
 | Compile jobs `bharat-sourcer-compile-{avr,esp32,esp8266,rp2040}` | One task per run; `BS_COMPILE_DAILY_LIMIT` 100/day | n/a | Bill only while running |
 | Cloud Tasks `bharat-sourcer` | 2 concurrent, 2/s dispatch | n/a | Bounds parallel Gemini work |
 
-The service-level and template values disagree, and min instances is 0 although the
-[README](README.md#demo-and-judging-scaling-approved-7-october-2026) plans 1 until
-6 November 2026. Owner to confirm intended values. Check:
+Intended for `bharat-sourcer-integration` (owner, 17 October 2026): max 1 at both levels. The
+service-level cap of 1 already limits it, so align the revision template:
 
 ```sh
+gcloud run services update bharat-sourcer-integration --region=asia-south1 --project=hackathon-510415 --max-instances=1
 gcloud run services describe bharat-sourcer-integration --region=asia-south1 --project=hackathon-510415 --format='value(metadata.annotations,spec.template.metadata.annotations)'
 ```
+
+Min instances is 0 although the
+[README](README.md#demo-and-judging-scaling-approved-7-october-2026) plans 1 until
+6 November 2026.
 
 `scripts/deploy_integration.py` deploys with `--max-instances=1` and min 0 (queued mode);
 `frontend/scripts/deploy_cloud_run.ps1` with max 1, min 0. Re-apply scaling after running
