@@ -11,6 +11,8 @@ import {
   deleteProject,
   claimProject,
   clearApiCache,
+  deleteAccount,
+  type AccountDeletion,
   type Session,
   type Project,
 } from './api'
@@ -47,6 +49,10 @@ export function AccountProvider({ children }: { children: ReactNode }) {
   const [country, setCountry] = useState('IN')
   const [countryOptions, setCountryOptions] = useState<CountryOption[]>(fallbackCountries)
   const [countryStatus, setCountryStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+  // Delete my data: idle → confirm → deleting → done; an error returns to confirm with a message.
+  const [deleteStep, setDeleteStep] = useState<'idle' | 'confirm' | 'deleting' | 'done'>('idle')
+  const [deleteError, setDeleteError] = useState('')
+  const [deleted, setDeleted] = useState<AccountDeletion | null>(null)
   const isAccount = !!identity && identity !== 'legacy' && identity.kind === 'account'
   const identityKey = identity && identity !== 'legacy' ? identity.kind + ':' + revision : String(identity)
   // Cached jobs and project lists belong to one identity; drop them whenever it changes.
@@ -202,6 +208,48 @@ export function AccountProvider({ children }: { children: ReactNode }) {
       setBusy(false)
     }
   }
+  async function deleteMyData() {
+    setDeleteStep('deleting')
+    setDeleteError('')
+    try {
+      const result = await deleteAccount()
+      setDeleted(result)
+      setDeleteStep('done')
+      // Start again with nothing cached: no identity, no saved job tokens, no guest projects to claim.
+      try {
+        for (const key of Object.keys(sessionStorage))
+          if (key.startsWith('bharat-sourcer:job:')) sessionStorage.removeItem(key)
+      } catch {
+        /* nothing saved */
+      }
+      if (result.kind === 'account') {
+        // The same sign-out path as Logout; the server session is already gone, so a 401 is expected.
+        try {
+          await logoutSession()
+        } catch {
+          /* already signed out on the server */
+        }
+        await firebaseLogout().catch(() => {})
+      }
+      setIdentity(null)
+      setGuestProjects([])
+      setError('')
+      setRevision(n => n + 1)
+      if (window.location.pathname !== '/') {
+        window.history.pushState({}, '', '/' + window.location.search)
+        window.dispatchEvent(new PopStateEvent('popstate'))
+      }
+    } catch (cause) {
+      setDeleteError(cause instanceof Error ? cause.message : 'Could not delete your data. Please try again.')
+      setDeleteStep('confirm')
+    }
+  }
+  const knownProjects = (() => {
+    if (!identity || identity === 'legacy') return null
+    if (identity.kind === 'guest') return guestCaptureDone ? guestProjects.length : null
+    const cached = cachedProjects()?.value
+    return cached && !cached.next_cursor ? cached.projects.length : null
+  })()
   const value = {
     identity,
     ready,
@@ -255,7 +303,16 @@ export function AccountProvider({ children }: { children: ReactNode }) {
         </section>
       )}
       {visible && (
-        <AccountDialog close={() => !busy && setVisible(false)}>
+        <AccountDialog
+          close={() => {
+            if (busy || deleteStep === 'deleting') return
+            setVisible(false)
+            // The delete section starts fresh the next time the panel opens.
+            setDeleteStep('idle')
+            setDeleteError('')
+            setDeleted(null)
+          }}
+        >
           <span className="section-kicker">YOUR BUILDS, IN ONE PLACE</span>
           <h2>
             {identity && identity !== 'legacy'
@@ -342,12 +399,129 @@ export function AccountProvider({ children }: { children: ReactNode }) {
               </button>
             )}
           </div>
+          {((identity && identity !== 'legacy') || deleted) && (
+            <DeleteData
+              kind={deleted?.kind ?? (identity && identity !== 'legacy' ? identity.kind : 'guest')}
+              step={deleteStep}
+              projectCount={knownProjects}
+              error={deleteError}
+              result={deleted}
+              disabled={busy}
+              onStart={() => {
+                setDeleteError('')
+                setDeleteStep('confirm')
+              }}
+              onCancel={() => {
+                setDeleteError('')
+                setDeleteStep('idle')
+              }}
+              onConfirm={() => void deleteMyData()}
+            />
+          )}
           <p className="account-footnote">
             Your account keeps your projects, parts lists, and conversations together across visits.
           </p>
         </AccountDialog>
       )}
     </AccountContext.Provider>
+  )
+}
+
+export function DeleteData({
+  kind,
+  step,
+  projectCount,
+  error,
+  result,
+  disabled,
+  onStart,
+  onCancel,
+  onConfirm,
+}: {
+  kind: 'account' | 'guest'
+  step: 'idle' | 'confirm' | 'deleting' | 'done'
+  projectCount: number | null
+  error: string
+  result: AccountDeletion | null
+  disabled: boolean
+  onStart: () => void
+  onCancel: () => void
+  onConfirm: () => void
+}) {
+  const confirmButton = useRef<HTMLButtonElement>(null)
+  const startButton = useRef<HTMLButtonElement>(null)
+  const returnFocus = useRef(false)
+  useEffect(() => {
+    if (step === 'confirm' && !error) confirmButton.current?.focus()
+    if (step === 'idle' && returnFocus.current) startButton.current?.focus()
+    returnFocus.current = false
+  }, [step, error])
+  const plural = (count: number, word: string) => `${count} ${word}${count === 1 ? '' : 's'}`
+  return (
+    <section className="delete-data" aria-labelledby="delete-data-heading">
+      <h3 id="delete-data-heading">Delete my data</h3>
+      {step === 'done' && result ? (
+        <div role="status">
+          <p className="delete-data-done">Your data was deleted.</p>
+          <p>
+            Removed {plural(result.projects_deleted, 'project')} and {plural(result.share_links_revoked, 'share link')}
+            {result.settings_deleted ? ', and your saved settings' : ''}.
+            {result.kind === 'account' ? ' You are signed out.' : ' You have a fresh guest session.'}
+          </p>
+          {result.auth_user_deleted === false && (
+            <p className="form-error">
+              Your sign-in record could not be removed; <a href="/privacy#contact">contact us</a> to finish.
+            </p>
+          )}
+        </div>
+      ) : step === 'idle' ? (
+        <>
+          <p>Deletes all your projects, share links and settings. This can’t be undone.</p>
+          <button ref={startButton} type="button" className="text-danger" disabled={disabled} onClick={onStart}>
+            Delete my data…
+          </button>
+        </>
+      ) : (
+        <div role="group" aria-label="Confirm deleting your data">
+          <p>
+            <strong>
+              {kind === 'account'
+                ? projectCount !== null
+                  ? `Delete ${plural(projectCount, 'project')} and your account?`
+                  : 'Delete your projects and your account?'
+                : 'Delete your guest projects?'}
+            </strong>
+          </p>
+          <div className="delete-data-actions">
+            <button
+              ref={confirmButton}
+              type="button"
+              className="danger-button"
+              disabled={step === 'deleting'}
+              onClick={onConfirm}
+            >
+              {step === 'deleting' ? 'Deleting…' : 'Delete permanently'}
+            </button>
+            <button
+              type="button"
+              className="text-button"
+              disabled={step === 'deleting'}
+              onClick={() => {
+                returnFocus.current = true
+                onCancel()
+              }}
+            >
+              Cancel
+            </button>
+          </div>
+          {error && (
+            <p className="form-error" role="alert">
+              {error}
+            </p>
+          )}
+        </div>
+      )}
+    </section>
   )
 }
 

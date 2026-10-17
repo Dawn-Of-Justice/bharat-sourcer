@@ -3,6 +3,7 @@ import YoutubeJourney from './YoutubeJourney'
 import { watchJob } from './stream'
 import { useJobTitle } from './useJobTitle'
 import { useAccount, Projects } from './Account'
+import { PrivacyPage, SiteFooter, TermsPage } from './Legal'
 import {
   Suspense,
   lazy,
@@ -2241,6 +2242,10 @@ export default function App() {
         >
           <SharedReport shareToken={shareToken} onCopied={id => navigate('/job/' + id)} />
         </Suspense>
+      ) : path === '/privacy' ? (
+        <PrivacyPage onNavigate={navigate} />
+      ) : path === '/terms' ? (
+        <TermsPage onNavigate={navigate} />
       ) : path === '/projects' ? (
         <Projects onOpen={id => navigate(`/job/${encodeURIComponent(id)}`)} onNew={() => navigate('/')} />
       ) : jobId ? (
@@ -2255,6 +2260,7 @@ export default function App() {
       ) : (
         <Landing onCreated={id => navigate(`/job/${encodeURIComponent(id)}`)} />
       )}
+      <SiteFooter onNavigate={navigate} />
     </>
   )
 }

@@ -278,6 +278,30 @@ export function previewRequest(path: string, options: RequestInit): unknown {
     job.status = 'sourcing'
     return {}
   }
+  if (path === '/v1/account' && options.method === 'DELETE') {
+    // `?preview=1&deleteError=429|401` shows the error states of the delete-my-data flow.
+    const failure = new URLSearchParams(window.location.search).get('deleteError')
+    if (failure === '429')
+      throw new ApiError(
+        'Usage limit reached. Your saved projects remain available. Try again after ' +
+          new Date(Date.now() + 60000).toLocaleString() +
+          '.',
+        429,
+        'USAGE_LIMIT',
+      )
+    if (failure === '401') throw new ApiError('Sign in to continue.', 401, 'IDENTITY_REQUIRED')
+    const kind = sessionStorage.getItem('bs-preview-account')
+    if (!kind) throw new ApiError('Sign in to continue.', 401, 'IDENTITY_REQUIRED')
+    sessionStorage.removeItem('bs-preview-account')
+    sessionStorage.removeItem('bs-preview-country')
+    return {
+      kind,
+      projects_deleted: 4,
+      share_links_revoked: 1,
+      settings_deleted: kind === 'account',
+      auth_user_deleted: kind === 'account' ? true : null,
+    }
+  }
   if (path === '/v1/session/logout') {
     sessionStorage.removeItem('bs-preview-account')
     return undefined

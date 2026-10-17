@@ -2737,6 +2737,127 @@ svg {
   line-height: 1.6;
   margin-top: 26px;
 }
+/* Delete my data, in the account panel. */
+.delete-data {
+  margin-top: 8px;
+  padding-top: 18px;
+  border-top: 1px solid #dce3d8;
+}
+.delete-data h3 {
+  margin: 0 0 6px;
+  font-size: 16px;
+}
+.account-dialog .delete-data p {
+  margin: 0 0 8px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.account-dialog .delete-data strong,
+.account-dialog .delete-data .delete-data-done {
+  color: #143039;
+  font-weight: 800;
+}
+.account-dialog .delete-data .form-error {
+  color: #a82c24;
+}
+.delete-data a {
+  text-decoration: underline;
+}
+.delete-data-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.text-danger,
+.text-button {
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font-size: 14px;
+  font-weight: 800;
+}
+.text-danger {
+  color: #a82c24;
+}
+.text-button {
+  color: #143039;
+}
+.text-danger:hover,
+.text-button:hover {
+  text-decoration: underline;
+}
+.text-danger:disabled,
+.text-button:disabled {
+  opacity: 0.6;
+  cursor: progress;
+  text-decoration: none;
+}
+/* Privacy and Terms: one readable column. */
+.legal-page.container {
+  max-width: 68ch;
+  padding-top: 65px;
+  padding-bottom: 80px;
+}
+.legal-page h1 {
+  font-size: clamp(42px, 5vw, 64px);
+  letter-spacing: -0.055em;
+  margin: 18px 0 8px;
+}
+.legal-page h2 {
+  margin: 34px 0 10px;
+  font-size: 22px;
+  letter-spacing: -0.02em;
+}
+.legal-page p,
+.legal-page li {
+  color: #536669;
+  font-size: 16px;
+  line-height: 1.65;
+}
+.legal-page ul {
+  padding-left: 22px;
+}
+.legal-page li + li {
+  margin-top: 6px;
+}
+.legal-page article a:not(.legal-back) {
+  color: #19766d;
+  font-weight: 700;
+  text-decoration: underline;
+}
+.legal-page .legal-updated {
+  margin: 0 0 24px;
+  color: #657673;
+  font-size: 13px;
+}
+.legal-back {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  color: #19766d;
+  font-size: 14px;
+  font-weight: 800;
+}
+.legal-back:hover {
+  text-decoration: underline;
+}
+.site-footer {
+  border-top: 1px solid #dce3d8;
+  padding: 18px 0 24px;
+  color: #657673;
+  font-size: 13px;
+}
+.site-footer a {
+  display: inline-block;
+  padding: 6px 0;
+}
+.site-footer a:hover {
+  color: #0b7770;
+  text-decoration: underline;
+}
 .projects-page {
   min-height: 68vh;
   padding-top: 65px;

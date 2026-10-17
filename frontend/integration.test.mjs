@@ -25,7 +25,8 @@ new Function('require', 'exports', compiled)(
   name => (name === './auth' ? { identityToken: async () => bearer } : null),
   api,
 )
-globalThis.window = { location: { search: '' }, dispatchEvent: () => {} }
+let dispatched = []
+globalThis.window = { location: { search: '' }, dispatchEvent: event => dispatched.push(event.type) }
 globalThis.fetch = async (url, options) => {
   calls.push({ url, options })
   const json = (status, body, headers = {}) => new Response(JSON.stringify(body), { status, headers })
@@ -37,6 +38,21 @@ globalThis.fetch = async (url, options) => {
   }
   const owner = bearer || guestCookie
   if (!owner) return json(401, { error: { code: 'IDENTITY_REQUIRED' } })
+  if (path === '/api/v1/account' && options.method === 'DELETE') {
+    if (JSON.parse(options.body ?? 'null')?.confirm !== 'DELETE')
+      return json(400, { error: { code: 'CONFIRMATION_REQUIRED', message: 'Confirmation required.' } })
+    const removed = projects.get(owner) ?? []
+    projects.set(owner, [])
+    if (bearer) bearer = null
+    else guestCookie = null
+    return json(200, {
+      kind: owner === 'guest' ? 'guest' : 'account',
+      projects_deleted: removed.length,
+      share_links_revoked: 0,
+      settings_deleted: owner !== 'guest',
+      auth_user_deleted: owner === 'guest' ? null : true,
+    })
+  }
   if (path === '/api/v1/session') return json(200, { kind: bearer ? 'account' : 'guest' })
   if (path === '/api/v1/session/usage')
     return json(200, { daily_projects: { remaining: 0 }, daily_actions: { remaining: 0 } })
@@ -125,4 +141,58 @@ test('429 is not retried and saved work stays readable at zero quota', async () 
   failure = null
   assert.ok((await api.listProjects()).projects.length)
   assert.equal((await api.getUsage()).daily_projects.remaining, 0)
+})
+
+test('delete my data sends the confirmation body and app header with the bearer, then clears the account', async () => {
+  projects.set('carol', ['carol-project'])
+  bearer = 'carol'
+  guestCookie = null
+  failure = null
+  calls = []
+  const result = await api.deleteAccount()
+  assert.deepEqual(result, {
+    kind: 'account',
+    projects_deleted: 1,
+    share_links_revoked: 0,
+    settings_deleted: true,
+    auth_user_deleted: true,
+  })
+  assert.equal(calls.length, 1)
+  const [{ url, options }] = calls
+  assert.equal(url, '/api/v1/account')
+  assert.equal(options.method, 'DELETE')
+  assert.equal(options.body, JSON.stringify({ confirm: 'DELETE' }))
+  assert.equal(options.credentials, 'include')
+  assert.equal(options.headers['X-Requested-With'], 'BharatSourcer')
+  assert.equal(options.headers['Content-Type'], 'application/json')
+  assert.equal(options.headers.Authorization, 'Bearer carol')
+})
+
+test('delete my data works for a guest cookie session without a bearer', async () => {
+  bearer = null
+  guestCookie = 'guest'
+  projects.set('guest', ['guest-a', 'guest-b'])
+  calls = []
+  const result = await api.deleteAccount()
+  assert.equal(result.kind, 'guest')
+  assert.equal(result.projects_deleted, 2)
+  assert.equal(result.auth_user_deleted, null)
+  assert.equal(calls[0].options.headers.Authorization, undefined)
+  assert.equal(calls[0].options.credentials, 'include')
+})
+
+test('delete my data reports 429 with the retry time and 401 inline without reopening sign-in', async () => {
+  bearer = 'alice'
+  calls = []
+  dispatched = []
+  failure = { status: 429, code: 'USAGE_LIMIT', headers: { 'Retry-After': '60' } }
+  await assert.rejects(
+    api.deleteAccount(),
+    e => e.status === 429 && e.code === 'USAGE_LIMIT' && /Try again after .+\./.test(e.message),
+  )
+  failure = { status: 401, code: 'IDENTITY_REQUIRED' }
+  await assert.rejects(api.deleteAccount(), e => e.status === 401 && e.code === 'IDENTITY_REQUIRED')
+  assert.deepEqual(dispatched, [])
+  failure = null
+  assert.equal(calls.length, 2)
 })

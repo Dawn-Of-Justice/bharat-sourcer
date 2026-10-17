@@ -366,3 +366,13 @@ test('preview build endpoints stay local, refuse unfinished projects, and the sa
   }
   assert.equal(requests, 0)
 })
+
+test('preview delete my data stays local and ends the demo session', async () => {
+  await auth.googleLogin()
+  const result = await api.deleteAccount()
+  assert.equal(result.kind, 'account')
+  assert.equal(result.auth_user_deleted, true)
+  await assert.rejects(api.getSession(), error => error.status === 401)
+  await assert.rejects(api.deleteAccount(), error => error.code === 'IDENTITY_REQUIRED')
+  assert.equal(requests, 0)
+})
