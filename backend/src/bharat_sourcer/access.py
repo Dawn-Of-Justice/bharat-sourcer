@@ -6,20 +6,35 @@ import ipaddress
 import logging
 import math
 import time
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Annotated
 
 from fastapi import Depends, Header, Query, Request, Response
 from pydantic import Field
 
 from bharat_sourcer.countries import COUNTRIES, DEFAULT_COUNTRY
-from bharat_sourcer.identity import FirebaseVerifier, GuestSessions, IdentityUnavailable
+from bharat_sourcer.identity import (
+    FirebaseVerifier,
+    GuestSessions,
+    IdentityUnavailable,
+    delete_auth_user,
+)
 from bharat_sourcer.jobs import JobError
-from bharat_sourcer.schemas import AccountSettings, CountryCode, Job, Model, Status
+from bharat_sourcer.observability import log_event
+from bharat_sourcer.schemas import (
+    AccountSettings,
+    CountryCode,
+    ErrorResponse,
+    Job,
+    Model,
+    Status,
+)
 
 log = logging.getLogger(__name__)
 # Claim attempts per account per minute (claims are otherwise quota-free).
 CLAIMS_PER_MINUTE = 20
+# Delete-my-data requests per identity per minute (each may call Identity Toolkit).
+ACCOUNT_DELETES_PER_MINUTE = 5
 
 
 def credential(request: Request, x_job_token: str | None = Header(default=None)):
@@ -97,10 +112,27 @@ class ClaimProject(Model):
     job_token: str | None = Field(default=None, max_length=200)
 
 
+class DeleteAccount(Model):
+    # Must be exactly "DELETE"; anything else is 400 CONFIRMATION_REQUIRED.
+    confirm: str | None = Field(default=None, max_length=20)
+
+
+class AccountDeletion(Model):
+    kind: str
+    projects_deleted: int
+    share_links_revoked: int
+    settings_deleted: bool
+    # Accounts only: false when the Firebase Auth user could not be deleted (the data
+    # deletion still completed; retry the request). Null for guests.
+    auth_user_deleted: bool | None = None
+
+
 class Access:
     def __init__(self, settings, service, verifier=None):
         self.settings, self.service = settings, service
         self.verifier = verifier or FirebaseVerifier(settings.gcp_project or "")
+        # Deletes the Firebase Auth user on DELETE /v1/account; replaced in tests.
+        self.delete_user = delete_auth_user
         self.sessions = GuestSessions(
             settings.guest_session_secret.get_secret_value()
             if settings.guest_session_secret
@@ -201,6 +233,22 @@ class Access:
                 "Too many requests; retry in a minute",
                 retry_after=max(1, 60 - int(timestamp) % 60),
             )
+
+    def principal_usage_keys(self, principal) -> list[str]:
+        """Counters keyed by this identity that may still exist (they carry a two-day TTL,
+        plus TTL lag). IP and global counters are not listed: they outlive deletion, so
+        deleting and starting over never resets the per-network quotas."""
+        timestamp = int(time.time())
+        owner = hashlib.sha256(principal.owner.encode()).hexdigest()
+        days = [
+            (datetime.fromtimestamp(timestamp, UTC) - timedelta(days=offset)).strftime("%Y%m%d")
+            for offset in range(4)
+        ]
+        minutes = [timestamp // 60 - offset for offset in range(2)]
+        return [
+            *(f"{kind}-{day}-{owner}" for kind in ("actions", "create") for day in days),
+            *(f"{kind}-{minute}-{owner}" for kind in ("burst", "claim") for minute in minutes),
+        ]
 
     def usage(self, principal):
         timestamp = int(time.time())
@@ -314,6 +362,64 @@ def add_access_routes(app, access):
         settings = AccountSettings(country=body.country, updated_at=datetime.now(UTC))
         access.service.store.put_account(principal.owner, settings)
         return AccountSettingsResponse(**settings.model_dump(), saved=True)
+
+    @app.delete(
+        "/v1/account",
+        response_model=AccountDeletion,
+        tags=["identity"],
+        responses={
+            400: {"model": ErrorResponse},
+            401: {"model": ErrorResponse},
+            403: {"model": ErrorResponse},
+            429: {"model": ErrorResponse},
+        },
+    )
+    def delete_account(request: Request, response: Response, body: DeleteAccount | None = None):
+        """Delete my data: every project of the signed-in account or guest session, their
+        share links, saved settings and identity-keyed usage counters. For an account the
+        Firebase Auth user is deleted too; for a guest the session cookie is cleared.
+        Requires `{"confirm": "DELETE"}`. Safe to repeat."""
+        principal = access.identity(request)
+        access.csrf(request)
+        if body is None or body.confirm != "DELETE":
+            raise JobError(
+                400, "CONFIRMATION_REQUIRED", 'Send {"confirm": "DELETE"} to delete your data'
+            )
+        access.burst("delete-account", principal, ACCOUNT_DELETES_PER_MINUTE)
+        store = access.service.store
+        removed = store.delete_owned(principal.owner)
+        settings_deleted = store.delete_account(principal.owner)
+        # The delete-account burst counter stays: it bounds repeats of this request.
+        store.delete_usage(access.principal_usage_keys(principal))
+        auth_user_deleted = None
+        if principal.guest:
+            for name in (access.sessions.cookie_name, access.sessions.legacy_cookie_name):
+                response.delete_cookie(name, path="/", secure=True, httponly=True)
+        else:
+            try:
+                access.delete_user(access.settings.gcp_project or "", principal.owner[5:])
+                auth_user_deleted = True
+            except Exception as exc:  # data is already gone: report the failure, never fail
+                auth_user_deleted = False
+                log_event("AUTH_USER_DELETE_FAILED", logging.ERROR, type=type(exc).__name__)
+        response.headers["Cache-Control"] = "no-store"
+        kind = "guest" if principal.guest else "account"
+        # Counts only: never the uid, owner id, email or job ids.
+        log_event(
+            "ACCOUNT_DELETED",
+            kind=kind,
+            projects=removed.projects,
+            share_links=removed.share_links,
+            settings_deleted=settings_deleted,
+            auth_user_deleted=auth_user_deleted,
+        )
+        return AccountDeletion(
+            kind=kind,
+            projects_deleted=removed.projects,
+            share_links_revoked=removed.share_links,
+            settings_deleted=settings_deleted,
+            auth_user_deleted=auth_user_deleted,
+        )
 
     @app.get("/v1/projects", response_model=ProjectList, tags=["projects"])
     def projects(request: Request, cursor: str = "", limit: int = Query(default=20, ge=1, le=50)):

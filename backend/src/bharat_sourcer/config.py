@@ -77,6 +77,11 @@ class Settings(BaseSettings):
     guest_session_secret: SecretStr | None = None
     guest_session_days: int = Field(default=14, ge=1, le=30)
     guest_part_limit: int = Field(default=3, ge=1, le=10)
+    # Projects are deleted this long after their last update (guest and unowned, account).
+    guest_retention_days: int = Field(default=30, ge=1, le=3650)
+    account_retention_days: int = Field(default=365, ge=1, le=3650)
+    # Documents the retention pass in /internal/sweep reads per run, per phase.
+    retention_batch: int = Field(default=200, ge=1, le=1000)
     account_daily_actions: int = Field(default=40, ge=1, le=1000)
     guest_daily_actions: int = Field(default=5, ge=1, le=50)
     global_daily_actions: int = Field(default=1000, ge=1)

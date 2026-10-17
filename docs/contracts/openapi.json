@@ -3,7 +3,7 @@
   "info": {
     "title": "Bharat Sourcer API",
     "description": "Demo or live YouTube and project-page extraction with optional Firestore job persistence.",
-    "version": "0.42.1"
+    "version": "0.43.0"
   },
   "paths": {
     "/v1/session/guest": {
@@ -283,6 +283,105 @@
           },
           "503": {
             "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/account": {
+      "delete": {
+        "tags": [
+          "identity"
+        ],
+        "summary": "Delete Account",
+        "description": "Delete my data: every project of the signed-in account or guest session, their\nshare links, saved settings and identity-keyed usage counters. For an account the\nFirebase Auth user is deleted too; for a guest the session cookie is cleared.\nRequires `{\"confirm\": \"DELETE\"}`. Safe to repeat.",
+        "operationId": "delete_account_v1_account_delete",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/DeleteAccount"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountDeletion"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
             "content": {
               "application/json": {
                 "schema": {
@@ -4204,6 +4303,46 @@
   },
   "components": {
     "schemas": {
+      "AccountDeletion": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "title": "Kind"
+          },
+          "projects_deleted": {
+            "type": "integer",
+            "title": "Projects Deleted"
+          },
+          "share_links_revoked": {
+            "type": "integer",
+            "title": "Share Links Revoked"
+          },
+          "settings_deleted": {
+            "type": "boolean",
+            "title": "Settings Deleted"
+          },
+          "auth_user_deleted": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Auth User Deleted"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "kind",
+          "projects_deleted",
+          "share_links_revoked",
+          "settings_deleted"
+        ],
+        "title": "AccountDeletion"
+      },
       "AccountSettingsResponse": {
         "properties": {
           "country": {
@@ -6714,6 +6853,25 @@
           "watch"
         ],
         "title": "CreatedJob"
+      },
+      "DeleteAccount": {
+        "properties": {
+          "confirm": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 20
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confirm"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "DeleteAccount"
       },
       "ErrorDetail": {
         "properties": {

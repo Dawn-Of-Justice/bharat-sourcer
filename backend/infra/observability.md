@@ -144,6 +144,23 @@ fields are also top-level keys. Fields are documented in [gemini-cost.md](gemini
 `grounded`, `search_queries`, `by_modality`, `usd_est`, `job_id`, `line_id`; and for cache
 hits `namespace`, `job_id`, `line_id`. `scripts/usage_report.py` reads both formats.
 
+### Retention and deletion (v0.43.0)
+
+Emitted with `log_event`, so each line reads `EVENT {json}` and its fields are top-level
+keys. These events never carry ids or PII: no job id, owner id, uid, email, IP or provider
+message.
+
+| Event | Severity | Where | Fields |
+| --- | --- | --- | --- |
+| `RETENTION_PASS` | INFO | `/internal/sweep`, once per sweep (every five minutes) | `deleted` (integer: expired jobs removed this batch), `backfilled` (integer: jobs given an `expires_at`), `scanned` (integer: documents read), `complete` (boolean: the resumable scan reached the end and starts over next time) |
+| `RETENTION_PASS_FAILED` | ERROR | `/internal/sweep`, when the retention batch raised a storage error. The redispatch sweep still succeeds | `type` (exception class) |
+| `ACCOUNT_DELETED` | INFO | `DELETE /v1/account`, after the data is removed | `kind` (`account`, `guest`), `projects` (integer), `share_links` (integer), `settings_deleted` (boolean), `auth_user_deleted` (boolean, or null for guests) |
+| `AUTH_USER_DELETE_FAILED` | ERROR | `DELETE /v1/account`, when the Identity Toolkit `accounts:delete` call failed. The data deletion still completed | `type` (exception class, e.g. `HTTPError` when the runtime account lacks `firebaseauth.users.delete`) |
+
+Example metric filters:
+- `jsonPayload.event="RETENTION_PASS"`, summed over `jsonPayload.deleted`.
+- `jsonPayload.event="AUTH_USER_DELETE_FAILED"`, as a count to alert on.
+
 ### Existing operational tags with structured fields
 
 Messages are unchanged (alerts match them); these fields are added as top-level keys.

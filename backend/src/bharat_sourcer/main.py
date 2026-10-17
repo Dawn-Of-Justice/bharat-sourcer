@@ -31,6 +31,7 @@ from bharat_sourcer.observability import (
     TraceMiddleware,
     configure_logging,
     fields,
+    log_event,
     scope_trace,
     use_trace,
 )
@@ -79,7 +80,13 @@ from bharat_sourcer.sourcing.service import GeminiDiscovery, SourcingService
 from bharat_sourcer.sourcing.spec_writer import GeminiSpecWriter
 from bharat_sourcer.sourcing.trust import TrustChecker
 from bharat_sourcer.spec_fill import GeminiSpecFiller
-from bharat_sourcer.storage import FirestoreJobStore, JobStore, MemoryJobStore, StorageError
+from bharat_sourcer.storage import (
+    FirestoreJobStore,
+    JobStore,
+    MemoryJobStore,
+    Retention,
+    StorageError,
+)
 from bharat_sourcer.streaming import snapshots
 
 JobToken = ProjectAccess
@@ -108,14 +115,20 @@ def create_app(
     # Logging on Cloud Run, plain text locally (observability.py).
     configure_logging(settings.gcp_project, os.getenv("BS_LOG_LEVEL", "INFO"))
     live_extractor = None if settings.demo_mode else (extractor or GeminiExtractor(settings))
+    retention = Retention(settings.guest_retention_days, settings.account_retention_days)
     if store is None:
         store = (
             FirestoreJobStore(
-                settings.gcp_project, settings.firestore_database, settings.firestore_collection
+                settings.gcp_project,
+                settings.firestore_database,
+                settings.firestore_collection,
+                retention,
             )
             if settings.storage_backend == "firestore"
-            else MemoryJobStore()
+            else MemoryJobStore(retention)
         )
+    else:
+        store.retention = retention
     # Cross-job cache for paid sourcing results, beside the job store (cost-controls.md).
     shared_cache = build_cache(settings, store)
     searcher = seller_search.from_settings(settings, cache=shared_cache)
@@ -223,7 +236,7 @@ def create_app(
 
     app = FastAPI(
         title="Bharat Sourcer API",
-        version="0.42.1",
+        version="0.43.0",
         description=(
             "Demo or live YouTube and project-page extraction with optional Firestore job "
             "persistence."
@@ -793,7 +806,24 @@ def create_app(
                 settings.sweep_limit,
                 extra=fields(limit=settings.sweep_limit),
             )
-        return {"status": "ok"} | stats
+        return {"status": "ok"} | stats | {"retention": retention_pass()}
+
+    def retention_pass():
+        """Bounded retention batch (docs/contracts/retention-and-deletion.md); a failure
+        never fails the redispatch sweep. Events: backend/infra/observability.md."""
+        try:
+            result = service.store.retention_pass(settings.retention_batch)
+        except (StorageError, GoogleAPICallError) as exc:
+            log_event("RETENTION_PASS_FAILED", logging.ERROR, type=type(exc).__name__)
+            return {"failed": True}
+        log_event(
+            "RETENTION_PASS",
+            deleted=result["deleted"],
+            backfilled=result["backfilled"],
+            scanned=result["scanned"],
+            complete=result["complete"],
+        )
+        return result
 
     return app
 

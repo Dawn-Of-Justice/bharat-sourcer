@@ -1,5 +1,45 @@
 # Backend
 
+v0.43.0 adds project retention and delete my data
+([contract](../docs/contracts/retention-and-deletion.md)).
+
+Retention:
+- `storage.Retention` gives each job a deadline from its owner kind and `job.updated_at`:
+  `BS_ACCOUNT_RETENTION_DAYS` (365) for `user:` owners, `BS_GUEST_RETENTION_DAYS` (30) for
+  guest and unowned projects.
+- Both stores write it to `StoredJob.expires_at` on every create and mutate. Firestore
+  stores it as a native Timestamp so a TTL policy can delete the document. A claim's save
+  therefore moves a project to the account period.
+- `get`, `mutate`, `owned` and `pending` treat a job past its deadline as missing, so every
+  route returns 404 before TTL removes it.
+- `/internal/sweep` also runs `retention_pass(BS_RETENTION_BATCH)`, default 200 per phase:
+  1. Delete documents whose stored `expires_at` has passed, re-checked against the current
+     periods.
+  2. A name-ordered scan, with its cursor in `<collection>_meta/retention`, deletes expired
+     legacy documents and backfills `expires_at`.
+
+  The sweep reports `retention` stats and logs a `RETENTION_PASS` event.
+- Share links and derived project data live on the job document and go with it.
+
+`DELETE /v1/account` (`access.py`):
+- Needs the app header, `{"confirm": "DELETE"}` (otherwise `400 CONFIRMATION_REQUIRED`) and
+  at most 5 calls per identity per minute.
+- Deletes every job of the principal, expired or not (`store.delete_owned`), its account
+  settings (`delete_account`), and its identity-keyed usage counters (`actions-`/`create-`
+  for the last four days, `burst-`/`claim-` for the last two minutes). Per-IP and global
+  counters stay.
+- Guests get their cookies cleared.
+- Accounts also have their Firebase Auth user deleted: `identity.delete_auth_user`, an
+  Identity Toolkit `projects/{project}/accounts:delete` call with the service account's
+  ADC token. `USER_NOT_FOUND` counts as deleted. If that call fails, the data is still
+  deleted, the response has `auth_user_deleted: false`, and an `AUTH_USER_DELETE_FAILED`
+  event records only the exception type.
+- Structured events `RETENTION_PASS`, `RETENTION_PASS_FAILED`, `ACCOUNT_DELETED` and
+  `AUTH_USER_DELETE_FAILED` (counts and exception types only, no ids or PII) are listed in
+  `infra/observability.md`.
+- The TTL policy on the jobs collection group is documented in `infra/README.md` and is not
+  enabled by this release.
+
 v0.42.1 hardens request handling without changing normal behaviour. `guards.BodyLimit`
 refuses request bodies above `BS_MAX_BODY_BYTES` (default 1 MiB; the scan route allows
 8 MiB for its base64 photo) with `413 BODY_TOO_LARGE`, checking `Content-Length` first and

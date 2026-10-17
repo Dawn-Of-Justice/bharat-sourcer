@@ -50,6 +50,7 @@ sign-in recovery rather than silently creating another guest identity.
 | `GET /v1/session` | Returns `kind`, `expires_at` (Unix seconds), `daily_action_limit`, `part_limit` |
 | `GET /v1/session/usage` | v0.17.1: personal daily actions, daily projects and minute actions, each with `limit`, `used`, `remaining`, `resets_at` (Unix seconds) |
 | `POST /v1/session/logout` | Clears guest cookie, 204; frontend must also call Firebase sign-out |
+| `DELETE /v1/account` | v0.43: delete my data. Body `{"confirm": "DELETE"}` is required. Removes every project of the account or guest session, with share links, settings and identity usage counters. Also deletes the Firebase Auth user, or clears the guest cookie. Returns counts. See [retention-and-deletion.md](retention-and-deletion.md) |
 | `DELETE /v1/projects/{job_id}` | v0.24: permanently deletes an owned project (account or guest owner) with its parts list, offers, conversation and share link; 204. Needs `X-Requested-With: BharatSourcer`. Other owners and unknown ids get 404 `JOB_NOT_FOUND`. Does not use the action budget. Work still running for the project stops changing it; nothing is recreated. |
 | `GET` / `POST /v1/account/settings` | v0.23: saved account preferences (`country`); see [countries.md](countries.md) |
 | `GET /v1/projects?limit=20&cursor=...` | Owner-only summaries and nullable `next_cursor`; max limit 50 |
