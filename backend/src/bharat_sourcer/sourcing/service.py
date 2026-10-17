@@ -151,6 +151,7 @@ class GeminiDiscovery:
                     client,
                     "https://generativelanguage.googleapis.com/v1beta/models/"
                     f"{self.settings.gemini_model}:generateContent",
+                    site="discovery",
                     headers={"x-goog-api-key": self.settings.gemini_api_key.get_secret_value()},
                     json=payload,
                 )

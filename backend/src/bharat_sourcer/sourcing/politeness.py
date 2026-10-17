@@ -18,6 +18,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from urllib.parse import urlsplit
 
+from bharat_sourcer.observability import elapsed_ms, log_event
 from bharat_sourcer.sourcing import robu
 from bharat_sourcer.sourcing.cache import TTL, cache_key
 from bharat_sourcer.sourcing.fetch import ApiRoute, FetchError, Page, SafeFetcher
@@ -90,6 +91,41 @@ def retry_after_seconds(value: str | None) -> float | None:
     if parsed is None:
         return None
     return max(0.0, parsed.timestamp() - time.time())
+
+
+def fetch_outcome(exc: BaseException) -> str:
+    """The SELLER_FETCH outcome of a fetch that raised."""
+    if isinstance(exc, BlockedError):
+        return "blocked"
+    if isinstance(exc, ApiRoute):
+        return "api_route"
+    if isinstance(exc, FetchError):
+        message = str(exc)
+        if message.startswith("Robots"):  # SafeFetcher: "Robots policy prevents verification"
+            return "robots"
+        if isinstance(exc.__cause__, TimeoutError) or message == "Page read deadline exceeded":
+            return "timeout"
+    return "error"
+
+
+def seller_fetch(
+    host: str,
+    kind: str,
+    started: float,
+    outcome: str,
+    http_status: int | None = None,
+    attempts: int = 0,
+) -> None:
+    """Log one SELLER_FETCH line: the host only, never the URL (it can carry a query)."""
+    log_event(
+        "SELLER_FETCH",
+        host=host,
+        kind=kind,
+        duration_ms=elapsed_ms(started),
+        outcome=outcome,
+        http_status=http_status,
+        attempts=attempts,
+    )
 
 
 class Politeness:
@@ -243,24 +279,54 @@ class Politeness:
         bypass_cache: bool = False,
         **kwargs,
     ) -> Page:
-        """Fetch `url` politely; `kind` is "search" or "page" (cache lifetime)."""
+        """Fetch `url` politely; `kind` is "search" or "page" (cache lifetime).
+
+        Every call logs one SELLER_FETCH line (host only, never the URL)."""
         host = (urlsplit(url).hostname or "").lower()
+        started = time.perf_counter()
         reason = self.blocked_reason(host)
         if reason:
+            seller_fetch(host, kind, started, "cooldown")
             raise BlockedError(host, reason)
         key = f"{kind}:{url}:{kwargs.get('max_bytes', '')}"
         cached = None if bypass_cache else self._cached(key)
         if cached is not None:
+            seller_fetch(host, kind, started, "cache", cached.status)
             return cached
         shared = self._shared_key(kind, url, shared_key)
         cached = None if bypass_cache else self._shared_get(shared)
         if cached is not None:
             # Do not extend an existing shared entry beyond its original expiry.
+            seller_fetch(host, kind, started, "cache", cached.status)
             return cached
+        tries = [0]
+        try:
+            page, retry_later = self._fetch(fetcher, url, host, tries, **kwargs)
+        except Exception as exc:
+            seller_fetch(
+                getattr(exc, "host", host), kind, started, fetch_outcome(exc), attempts=tries[0]
+            )
+            raise
+        final_host = (urlsplit(page.url).hostname or host).lower()
+        outcome = "ok" if 200 <= page.status < 300 else "http_error"
+        seller_fetch(final_host, kind, started, outcome, page.status, tries[0])
+        if retry_later:
+            return page
+        allowed = cacheable(page) if callable(cacheable) else cacheable
+        if page.status == 200 and (allowed is True or (allowed is None and kind != "search")):
+            self.cache_response(url, page, kind=kind, ttl_s=cache_ttl_s, **kwargs)
+        return page
+
+    def _fetch(self, fetcher, url: str, host: str, tries: list[int], **kwargs) -> tuple[Page, bool]:
+        """(page, retry_later): paced, challenge-checked fetch with bounded 429/503 retries.
+
+        `retry_later` is True when the seller asked to wait longer than a request can (the
+        page is returned uncached). `tries[0]` counts the requests made."""
         attempt = 0
         with self._slot(host):
             while True:
                 self._wait_turn(host)
+                tries[0] += 1
                 page = fetcher.get(url, **kwargs)
                 final_host = (urlsplit(page.url).hostname or host).lower()
                 reason = challenge_reason(page)
@@ -277,15 +343,11 @@ class Politeness:
                         wait = 2.0**attempt
                     if wait > self.max_retry_wait_s:
                         # Asked to stay away longer than a request can wait: give up now.
-                        return page
+                        return page, True
                     attempt += 1
                     self.sleep(wait)
                     continue
-                break
-        allowed = cacheable(page) if callable(cacheable) else cacheable
-        if page.status == 200 and (allowed is True or (allowed is None and kind != "search")):
-            self.cache_response(url, page, kind=kind, ttl_s=cache_ttl_s, **kwargs)
-        return page
+                return page, False
 
     def cache_response(
         self, url: str, page: Page, *, kind: str = "search", ttl_s: float | None = None, **kwargs

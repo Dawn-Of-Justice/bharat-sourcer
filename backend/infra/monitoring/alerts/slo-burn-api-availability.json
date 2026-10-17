@@ -1,0 +1,36 @@
+{
+  "displayName": "Bharat Sourcer: API availability SLO burn",
+  "documentation": {
+    "content": "The API availability SLO (99.5% over 28 days) error budget is burning fast: 14.4x over 1 h spends 2% of the budget in an hour; 6x over 6 h spends 5% in six hours.\n\nRunbook: [backend/infra/runbooks.md#slo-burn](https://github.com/Dawn-Of-Justice/bharat-sourcer/blob/main/backend/infra/runbooks.md#slo-burn)\n\nSpecs: backend/infra/monitoring/, guide: backend/infra/monitoring.md",
+    "mimeType": "text/markdown"
+  },
+  "combiner": "OR",
+  "conditions": [
+    {
+      "displayName": "API availability fast burn: > 14.4x over 1 h",
+      "conditionThreshold": {
+        "filter": "select_slo_burn_rate(\"projects/hackathon-510415/services/bharat-sourcer-api/serviceLevelObjectives/api-availability\", \"60m\")",
+        "comparison": "COMPARISON_GT",
+        "thresholdValue": 14.4,
+        "duration": "0s"
+      }
+    },
+    {
+      "displayName": "API availability slow burn: > 6x over 6 h",
+      "conditionThreshold": {
+        "filter": "select_slo_burn_rate(\"projects/hackathon-510415/services/bharat-sourcer-api/serviceLevelObjectives/api-availability\", \"360m\")",
+        "comparison": "COMPARISON_GT",
+        "thresholdValue": 6,
+        "duration": "0s"
+      }
+    }
+  ],
+  "alertStrategy": {
+    "autoClose": "1800s"
+  },
+  "severity": "ERROR",
+  "notificationChannels": [
+    "projects/hackathon-510415/notificationChannels/16148970600683421140"
+  ],
+  "enabled": true
+}

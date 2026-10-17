@@ -182,6 +182,7 @@ class GeminiBuyer:
                 response = post_with_retry(
                     client,
                     f"https://generativelanguage.googleapis.com/v1beta/models/{self.model}:generateContent",
+                    site=SITE,
                     headers={"x-goog-api-key": self.settings.gemini_api_key.get_secret_value()},
                     json=payload,
                 )

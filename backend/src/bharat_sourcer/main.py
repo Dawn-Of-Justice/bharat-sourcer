@@ -27,6 +27,14 @@ from bharat_sourcer.identity import Principal
 from bharat_sourcer.images import PartImageService
 from bharat_sourcer.jobs import JobError, JobService
 from bharat_sourcer.markets import MarketsService, add_markets_routes
+from bharat_sourcer.observability import (
+    TraceMiddleware,
+    configure_logging,
+    fields,
+    log_event,
+    scope_trace,
+    use_trace,
+)
 from bharat_sourcer.overview import OverviewService
 from bharat_sourcer.plans import cart_plans, set_import_references
 from bharat_sourcer.reconcile import GeminiReconciler
@@ -101,15 +109,11 @@ def create_app(
     assistant: Assistant | None = None,
     identity_verifier=None,
 ) -> FastAPI:
-    app_logger = logging.getLogger("bharat_sourcer")
-    app_logger.setLevel(os.getenv("BS_LOG_LEVEL", "INFO").upper())
-    if not app_logger.handlers and not logging.getLogger().handlers:
-        # Uvicorn configures its own loggers, not the root logger. Without a handler,
-        # Python's WARNING-only lastResort handler silently drops search diagnostics.
-        handler = logging.StreamHandler()
-        handler.setFormatter(logging.Formatter("%(levelname)s %(name)s %(message)s"))
-        app_logger.addHandler(handler)
     settings = settings or Settings()
+    # Uvicorn configures its own loggers, not the root logger. Without a handler, Python's
+    # WARNING-only lastResort handler silently drops search diagnostics. JSON lines for Cloud
+    # Logging on Cloud Run, plain text locally (observability.py).
+    configure_logging(settings.gcp_project, os.getenv("BS_LOG_LEVEL", "INFO"))
     live_extractor = None if settings.demo_mode else (extractor or GeminiExtractor(settings))
     retention = Retention(settings.guest_retention_days, settings.account_retention_days)
     if store is None:
@@ -285,9 +289,14 @@ def create_app(
     async def unexpected_error_handler(request: Request, exc: Exception):
         # Never echo exception text or tracebacks; the server log keeps the traceback.
         route = getattr(request.scope.get("route"), "path", "unmatched")
-        logging.getLogger(__name__).error(
-            "UNHANDLED_ERROR route=%s type=%s", route, type(exc).__name__
-        )
+        # Runs outside the trace middleware (Starlette's outermost error layer).
+        with use_trace(scope_trace(request.scope)):
+            logging.getLogger(__name__).error(
+                "UNHANDLED_ERROR route=%s type=%s",
+                route,
+                type(exc).__name__,
+                extra=fields(route=route, type=type(exc).__name__),
+            )
         return JSONResponse(
             status_code=500,
             content={"error": {"code": "INTERNAL_ERROR", "message": "Internal server error"}},
@@ -387,6 +396,10 @@ def create_app(
         for name, value in SECURITY_HEADERS.items():
             result.headers.setdefault(name, value)
         return result
+
+    # Outermost: every log line of a request (middleware, routes, background tasks) carries
+    # its X-Cloud-Trace-Context / traceparent trace. Adds no headers.
+    app.add_middleware(TraceMiddleware)
 
     @app.exception_handler(JobError)
     async def job_error_handler(request: Request, exc: JobError):
@@ -760,7 +773,11 @@ def create_app(
                     stats["stale"] += 1
                     age = int((now() - record.job.updated_at).total_seconds())
                     log.warning(
-                        "QUEUE_AGE_EXCEEDED job=%s kinds=%s age_s=%d", key, ",".join(kinds), age
+                        "QUEUE_AGE_EXCEEDED job=%s kinds=%s age_s=%d",
+                        key,
+                        ",".join(kinds),
+                        age,
+                        extra=fields(job_id=key, kinds=kinds, age_s=age),
                     )
                 for kind in kinds:
                     try:
@@ -773,30 +790,39 @@ def create_app(
                             key,
                             kind,
                             type(exc).__name__,
+                            extra=fields(job_id=key, kind=kind, type=type(exc).__name__),
                         )
             except (StorageError, GoogleAPICallError) as exc:
                 stats["failed"] += 1
-                log.error("SWEEP_READ_FAILED job=%s type=%s", key, type(exc).__name__)
+                log.error(
+                    "SWEEP_READ_FAILED job=%s type=%s",
+                    key,
+                    type(exc).__name__,
+                    extra=fields(job_id=key, type=type(exc).__name__),
+                )
         if stats["truncated"]:
-            log.warning("SWEEP_TRUNCATED limit=%d", settings.sweep_limit)
+            log.warning(
+                "SWEEP_TRUNCATED limit=%d",
+                settings.sweep_limit,
+                extra=fields(limit=settings.sweep_limit),
+            )
         return {"status": "ok"} | stats | {"retention": retention_pass()}
 
     def retention_pass():
         """Bounded retention batch (docs/contracts/retention-and-deletion.md); a failure
-        never fails the redispatch sweep."""
-        log = logging.getLogger(__name__)
+        never fails the redispatch sweep. Events: backend/infra/observability.md."""
         try:
             result = service.store.retention_pass(settings.retention_batch)
         except (StorageError, GoogleAPICallError) as exc:
-            log.error("RETENTION_PASS_FAILED type=%s", type(exc).__name__)
+            log_event("RETENTION_PASS_FAILED", logging.ERROR, type=type(exc).__name__)
             return {"failed": True}
-        if result.get("deleted") or result.get("backfilled"):
-            log.info(
-                "RETENTION_PASS deleted=%d backfilled=%d scanned=%d",
-                result["deleted"],
-                result["backfilled"],
-                result["scanned"],
-            )
+        log_event(
+            "RETENTION_PASS",
+            deleted=result["deleted"],
+            backfilled=result["backfilled"],
+            scanned=result["scanned"],
+            complete=result["complete"],
+        )
         return result
 
     return app

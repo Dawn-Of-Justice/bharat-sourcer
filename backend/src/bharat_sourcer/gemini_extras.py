@@ -412,6 +412,7 @@ class GeminiExtras:
                 response = post_with_retry(
                     client,
                     API + f"{model}:generateContent",
+                    site=site,
                     headers={"x-goog-api-key": self.settings.gemini_api_key.get_secret_value()},
                     json=payload,
                 )

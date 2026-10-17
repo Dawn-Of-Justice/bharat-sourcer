@@ -270,6 +270,7 @@ def nearby_markets(
             response = post_with_retry(
                 client,
                 API + f"{model}:generateContent",
+                site="markets",
                 headers={"x-goog-api-key": settings.gemini_api_key.get_secret_value()},
                 json=payload,
             )

@@ -12,6 +12,7 @@ import google.auth
 from google.auth.transport.requests import AuthorizedSession, Request
 from google.oauth2 import id_token
 
+from bharat_sourcer.observability import fields
 from bharat_sourcer.schemas import Model
 
 
@@ -66,9 +67,14 @@ class CloudDispatcher:
     def notify(self, job_id, kind):
         try:
             self.enqueue(job_id, kind)
-        except Exception:
+        except Exception as exc:
             # The persisted pending state will be redispatched by the scheduler.
-            logging.getLogger(__name__).error("TASK_ENQUEUE_FAILED job=%s kind=%s", job_id, kind)
+            logging.getLogger(__name__).error(
+                "TASK_ENQUEUE_FAILED job=%s kind=%s",
+                job_id,
+                kind,
+                extra=fields(job_id=str(job_id), kind=kind, type=type(exc).__name__),
+            )
 
     def authorize(self, authorization):
         # Without an audience the token check would accept any Google ID token audience.

@@ -81,8 +81,9 @@ The sweeper runs inside the API process, so Cloud Run needs CPU allocated outsid
 This is not a durable task queue: recovery needs a running API instance, and graceful
 shutdown can wait for an active recovery call. A queue/worker remains a later improvement.
 Snapshots are capped at 800 KB and BOMs at 100 lines. Retention is described under
-[Project retention](#project-retention). Keep development usage small. Shared project/database/collection settings
-are required across workers; use separate collections for dev and production.
+[Project retention](#project-retention). Keep development usage small. Shared
+project/database/collection settings are required across workers; use separate
+collections for dev and production.
 
 ## Local emulator test
 
@@ -106,6 +107,12 @@ and is not evidence that cloud authentication or permissions work.
 References: [database creation](https://cloud.google.com/firestore/docs/manage-databases),
 [server authentication](https://firebase.google.com/docs/firestore/quickstart-server),
 [emulator configuration](https://cloud.google.com/firestore/native/docs/emulator).
+
+## Backups and restore
+
+Point-in-time recovery (7 days) and a weekly export to Cloud Storage (kept 30 days) are set up
+by `scripts/setup_backups.py`. Restore commands, RPO/RTO, the quarterly restore drill and the
+cost estimate are in [Firestore backups](backups.md).
 
 ## Firestore TTL policies
 
@@ -175,7 +182,8 @@ That account (`bharat-sourcer-api@hackathon-510415.iam.gserviceaccount.com`) nee
 the permission:
 - The data is still deleted.
 - The response reports `auth_user_deleted: false`.
-- The log shows `AUTH_USER_DELETE_FAILED type=HTTPError`.
+- An `AUTH_USER_DELETE_FAILED` event is logged with `type: "HTTPError"` (see
+  [observability.md](observability.md)).
 
 Check the grant before announcing the feature. This release does not change IAM.
 
@@ -259,3 +267,30 @@ $1/month above the free 0.5 GB. The VPC and subnet have no charge without NAT. `
 **Disable.** `gcloud run services update bharat-sourcer-integration --region asia-south1
 --update-env-vars BS_COMPILE_BACKEND=none` (the route then answers 503). Jobs cost nothing
 while idle.
+
+## Monitoring and alerting
+
+Uptime checks, log-based metrics, SLOs, alert policies, the production dashboard and the
+monthly billing budget are kept as code in `monitoring/` and applied with
+`python scripts/setup_monitoring.py` (plan only by default; `--apply` changes things). What
+each metric, SLO and alert means, how to read the dashboard and the known limits are in
+[monitoring.md](monitoring.md).
+
+## Operations
+
+| Document | Use it for |
+| --- | --- |
+| [Alert runbooks](runbooks.md) | What to do for each alert: queries, causes, rollback, pausing dispatch, raising limits |
+| [Incident response](incident-response.md) | Severity, roles, steps, status posts, postmortem template, data incidents |
+| [SLOs](slos.md) | Targets, error-budget policy, measuring p50/p95/p99, review cadence |
+| [Data inventory](data-inventory.md) | Every data store: contents, personal data, retention, deletion, access |
+| [Release checklist](release-checklist.md) | Before and after a merge to `main`, smoke test, rollback |
+| [Monitoring](monitoring.md) | Uptime checks, log-based metrics, SLOs, alert policies, dashboard and budget kept as code in `monitoring/` |
+| [Observability](observability.md) | Structured log format and app events the metrics are built on |
+| [Cost guardrails](cost-guardrails.md) | Budget, Gemini spend alert, scaling, quotas, cutting cost fast |
+| [GitHub deployments](github-actions.md) | How merges to `main` deploy |
+| [Cloud Run deployment](cloud-run.md) | Service configuration and deploy history |
+
+Retention and account deletion: [Project retention](#project-retention),
+[Delete my data](#delete-my-data) and the API contract in
+[docs/contracts/retention-and-deletion.md](../../docs/contracts/retention-and-deletion.md).
