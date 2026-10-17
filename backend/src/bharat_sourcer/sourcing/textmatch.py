@@ -97,12 +97,34 @@ def _tokens(text: str) -> set[str]:
 
 def is_accessory_for(title: str, part: str) -> bool:
     offered, wanted = _tokens(title), _tokens(part)
-    return bool((offered & ACCESSORIES) - wanted) and bool(re.search(r"(?i)\bfor\b", title))
+    if (offered & ACCESSORIES) - wanted:
+        return True
+    # A board named as the target of a cable/shield is not the purchased board.
+    return bool((offered & {"cable", "shield"}) - wanted) and bool(
+        re.search(r"(?i)\b(?:for|compatible with)\b", title)
+    )
+
+
+def identity_conflict(part: str, title: str) -> bool:
+    """High-confidence wrong-product cases, including when the AI judge is available."""
+    if is_accessory_for(title, part):
+        return True
+    if re.search(r"(?i)\barduino\s+uno\b", part):
+        # Unqualified Uno in legacy build guides refers to the AVR Uno, not R4/Q.
+        wanted = re.search(r"(?i)\b(?:r[34]|rev\s*[34]|q)\b", part)
+        actual = re.search(r"(?i)\b(?:r[34]|rev\s*[34]|q)\b", title)
+
+        def normalize(m):
+            return re.sub(r"rev\s*", "r", m.group().lower()) if m else "r3"
+
+        if normalize(wanted) != normalize(actual):
+            return True
+    return False
 
 
 def relevance(part_terms: str | list[str], title: str) -> float:
     part = part_terms if isinstance(part_terms, str) else " ".join(part_terms)
-    if not title or is_accessory_for(title, part):
+    if not title or identity_conflict(part, title):
         return 0.0
     # An unspecified DIP package may be plastic DIP; pin count and MPN must match.
     if re.search(r"(?i)\bdip[- ]?\d+\b", part):

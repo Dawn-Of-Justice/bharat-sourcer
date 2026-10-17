@@ -20,6 +20,7 @@ from bharat_sourcer.schemas import (
     BuyableSpec,
     BuyerDecision,
     ErrorDetail,
+    OfferMatch,
     PartResearch,
     ProjectContext,
     ReportLine,
@@ -61,9 +62,15 @@ from bharat_sourcer.sourcing.seller_search import (
     normalise,
     query_variants,
 )
-from bharat_sourcer.sourcing.sellers import canonical_url, host_of, identify, registrable_domain
+from bharat_sourcer.sourcing.sellers import (
+    canonical_url,
+    host_of,
+    identify,
+    listing_key,
+    registrable_domain,
+)
 from bharat_sourcer.sourcing.spec_writer import needs_spec
-from bharat_sourcer.sourcing.textmatch import title_gate
+from bharat_sourcer.sourcing.textmatch import identity_conflict, is_accessory_for, title_gate
 from bharat_sourcer.sourcing.trust import TrustChecker
 from bharat_sourcer.usage import record_usage
 
@@ -348,6 +355,28 @@ class SourcingService:
             judged = found
         new = []
         for offer in judged:
+            if is_accessory_for(offer.title, resolution.query):
+                state.rejected += 1
+                state.reasons["identity_conflict"] += 1
+                continue
+            if identity_conflict(resolution.query, offer.title):
+                # Keep a different board generation as an adaptation candidate, never
+                # silently promote it to an exact/drop-in purchase.
+                note = (
+                    "Different board generation: review MCU, voltage, pinout and library "
+                    "compatibility; code or wiring adaptation may be required."
+                )
+                match = offer.match or OfferMatch(
+                    status="partial", score=0.5, method="deterministic_shortcut"
+                )
+                offer.match = match.model_copy(
+                    update={
+                        "status": "partial",
+                        "score": min(match.score, 0.5),
+                        "conflicts": ["board_generation", *match.conflicts][:12],
+                        "reasons": [note, *match.reasons][:6],
+                    }
+                )
             if str(offer.url) in state.seen:
                 continue
             identity = identify(str(offer.url))
@@ -958,13 +987,13 @@ class SourcingService:
                 state.blocked += 1
                 state.reasons["fetch_error"] += 1
                 continue
-            key = canonical_url(url)
+            key = listing_key(url)
             if key in attempted:
                 continue
             attempted.add(key)
             try:
                 page = fetcher.get(url)
-                final_key = canonical_url(page.url)
+                final_key = listing_key(page.url)
                 if final_key != key and final_key in attempted:
                     continue
                 attempted.add(final_key)

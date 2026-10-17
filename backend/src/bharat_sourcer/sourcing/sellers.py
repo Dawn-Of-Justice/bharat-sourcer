@@ -102,7 +102,8 @@ def canonical_url(url: str) -> str:
     query = [
         (k, v)
         for k, v in parse_qsl(parts.query, keep_blank_values=True)
-        if k.lower() not in TRACKING and not k.lower().startswith(("utm_", "pf_rd_", "pd_rd_"))
+        if k.lower() not in TRACKING | {"_gsid"}
+        and not k.lower().startswith(("utm_", "pf_rd_", "pd_rd_"))
     ]
     # Preserve the fetch authority, credentials and port; SafeFetcher validates them.
     netloc = parts.netloc
