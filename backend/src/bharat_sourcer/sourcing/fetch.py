@@ -107,16 +107,21 @@ class PatternRule:
     """A robots.txt rule with RFC 9309 `*` wildcards and `$` end anchors."""
 
     def __init__(self, rule: RuleLine):
-        # RuleLine stores the percent-quoted path, so `*` and `$` arrive as %2A and %24.
-        self.path = rule.path
+        # Older RuleLine stores the percent-quoted path, so `*` and `$` arrive as %2A and %24.
+        # Newer stdlib releases keep `*` and move a trailing `$` into `rule.fullmatch`.
+        path = rule.path.replace("%2A", "*")
+        anchored = bool(getattr(rule, "fullmatch", False))
+        if path.endswith("%24"):
+            path, anchored = path[: -len("%24")], True
+        self.path = path + ("$" if anchored else "")
         self.allowance = rule.allowance
-        pattern = re.escape(rule.path).replace("%2A", ".*")
-        if pattern.endswith("%24"):
-            pattern = pattern[: -len("%24")] + r"\Z"
-        self.pattern = re.compile(pattern)
+        pattern = re.escape(path).replace(r"\*", ".*")
+        self.pattern = re.compile(pattern + (r"\Z" if anchored else ""), re.DOTALL)
 
-    def applies_to(self, filename: str) -> bool:
-        return self.pattern.match(filename) is not None
+    def applies_to(self, filename: str) -> int:
+        # Rule length plus one when it matches, 0 otherwise: older Entry.allowance takes the
+        # first truthy rule (rules are sorted longest first), newer ones the largest value.
+        return len(self.path) + 1 if self.pattern.match(filename) else 0
 
 
 def robots_parser(text: str) -> RobotFileParser:
