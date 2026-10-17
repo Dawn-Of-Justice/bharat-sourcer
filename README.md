@@ -153,6 +153,10 @@ Please report vulnerabilities privately as described in [`SECURITY.md`](SECURITY
 public issues. Operations docs (runbooks, incident response, SLOs, data inventory, release
 checklist, cost guardrails): [`backend/infra/README.md#operations`](backend/infra/README.md#operations).
 
+## License
+
+[MIT](LICENSE)
+
 ## Additional reading
 
 - Backend setup and operational detail: [`backend/README.md`](backend/README.md)
