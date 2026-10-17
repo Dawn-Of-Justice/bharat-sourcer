@@ -97,8 +97,13 @@ def _tokens(text: str) -> set[str]:
 
 def is_accessory_for(title: str, part: str) -> bool:
     offered, wanted = _tokens(title), _tokens(part)
-    if (offered & ACCESSORIES) - wanted:
+    accessory_words = (offered & ACCESSORIES) - wanted
+    # "Surface mount" and an IC's "case" describe the component itself.
+    if accessory_words - {"mount", "case"}:
         return True
+    if accessory_words and re.search(r"(?i)\bfor\b", title):
+        if not re.search(r"(?i)\bsurface[- ]mount\b", title):
+            return True
     # A board named as the target of a cable/shield is not the purchased board.
     return bool((offered & {"cable", "shield"}) - wanted) and bool(
         re.search(r"(?i)\b(?:for|compatible with)\b", title)

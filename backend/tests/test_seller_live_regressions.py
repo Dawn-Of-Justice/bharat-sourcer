@@ -22,6 +22,7 @@ from bharat_sourcer.sourcing.textmatch import title_gate
         ("Arduino Uno", "Original Arduino Uno Rev3 with Cable", True),
         ("HC-SR04 ultrasonic sensor", "HC-SR04 Ultrasonic Sensor Acrylic Holder", False),
         ("HC-SR04 holder", "HC-SR04 Ultrasonic Sensor Acrylic Holder", True),
+        ("NE555 timer", "NE555 Timer Surface Mount SOIC-8", True),
         ("ESP32 DOIT DevKit V1", "ESP32 Development Board DOIT DevKit V1", True),
         ("ESP32 DOIT DevKit V1", "ESP32 DEVKIT V1 WiFi Bluetooth Board", False),
     ],
