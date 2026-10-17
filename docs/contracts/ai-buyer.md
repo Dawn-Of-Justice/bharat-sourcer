@@ -16,10 +16,20 @@ change the value through the spec (`POST …/specs`) and refresh.
 
 ## Choosing what to buy
 
-When the spec judge accepted no listing (or only bulk packs far beyond the need, v0.30.3), the buyer sees every fetched listing (including
-rejected ones) and either picks one or asks for new store searches worded the way Indian
-shops list the part (SWG gauges, "tinned", "single strand", "kit"). At most
-`BS_BUYER_SEARCH_ROUNDS` extra searches; new listings go through the judge first.
+During normal sourcing the buyer reviews candidates even when the spec judge accepted
+an exact listing. It evaluates the component's function against the project description,
+interfaces, power, other parts, requirements and source evidence. The named model is a
+starting point; explicit must-use constraints remain binding. Firmware, library, pinout
+and wiring changes can justify a substitute when supported by listing evidence.
+
+The buyer sees up to 16 fetched candidates, including rejected ones, and either picks
+one or requests functional alternative searches. At most `BS_BUYER_SEARCH_ROUNDS`
+extra rounds run, each with up to three seller queries and one query to enabled external
+providers. New listings pass through the judge and then return to the buyer even if the
+judge accepts them. Newly fetched alternatives take priority when the candidate cap is
+exceeded. Known-URL refresh and follow-up grounded attempts skip this additional review.
+The original buying specification is retained. Provider failures preserve existing
+offers; an unsupported buyer pick cannot downgrade an accepted offer for the same URL.
 
 A pick sets the offer's `match.method` to `llm_buyer`, with:
 

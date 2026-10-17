@@ -224,7 +224,15 @@ A generic suggested line ("Rechargeable battery") beside the only other line in 
 single-part role (battery, board) is folded into it. See
 [multi-source intake](../docs/contracts/multi-source-intake.md).
 
-v0.30.0 adds the AI buyer (`sourcing/buyer.py`): a part whose value the source does not
+The AI buyer now reviews normal sourcing even when an exact offer exists. It uses the
+project description, interfaces, BOM requirements and evidence to assess functional
+substitutes and concrete firmware/wiring changes. It can request up to two additional
+search rounds through seller search and the enabled external providers (one provider
+query per round). Original specifications remain intact; substitute decisions retain
+listing quotes and grade B change requirements. This adds model calls to successful
+exact-match searches, within the existing paid budget and round limits.
+
+v0.30.0 added the AI buyer (`sourcing/buyer.py`): a part whose value the source does not
 state gets a value worked out from the whole project (power, other parts, the part's role)
 before searching, and a line with no accepted listing is decided from every fetched listing
 (exact, kit, or a grade B substitute with the changes to make), with up to two extra store

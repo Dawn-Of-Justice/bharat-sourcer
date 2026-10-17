@@ -5,7 +5,7 @@ and this part's role), never from keyword rules:
 
 1. `decide_value`: a part whose value the source does not state (an unmarked resistor) gets
    a value worked out from the circuit, with the reasoning, plus store searches for it.
-2. `choose`: when no listing was accepted, look at every fetched listing (including ones
+2. `choose`: during normal sourcing, look at every fetched listing (including ones
    the spec judge rejected) and pick the one to buy: the exact part, a workable substitute
    (with the changes the maker must make) or a kit that contains it. When none fits, return
    new store searches worded the way Indian shops list the part.
@@ -96,8 +96,16 @@ resistor 1/4 watt", "10k resistor"). Return JSON."""
 CHOICE_PROMPT = (
     ROLE
     + """
-No listing was accepted for this part yet (or only bulk packs far beyond the need). You
-get every listing that was fetched, including ones a strict spec check rejected. Decide
+Evaluate this part by its FUNCTION in the whole project, even if an exact listing exists.
+The named model is a starting point, not automatically a mandatory identity constraint.
+Respect explicit must-use requirements and electrical, mechanical and interface limits.
+Consider other boards and parts that achieve the same project goal, including changes
+to firmware, libraries, pin assignments or wiring. Explain the concrete changes and
+their dependencies on other parts. Do not assume that every similar part is compatible.
+Missing seller title words are not a mismatch: use the full listing evidence. Missing
+critical specifications cannot be treated as confirmed. Do not ask the user to perform
+the compatibility assessment. If the evidence is insufficient, search for better evidence.
+You get fetched listings, including ones a strict spec check rejected. Decide
 what to buy for the quantity the build needs (qty): a single item or small pack beats a
 bulk pack of hundreds unless nothing smaller fits. A strict check can be over-literal
 (e.g. "Lens Color: White" on a clear-lens white LED); judge as a maker would.
@@ -112,7 +120,12 @@ listing that would be unsafe or that the build cannot use. Use only candidate_id
 from the list; never invent listings, prices or stock. For the key facts behind your
 choice (what the part is, its value, size or gauge, pack size) copy short quotes verbatim
 from that listing.
-If no listing will do, leave pick empty and give up to 3 NEW store searches (not in
+If a functionally suitable alternative deserves investigation, even when an exact part
+is available, leave pick empty and search for it before deciding. Search by the role,
+required interfaces and constraints, or specific alternative models with a clear rationale.
+Avoid repeatedly searching cosmetic aliases of the original model. Do not broaden an
+explicit must-use model requirement. If no listing will do, also search. Give up to 3 NEW
+store searches (not in
 tried_queries), worded the way Indian shops list the part: SWG gauges for wire, "tinned",
 "single strand", "solid core", "assortment", "kit", plain values like "22 swg".
 Return JSON."""
@@ -126,6 +139,8 @@ def project_brief(project: ProjectContext | None, items: list[BomItem], line: Bo
         brief = {
             "title": project.title,
             "summary": (project.summary or "")[:800],
+            "description": (project.description or "")[:1200],
+            "interfaces": project.interfaces,
             "power": project.power,
             "controller": project.controller,
             "assumptions": [a[:200] for a in project.assumptions[:8]],
@@ -134,6 +149,8 @@ def project_brief(project: ProjectContext | None, items: list[BomItem], line: Bo
         {
             "name": item.raw_name,
             "qty": item.qty,
+            "requirements": [r.model_dump(mode="json") for r in item.requirements[:4]],
+            "evidence": [(e.quote or e.observation or "")[:200] for e in item.evidence[:2]],
             "values": [
                 f"{p.name}: {p.value}{'-' + p.value_max if p.value_max else ''}"
                 for p in (item.buyable_spec.params if item.buyable_spec else [])

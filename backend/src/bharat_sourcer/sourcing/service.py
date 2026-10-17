@@ -747,13 +747,7 @@ class SourcingService:
                 )
                 self._review(spec, project, resolution, new, state, stages)
         buyer_note = None
-        if (
-            self.buyer
-            and self.judge
-            and not free_discovery
-            and not query_prefix
-            and not useful_accepted(item.qty or 1, state.offers)
-        ):
+        if self.buyer and self.judge and not free_discovery and not query_prefix:
             buyer_note, calls = self._buy(
                 item,
                 project_items,
@@ -898,7 +892,7 @@ class SourcingService:
         """Let the AI buyer pick from every fetched listing, or search again in its words.
 
         At most `buyer_rounds` extra store searches; each round's new listings go through
-        the spec judge first, and the buyer only decides when the judge accepted nothing.
+        the spec judge first. Functional review also runs when an exact offer exists.
         """
         tried = [str(q) for q in (search.queries if search else [])]
         searched: list[str] = []
@@ -916,6 +910,11 @@ class SourcingService:
             pick = draft.pick
             if pick is not None and pick.candidate_id < min(len(state.candidates), MAX_CANDIDATES):
                 chosen = picked_offer(state.candidates[pick.candidate_id], pick, self.buyer.model)
+                if chosen is not None and not accepted_offer(chosen[0]) and any(
+                    str(o.url) == str(chosen[0].url) and accepted_offer(o) for o in state.offers
+                ):
+                    # An unsupported buyer claim must not downgrade existing evidence.
+                    chosen = None
                 if chosen is not None:
                     offer = chosen[0]
                     identity = identify(str(offer.url))
@@ -942,22 +941,60 @@ class SourcingService:
             queries = [
                 q.strip() for q in draft.search if q.strip() and q.strip().casefold() not in known
             ]
-            if not queries or round_index == self.buyer_rounds or self.seller_search is None:
+            if (
+                not queries
+                or round_index == self.buyer_rounds
+                or not (self.seller_search or self.providers)
+            ):
                 break
             stages.append("buyer_search")
             searched += queries[:3]
             try:
-                more = self.seller_search.search(
-                    queries[:3], self.seller_limit, self.seller_fetch_budget
+                more = (
+                    self.seller_search.search(
+                        queries[:3], self.seller_limit, self.seller_fetch_budget
+                    )
+                    if self.seller_search
+                    else SearchResult([], [], [])
                 )
             except Exception:
                 logging.getLogger(__name__).warning("BUYER_SEARCH_FAILED", exc_info=True)
-                break
+                more = SearchResult([], [], [])
             new = self._verify_urls(
                 [c.url for c in more.candidates], resolution, fetcher, attempted, state
             )
-            if self._review(spec, project, resolution, new, state, stages):
-                break
+            self._review(spec, project, resolution, new, state, stages)
+            if self.providers:
+                stages.append("provider_search")
+                # One bounded provider query per round; never send project narrative.
+                try:
+                    external = self.providers.search(queries[0], self.seller_fetch_budget)
+                except Exception as exc:
+                    logging.getLogger(__name__).warning(
+                        "BUYER_PROVIDER_FAILED type=%s", type(exc).__name__
+                    )
+                    continue
+                more.candidates.extend(external.candidates)
+                more.diagnostics.extend(external.diagnostics)
+                provider_new = self._verify_urls(
+                    [c.url for c in external.candidates],
+                    resolution,
+                    ProviderFetcher(external.pages, fetcher),
+                    attempted,
+                    state,
+                )
+                self._review(spec, project, resolution, provider_new, state, stages)
+                new.extend(provider_new)
+            if search is not None:
+                search.queries.extend(queries[:3])
+                search.candidates.extend(more.candidates)
+                search.diagnostics.extend(more.diagnostics)
+            # Newly discovered alternatives must remain visible within the model's cap.
+            new_urls = {c.url for c in new}
+            if len(state.candidates) > MAX_CANDIDATES:
+                state.candidates = [c for c in state.candidates if c.url in new_urls] + [
+                    c for c in state.candidates if c.url not in new_urls
+                ]
         return (
             decision_note(None, None, None, searched, self.buyer.model) if searched else None
         ), calls

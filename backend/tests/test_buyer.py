@@ -253,8 +253,8 @@ def test_an_invented_candidate_id_or_no_decision_changes_nothing():
     assert line.sourcing_status == "no_verified_offers" and line.buyer is None
 
 
-def test_buyer_is_not_asked_when_the_judge_accepted_an_offer():
-    buyer = Buyer(choices=[ChoiceDraft(search=["should not run"])])
+def test_buyer_reviews_even_when_the_judge_accepted_an_offer():
+    buyer = Buyer()
     service = SourcingService(
         Discovery(),
         Fetcher(),
@@ -263,7 +263,113 @@ def test_buyer_is_not_asked_when_the_judge_accepted_an_offer():
         buyer=buyer,
     )
     line = service.source_for_project(wire_line(), [wire_line()], project=PROJECT)
-    assert line.offers and buyer.shown == [] and "buyer" not in line.stages
+    assert line.offers and buyer.shown and "buyer" in line.stages
+
+
+def test_functional_search_uses_providers_despite_an_accepted_original():
+    from bharat_sourcer.sourcing.providers import ProviderResult
+
+    class Providers:
+        def __init__(self):
+            self.queries = []
+
+        def search(self, query, budget):
+            self.queries.append(query)
+            return ProviderResult(
+                candidates=[
+                    SearchCandidate(
+                        url=ENAMELLED.url, seller="seller-a.example", title="", query=query
+                    )
+                ]
+            )
+
+    providers = Providers()
+    buyer = Buyer(
+        choices=[
+            ChoiceDraft(search=["22 swg solid copper conductor"]),
+            ChoiceDraft(
+                pick=PickDraft(
+                    candidate_id=1,
+                    fit="substitute",
+                    reason="Copper rail with stripped joints.",
+                    changes=["Remove enamel at every solder joint."],
+                    claims=[{"claim": "Copper conductor", "quote": "Solid copper conductor"}],
+                )
+            ),
+        ]
+    )
+    service = SourcingService(
+        Discovery(),
+        Fetcher(),
+        judge=AcceptExact(),
+        seller_search=Sellers([TINNED.url]),
+        buyer=buyer,
+        providers=providers,
+    )
+    line = service.source_for_project(wire_line(), [wire_line()], project=PROJECT)
+    assert providers.queries == ["22 swg solid copper conductor"]
+    assert len(buyer.shown) == 2  # Accepted new listings still get contextual review.
+    assert line.buyer.fit == "substitute"
+    chosen = next(o for o in line.offers if str(o.url) == ENAMELLED.url)
+    assert chosen.match.method == "llm_buyer"
+    assert chosen.compatibility.grade == "B"
+    assert any(str(o.url) == TINNED.url for o in line.offers)
+
+
+def test_functional_context_includes_interfaces_and_description():
+    project = PROJECT.model_copy(
+        update={
+            "description": "Firmware can be ported; retain the sensor bus.",
+            "interfaces": ["I2C"],
+        }
+    )
+    brief = project_brief(project, [wire_line()], wire_line())
+    assert brief["interfaces"] == ["I2C"]
+    assert brief["description"] == project.description
+
+
+def test_unsupported_buyer_pick_preserves_accepted_offer():
+    buyer = Buyer(
+        choices=[
+            ChoiceDraft(
+                pick=PickDraft(
+                    candidate_id=0,
+                    fit="substitute",
+                    reason="Unsupported model assertion.",
+                    claims=[{"claim": "invented", "quote": "not present on the page"}],
+                )
+            )
+        ]
+    )
+    service = SourcingService(
+        Discovery(),
+        Fetcher(),
+        judge=AcceptExact(),
+        seller_search=Sellers([TINNED.url]),
+        buyer=buyer,
+    )
+    line = service.source_for_project(wire_line(), [wire_line()], project=PROJECT)
+    assert line.offers[0].match.status == "exact"
+    assert line.offers[0].match.method == "deterministic_shortcut"
+
+
+def test_failed_alternative_provider_keeps_original_offer():
+    class Providers:
+        def search(self, query, budget):
+            raise RuntimeError("synthetic provider failure")
+
+    buyer = Buyer(choices=[ChoiceDraft(search=["alternative copper rail"])])
+    service = SourcingService(
+        Discovery(),
+        Fetcher(),
+        judge=AcceptExact(),
+        seller_search=Sellers([TINNED.url]),
+        buyer=buyer,
+        providers=Providers(),
+    )
+    line = service.source_for_project(wire_line(), [wire_line()], project=PROJECT)
+    assert any(str(o.url) == TINNED.url for o in line.offers)
+    assert line.buyer.searched == ["alternative copper rail"]
 
 
 RESISTOR = BuyableSpec(
