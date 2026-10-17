@@ -140,7 +140,7 @@ def test_redirect_rechecks_robots_before_fetching_destination():
 
 
 def test_robot_disallow_and_long_delay_are_respected():
-    for policy in [b"User-agent: *\nDisallow: /", b"User-agent: *\nCrawl-delay: 10"]:
+    for policy in [b"User-agent: *\nDisallow: /", b"User-agent: *\nCrawl-delay: 60"]:
         fetcher = SafeFetcher()
         with patch.object(
             fetcher,

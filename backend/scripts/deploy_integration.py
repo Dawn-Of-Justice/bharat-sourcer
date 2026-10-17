@@ -143,7 +143,11 @@ def main():
         kept = [
             e
             for e in current_env
-            if "value" in e and (e["name"] in auth_keys or e["name"].startswith("BS_COMPILE_"))
+            if "value" in e
+            and (
+                e["name"] in auth_keys
+                or e["name"].startswith(("BS_COMPILE_", "BS_SHOPIFY_", "BS_SELLER_"))
+            )
         ]
         env.update({e["name"]: e["value"] for e in kept})
     elif "NOT_FOUND" not in current.stderr:

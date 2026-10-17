@@ -5,6 +5,7 @@ import ipaddress
 import re
 import socket
 import ssl
+import threading
 import time
 from dataclasses import dataclass
 from urllib.parse import urljoin, urlsplit
@@ -12,11 +13,9 @@ from urllib.parse import urljoin, urlsplit
 # RuleLine and RobotFileParser.entries are undocumented stdlib internals missing from typeshed.
 from urllib.robotparser import RobotFileParser, RuleLine  # type: ignore[attr-defined]
 
+from bharat_sourcer.sourcing.coordination import FetchError, HostDeferred
+
 USER_AGENT = "BharatSourcer/0.4 (+product-data-verification)"
-
-
-class FetchError(Exception):
-    pass
 
 
 # Sellers whose pages answer bot challenges while robots.txt allows a product API. Their pages
@@ -168,7 +167,10 @@ class Page:
 
 
 class SafeFetcher:
-    def __init__(self):
+    def __init__(self, coordinator=None):
+        self.coordinator = coordinator
+        self._pacing_lock = threading.Lock()
+        self._intervals: dict[str, float] = {}
         self._robots: dict[str, RobotFileParser | None] = {}
         self._robots_expiry: dict[str, float] = {}
         self._last_request: dict[str, float] = {}
@@ -176,10 +178,28 @@ class SafeFetcher:
     def _request(self, url: str, max_bytes: int) -> Page:
         host, path = validate_url(url)
         addresses = public_addresses(host)
-        delay = 1.0 - (time.monotonic() - self._last_request.get(host, 0))
+        interval = self._intervals.get(host, 1.0)
+        if self.coordinator is not None:
+            try:
+                delay = self.coordinator.acquire(host, interval)
+            except HostDeferred:
+                raise
+            except Exception as exc:
+                raise HostDeferred("coordination_unavailable", 30) from exc
+        else:
+            with self._pacing_lock:
+                now = time.monotonic()
+                start = max(now, self._last_request.get(host, 0) + interval)
+                delay = start - now
+                if delay > 10:
+                    raise HostDeferred("host_queue_full", delay)
+                self._last_request[host] = start
         if delay > 0:
             time.sleep(delay)
-        self._last_request[host] = time.monotonic()
+        if self.coordinator is not None:
+            reason = self.coordinator.reason(host)
+            if reason:
+                raise HostDeferred(reason, 0)
         connection = PinnedHTTPSConnection(host, addresses[0], timeout=8)
         try:
             connection.request(
@@ -221,6 +241,22 @@ class SafeFetcher:
             self._robots.pop(origin, None)
         if origin not in self._robots:
             response = self.get(origin + "/robots.txt", robots=False, max_bytes=128_000)
+            from bharat_sourcer.sourcing.politeness import (
+                BlockedError,
+                challenge_reason,
+                retry_after_seconds,
+            )
+
+            challenge = challenge_reason(response)
+            if challenge:
+                if self.coordinator is not None:
+                    self.coordinator.defer(host, 1800, challenge)
+                raise BlockedError(host, challenge)
+            if response.status in {429, 503}:
+                seconds = retry_after_seconds(response.headers.get("retry-after")) or 60
+                if self.coordinator is not None:
+                    self.coordinator.defer(host, seconds, "rate_limited")
+                raise HostDeferred("robots_temporarily_unavailable", seconds)
             if response.status == 404:
                 parser = robots_parser("")
             elif response.status == 200:
@@ -228,17 +264,17 @@ class SafeFetcher:
             else:
                 parser = None
             self._robots[origin] = parser
-            self._robots_expiry[origin] = time.monotonic() + 600 if parser is None else float("inf")
+            self._robots_expiry[origin] = time.monotonic() + (600 if parser is None else 3600)
         parser = self._robots[origin]
         if parser is None or not parser.can_fetch(USER_AGENT, url):
             return False
         delay = parser.crawl_delay(USER_AGENT) or parser.crawl_delay("*") or 1
         rate = parser.request_rate(USER_AGENT) or parser.request_rate("*")
-        if rate and rate.seconds / rate.requests > 1:
-            return False
-        # Skip long-delay sites rather than holding workers open.
-        # typeshed declares crawl_delay as str | None; CPython returns an int.
-        return float(delay) <= 1
+        interval = max(1.0, float(delay), rate.seconds / rate.requests if rate else 1.0)
+        self._intervals[host] = interval
+        if interval > 10:
+            raise HostDeferred("crawl_delay_exceeds_worker_budget", interval)
+        return True
 
     def get(self, url: str, *, robots: bool = True, max_bytes: int = 2_000_000) -> Page:
         for _ in range(6):

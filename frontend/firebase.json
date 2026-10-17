@@ -3,7 +3,9 @@
     {
       "site": "bharatsourcer",
       "public": "hosting",
-      "ignore": ["**/.*"],
+      "ignore": [
+        "**/.*"
+      ],
       "rewrites": [
         {
           "source": "**",
@@ -12,12 +14,29 @@
             "region": "asia-south1"
           }
         }
+      ],
+      "headers": [
+        {
+          "source": "/ucp-agent-profile.json",
+          "headers": [
+            {
+              "key": "Cache-Control",
+              "value": "public, max-age=3600, stale-while-revalidate=7200"
+            },
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        }
       ]
     },
     {
       "site": "bharatsource",
       "public": "hosting",
-      "ignore": ["**/.*"],
+      "ignore": [
+        "**/.*"
+      ],
       "redirects": [
         {
           "source": "/:path*",

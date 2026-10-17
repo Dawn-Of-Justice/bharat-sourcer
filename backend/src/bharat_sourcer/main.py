@@ -131,11 +131,17 @@ def create_app(
         store.retention = retention
     # Cross-job cache for paid sourcing results, beside the job store (cost-controls.md).
     shared_cache = build_cache(settings, store)
-    searcher = seller_search.from_settings(settings, cache=shared_cache)
+    from bharat_sourcer.sourcing.coordination import for_store
+    from bharat_sourcer.sourcing.providers import ProviderSearch
+
+    coordinator = for_store(store)
+    searcher = seller_search.from_settings(settings, cache=shared_cache, coordinator=coordinator)
     polite = (
         searcher.politeness
         if searcher
-        else Politeness(page_ttl_s=settings.seller_page_cache_s, cache=shared_cache)
+        else Politeness(
+            page_ttl_s=settings.seller_page_cache_s, cache=shared_cache, coordinator=coordinator
+        )
     )
     service = JobService(
         live_extractor,
@@ -154,6 +160,14 @@ def create_app(
                 if settings.seller_trust_enabled
                 else None,
                 seller_search=searcher,
+                providers=ProviderSearch(settings, coordinator)
+                if (
+                    settings.shopify_catalog_enabled
+                    or settings.brave_search_api_key
+                    or settings.mouser_search_api_key
+                )
+                else None,
+                compare_more=settings.seller_compare_more,
                 fetcher=polite.wrap(None),
                 seller_fetch_budget=settings.seller_search_fetch_budget,
                 seller_limit=settings.seller_search_per_seller,

@@ -1002,6 +1002,7 @@ export interface ReportLine {
   buyable_spec?: BuyableSpec | null
   stages?: (
     | 'seller_search'
+    | 'provider_search'
     | 'judge'
     | 'grounded'
     | 'known_urls'

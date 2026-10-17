@@ -24,7 +24,9 @@ from html.parser import HTMLParser
 from pathlib import Path
 from urllib.parse import quote, quote_plus, urljoin, urlsplit
 
+from bharat_sourcer.observability import log_event
 from bharat_sourcer.sourcing import robu
+from bharat_sourcer.sourcing.coordination import HostDeferred
 from bharat_sourcer.sourcing.fetch import FetchError, Page, SafeFetcher
 from bharat_sourcer.sourcing.politeness import (
     BLOCKED,
@@ -84,7 +86,20 @@ class SearchResult:
         blocked = self.blocked()
         checked = [d for d in self.diagnostics if d.status in {"ok", "no_results"}]
         failed = [
-            d for d in self.diagnostics if d.status in {"error", "timeout", "timeout_partial"}
+            d
+            for d in self.diagnostics
+            if d.status
+            in {
+                "error",
+                "timeout",
+                "timeout_partial",
+                "parse_error",
+                "http_error",
+                "deferred",
+                "rate_limited",
+                "credentials",
+                "access_denied",
+            }
         ]
         text = (
             f"Seller search checked {len(checked)} "
@@ -384,7 +399,7 @@ class SellerSearch:
         queries_per_seller: int = 4,
     ):
         self.politeness = politeness or Politeness()
-        self.fetcher = fetcher or SafeFetcher()
+        self.fetcher = fetcher or SafeFetcher(coordinator=self.politeness.coordinator)
         self.registry = REGISTRY if registry is None else registry
         self.sellers = searchable(self.registry)
         self.max_workers = max(1, max_workers)
@@ -397,6 +412,10 @@ class SellerSearch:
                 self.fetcher, url, kind="search", cacheable=False, max_bytes=SEARCH_BYTES
             )
             pages.append((url, page))
+            if page.status in {429, 503}:
+                raise HostDeferred("rate_limited" if page.status == 429 else "unavailable", 0)
+            if page.status != 200:
+                raise FetchError(f"HTTP {page.status}")
             return page
 
         return fetch
@@ -433,6 +452,11 @@ class SellerSearch:
                         max_bytes=SEARCH_BYTES,
                         ttl_s=None if found else 600,
                     )
+            except HostDeferred as exc:
+                with lock:
+                    diagnostic.status = "deferred"
+                    diagnostic.detail = exc.reason
+                break
             except (BlockedError, FetchError) as exc:
                 with lock:
                     diagnostic.status = (
@@ -444,7 +468,7 @@ class SellerSearch:
                 break
             except (ValueError, KeyError, TypeError, AttributeError, RecursionError) as exc:
                 with lock:
-                    diagnostic.status = "error"
+                    diagnostic.status = "parse_error"
                     diagnostic.detail = str(exc)[:200]
                 continue
             with lock:
@@ -488,15 +512,8 @@ class SellerSearch:
         result = SearchResult([str(q) for q in queries[:4]], [], [], known_blocked)
         if not queries or not self.sellers:
             return result
-        sellers = []
-        for seller in self.sellers:
-            reason = self.politeness.blocked_reason(seller["host"])
-            if reason:
-                result.diagnostics.append(
-                    SellerDiagnostic(seller["domain"], BLOCKED, detail=reason)
-                )
-            else:
-                sellers.append(seller)
+        # The fetch layer serves still-valid cache entries before checking cooldowns.
+        sellers = self.sellers
         pool = ThreadPoolExecutor(max_workers=min(self.max_workers, max(1, len(sellers))))
         progress: dict[str, tuple[list, SellerDiagnostic, threading.Lock, threading.Event]] = {
             seller["domain"]: (
@@ -559,6 +576,13 @@ class SellerSearch:
             len(result.candidates),
             {d.seller: d.status for d in result.diagnostics},
         )
+        for diagnostic in result.diagnostics:
+            log_event(
+                "SELLER_SEARCH_RESULT",
+                host=diagnostic.seller,
+                outcome=diagnostic.status,
+                candidates=diagnostic.candidates,
+            )
         return result
 
 
@@ -577,7 +601,7 @@ def merge(per_seller: list[list[Candidate]], budget: int) -> list[Candidate]:
     return merged[: max(0, budget)]
 
 
-def from_settings(settings, cache=None) -> SellerSearch | None:
+def from_settings(settings, cache=None, coordinator=None) -> SellerSearch | None:
     """Build the shared searcher from `BS_SELLER_*` settings; None when disabled.
 
     `cache` is the optional shared cache (`sourcing.cache`); the in-memory cache always runs.
@@ -590,5 +614,6 @@ def from_settings(settings, cache=None) -> SellerSearch | None:
             page_ttl_s=settings.seller_page_cache_s,
             blocked_cooldown_s=settings.seller_blocked_cooldown_s,
             cache=cache,
+            coordinator=coordinator,
         )
     )

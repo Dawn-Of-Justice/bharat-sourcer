@@ -21,6 +21,7 @@ from urllib.parse import urlsplit
 from bharat_sourcer.observability import elapsed_ms, log_event
 from bharat_sourcer.sourcing import robu
 from bharat_sourcer.sourcing.cache import TTL, cache_key
+from bharat_sourcer.sourcing.coordination import HostDeferred
 from bharat_sourcer.sourcing.fetch import ApiRoute, FetchError, Page, SafeFetcher
 
 BLOCKED = "blocked_by_bot_protection"
@@ -99,6 +100,8 @@ def fetch_outcome(exc: BaseException) -> str:
         return "blocked"
     if isinstance(exc, ApiRoute):
         return "api_route"
+    if isinstance(exc, HostDeferred):
+        return "deferred"
     if isinstance(exc, FetchError):
         message = str(exc)
         if message.startswith("Robots"):  # SafeFetcher: "Robots policy prevents verification"
@@ -145,9 +148,11 @@ class Politeness:
         clock: Callable[[], float] = time.monotonic,
         sleep: Callable[[float], None] = time.sleep,
         cache=None,
+        coordinator=None,
     ):
         # Optional shared cache (`get(key)` / `set(key, dict, ttl_s)`); in-memory always.
         self.cache = cache
+        self.coordinator = coordinator
         self.per_host = max(1, min(per_host, 2))
         self.min_interval_s = min_interval_s
         self.search_ttl_s = search_ttl_s
@@ -166,6 +171,12 @@ class Politeness:
 
     # --- blocked hosts -------------------------------------------------------------
     def blocked_reason(self, host: str) -> str | None:
+        if self.coordinator is not None:
+            try:
+                return self.coordinator.reason(host)
+            except Exception:
+                logging.getLogger(__name__).warning("SELLER_COORDINATION_FAILED")
+                return "coordination_unavailable"
         with self._lock:
             entry = self._blocked.get(host)
             if entry and entry[0] > self.clock():
@@ -174,8 +185,14 @@ class Politeness:
             return None
 
     def mark_blocked(self, host: str, reason: str) -> None:
+        self.defer_host(host, self.blocked_cooldown_s, reason)
+
+    def defer_host(self, host: str, seconds: float, reason: str) -> None:
+        if self.coordinator is not None:
+            self.coordinator.defer(host, seconds, reason)
         with self._lock:
-            self._blocked[host] = (self.clock() + self.blocked_cooldown_s, reason)
+            until = max(self.clock() + seconds, self._blocked.get(host, (0, ""))[0])
+            self._blocked[host] = (until, reason)
 
     def blocked_hosts(self) -> dict[str, str]:
         now = self.clock()
@@ -284,10 +301,6 @@ class Politeness:
         Every call logs one SELLER_FETCH line (host only, never the URL)."""
         host = (urlsplit(url).hostname or "").lower()
         started = time.perf_counter()
-        reason = self.blocked_reason(host)
-        if reason:
-            seller_fetch(host, kind, started, "cooldown")
-            raise BlockedError(host, reason)
         key = f"{kind}:{url}:{kwargs.get('max_bytes', '')}"
         cached = None if bypass_cache else self._cached(key)
         if cached is not None:
@@ -299,6 +312,12 @@ class Politeness:
             # Do not extend an existing shared entry beyond its original expiry.
             seller_fetch(host, kind, started, "cache", cached.status)
             return cached
+        reason = self.blocked_reason(host)
+        if reason:
+            seller_fetch(host, kind, started, "cooldown")
+            if reason in {"rate_limited", "unavailable", "coordination_unavailable"}:
+                raise HostDeferred(reason, 0)
+            raise BlockedError(host, reason)
         tries = [0]
         try:
             page, retry_later = self._fetch(fetcher, url, host, tries, **kwargs)
@@ -309,6 +328,8 @@ class Politeness:
             raise
         final_host = (urlsplit(page.url).hostname or host).lower()
         outcome = "ok" if 200 <= page.status < 300 else "http_error"
+        if page.status in {429, 503}:
+            outcome = "rate_limited" if page.status == 429 else "unavailable"
         seller_fetch(final_host, kind, started, outcome, page.status, tries[0])
         if retry_later:
             return page
@@ -325,9 +346,16 @@ class Politeness:
         attempt = 0
         with self._slot(host):
             while True:
+                reason = self.blocked_reason(host)
+                if reason:
+                    raise HostDeferred(reason, 0)
                 self._wait_turn(host)
                 tries[0] += 1
-                page = fetcher.get(url, **kwargs)
+                try:
+                    page = fetcher.get(url, **kwargs)
+                except BlockedError as exc:
+                    self.mark_blocked(exc.host, exc.reason)
+                    raise
                 final_host = (urlsplit(page.url).hostname or host).lower()
                 reason = challenge_reason(page)
                 if reason:
@@ -341,12 +369,21 @@ class Politeness:
                     wait = retry_after_seconds(page.headers.get("retry-after"))
                     if wait is None:
                         wait = 2.0**attempt
+                    self.defer_host(
+                        final_host, wait, "rate_limited" if page.status == 429 else "unavailable"
+                    )
                     if wait > self.max_retry_wait_s:
                         # Asked to stay away longer than a request can wait: give up now.
                         return page, True
                     attempt += 1
                     self.sleep(wait)
                     continue
+                if page.status in {429, 503}:
+                    self.defer_host(
+                        final_host,
+                        retry_after_seconds(page.headers.get("retry-after")) or 60,
+                        "rate_limited" if page.status == 429 else "unavailable",
+                    )
                 return page, False
 
     def cache_response(
@@ -376,8 +413,8 @@ class PoliteFetcher:
     """Drop-in fetcher (`get(url, ...)`) that routes product-page reads through `Politeness`."""
 
     def __init__(self, fetcher=None, politeness: Politeness | None = None):
-        self.fetcher = fetcher or SafeFetcher()
         self.politeness = politeness or Politeness()
+        self.fetcher = fetcher or SafeFetcher(coordinator=self.politeness.coordinator)
 
     def get(self, url: str, **kwargs) -> Page:
         if not robu.handles(url):

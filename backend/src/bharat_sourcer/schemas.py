@@ -1171,6 +1171,7 @@ class SellerSearchSummary(Model):
 # model call was made for it.
 SourcingStage = Literal[
     "seller_search",
+    "provider_search",
     "judge",
     "grounded",
     "known_urls",

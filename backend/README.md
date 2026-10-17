@@ -1,5 +1,9 @@
 # Backend
 
+Seller discovery now supports opt-in Shopify Catalog, Brave and Mouser integrations,
+shared host pacing/cooldowns and per-provider diagnostics. Configuration, limits and
+measurement steps: [seller reliability](infra/seller-reliability.md).
+
 v0.43.0 adds project retention and delete my data
 ([contract](../docs/contracts/retention-and-deletion.md)).
 

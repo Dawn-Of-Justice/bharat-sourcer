@@ -104,6 +104,14 @@ def relevance(part_terms: str | list[str], title: str) -> float:
     part = part_terms if isinstance(part_terms, str) else " ".join(part_terms)
     if not title or is_accessory_for(title, part):
         return 0.0
+    # An unspecified DIP package may be plastic DIP; pin count and MPN must match.
+    if re.search(r"(?i)\bdip[- ]?\d+\b", part):
+        title = re.sub(r"(?i)\bpdip(?=[- ]?\d+\b)", "DIP", title)
+    # Camera boards have different wiring and pin availability from plain dev boards.
+    if re.search(r"(?i)\besp32\b", part):
+        camera = r"(?i)\b(?:camera|esp32[- ]?cam|ov2640|ov5640)\b"
+        if re.search(camera, title) and not re.search(camera, part):
+            return 0.0
     wanted_models = {compact(m) for m in model_numbers(part)}
     actual_models = {compact(m) for m in model_numbers(title)}
     if wanted_models and not wanted_models <= actual_models:

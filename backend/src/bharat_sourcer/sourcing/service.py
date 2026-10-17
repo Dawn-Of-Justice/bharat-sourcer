@@ -37,6 +37,7 @@ from bharat_sourcer.sourcing.buyer import (
     substitute_compatibility,
 )
 from bharat_sourcer.sourcing.cart_engine import CartEngine
+from bharat_sourcer.sourcing.coordination import HostDeferred
 from bharat_sourcer.sourcing.fabrication import FabricationFinder
 from bharat_sourcer.sourcing.fetch import FetchError, SafeFetcher, validate_url
 from bharat_sourcer.sourcing.judge import Judge, review_candidates
@@ -51,6 +52,7 @@ from bharat_sourcer.sourcing.matching import Candidate, build_candidate
 from bharat_sourcer.sourcing.part_spec import buyable_spec
 from bharat_sourcer.sourcing.platforms import shopify_variants, storefront_offer
 from bharat_sourcer.sourcing.politeness import BlockedError, Politeness
+from bharat_sourcer.sourcing.providers import ApiPage, ProviderFetcher, ProviderSearch
 from bharat_sourcer.sourcing.research import Researcher, needs_followup, review_or_skip
 from bharat_sourcer.sourcing.routing import route_queries
 from bharat_sourcer.sourcing.seller_search import (
@@ -274,8 +276,12 @@ class SourcingService:
         buyer_rounds: int = 2,
         carts: CartEngine | None = None,
         fabrication: FabricationFinder | None = None,
+        providers: ProviderSearch | None = None,
+        compare_more: bool = False,
     ):
         self.discovery = discovery
+        self.providers = providers
+        self.compare_more = compare_more
         self.fetcher = fetcher
         self.researcher = researcher
         self.followup_enabled = followup_enabled
@@ -648,6 +654,25 @@ class SourcingService:
                         [c.url for c in more.candidates], resolution, fetcher, attempted, state
                     )
                     accepted = self._review(spec, project, resolution, new, state, stages)
+        if self.providers and not query_prefix and (not accepted or self.compare_more):
+            stages.append("provider_search")
+            # Only the part's buying specification is sent, never the project narrative.
+            provider_query = " ".join(
+                [spec.part_name or resolution.query, *[str(p.value) for p in spec.params]]
+            )
+            external = self.providers.search(provider_query, self.seller_fetch_budget)
+            if search is None:
+                search = SearchResult([], [], [])
+            search.candidates.extend(external.candidates)
+            search.diagnostics.extend(external.diagnostics)
+            new = self._verify_urls(
+                [c.url for c in external.candidates],
+                resolution,
+                ProviderFetcher(external.pages, fetcher),
+                attempted,
+                state,
+            )
+            accepted = self._review(spec, project, resolution, new, state, stages) or accepted
         attribution = None
         discovery_failed = False
         budget_note = None
@@ -947,6 +972,8 @@ class SourcingService:
                 state.add_page(page)
                 offer_page = page
                 offer = verify_page(page, query)
+                if offer is not None and isinstance(page, ApiPage):
+                    offer.verification = "seller_product_api"
                 if offer is None:
                     variant = variant_url(page, query)
                     if variant:
@@ -988,7 +1015,9 @@ class SourcingService:
             except Exception as exc:
                 logging.getLogger(__name__).warning("VERIFY_URL_FAILED type=%s", type(exc).__name__)
                 reason = (
-                    "blocked"
+                    "deferred"
+                    if isinstance(exc, HostDeferred)
+                    else "blocked"
                     if isinstance(exc, BlockedError)
                     else "robots"
                     if "robots" in str(exc).lower()

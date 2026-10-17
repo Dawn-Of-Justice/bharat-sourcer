@@ -118,6 +118,14 @@ class Settings(BaseSettings):
     seller_search_cache_s: int = Field(default=21600, ge=0, le=86400)
     seller_page_cache_s: int = Field(default=900, ge=0, le=3600)
     seller_blocked_cooldown_s: int = Field(default=1800, ge=60, le=86400)
+    # Optional discovery APIs. No external calls until explicitly configured.
+    shopify_catalog_enabled: bool = False
+    shopify_catalog_profile: str = ""
+    brave_search_api_key: SecretStr | None = None
+    mouser_search_api_key: SecretStr | None = None
+    seller_provider_timeout_s: float = Field(default=8, ge=1, le=30)
+    seller_provider_interval_s: float = Field(default=1, ge=0.1, le=60)
+    seller_compare_more: bool = False
     research_enabled: bool = True
     seller_trust_enabled: bool = True
     research_followup_enabled: bool = True
@@ -217,6 +225,18 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def require_project(self):
+        if self.shopify_catalog_enabled:
+            from urllib.parse import urlsplit
+
+            profile = urlsplit(self.shopify_catalog_profile)
+            if (
+                profile.scheme != "https"
+                or not profile.hostname
+                or profile.username
+                or profile.password
+                or profile.fragment
+            ):
+                raise ValueError("Shopify Catalog requires a public HTTPS agent profile URL")
         if self.auth_enabled and (
             not self.gcp_project
             or not self.guest_session_secret
