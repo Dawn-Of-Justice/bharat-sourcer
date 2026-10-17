@@ -27,16 +27,15 @@ What caps spend on `hackathon-510415`, and how to cut it fast. Background:
 
 | Service | Max instances (live, 17 Oct 2026) | Min instances | Notes |
 | --- | --- | --- | --- |
-| `bharat-sourcer-integration` | Revision template: 3. Service-level `run.googleapis.com/maxScale`: 1 | 0 (no min-scale annotation found) | 1 vCPU, 512 MiB, concurrency 20, timeout 1,800 s, CPU only during requests |
+| `bharat-sourcer-integration` | 1 (revision template and service level) | 0 (no min-scale annotation found) | 1 vCPU, 512 MiB, concurrency 20, timeout 1,800 s, CPU only during requests |
 | `bharat-sourcer-web` | Revision template: 1. Service-level: 20 | 0 | 1 vCPU, 512 MiB, concurrency 20, timeout 120 s (deploy script) |
 | Compile jobs `bharat-sourcer-compile-{avr,esp32,esp8266,rp2040}` | One task per run; `BS_COMPILE_DAILY_LIMIT` 100/day | n/a | Bill only while running |
 | Cloud Tasks `bharat-sourcer` | 2 concurrent, 2/s dispatch | n/a | Bounds parallel Gemini work |
 
-Intended for `bharat-sourcer-integration` (owner, 17 October 2026): max 1 at both levels. The
-service-level cap of 1 already limits it, so align the revision template:
+The owner chose max 1 for `bharat-sourcer-integration` on 17 October 2026, and the revision
+template was set to match the service-level cap that day. Check both:
 
 ```sh
-gcloud run services update bharat-sourcer-integration --region=asia-south1 --project=hackathon-510415 --max-instances=1
 gcloud run services describe bharat-sourcer-integration --region=asia-south1 --project=hackathon-510415 --format='value(metadata.annotations,spec.template.metadata.annotations)'
 ```
 
