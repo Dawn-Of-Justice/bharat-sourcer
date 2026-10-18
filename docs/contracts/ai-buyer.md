@@ -45,6 +45,9 @@ assessment can therefore say the functional review is unavailable while an earli
 strict match remains accepted. Fabricated IDs cannot introduce listings. Every model
 call uses the existing paid budget. This adds a planning call and approximately one
 assessment call per six fetched candidates, in addition to purchase selection.
+Missing or duplicate verdicts receive one retry in batches of at most three, only while
+the paid budget allows. There is no retry loop after that; unresolved results remain
+explicitly insufficient. These retries add latency and model calls when needed.
 
 Known-URL refresh and follow-up grounded attempts skip this additional review. The
 original buying specification is retained. Provider failures preserve existing offers.

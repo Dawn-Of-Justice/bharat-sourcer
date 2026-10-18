@@ -955,3 +955,52 @@ def test_exploration_queries_do_not_overflow_seller_summary():
     line = service.source_for_project(wire_line(), [wire_line()], project=PROJECT)
     assert line.buyer.searched == ["alternative 1", "alternative 2", "alternative 3"]
     assert len(line.seller_search.queries) == 4
+
+
+def test_failed_functional_batch_retries_once_with_smaller_batches():
+    class RetryBuyer(FunctionalBuyer):
+        def __init__(self):
+            super().__init__()
+            self.batch_sizes = []
+
+        def assess(self, line, spec, project, items, candidates):
+            self.batch_sizes.append(len(candidates))
+            if len(self.batch_sizes) == 1:
+                return None
+            return super().assess(line, spec, project, items, candidates)
+
+    buyer = RetryBuyer()
+    service = SourcingService(
+        Discovery(),
+        Fetcher(),
+        judge=AcceptExact(),
+        seller_search=Sellers([TINNED.url, ENAMELLED.url, R220.url, JUMPERS.url]),
+        buyer=buyer,
+    )
+    line = service.source_for_project(wire_line(), [wire_line()], project=PROJECT)
+    assert buyer.batch_sizes == [4, 3, 1]
+    assert len(line.buyer.assessments) == 4
+    assert all(a.verdict.startswith("usable") for a in line.buyer.assessments)
+
+
+def test_retry_exhaustion_leaves_visible_unknowns():
+    class FailingBuyer(FunctionalBuyer):
+        def __init__(self):
+            super().__init__()
+            self.attempts = 0
+
+        def assess(self, *args):
+            self.attempts += 1
+
+    buyer = FailingBuyer()
+    service = SourcingService(
+        Discovery(),
+        Fetcher(),
+        judge=AcceptExact(),
+        seller_search=Sellers([TINNED.url]),
+        buyer=buyer,
+    )
+    line = service.source_for_project(wire_line(), [wire_line()], project=PROJECT)
+    assert buyer.attempts == 2
+    assert line.buyer.assessments[0].verdict == "insufficient_evidence"
+    assert line.offers[0].match.status == "exact"

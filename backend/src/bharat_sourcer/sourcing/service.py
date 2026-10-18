@@ -957,6 +957,25 @@ class SourcingService:
                 if draft.candidate_id in by_id:
                     duplicates.add(draft.candidate_id)
                 by_id[draft.candidate_id] = draft
+            # Retry omitted/ambiguous results once in smaller batches. Never turn a
+            # truncated response into an implicit verdict for the remaining listings.
+            unresolved = [i for i in range(len(batch)) if i not in by_id or i in duplicates]
+            for offset in range(0, len(unresolved), 3):
+                if not paid_allowed():
+                    break
+                indices = unresolved[offset : offset + 3]
+                stages.append("buyer")
+                calls += 1
+                retry = self.buyer.assess(
+                    item, spec, project, project_items, [batch[i] for i in indices]
+                )
+                retry_ids = Counter(a.candidate_id for a in retry.assessments) if retry else {}
+                for replacement in retry.assessments if retry else []:
+                    local_id = replacement.candidate_id
+                    if local_id < len(indices) and retry_ids[local_id] == 1:
+                        original_id = indices[local_id]
+                        by_id[original_id] = replacement
+                        duplicates.discard(original_id)
             for index, candidate in enumerate(batch):
                 draft = None if index in duplicates else by_id.get(index)
                 assessment = functional_assessment(candidate, draft, self.buyer.model)
