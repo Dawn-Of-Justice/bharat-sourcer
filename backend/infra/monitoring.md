@@ -120,6 +120,12 @@ Latency threshold: in the week to 17 October 2026, 97.2% of all API requests fin
 1 s, SSE included. About 98.9% did once SSE is removed (the median is about 0.45 s), so
 1 s at 95% leaves headroom without hiding regressions.
 
+Units: `api_request_latency` is in **seconds** throughout. The extractor reads the number
+from the request log's `httpRequest.latency`; its bucket bounds start at 0.0625 s, the
+SLO maximum is 1.0 s, and the alert thresholds are p95 > 2 s and p99 > 5 s.
+Cloud Run's own `request_latencies` is in milliseconds; dashboard queries divide it
+by 1000 so those charts also display seconds.
+
 Job success excludes `paused`, which is a user action, not a failure. A resume, refresh or
 re-confirm that finishes the job again counts as another finish.
 
