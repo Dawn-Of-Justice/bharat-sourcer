@@ -1,5 +1,8 @@
 """Atomic job snapshots. Transaction callbacks must not perform external I/O."""
 
+import base64
+import json
+import zlib
 from collections.abc import Callable
 from contextlib import suppress
 from dataclasses import dataclass
@@ -76,9 +79,41 @@ class OwnerDeletion(Model):
     share_links: int = 0
 
 
+MAX_REPORT_BYTES = 16_000_000
+
+
+def storage_document(record: StoredJob) -> dict:
+    """Keep query fields readable; compress large reports without dropping evidence."""
+    data = record.model_dump(mode="json")
+    if record.job.report is not None:
+        raw = record.job.report.model_dump_json().encode()
+        if len(raw) > MAX_REPORT_BYTES:
+            raise StorageError("Report exceeds the supported expanded size")
+        if len(raw) > 400_000:
+            data["job"]["report"] = None
+            data["report_zlib_b64"] = base64.b64encode(zlib.compress(raw)).decode("ascii")
+    return data
+
+
+def parse_document(data: dict) -> StoredJob:
+    """Read both legacy snapshots and compressed reports."""
+    data = dict(data)
+    packed = data.pop("report_zlib_b64", None)
+    if packed is not None:
+        try:
+            decoder = zlib.decompressobj()
+            raw = decoder.decompress(base64.b64decode(packed, validate=True), MAX_REPORT_BYTES + 1)
+            if len(raw) > MAX_REPORT_BYTES or not decoder.eof or decoder.unused_data:
+                raise ValueError("Invalid compressed report")
+            data["job"] = dict(data["job"], report=json.loads(raw))
+        except (ValueError, TypeError, zlib.error) as exc:
+            raise StorageError("Could not read compressed report") from exc
+    return StoredJob.model_validate(data)
+
+
 def check_size(record: StoredJob) -> None:
-    # Conservative budget below Firestore's 1 MiB document limit.
-    if len(record.model_dump_json().encode()) > 800_000:
+    # Measure the persisted representation, below Firestore's 1 MiB document limit.
+    if len(json.dumps(storage_document(record), ensure_ascii=False).encode()) > 800_000:
         raise StorageError("Job exceeds the supported storage size")
 
 
@@ -268,7 +303,7 @@ class FirestoreJobStore:
         self.meta = self.client.collection(collection + "_meta")
 
     def _document(self, record: StoredJob) -> dict:
-        data = record.model_dump(mode="json")
+        data = storage_document(record)
         # A native Timestamp, not an ISO string: TTL policies ignore non-timestamp values.
         data["expires_at"] = record.expires_at
         return data
@@ -339,7 +374,7 @@ class FirestoreJobStore:
             query = query.order_by("__name__")
             if after:
                 query = query.start_after({"__name__": self.collection.document(after)})
-            page = [StoredJob.model_validate(s.to_dict()) for s in query.limit(limit).stream()]
+            page = [parse_document(s.to_dict()) for s in query.limit(limit).stream()]
             results.extend(r for r in page if not self.retention.expired(r))
             if len(page) < limit or len(results) >= limit:
                 break
@@ -418,7 +453,7 @@ class FirestoreJobStore:
         snapshot = self.collection.document(job_id).get()
         if not snapshot.exists:
             return None
-        record = StoredJob.model_validate(snapshot.to_dict())
+        record = parse_document(snapshot.to_dict())
         return None if self.retention.expired(record) else record
 
     def delete(self, job_id: str) -> bool:
@@ -438,7 +473,7 @@ class FirestoreJobStore:
             snapshot = reference.get(transaction=transaction)
             if not snapshot.exists:
                 return None
-            record = StoredJob.model_validate(snapshot.to_dict())
+            record = parse_document(snapshot.to_dict())
             if self.retention.expired(record):
                 return None
             before = record.model_dump(mode="json")

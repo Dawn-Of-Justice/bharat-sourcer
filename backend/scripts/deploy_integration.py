@@ -164,7 +164,7 @@ def main():
         "--allow-unauthenticated",
         "--port=8080",
         "--cpu=1",
-        "--memory=512Mi",
+        "--memory=2Gi",
         "--min-instances=0" if queued else "--min-instances=1",
         "--min=0",
         "--max-instances=1",
