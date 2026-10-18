@@ -178,3 +178,53 @@ def test_sweep_is_bounded_and_flags_stale_work(monkeypatch, caplog):
     assert body["stale"] == 2
     assert "QUEUE_AGE_EXCEEDED" in caplog.text
     assert "SWEEP_TRUNCATED" in caplog.text
+
+
+def test_checkpoint_continuation_queues_without_retry_backoff():
+    from bharat_sourcer.dispatch import enqueue_continuation
+    source = Source()
+    jobs = JobService(Extractor(), sourcing=source)
+    chat = ConversationService(jobs)
+    job, token = jobs.create(CreateJob(url="https://youtu.be/abcdefghijk"))
+    work = Work(job_id=job.job_id, kind="workflow")
+    work_once(jobs, chat, work)
+    jobs.confirm(job.job_id, token, ConfirmJob())
+    dispatcher = Mock()
+    for _ in range(3):
+        assert not work_once(jobs, chat, work)
+        assert enqueue_continuation(jobs, dispatcher, work)
+    assert dispatcher.enqueue.call_count == 3
+    assert work_once(jobs, chat, work)
+    assert not enqueue_continuation(jobs, dispatcher, work)
+    assert source.calls == ["L01", "L02", "L03"]
+
+
+def test_continuation_failure_and_active_lease_keep_original_retry():
+    from bharat_sourcer.dispatch import enqueue_continuation
+    jobs = JobService(Extractor())
+    job, _ = jobs.create(CreateJob(url="https://youtu.be/abcdefghijk"))
+    work = Work(job_id=job.job_id, kind="workflow")
+    dispatcher = Mock()
+    dispatcher.enqueue.side_effect = RuntimeError("Synthetic queue outage")
+    assert not enqueue_continuation(jobs, dispatcher, work)
+    assert jobs.store.get(job.job_id).job.status == "queued"
+    dispatcher.reset_mock()
+    jobs.store.mutate(job.job_id, lambda r: setattr(r, "run_id", "active"))
+    assert not enqueue_continuation(jobs, dispatcher, work)
+    dispatcher.enqueue.assert_not_called()
+
+def test_http_checkpoint_acknowledges_only_after_continuation_is_queued(monkeypatch):
+    calls = []
+    client, store, keys = sweep_app(monkeypatch, lambda self, key, kind, **kw: calls.append(key))
+    monkeypatch.setattr("bharat_sourcer.main.work_once", lambda *args: False)
+    body = {"job_id": keys[0], "kind": "workflow"}
+    response = client.post("/internal/work", json=body)
+    assert response.status_code == 200
+    assert response.json() == {"complete": False, "continued": True}
+    assert calls == [keys[0]]
+
+    def fail(*args, **kwargs):
+        raise RuntimeError("Synthetic queue outage")
+
+    monkeypatch.setattr(CloudDispatcher, "enqueue", fail)
+    assert client.post("/internal/work", json=body).status_code == 503

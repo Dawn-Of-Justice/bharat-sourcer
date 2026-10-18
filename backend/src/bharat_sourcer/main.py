@@ -19,7 +19,7 @@ from bharat_sourcer.code_patches import CodePatchService
 from bharat_sourcer.compile_check import CompileService, RunnerResult
 from bharat_sourcer.config import Settings
 from bharat_sourcer.conversation import Assistant, ConversationService, GeminiAssistant
-from bharat_sourcer.dispatch import CloudDispatcher, Work, work_once
+from bharat_sourcer.dispatch import CloudDispatcher, Work, enqueue_continuation, work_once
 from bharat_sourcer.extraction import Extractor, GeminiExtractor
 from bharat_sourcer.gemini_extras import GeminiExtras, add_extras_routes
 from bharat_sourcer.guards import BodyLimit
@@ -756,7 +756,11 @@ def create_app(
     def internal_work(body: Work, request: Request):
         authorize_worker(request)
         complete = work_once(service, conversation, body, overviews, guides)
-        return JSONResponse(status_code=200 if complete else 503, content={"complete": complete})
+        continued = not complete and enqueue_continuation(service, dispatcher, body)
+        return JSONResponse(
+            status_code=200 if complete or continued else 503,
+            content={"complete": complete, "continued": continued},
+        )
 
     @app.post("/internal/sweep", include_in_schema=False)
     def internal_sweep(request: Request):

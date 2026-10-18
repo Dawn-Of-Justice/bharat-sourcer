@@ -125,3 +125,20 @@ def work_once(jobs, conversation, work, overviews=None, guides=None):
         if work.kind == "chat"
         else record.job.status not in {"queued", "extracting", "resolving", "sourcing"}
     )
+
+
+def enqueue_continuation(jobs, dispatcher, work) -> bool:
+    """Acknowledge a checkpoint only after the next delivery is durably queued."""
+    if work.kind != "workflow":
+        return False
+    record = jobs.store.get(str(work.job_id))
+    if record is None or record.job.status not in {"queued", "resolving"} or record.run_id:
+        return False
+    try:
+        dispatcher.enqueue(str(work.job_id), "workflow")
+    except Exception as exc:
+        logging.getLogger(__name__).warning(
+            "CONTINUATION_ENQUEUE_FAILED job=%s type=%s", work.job_id, type(exc).__name__
+        )
+        return False  # Keep the original task retryable; the sweep is a second fallback.
+    return True

@@ -122,3 +122,11 @@ fallback-only discovery. The deployment script preserves these live settings.
 
 Cloud Run revision: `bharat-sourcer-integration-00123-fef`.
 Previous revision for rollback: `bharat-sourcer-integration-00121-sc8`.
+
+### Batch continuation latency
+Successful workflow checkpoints enqueue the next Cloud Task before acknowledging
+the current delivery. Previously, every unfinished batch returned 503, causing
+failure backoff despite successful progress. Active leases and enqueue failures
+still return 503 so durable retries and the scheduled sweep remain available.
+This removes avoidable inter-batch queue delay; it does not shorten model calls
+or bypass matching checks. Completion is still determined by the saved job state.
