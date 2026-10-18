@@ -256,6 +256,24 @@ BATTERY_WORDS = {"battery", "lipo", "liion", "lithium", "18650", "cell"}
 
 
 def role(item: BomItem) -> str | None:
+    words = set(tokens(item.raw_name))
+    # A battery accessory is not another name for the cell, even without a buying spec.
+    if BATTERY_WORDS & words and words & {
+        "holder",
+        "holders",
+        "bracket",
+        "foam",
+        "retention",
+        "strap",
+        "case",
+        "connector",
+        "cable",
+        "lead",
+        "charger",
+        "protection",
+        "bms",
+    }:
+        return None
     spec = item.buyable_spec
     if spec is not None and spec.category in SINGLE_ROLES:
         return spec.category

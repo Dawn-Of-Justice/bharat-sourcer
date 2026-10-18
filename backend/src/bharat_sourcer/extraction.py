@@ -205,6 +205,19 @@ class ExtractedPageBom(Model):
     items: list[ExtractedPagePart] = Field(max_length=100)
 
 
+class RepositoryPart(Model):
+    """Keep repository inventory output small; sourcing enriches parts later."""
+
+    raw_name: Name
+    qty: Quantity | None
+    evidence: list[PageEvidenceDraft] = Field(min_length=1, max_length=3)
+
+
+class RepositoryBom(Model):
+    project: ProjectDraft | None = None
+    items: list[RepositoryPart] = Field(max_length=100)
+
+
 class ExtractionResult(Model):
     items: list[BomItem]
     project: ProjectContext | None = None
@@ -483,7 +496,16 @@ def lenient_bom(model: type[Model], data) -> Model:
     dropped = 0
     for raw in data["items"]:
         part = None
-        for candidate in (raw, {**raw, **PART_EXTRAS} if isinstance(raw, dict) else raw):
+        repaired = (
+            {
+                k: v
+                for k, v in {**raw, **PART_EXTRAS}.items()
+                if item_model is not RepositoryPart or k in item_model.model_fields
+            }
+            if isinstance(raw, dict)
+            else raw
+        )
+        for candidate in (raw, repaired):
             try:
                 part = item_model.model_validate(candidate)
                 break
@@ -806,7 +828,7 @@ class GeminiExtractor:
             "generationConfig": {
                 "responseMimeType": "application/json",
                 "responseJsonSchema": generation_schema(model),
-                "maxOutputTokens": 12288,
+                "maxOutputTokens": self.settings.extraction_output_tokens,
             },
         }
         try:
@@ -824,6 +846,11 @@ class GeminiExtractor:
             record_usage(f"extraction_{noun.replace(' ', '_')}", self.settings.gemini_model, data)
             candidate = data["candidates"][0]
             if candidate.get("finishReason") != "STOP":
+                log.warning(
+                    "EXTRACTION_INCOMPLETE noun=%s finish_reason=%s",
+                    noun,
+                    candidate.get("finishReason"),
+                )
                 raise ValueError("Incomplete or blocked output")
             output = "".join(
                 part.get("text", "")
@@ -1003,9 +1030,59 @@ class GeminiExtractor:
             "page_text": combined if source.kind == "github" else text,
         }
         try:
-            bom = self._generate(
-                [{"text": json.dumps(document)}], PAGE_PROMPT, ExtractedPageBom, "project page"
-            )
+            if source.kind == "github":
+                compact = self._generate(
+                    [{"text": json.dumps(document)}],
+                    PAGE_PROMPT.split("When qty is null,")[0]
+                    + "\nReturn a concise inventory only. One short quote per part is enough. "
+                    "Do not generate buying specifications. Separate current build parts from "
+                    "optional future phases in observations. Module solder pads are not separate "
+                    "purchases. Purchase pack sizes are not assembly quantities: use null if only "
+                    "the pack size is known. Include custom PCBs and mechanical fabrication "
+                    "items when named. Prefer current assembly instructions over prototype "
+                    "purchases.",
+                    RepositoryBom,
+                    "repository inventory",
+                )
+                if len(documents) > 1 and len(compact.items) >= 8:
+                    # A second, focused read catches accessories/mechanical phases that
+                    # a large electronics inventory tends to crowd out of the first pass.
+                    try:
+                        coverage = self._generate(
+                            [
+                                {
+                                    "text": json.dumps(
+                                        {**document, "already_found": compact.model_dump()}
+                                    )
+                                }
+                            ],
+                            PAGE_PROMPT.split("When qty is null,")[0]
+                            + "\nThis is an omission audit. Return ONLY missing physical parts, "
+                            "materials and assembly accessories not covered by already_found. "
+                            "Check antennas, cables, headers, connectors, enclosures, fasteners, "
+                            "filament and battery retention. Include explicitly planned future "
+                            "mechanical parts, marking optional/future status in observations. "
+                            "Do not re-add superseded prototype parts or rejected alternatives. "
+                            "Do not duplicate existing parts using different names. Bundled parts "
+                            "must be described as bundled. Use null for unstated quantities. "
+                            "Keep quotes short and verbatim. Return empty items if nothing "
+                            "is missing.",
+                            RepositoryBom,
+                            "repository coverage",
+                        )
+                        names = {normalise(p.raw_name).casefold() for p in compact.items}
+                        for part in coverage.items:
+                            name = normalise(part.raw_name).casefold()
+                            if name not in names and len(compact.items) < 100:
+                                compact.items.append(part)
+                                names.add(name)
+                    except ExtractionError as exc:
+                        log.warning("REPOSITORY_COVERAGE_FAILED code=%s", exc.code)
+                bom = ExtractedPageBom.model_validate(compact.model_dump())
+            else:
+                bom = self._generate(
+                    [{"text": json.dumps(document)}], PAGE_PROMPT, ExtractedPageBom, "project page"
+                )
         except ExtractionError as exc:
             # A GitHub README the model could not read still leaves the repository's files.
             if source.kind != "github" or exc.code != "INVALID_EXTRACTION":

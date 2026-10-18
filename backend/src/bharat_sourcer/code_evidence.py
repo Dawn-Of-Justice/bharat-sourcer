@@ -55,14 +55,14 @@ SKIP_DIRS = {
     "vendor",
 }
 CODE_FILE_BYTES = 200_000
-MAX_CODE_FILES = 8
+MAX_CODE_FILES = 24
 MAX_LINES = 5000
-MAX_CODE_ITEMS = 30
+MAX_CODE_ITEMS = 100
 MAX_EVIDENCE = 5
 CODE_SUFFIXES = (".ino", ".cpp", ".c", ".h", ".hpp", ".py")
 SCHEMATIC_SUFFIX = ".kicad_sch"
 SCHEMATIC_BYTES = 1_000_000
-MAX_SCHEMATICS = 3
+MAX_SCHEMATICS = 8
 MAX_SCHEMATIC_ITEMS = 40
 MAX_REFS_IN_NAME = 6
 LIB_ID = re.compile(r'^\s*\(lib_id\s+"([^"]{1,200})"')

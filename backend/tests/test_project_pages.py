@@ -460,6 +460,10 @@ def test_linked_bom_is_read_even_when_readme_already_names_pcb():
     def handler(request):
         body = json.loads(request.content)
         assert "MAX98357A" in json.dumps(body)
+        # Repository inventory must not spend its response on per-part seller specs.
+        schema = body["generationConfig"]["responseJsonSchema"]
+        assert "buyable" not in json.dumps(schema)
+        assert body["generationConfig"]["maxOutputTokens"] == 32768
         return gemini(
             [
                 {
@@ -541,3 +545,45 @@ def test_repository_docs_enforce_count_and_total_text_limits():
     docs = repository_documents(fetcher, "https://github.com/maker/synthetic-bot", links, 2500)
     assert sum(len(text) for _, text in docs) == 2500
     assert len(docs) == 3
+
+
+@pytest.mark.parametrize("audit_fails", [False, True])
+def test_repository_coverage_adds_accessories_and_preserves_inventory_on_failure(audit_fails):
+    # Synthetic repository: eight main parts plus one accessory in a second document.
+    from bharat_sourcer.extraction import RepositoryBom
+
+    raw = "https://raw.githubusercontent.com/maker/synthetic-bot/HEAD/"
+    names = [f"Synthetic sensor {i}" for i in range(8)]
+    fetcher = FakeFetcher(
+        {
+            raw + "README.md": page(raw + "README.md", "[BOM](docs/BOM.md) " + " ".join(names)),
+            raw + "docs/BOM.md": page(raw + "docs/BOM.md", "USB cable for assembly"),
+        }
+    )
+    engine = extractor(fetcher)
+    calls = []
+
+    def generate(parts, prompt, model, noun):
+        calls.append(noun)
+        if noun == "repository coverage" and audit_fails:
+            raise ExtractionError("UPSTREAM_TIMEOUT", "Synthetic timeout")
+        selected = names if noun == "repository inventory" else [names[0], "USB cable"]
+        return RepositoryBom.model_validate(
+            {
+                "items": [
+                    {
+                        "raw_name": name,
+                        "qty": None,
+                        "evidence": [{"quote": name, "observation": "Synthetic fixture"}],
+                    }
+                    for name in selected
+                ]
+            }
+        )
+
+    engine._generate = generate
+    result = engine.extract("https://github.com/maker/synthetic-bot")
+    assert calls == ["repository inventory", "repository coverage"]
+    assert len(result.items) == (8 if audit_fails else 9)
+    if not audit_fails:
+        assert str(result.items[-1].evidence[0].url) == raw + "docs/BOM.md"

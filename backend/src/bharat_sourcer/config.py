@@ -102,8 +102,9 @@ class Settings(BaseSettings):
     extraction_lease_s: int = Field(default=600, ge=360, le=3600)
     gemini_api_key: SecretStr | None = None
     gemini_model: str = Field(default="gemini-3.8-flash", pattern=r"^[a-zA-Z0-9.-]+$")
-    extraction_timeout_s: float = Field(default=120, ge=1, le=300)
-    project_page_chars: int = Field(default=60000, ge=5000, le=100000)
+    extraction_timeout_s: float = Field(default=180, ge=1, le=300)
+    extraction_output_tokens: int = Field(default=32768, ge=1024, le=65536)
+    project_page_chars: int = Field(default=180000, ge=5000, le=300000)
     # YouTube Data API v3 key (videos.list only); unset skips description intake (youtube_meta.py).
     youtube_api_key: SecretStr | None = None
     sourcing_enabled: bool = True
@@ -143,7 +144,7 @@ class Settings(BaseSettings):
     gemini_site_thinking: dict[str, ThinkingLevel] = Field(
         default_factory=lambda: dict(DEFAULT_SITE_THINKING)
     )
-    job_gemini_budget_usd: float = Field(default=0.25, ge=0, le=10)
+    job_gemini_budget_usd: float = Field(default=1.0, ge=0, le=10)
     cache_enabled: bool = True
     # Spec judge (sourcing/judge.py): one call per BOM line with candidates, Flash-Lite class.
     judge_enabled: bool = True

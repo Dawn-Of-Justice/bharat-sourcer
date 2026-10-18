@@ -8,7 +8,7 @@ from urllib.parse import unquote, urlsplit
 from bharat_sourcer.code_evidence import safe_path
 from bharat_sourcer.sourcing.fetch import FetchError
 
-MAX_DOCUMENTS = 6
+MAX_DOCUMENTS = 16
 DOCUMENT_BYTES = 100_000
 EXCLUDED = {"archive", "archived", "legacy", "vendor", "node_modules", ".git", "superseded"}
 
@@ -79,7 +79,7 @@ def repository_documents(fetcher, repository_url: str, readme: str, char_limit: 
             continue
         if page.status != 200 or page.url != url or b"\0" in page.body:
             continue
-        text = page.body.decode("utf-8", errors="replace")[: min(16000, remaining)]
+        text = page.body.decode("utf-8", errors="replace")[: min(32000, remaining)]
         if text.strip():
             documents.append((url, text))
             remaining -= len(text)

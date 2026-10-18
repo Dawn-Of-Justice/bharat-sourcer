@@ -273,7 +273,7 @@ def test_readme_links_are_bounded_and_path_safe():
         ("HEAD", "firmware/station.ino"),
     ]
     files = candidate_files("maker", "synthetic-station", readme * 3)
-    assert files[0] == ("HEAD", "platformio.ini") and len(files) <= 8
+    assert files[0] == ("HEAD", "platformio.ini") and len(files) <= 24
 
 
 def test_read_code_cites_file_line_and_skips_failures():

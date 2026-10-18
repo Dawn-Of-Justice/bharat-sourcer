@@ -224,9 +224,9 @@ A generic suggested line ("Rechargeable battery") beside the only other line in 
 single-part role (battery, board) is folded into it. See
 [multi-source intake](../docs/contracts/multi-source-intake.md).
 
-GitHub extraction reads the root README plus up to six relevant BOM, parts, wiring,
+GitHub extraction reads the root README plus up to sixteen relevant BOM, parts, wiring,
 assembly and hardware documents discovered from relative links and the repository tree.
-Supplementary text is capped by `BS_PROJECT_PAGE_CHARS` and 16,000 characters per file;
+Supplementary text is capped by `BS_PROJECT_PAGE_CHARS` and 32,000 characters per file;
 each quote cites the actual supporting file. Current KiCad schematics are inspected even
 when the README already names parts. Archived/legacy directories are excluded. This is
 bounded evidence discovery, not a guarantee of exhaustive coverage for every repository.
@@ -356,7 +356,7 @@ offers, apply the best one as the default selection (judge-confirmed offers incl
 choices are never overwritten) and build a seller-grouped `order_plan` that consolidates
 orders to save shipping; every line gets a `line_image`. [Cost controls](../docs/contracts/cost-controls.md)
 add a shared cross-job cache, research only when needed, refresh without rediscovery, a
-per-job budget (default $0.25) and `job.cost_estimate`. Also new: [nearby markets](../docs/contracts/nearby-markets.md)
+per-job budget (default $1.00) and `job.cost_estimate`. Also new: [nearby markets](../docs/contracts/nearby-markets.md)
 via Maps grounding (`GET /markets`), YouTube description intake (key mounted as
 `BS_YOUTUBE_API_KEY`; quotes expire after 30 days), and bot-protection detection that stops
 and reports instead of circumventing.
@@ -387,7 +387,7 @@ unreviewed agent draft; no accuracy figure is claimed. Items needing owner appro
 Cost controls (unreleased, branch `mvp/cost`): a cross-job shared cache
 (`sourcing/cache.py`), research skipped when a verified in-stock compatible offer exists,
 capped research text, refresh that re-fetches known offer pages before any paid search, a
-per-run Gemini budget (`BS_JOB_GEMINI_BUDGET_USD`, default $0.25), low thinking for
+per-run Gemini budget (`BS_JOB_GEMINI_BUDGET_USD`, default $1.00), low thinking for
 classifier-like call sites and an estimated `job.cost_estimate`. See
 [cost controls](../docs/contracts/cost-controls.md).
 
@@ -548,7 +548,7 @@ In `backend/.env`, set:
 BS_DEMO_MODE=false
 BS_GEMINI_API_KEY=your-key-here
 BS_GEMINI_MODEL=gemini-3.8-flash
-BS_EXTRACTION_TIMEOUT_S=120
+BS_EXTRACTION_TIMEOUT_S=180
 ```
 
 Optional: with `BS_YOUTUBE_API_KEY` (a YouTube Data API v3 key) set, the same Gemini call
@@ -593,7 +593,7 @@ Live mode also accepts these project URLs (HTTP or HTTPS; query and fragment are
 | --- | --- | --- |
 | Instructables | `instructables.com/<slug>/` or legacy `/id/<slug>/` | `https://www.instructables.com/json-api/showInstructableModel?urlString=<slug>` (cited as `https://www.instructables.com/<slug>/`) |
 | Hackster | `hackster.io/<user>/<project>` | `https://www.hackster.io/<user>/<project>` |
-| GitHub | `github.com/<owner>/<repo>` (optional `.git`) | first of `README.md`, `readme.md`, `README.rst`, `README` at `https://raw.githubusercontent.com/<owner>/<repo>/HEAD/`, then up to 8 code/build files for deterministic code evidence |
+| GitHub | `github.com/<owner>/<repo>` (optional `.git`) | first of `README.md`, `readme.md`, `README.rst`, `README` at `https://raw.githubusercontent.com/<owner>/<repo>/HEAD/`, then up to 24 code/build files for deterministic code evidence |
 | Adafruit Learn | `learn.adafruit.com/<guide>` (or `/<guide>/<page>`, `/<guide>.md`) | `https://learn.adafruit.com/<guide>.md?view=all` (cited as `<guide>?view=all`) |
 | Tutorial blog | an article on a listed maker blog (Random Nerd Tutorials, DroneBot Workshop, Last Minute Engineers and others) | the page, reduced to its main article content |
 
@@ -624,7 +624,7 @@ JSON and builds the text the page renders: title, `Supplies`, then the introduct
 steps rather than the parts list. Comments and related projects are not in this document.
 Evidence `url` is the canonical project page, not the JSON endpoint. Drafts and responses
 without steps give "no readable text". The text is bounded by
-`BS_PROJECT_PAGE_CHARS` (default 60,000 characters) and sent to Gemini as JSON data with a
+`BS_PROJECT_PAGE_CHARS` (default 180,000 characters) and sent to Gemini as JSON data with a
 prompt that treats it as untrusted. The model returns, per part, evidence entries with a
 verbatim `quote` and an `observation`. The server keeps evidence only when the
 whitespace-normalised quote appears (case-sensitively) in the exact text sent to the model.
@@ -1223,3 +1223,6 @@ New extraction asks for readable names with the reference retained in parenthese
 The default sourcing limit is 30 unowned lines; explicit runtime overrides, guest
 limits and paid-call budgets still apply. Existing reports are snapshots: refresh
 selected lines after deployment to replace old sourcing results.
+
+Repository inventory uses a compact identity/quantity/evidence schema before seller enrichment.
+BS_EXTRACTION_OUTPUT_TOKENS defaults to 32768; BS_JOB_GEMINI_BUDGET_USD defaults to 1.00 (an estimated soft stop, not a billing cap). Code discovery reads up to 24 files and 8 schematics. Archived paths remain excluded. Larger limits improve coverage but do not establish that every component was found.

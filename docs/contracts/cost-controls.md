@@ -115,7 +115,7 @@ page is gone, no longer verifies or is out of stock. A refreshed line's
 
 ### Budget guard
 
-`BS_JOB_GEMINI_BUDGET_USD` (default `0.25`) caps the estimated Gemini spend of each
+`BS_JOB_GEMINI_BUDGET_USD` (default `1.00`) caps the estimated Gemini spend of each
 sourcing run. Once reached, remaining lines skip paid stages;
 free catalogue searches, known-URL refreshes and cache hits still run. Judge failures or
 budget exhaustion preserve available deterministic and cached results. It is a soft ceiling:
