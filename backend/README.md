@@ -224,7 +224,13 @@ A generic suggested line ("Rechargeable battery") beside the only other line in 
 single-part role (battery, board) is folded into it. See
 [multi-source intake](../docs/contracts/multi-source-intake.md).
 
-The AI buyer now reviews normal sourcing even when an exact offer exists. It uses the
+The AI buyer explicitly plans functional alternative searches before purchase selection,
+even when an exact offer exists. It then assesses every fetched candidate in batches of
+six, returning per-listing verdicts, quoted evidence, missing facts and required changes
+in `report.lines[].buyer.assessments`. Exploration uses one of the existing search rounds;
+model calls remain subject to the paid budget. See [AI buyer](../docs/contracts/ai-buyer.md).
+
+The AI buyer reviews normal sourcing even when an exact offer exists. It uses the
 project description, interfaces, BOM requirements and evidence to assess functional
 substitutes and concrete firmware/wiring changes. It can request up to two additional
 search rounds through seller search and the enabled external providers (one provider

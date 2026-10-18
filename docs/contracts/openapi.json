@@ -5084,6 +5084,25 @@
             "maxItems": 6,
             "title": "Searched"
           },
+          "exploration_reason": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 400
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exploration Reason"
+          },
+          "assessments": {
+            "items": {
+              "$ref": "#/components/schemas/FunctionalAssessment"
+            },
+            "type": "array",
+            "title": "Assessments"
+          },
           "model": {
             "anyOf": [
               {
@@ -5099,7 +5118,7 @@
         "additionalProperties": false,
         "type": "object",
         "title": "BuyerDecision",
-        "description": "What the AI buyer decided for a hard line, in plain words (docs/contracts/ai-buyer.md).\n\nvalue: a part value the source did not state, worked out from the circuit (the spec's\nparam carries the same reason). fit/offer_url: the listing it chose when nothing was\naccepted (substitute offers are grade B with the changes listed). searched: extra store\nsearches it asked for. Decisions are suggestions for review, never verified facts."
+        "description": "What the AI buyer decided for a hard line, in plain words (docs/contracts/ai-buyer.md).\n\nvalue: a part value the source did not state, worked out from the circuit (the spec's\nparam carries the same reason). fit/offer_url: its purchase recommendation\n(substitute offers are grade B with the changes listed). searched: extra store\nsearches it asked for. Decisions are suggestions for review, never verified facts."
       },
       "CartPlan": {
         "properties": {
@@ -7421,6 +7440,76 @@
           "remaining"
         ],
         "title": "FeatureStatus"
+      },
+      "FunctionalAssessment": {
+        "properties": {
+          "url": {
+            "type": "string",
+            "maxLength": 2083,
+            "minLength": 1,
+            "format": "uri",
+            "title": "Url"
+          },
+          "verdict": {
+            "type": "string",
+            "enum": [
+              "usable_directly",
+              "usable_with_changes",
+              "incompatible",
+              "insufficient_evidence"
+            ],
+            "title": "Verdict"
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 400,
+            "title": "Reason"
+          },
+          "changes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 4,
+            "title": "Changes"
+          },
+          "missing": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 8,
+            "title": "Missing"
+          },
+          "claims": {
+            "items": {
+              "$ref": "#/components/schemas/MatchClaim"
+            },
+            "type": "array",
+            "maxItems": 6,
+            "title": "Claims"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "url",
+          "verdict",
+          "reason"
+        ],
+        "title": "FunctionalAssessment",
+        "description": "Contextual AI verdict for one fetched listing; not hardware validation."
       },
       "HaveLine": {
         "properties": {

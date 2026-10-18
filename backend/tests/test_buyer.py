@@ -11,11 +11,15 @@ import httpx
 from bharat_sourcer.config import Settings
 from bharat_sourcer.schemas import BomItem, BuyableSpec, OfferMatch, ProjectContext, SpecParam
 from bharat_sourcer.sourcing.buyer import (
+    AssessmentBatch,
+    AssessmentDraft,
     ChoiceDraft,
+    ExplorationDraft,
     GeminiBuyer,
     PickDraft,
     ValueDraft,
     apply_value,
+    functional_assessment,
     project_brief,
 )
 from bharat_sourcer.sourcing.fetch import Page
@@ -138,9 +142,42 @@ class Buyer:
     def decide_value(self, line, spec, project, items):
         return self.value
 
+    def explore(self, line, spec, project, items, tried):
+        return None
+
+    def assess(self, line, spec, project, items, candidates):
+        return None
+
     def choose(self, line, spec, project, items, candidates, tried):
         self.shown.append(([c.title for c in candidates], list(tried)))
         return self.choices.pop(0) if self.choices else None
+
+
+class FunctionalBuyer(Buyer):
+    def __init__(self, queries=(), **kwargs):
+        super().__init__(**kwargs)
+        self.queries = list(queries)
+        self.assessed = []
+        self.explored = []
+
+    def explore(self, line, spec, project, items, tried):
+        self.explored.append(list(tried))
+        return ExplorationDraft(queries=self.queries, reason="Search equivalent copper conductors.")
+
+    def assess(self, line, spec, project, items, candidates):
+        self.assessed.extend(c.url for c in candidates)
+        return AssessmentBatch(
+            assessments=[
+                AssessmentDraft(
+                    candidate_id=i,
+                    verdict="usable_with_changes" if "Enamelled" in c.title else "usable_directly",
+                    reason="The conductor serves the rail function.",
+                    changes=["Strip enamel at solder joints."] if "Enamelled" in c.title else [],
+                    claims=[{"claim": "Conductor identity", "quote": c.title}],
+                )
+                for i, c in enumerate(candidates)
+            ]
+        )
 
 
 WIRE = BuyableSpec(
@@ -220,7 +257,7 @@ def test_buyer_searches_again_in_its_own_words_then_picks():
     assert line.buyer.searched == ["22 swg tinned copper wire"]
     assert "22 swg tinned copper wire" not in [q.lower() for q in buyer.shown[0][1]]
     assert "22 swg tinned copper wire" in buyer.shown[1][1]
-    assert line.stages.count("buyer") == 2 and "buyer_search" in line.stages
+    assert line.stages.count("buyer") >= 2 and "buyer_search" in line.stages
 
 
 def test_unverified_quotes_leave_the_pick_partial_so_it_is_not_auto_selected():
@@ -250,7 +287,7 @@ def test_an_invented_candidate_id_or_no_decision_changes_nothing():
         Discovery(), Fetcher(), judge=RejectAll(), seller_search=Sellers([TINNED.url]), buyer=buyer
     )
     line = service.source_for_project(wire_line(), [wire_line()], project=PROJECT)
-    assert line.sourcing_status == "no_verified_offers" and line.buyer is None
+    assert line.sourcing_status == "no_verified_offers" and line.buyer.offer_url is None
 
 
 def test_buyer_reviews_even_when_the_judge_accepted_an_offer():
@@ -666,3 +703,230 @@ def test_bulk_pack_is_not_selected_when_a_much_cheaper_listing_exists():
     assert "pack of 1000" in selection_block(line, bulk)
     # Needing 100 LEDs makes the 1000-pack a sensible buy.
     assert not bulk_waste(100, bulk, cheapest_cover(100, line.offers))
+
+
+def test_deliberate_exploration_runs_before_exact_purchase_and_reviews_all():
+    buyer = FunctionalBuyer(
+        queries=["enamelled solid copper wire", "enamelled solid copper wire"],
+        choices=[
+            ChoiceDraft(
+                pick=PickDraft(
+                    candidate_id=0,
+                    fit="exact",
+                    reason="Original fits.",
+                    claims=[{"claim": "Copper", "quote": "Bare tinned copper wire"}],
+                )
+            )
+        ],
+    )
+    sellers = Sellers([TINNED.url], [ENAMELLED.url])
+    service = SourcingService(
+        Discovery(), Fetcher(), judge=AcceptExact(), seller_search=sellers, buyer=buyer
+    )
+    line = service.source_for_project(wire_line(), [wire_line()], project=PROJECT)
+    assert len(buyer.explored) == 1
+    assert sellers.queries[-1] == ["enamelled solid copper wire"]
+    assert set(buyer.assessed) == {TINNED.url, ENAMELLED.url}
+    assert len(line.buyer.assessments) == 2
+    assert line.buyer.searched == ["enamelled solid copper wire"]
+    alternative = next(o for o in line.offers if str(o.url) == ENAMELLED.url)
+    assert alternative.match.status == "compatible"
+    assert alternative.compatibility.grade == "B"
+    assert alternative.compatibility.changes == ["Strip enamel at solder joints."]
+    assert line.buyable_spec.part_name == WIRE.part_name
+    assert line.buyable_spec.params == WIRE.params
+    assert line.buyable_spec.exclude == WIRE.exclude
+
+
+def test_assessments_are_not_truncated_at_sixteen(monkeypatch):
+    pages = [
+        page(f"https://seller.example/products/wire-{i}", f"Bare copper wire {i}", "100.00")
+        for i in range(19)
+    ]
+    for product in pages:
+        monkeypatch.setitem(PAGES, product.url, product)
+    buyer = FunctionalBuyer()
+    service = SourcingService(
+        Discovery(),
+        Fetcher(),
+        judge=AcceptExact(),
+        seller_search=Sellers([p.url for p in pages]),
+        buyer=buyer,
+    )
+    line = service.source_for_project(wire_line(), [wire_line()], project=PROJECT)
+    assert len(buyer.assessed) == 19
+    assert len(line.buyer.assessments) == 19
+    assert all(a.verdict == "usable_directly" for a in line.buyer.assessments)
+
+
+def test_functional_evidence_requires_all_quotes_and_changes():
+    from bharat_sourcer.sourcing.listings import verify_page
+    from bharat_sourcer.sourcing.matching import build_candidate
+
+    candidate = build_candidate(TINNED, verify_page(TINNED, None))
+    valid = {"claim": "Conductor", "quote": "Bare tinned copper wire"}
+    for draft in [
+        AssessmentDraft(
+            candidate_id=0,
+            verdict="usable_directly",
+            reason="Unproven",
+            claims=[valid, {"claim": "Voltage", "quote": "invented voltage rating"}],
+        ),
+        AssessmentDraft(
+            candidate_id=0, verdict="usable_with_changes", reason="No plan", claims=[valid]
+        ),
+        AssessmentDraft(
+            candidate_id=0,
+            verdict="usable_directly",
+            reason="Missing fact",
+            claims=[valid],
+            missing=["current rating"],
+        ),
+        AssessmentDraft(candidate_id=0, verdict="incompatible", reason="No evidence"),
+    ]:
+        assert functional_assessment(candidate, draft, "test").verdict == "insufficient_evidence"
+
+
+def test_missing_duplicate_and_invented_verdict_ids_do_not_approve(monkeypatch):
+    class MalformedBuyer(FunctionalBuyer):
+        def assess(self, line, spec, project, items, candidates):
+            return AssessmentBatch(
+                assessments=[
+                    AssessmentDraft(
+                        candidate_id=i,
+                        verdict="usable_directly",
+                        reason="Conflicting response",
+                        claims=[{"claim": "Copper", "quote": "Bare tinned copper wire"}],
+                    )
+                    for i in [0, 0, 99]
+                ]
+            )
+
+    service = SourcingService(
+        Discovery(),
+        Fetcher(),
+        judge=RejectAll(),
+        seller_search=Sellers([TINNED.url, ENAMELLED.url]),
+        buyer=MalformedBuyer(),
+    )
+    line = service.source_for_project(wire_line(), [wire_line()], project=PROJECT)
+    assert len(line.buyer.assessments) == 2
+    assert all(a.verdict == "insufficient_evidence" for a in line.buyer.assessments)
+    assert not line.offers
+
+
+def test_deliberate_search_consumes_one_existing_round():
+    buyer = FunctionalBuyer(
+        queries=["alternate copper conductor"],
+        choices=[ChoiceDraft(search=["must not exceed limit"])],
+    )
+    sellers = Sellers([TINNED.url], [ENAMELLED.url])
+    service = SourcingService(
+        Discovery(),
+        Fetcher(),
+        judge=AcceptExact(),
+        seller_search=sellers,
+        buyer=buyer,
+        buyer_rounds=1,
+    )
+    line = service.source_for_project(wire_line(), [wire_line()], project=PROJECT)
+    assert len(sellers.queries) == 2
+    assert line.buyer.searched == ["alternate copper conductor"]
+
+
+def test_zero_rounds_skips_exploration_but_reviews_candidates():
+    buyer = FunctionalBuyer(queries=["must not search"])
+    sellers = Sellers([TINNED.url])
+    service = SourcingService(
+        Discovery(),
+        Fetcher(),
+        judge=AcceptExact(),
+        seller_search=sellers,
+        buyer=buyer,
+        buyer_rounds=0,
+    )
+    line = service.source_for_project(wire_line(), [wire_line()], project=PROJECT)
+    assert buyer.explored == [] and buyer.assessed == [TINNED.url]
+    assert len(sellers.queries) == 1
+    assert len(line.buyer.assessments) == 1
+
+
+def test_explicit_negative_and_unknown_verdicts_are_not_accepted():
+    class ReviewingBuyer(FunctionalBuyer):
+        def assess(self, line, spec, project, items, candidates):
+            return AssessmentBatch(
+                assessments=[
+                    AssessmentDraft(
+                        candidate_id=0,
+                        verdict="incompatible",
+                        reason="Fixture conflict",
+                        claims=[{"claim": "Identity", "quote": candidates[0].title}],
+                    ),
+                    AssessmentDraft(
+                        candidate_id=1,
+                        verdict="insufficient_evidence",
+                        reason="Current rating absent",
+                        missing=["current rating"],
+                    ),
+                ]
+            )
+
+    service = SourcingService(
+        Discovery(),
+        Fetcher(),
+        judge=AcceptExact(),
+        seller_search=Sellers([TINNED.url, ENAMELLED.url]),
+        buyer=ReviewingBuyer(),
+    )
+    line = service.source_for_project(wire_line(), [wire_line()], project=PROJECT)
+    assert {a.verdict for a in line.buyer.assessments} == {"incompatible", "insufficient_evidence"}
+    assert {o.match.status for o in line.offers} == {"mismatch", "partial"}
+
+
+def test_paid_budget_blocks_exploration_and_marks_unreviewed(monkeypatch):
+    monkeypatch.setattr("bharat_sourcer.sourcing.service.paid_allowed", lambda: False)
+    buyer = FunctionalBuyer(queries=["do not run"])
+    service = SourcingService(
+        Discovery(),
+        Fetcher(),
+        judge=AcceptExact(),
+        seller_search=Sellers([TINNED.url]),
+        buyer=buyer,
+    )
+    line = service.source_for_project(wire_line(), [wire_line()], project=PROJECT)
+    assert not buyer.explored and not buyer.assessed and not buyer.shown
+    assert line.buyer.assessments[0].verdict == "insufficient_evidence"
+    assert line.offers[0].match.status == "exact"  # Prior evidence survives unavailable review.
+
+
+def test_gemini_functional_response_schemas_and_context():
+    requests = []
+
+    def handler(request):
+        body = json.loads(request.content)
+        requests.append(body)
+        response = (
+            {"queries": ["I2C sensor module"], "reason": "Function-based alternative"}
+            if len(requests) == 1
+            else {"assessments": []}
+        )
+        return httpx.Response(
+            200,
+            json={
+                "candidates": [
+                    {"finishReason": "STOP", "content": {"parts": [{"text": json.dumps(response)}]}}
+                ]
+            },
+        )
+
+    buyer = GeminiBuyer(
+        Settings(_env_file=None, gemini_api_key="synthetic-key"),
+        transport=httpx.MockTransport(handler),
+    )
+    plan = buyer.explore(wire_line(), WIRE, PROJECT, [wire_line()], [])
+    result = buyer.assess(wire_line(), WIRE, PROJECT, [wire_line()], [])
+    assert plan.queries == ["I2C sensor module"]
+    assert result.assessments == []
+    assert "queries" in requests[0]["generationConfig"]["responseJsonSchema"]["properties"]
+    assert "assessments" in requests[1]["generationConfig"]["responseJsonSchema"]["properties"]
+    assert "every" in requests[1]["systemInstruction"]["parts"][0]["text"].lower()

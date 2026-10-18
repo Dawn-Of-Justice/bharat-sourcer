@@ -19,6 +19,7 @@ from bharat_sourcer.schemas import (
     BomItem,
     BuyableSpec,
     BuyerDecision,
+    Compatibility,
     ErrorDetail,
     OfferMatch,
     PartResearch,
@@ -30,10 +31,12 @@ from bharat_sourcer.schemas import (
     VerifiedOffer,
 )
 from bharat_sourcer.sourcing.buyer import (
+    ASSESSMENT_BATCH,
     MAX_CANDIDATES,
     GeminiBuyer,
     apply_value,
     decision_note,
+    functional_assessment,
     picked_offer,
     substitute_compatibility,
 )
@@ -53,7 +56,12 @@ from bharat_sourcer.sourcing.matching import Candidate, build_candidate
 from bharat_sourcer.sourcing.part_spec import buyable_spec
 from bharat_sourcer.sourcing.platforms import shopify_variants, storefront_offer
 from bharat_sourcer.sourcing.politeness import BlockedError, Politeness
-from bharat_sourcer.sourcing.providers import ApiPage, ProviderFetcher, ProviderSearch
+from bharat_sourcer.sourcing.providers import (
+    ApiPage,
+    ProviderFetcher,
+    ProviderResult,
+    ProviderSearch,
+)
 from bharat_sourcer.sourcing.research import Researcher, needs_followup, review_or_skip
 from bharat_sourcer.sourcing.routing import route_queries
 from bharat_sourcer.sourcing.seller_search import (
@@ -878,6 +886,153 @@ class SourcingService:
 
     def _buy(
         self,
+        item,
+        project_items,
+        project,
+        spec,
+        resolution,
+        fetcher,
+        attempted,
+        state,
+        stages,
+        search,
+    ) -> tuple[BuyerDecision | None, int]:
+        """Explore independently of purchase selection, then review every candidate."""
+        calls = 0
+        queries = []
+        exploration = None
+        tried = list(search.queries) if search else []
+        if self.buyer_rounds > 0 and paid_allowed() and (self.seller_search or self.providers):
+            stages.append("buyer")
+            calls += 1
+            exploration = self.buyer.explore(item, spec, project, project_items, tried)
+            if exploration:
+                known = {q.strip().casefold() for q in tried}
+                for query in exploration.queries:
+                    query = query.strip()
+                    if query and query.casefold() not in known:
+                        queries.append(query)
+                        known.add(query.casefold())
+                if queries:
+                    self._buyer_search(
+                        queries,
+                        spec,
+                        project,
+                        resolution,
+                        fetcher,
+                        attempted,
+                        state,
+                        stages,
+                        search,
+                    )
+        note, choice_calls = self._choose_buy(
+            item,
+            project_items,
+            project,
+            spec,
+            resolution,
+            fetcher,
+            attempted,
+            state,
+            stages,
+            search,
+            self.buyer_rounds - bool(queries),
+            queries,
+        )
+        calls += choice_calls
+        note = note or decision_note(None, None, None, queries, self.buyer.model)
+        note.exploration_reason = exploration.reason if exploration else None
+        # No first-16 truncation: every fetched candidate gets a verdict. Calls remain
+        # bounded by fetched candidates, batch size and the existing paid budget.
+        for start in range(0, len(state.candidates), ASSESSMENT_BATCH):
+            batch = state.candidates[start : start + ASSESSMENT_BATCH]
+            response = None
+            if paid_allowed():
+                stages.append("buyer")
+                calls += 1
+                response = self.buyer.assess(item, spec, project, project_items, batch)
+            by_id = {}
+            duplicates = set()
+            for draft in response.assessments if response else []:
+                if draft.candidate_id in by_id:
+                    duplicates.add(draft.candidate_id)
+                by_id[draft.candidate_id] = draft
+            for index, candidate in enumerate(batch):
+                draft = None if index in duplicates else by_id.get(index)
+                assessment = functional_assessment(candidate, draft, self.buyer.model)
+                if assessment.verdict.startswith("usable") and is_accessory_for(
+                    candidate.title, resolution.query
+                ):
+                    assessment.verdict = "incompatible"
+                    assessment.reason = "This listing is an accessory for the requested part."
+                note.assessments.append(assessment)
+                # Missing/failed reviews cannot silently erase previous valid evidence.
+                if draft is None or candidate.offer is None:
+                    continue
+                offer = candidate.offer.model_copy(deep=True)
+                verdict = assessment.verdict
+                status = {
+                    "usable_directly": "compatible",
+                    "usable_with_changes": "compatible",
+                    "incompatible": "mismatch",
+                    "insufficient_evidence": "partial",
+                }[verdict]
+                offer.match = OfferMatch(
+                    status=status,
+                    score=0.75 if status == "compatible" else 0.2,
+                    reasons=[assessment.reason[:300]],
+                    claims=assessment.claims,
+                    missing=assessment.missing,
+                    method="llm_buyer",
+                    model=self.buyer.model,
+                    pack_qty=offer.pack_qty,
+                )
+                offer.compatibility = Compatibility(
+                    status={
+                        "usable_directly": "compatible",
+                        "usable_with_changes": "changes_required",
+                        "incompatible": "incompatible",
+                        "insufficient_evidence": "unknown",
+                    }[verdict],
+                    grade={
+                        "usable_directly": "A",
+                        "usable_with_changes": "B",
+                        "incompatible": "X",
+                        "insufficient_evidence": "D",
+                    }[verdict],
+                    reasons=[assessment.reason],
+                    changes=assessment.changes,
+                    missing_fields=assessment.missing,
+                )
+                offer.compatibility_status = offer.compatibility.status
+                identity = identify(str(offer.url))
+                offer.seller_domain, offer.seller_name, offer.seller_kind = (
+                    identity.domain,
+                    identity.name,
+                    identity.kind,
+                )
+                url = str(offer.url)
+                state.offers = [o for o in state.offers if str(o.url) != url]
+                state.offers.append(offer)
+                state.seen.add(url)
+        if note.offer_url:
+            selected = next((o for o in state.offers if str(o.url) == str(note.offer_url)), None)
+            if selected is None or not accepted_offer(selected):
+                note.fit, note.offer_url, note.reason, note.changes = None, None, None, []
+            else:
+                review = next(
+                    (a for a in note.assessments if str(a.url) == str(note.offer_url)), None
+                )
+                if review and review.verdict == "usable_with_changes":
+                    note.fit, note.reason, note.changes = (
+                        "substitute",
+                        review.reason,
+                        review.changes,
+                    )
+        return note, calls
+
+    def _choose_buy(
+        self,
         item: BomItem,
         project_items: list[BomItem],
         project: ProjectContext | None,
@@ -888,6 +1043,8 @@ class SourcingService:
         state: "VerifyState",
         stages: list[str],
         search: SearchResult | None,
+        rounds: int,
+        initial_queries: list[str],
     ) -> tuple[BuyerDecision | None, int]:
         """Let the AI buyer pick from every fetched listing, or search again in its words.
 
@@ -895,9 +1052,9 @@ class SourcingService:
         the spec judge first. Functional review also runs when an exact offer exists.
         """
         tried = [str(q) for q in (search.queries if search else [])]
-        searched: list[str] = []
+        searched: list[str] = list(initial_queries)
         calls = 0
-        for round_index in range(self.buyer_rounds + 1):
+        for round_index in range(rounds + 1):
             if not paid_allowed():
                 break
             stages.append("buyer")
@@ -910,8 +1067,12 @@ class SourcingService:
             pick = draft.pick
             if pick is not None and pick.candidate_id < min(len(state.candidates), MAX_CANDIDATES):
                 chosen = picked_offer(state.candidates[pick.candidate_id], pick, self.buyer.model)
-                if chosen is not None and not accepted_offer(chosen[0]) and any(
-                    str(o.url) == str(chosen[0].url) and accepted_offer(o) for o in state.offers
+                if (
+                    chosen is not None
+                    and not accepted_offer(chosen[0])
+                    and any(
+                        str(o.url) == str(chosen[0].url) and accepted_offer(o) for o in state.offers
+                    )
                 ):
                     # An unsupported buyer claim must not downgrade existing evidence.
                     chosen = None
@@ -941,63 +1102,65 @@ class SourcingService:
             queries = [
                 q.strip() for q in draft.search if q.strip() and q.strip().casefold() not in known
             ]
-            if (
-                not queries
-                or round_index == self.buyer_rounds
-                or not (self.seller_search or self.providers)
-            ):
+            if not queries or round_index == rounds or not (self.seller_search or self.providers):
                 break
-            stages.append("buyer_search")
             searched += queries[:3]
-            try:
-                more = (
-                    self.seller_search.search(
-                        queries[:3], self.seller_limit, self.seller_fetch_budget
-                    )
-                    if self.seller_search
-                    else SearchResult([], [], [])
-                )
-            except Exception:
-                logging.getLogger(__name__).warning("BUYER_SEARCH_FAILED", exc_info=True)
-                more = SearchResult([], [], [])
-            new = self._verify_urls(
-                [c.url for c in more.candidates], resolution, fetcher, attempted, state
+            self._buyer_search(
+                queries[:3], spec, project, resolution, fetcher, attempted, state, stages, search
             )
-            self._review(spec, project, resolution, new, state, stages)
-            if self.providers:
-                stages.append("provider_search")
-                # One bounded provider query per round; never send project narrative.
-                try:
-                    external = self.providers.search(queries[0], self.seller_fetch_budget)
-                except Exception as exc:
-                    logging.getLogger(__name__).warning(
-                        "BUYER_PROVIDER_FAILED type=%s", type(exc).__name__
-                    )
-                    continue
-                more.candidates.extend(external.candidates)
-                more.diagnostics.extend(external.diagnostics)
-                provider_new = self._verify_urls(
-                    [c.url for c in external.candidates],
-                    resolution,
-                    ProviderFetcher(external.pages, fetcher),
-                    attempted,
-                    state,
-                )
-                self._review(spec, project, resolution, provider_new, state, stages)
-                new.extend(provider_new)
-            if search is not None:
-                search.queries.extend(queries[:3])
-                search.candidates.extend(more.candidates)
-                search.diagnostics.extend(more.diagnostics)
-            # Newly discovered alternatives must remain visible within the model's cap.
-            new_urls = {c.url for c in new}
-            if len(state.candidates) > MAX_CANDIDATES:
-                state.candidates = [c for c in state.candidates if c.url in new_urls] + [
-                    c for c in state.candidates if c.url not in new_urls
-                ]
         return (
             decision_note(None, None, None, searched, self.buyer.model) if searched else None
         ), calls
+
+    def _buyer_search(
+        self, queries, spec, project, resolution, fetcher, attempted, state, stages, search
+    ):
+        """One shared bounded round for deliberate exploration and buyer follow-ups."""
+        stages.append("buyer_search")
+        try:
+            more = (
+                self.seller_search.search(queries[:3], self.seller_limit, self.seller_fetch_budget)
+                if self.seller_search
+                else SearchResult([], [], [])
+            )
+        except Exception:
+            logging.getLogger(__name__).warning("BUYER_SEARCH_FAILED", exc_info=True)
+            more = SearchResult([], [], [])
+        new = self._verify_urls(
+            [c.url for c in more.candidates], resolution, fetcher, attempted, state
+        )
+        self._review(spec, project, resolution, new, state, stages)
+        if self.providers:
+            stages.append("provider_search")
+            # One bounded provider query per round; never send project narrative.
+            try:
+                external = self.providers.search(queries[0], self.seller_fetch_budget)
+            except Exception as exc:
+                logging.getLogger(__name__).warning(
+                    "BUYER_PROVIDER_FAILED type=%s", type(exc).__name__
+                )
+                external = ProviderResult()
+            more.candidates.extend(external.candidates)
+            more.diagnostics.extend(external.diagnostics)
+            provider_new = self._verify_urls(
+                [c.url for c in external.candidates],
+                resolution,
+                ProviderFetcher(external.pages, fetcher),
+                attempted,
+                state,
+            )
+            self._review(spec, project, resolution, provider_new, state, stages)
+            new.extend(provider_new)
+        if search is not None:
+            search.queries.extend(queries[:3])
+            search.candidates.extend(more.candidates)
+            search.diagnostics.extend(more.diagnostics)
+        # Newly discovered alternatives must remain visible within the model's cap.
+        new_urls = {c.url for c in new}
+        if len(state.candidates) > MAX_CANDIDATES:
+            state.candidates = [c for c in state.candidates if c.url in new_urls] + [
+                c for c in state.candidates if c.url not in new_urls
+            ]
 
     def _verify_urls(
         self, urls: list[str], resolution, fetcher, attempted: set[str], state: "VerifyState"

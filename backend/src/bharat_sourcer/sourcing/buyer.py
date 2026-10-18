@@ -1,6 +1,6 @@
 """The AI buyer: decides hard BOM lines the way a maker buying parts in India would.
 
-Two decisions, both from the whole project (what it builds, its power, every other part
+Decisions use the whole project (what it builds, its power, every other part
 and this part's role), never from keyword rules:
 
 1. `decide_value`: a part whose value the source does not state (an unmarked resistor) gets
@@ -9,6 +9,8 @@ and this part's role), never from keyword rules:
    the spec judge rejected) and pick the one to buy: the exact part, a workable substitute
    (with the changes the maker must make) or a kit that contains it. When none fits, return
    new store searches worded the way Indian shops list the part.
+3. `explore`: explicitly plan functional alternative searches before purchase selection.
+4. `assess`: return an independent contextual verdict for every fetched candidate in batches.
 
 Facts stay grounded: the model can only pick a candidate it was shown, prices and stock
 come from the seller's page, and claims keep only quotes found verbatim in the listing.
@@ -30,6 +32,7 @@ from bharat_sourcer.schemas import (
     BuyableSpec,
     BuyerDecision,
     Compatibility,
+    FunctionalAssessment,
     MatchClaim,
     Model,
     OfferMatch,
@@ -45,6 +48,27 @@ from bharat_sourcer.usage import paid_allowed, record_usage
 log = logging.getLogger(__name__)
 SITE = "buyer"
 MAX_CANDIDATES = 16
+ASSESSMENT_BATCH = 6
+
+
+class ExplorationDraft(Model):
+    queries: list[str] = Field(default_factory=list, max_length=3)
+    reason: str = Field(min_length=1, max_length=400)
+
+
+class AssessmentDraft(Model):
+    candidate_id: int = Field(ge=0)
+    verdict: Literal[
+        "usable_directly", "usable_with_changes", "incompatible", "insufficient_evidence"
+    ]
+    reason: str = Field(min_length=1, max_length=400)
+    changes: list[str] = Field(default_factory=list, max_length=4)
+    missing: list[str] = Field(default_factory=list, max_length=8)
+    claims: list["ClaimDraft"] = Field(default_factory=list, max_length=6)
+
+
+class AssessmentBatch(Model):
+    assessments: list[AssessmentDraft] = Field(default_factory=list, max_length=ASSESSMENT_BATCH)
 
 
 class ValueDraft(Model):
@@ -129,6 +153,42 @@ store searches (not in
 tried_queries), worded the way Indian shops list the part: SWG gauges for wire, "tinned",
 "single strand", "solid core", "assortment", "kit", plain values like "22 swg".
 Return JSON."""
+)
+
+EXPLORATION_PROMPT = (
+    ROLE
+    + """
+Plan a deliberate search for FUNCTIONAL alternatives to this component. This step runs
+even when an exact listing is already available. Use its role in the build, voltage,
+interfaces, performance, physical constraints and other BOM parts. Return 1-3 distinct
+product search queries: alternative models or function/specification searches, not
+cosmetic aliases of the original model. These are hypotheses to investigate, not
+compatibility approvals. Firmware, library and wiring changes are allowed if feasible.
+Honor explicit must-use constraints. Return no queries only when substitutions are
+explicitly forbidden, the function cannot be inferred, or no defensible new query exists;
+explain why. Do not repeat tried_queries. Queries go to external search providers: include
+only product terms/specifications, never private project narrative. Return JSON.
+"""
+)
+
+ASSESSMENT_PROMPT = (
+    ROLE
+    + """
+Assess EVERY supplied candidate independently for this part's function in this project.
+Return exactly one verdict per candidate_id, including candidates with incomplete titles.
+Do not stop when a good listing is found. The original model name alone is not mandatory;
+explicit must-use requirements, electrical limits and physical constraints ARE mandatory.
+usable_directly: evidence supports the function and all critical constraints without changes.
+usable_with_changes: evidence supports feasibility with concrete firmware/library/pin/wiring
+changes; list those changes and account for connected parts. Never call a merely similar
+board compatible. incompatible: evidence establishes a conflict that feasible changes
+cannot resolve. insufficient_evidence: identify critical missing facts, not a request for
+the user to decide compatibility. A sparse title alone does not establish incompatibility.
+For usable verdicts quote seller evidence covering the critical suitability claims. For
+incompatible quote the conflicting fact. Do not invent capabilities, stock or prices.
+An accessory cannot replace the main part. Variant groups without an unambiguous priced
+variant require more evidence. Return JSON, not a single preferred purchase.
+"""
 )
 
 
@@ -248,6 +308,69 @@ class GeminiBuyer:
         }
         draft = self._call(CHOICE_PROMPT, body, ChoiceDraft)
         return draft if isinstance(draft, ChoiceDraft) else None
+
+    def explore(self, line, spec, project, items, tried_queries) -> ExplorationDraft | None:
+        draft = self._call(
+            EXPLORATION_PROMPT,
+            {
+                "project": project_brief(project, items, line),
+                "spec": compact_spec(spec),
+                "tried_queries": tried_queries,
+            },
+            ExplorationDraft,
+        )
+        return draft if isinstance(draft, ExplorationDraft) else None
+
+    def assess(self, line, spec, project, items, candidates) -> AssessmentBatch | None:
+        draft = self._call(
+            ASSESSMENT_PROMPT,
+            {
+                "project": project_brief(project, items, line),
+                "spec": compact_spec(spec),
+                "candidates": [c.listing(i) for i, c in enumerate(candidates)],
+            },
+            AssessmentBatch,
+        )
+        return draft if isinstance(draft, AssessmentBatch) else None
+
+
+def functional_assessment(
+    candidate: Candidate, draft: AssessmentDraft | None, model: str
+) -> FunctionalAssessment:
+    """Validate evidence before exposing a model's functional verdict."""
+    if draft is None:
+        return FunctionalAssessment(
+            url=candidate.url,
+            verdict="insufficient_evidence",
+            reason="Functional review was unavailable or omitted this candidate.",
+            model=model,
+        )
+    claims = [
+        MatchClaim(claim=c.claim, quote=c.quote)
+        for c in draft.claims
+        if quoted(c.quote, candidate.quote_text())
+    ]
+    verdict = draft.verdict
+    reason = draft.reason
+    missing = list(draft.missing)
+    if verdict != "insufficient_evidence" and (
+        not claims
+        or len(claims) != len(draft.claims)
+        or (verdict.startswith("usable") and (missing or candidate.offer is None))
+        or (verdict == "usable_with_changes" and not draft.changes)
+        or (verdict == "usable_directly" and draft.changes)
+    ):
+        verdict = "insufficient_evidence"
+        reason = "Functional verdict lacks complete supporting evidence or a concrete change plan."
+    return FunctionalAssessment(
+        url=candidate.url,
+        verdict=verdict,
+        reason=reason,
+        changes=draft.changes,
+        missing=missing,
+        claims=claims,
+        model=model,
+    )
 
 
 def apply_value(spec: BuyableSpec, draft: ValueDraft) -> BuyableSpec:

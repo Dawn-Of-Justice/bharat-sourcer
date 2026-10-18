@@ -798,7 +798,7 @@ class OfferMatch(Model):
     dropped_claims: int = Field(default=0, ge=0)
     variant: str | None = Field(default=None, max_length=300)
     pack_qty: int | None = Field(default=None, ge=1, le=100000)
-    # llm_buyer: chosen by the AI buyer from the whole project when nothing was accepted.
+    # llm_buyer: purchase choice or functional assessment using the whole project.
     method: Literal["llm_judge", "deterministic_shortcut", "llm_buyer"] = "llm_judge"
     model: str | None = None
 
@@ -1296,12 +1296,26 @@ class CodePatchRequest(Model):
     offer_url: HttpUrl | None = None
 
 
+class FunctionalAssessment(Model):
+    """Contextual AI verdict for one fetched listing; not hardware validation."""
+
+    url: HttpUrl
+    verdict: Literal[
+        "usable_directly", "usable_with_changes", "incompatible", "insufficient_evidence"
+    ]
+    reason: str = Field(max_length=400)
+    changes: list[str] = Field(default_factory=list, max_length=4)
+    missing: list[str] = Field(default_factory=list, max_length=8)
+    claims: list[MatchClaim] = Field(default_factory=list, max_length=6)
+    model: str | None = None
+
+
 class BuyerDecision(Model):
     """What the AI buyer decided for a hard line, in plain words (docs/contracts/ai-buyer.md).
 
     value: a part value the source did not state, worked out from the circuit (the spec's
-    param carries the same reason). fit/offer_url: the listing it chose when nothing was
-    accepted (substitute offers are grade B with the changes listed). searched: extra store
+    param carries the same reason). fit/offer_url: its purchase recommendation
+    (substitute offers are grade B with the changes listed). searched: extra store
     searches it asked for. Decisions are suggestions for review, never verified facts.
     """
 
@@ -1313,6 +1327,8 @@ class BuyerDecision(Model):
     reason: str | None = Field(default=None, max_length=400)
     changes: list[str] = Field(default_factory=list, max_length=4)
     searched: list[str] = Field(default_factory=list, max_length=6)
+    exploration_reason: str | None = Field(default=None, max_length=400)
+    assessments: list[FunctionalAssessment] = Field(default_factory=list)
     model: str | None = None
 
 
