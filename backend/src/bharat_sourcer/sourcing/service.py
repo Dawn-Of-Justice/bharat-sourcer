@@ -55,6 +55,7 @@ from bharat_sourcer.sourcing.listings import (
     verify_page,
 )
 from bharat_sourcer.sourcing.matching import Candidate, build_candidate
+from bharat_sourcer.sourcing.offer_guards import guard_offer, pitch_conflict
 from bharat_sourcer.sourcing.part_spec import buyable_spec
 from bharat_sourcer.sourcing.platforms import shopify_variants, storefront_offer
 from bharat_sourcer.sourcing.politeness import BlockedError, Politeness
@@ -367,6 +368,11 @@ class SourcingService:
             judged = found
         new = []
         for offer in judged:
+            guard_offer(spec, offer)
+            if pitch_conflict(spec, offer):
+                state.rejected += 1
+                state.reasons["pitch_conflict"] += 1
+                continue
             if is_accessory_for(offer.title, resolution.query):
                 state.rejected += 1
                 state.reasons["identity_conflict"] += 1
@@ -782,6 +788,9 @@ class SourcingService:
                 blocked_sellers=sorted(set(search.blocked()) | state.blocked_hosts)[:20],
                 message=search.message()[:500],
             )
+        for offer in state.offers:
+            guard_offer(spec, offer)
+        state.offers = [offer for offer in state.offers if not pitch_conflict(spec, offer)]
         offers, pages, sources = state.offers, state.pages, state.sources
         if self.trust and offers:
             try:

@@ -144,7 +144,7 @@ class Settings(BaseSettings):
     gemini_site_thinking: dict[str, ThinkingLevel] = Field(
         default_factory=lambda: dict(DEFAULT_SITE_THINKING)
     )
-    job_gemini_budget_usd: float = Field(default=1.0, ge=0, le=10)
+    job_gemini_budget_usd: float = Field(default=5.0, ge=0, le=10)
     cache_enabled: bool = True
     # Spec judge (sourcing/judge.py): one call per BOM line with candidates, Flash-Lite class.
     judge_enabled: bool = True

@@ -187,7 +187,7 @@ Done:
   Research keeps medium until the evaluation harness shows low holds quality.
 - **Refresh without rediscovery:** known offer URLs are re-fetched first; grounded search
   only when all are gone or out of stock.
-- **Budget guard:** `BS_JOB_GEMINI_BUDGET_USD` (default $0.25) per sourcing run.
+- **Budget guard:** `BS_JOB_GEMINI_BUDGET_USD` (default $5.00) per sourcing run.
 - **Accounting:** `job.cost_estimate` (total, current run, calls/USD by site, queries,
   cache hits); `usage_report.py` prints estimated USD per site, per job and cache savings
   (`--job` filters one job).

@@ -46,6 +46,7 @@ from bharat_sourcer.schemas import (
     VerifiedOffer,
     now,
 )
+from bharat_sourcer.sourcing.offer_guards import guard_offer, pitch_conflict
 from bharat_sourcer.sourcing.part_spec import is_assortment, seed_spec
 from bharat_sourcer.sourcing.research import check_requirements
 
@@ -174,6 +175,8 @@ def eligible(line: ReportLine, offer: VerifiedOffer) -> bool:
 
 def selection_block(line: ReportLine, offer: VerifiedOffer) -> str | None:
     """Why the selection rules forbid choosing this offer automatically, or None."""
+    if pitch_conflict(line_spec(line), offer):
+        return "Not selected automatically: connector pitch conflicts with the PCB."
     if offer.stock != "in_stock":
         return "Not selected automatically: the seller does not report it in stock."
     if offer.checked_at < now() - timedelta(hours=24):
@@ -242,7 +245,7 @@ def score_offer(line: ReportLine, offer: VerifiedOffer, context: ScoreContext) -
 
     match = getattr(offer, "match", None)
     status = attr(match, "status")
-    if status == "mismatch":
+    if status == "mismatch" or pitch_conflict(line_spec(line), offer):
         excluded = "the listing does not match the part"
         reasons.append("Match: mismatch with the part (excluded)")
     else:
@@ -552,6 +555,8 @@ def build_basket(report: Report, penalty: Decimal = SELLER_PENALTY_INR) -> Baske
     """Pure: the recommended offer per free line; user selections stay fixed."""
     fixed, choices, free, unsourced, all_scores, score_map = [], [], [], {}, {}, {}
     for line in report.lines:
+        for offer in line.offers:
+            guard_offer(line_spec(line), offer)
         if line.item.user_has_it or made_to_order(line):
             continue
         line_id = line.item.line_id

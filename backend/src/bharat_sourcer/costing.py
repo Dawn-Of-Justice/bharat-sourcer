@@ -26,6 +26,7 @@ from bharat_sourcer.schemas import (
     SellerCost,
     ShippingPolicyRef,
 )
+from bharat_sourcer.sourcing.part_spec import pack_quantity
 from bharat_sourcer.sourcing.sellers import registrable_domain
 
 CENT = Decimal("0.01")
@@ -62,7 +63,9 @@ def gst_percent(family: str | None) -> Decimal:
 def pack_size(offer) -> int | None:
     """Units per listing when the seller states a pack (`pack_qty`, read defensively)."""
     value = getattr(offer, "pack_qty", None) if offer is not None else None
-    return value if isinstance(value, int) and not isinstance(value, bool) and value > 1 else None
+    if isinstance(value, int) and not isinstance(value, bool):
+        return value if value > 1 else None
+    return pack_quantity(getattr(offer, "title", "")) if offer is not None else None
 
 
 def packs_for(qty: int, offer) -> int:

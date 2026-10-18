@@ -356,7 +356,7 @@ offers, apply the best one as the default selection (judge-confirmed offers incl
 choices are never overwritten) and build a seller-grouped `order_plan` that consolidates
 orders to save shipping; every line gets a `line_image`. [Cost controls](../docs/contracts/cost-controls.md)
 add a shared cross-job cache, research only when needed, refresh without rediscovery, a
-per-job budget (default $1.00) and `job.cost_estimate`. Also new: [nearby markets](../docs/contracts/nearby-markets.md)
+per-job budget (default $5.00) and `job.cost_estimate`. Also new: [nearby markets](../docs/contracts/nearby-markets.md)
 via Maps grounding (`GET /markets`), YouTube description intake (key mounted as
 `BS_YOUTUBE_API_KEY`; quotes expire after 30 days), and bot-protection detection that stops
 and reports instead of circumventing.
@@ -387,7 +387,7 @@ unreviewed agent draft; no accuracy figure is claimed. Items needing owner appro
 Cost controls (unreleased, branch `mvp/cost`): a cross-job shared cache
 (`sourcing/cache.py`), research skipped when a verified in-stock compatible offer exists,
 capped research text, refresh that re-fetches known offer pages before any paid search, a
-per-run Gemini budget (`BS_JOB_GEMINI_BUDGET_USD`, default $1.00), low thinking for
+per-run Gemini budget (`BS_JOB_GEMINI_BUDGET_USD`, default $5.00), low thinking for
 classifier-like call sites and an estimated `job.cost_estimate`. See
 [cost controls](../docs/contracts/cost-controls.md).
 
@@ -1225,4 +1225,4 @@ limits and paid-call budgets still apply. Existing reports are snapshots: refres
 selected lines after deployment to replace old sourcing results.
 
 Repository inventory uses a compact identity/quantity/evidence schema before seller enrichment.
-BS_EXTRACTION_OUTPUT_TOKENS defaults to 32768; BS_JOB_GEMINI_BUDGET_USD defaults to 1.00 (an estimated soft stop, not a billing cap). Code discovery reads up to 24 files and 8 schematics. Archived paths remain excluded. Larger limits improve coverage but do not establish that every component was found.
+BS_EXTRACTION_OUTPUT_TOKENS defaults to 32768; BS_JOB_GEMINI_BUDGET_USD defaults to 5.00 (an estimated soft stop, not a billing cap). Code discovery reads up to 24 files and 8 schematics. Archived paths remain excluded. Larger limits improve coverage but do not establish that every component was found.
