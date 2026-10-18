@@ -280,11 +280,12 @@ def test_readme_without_parts_reads_code_and_kicad_schematics():
     assert any(url == TREE for url, _ in fetcher.calls)
 
 
-def test_readme_with_parts_does_not_read_schematics():
+def test_readme_with_parts_still_reads_schematics():
     fetcher = repository()
     result = extractor(fetcher, lambda r: gemini({"items": [GOOD]})).extract(REPO)
     assert [x.raw_name for x in result.items] == ["ESP32 board"]
-    assert not any(url.endswith(".kicad_sch") for url, _ in fetcher.calls)
+    assert any(url.endswith(".kicad_sch") for url, _ in fetcher.calls)
+    assert any(x.raw_name.startswith("IR333C LED") for x in result.code_items)
 
 
 def test_github_readme_read_failure_falls_back_to_code_and_schematics():

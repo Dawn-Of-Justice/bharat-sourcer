@@ -224,6 +224,16 @@ A generic suggested line ("Rechargeable battery") beside the only other line in 
 single-part role (battery, board) is folded into it. See
 [multi-source intake](../docs/contracts/multi-source-intake.md).
 
+GitHub extraction reads the root README plus up to six relevant BOM, parts, wiring,
+assembly and hardware documents discovered from relative links and the repository tree.
+Supplementary text is capped by `BS_PROJECT_PAGE_CHARS` and 16,000 characters per file;
+each quote cites the actual supporting file. Current KiCad schematics are inspected even
+when the README already names parts. Archived/legacy directories are excluded. This is
+bounded evidence discovery, not a guarantee of exhaustive coverage for every repository.
+Unsupported inferred quantities above 100 or lacking reasoning fall back to one with an
+explicit explanation; stated quantities are preserved. Ambiguous IRremote includes only
+produce receiver/transmitter hints when the corresponding API is used.
+
 The AI buyer explicitly plans functional alternative searches before purchase selection,
 even when an exact offer exists. It then assesses every fetched candidate in batches of
 six, returning per-listing verdicts, quoted evidence, missing facts and required changes

@@ -349,8 +349,9 @@ def test_github_readme_fallback_and_evidence_url():
     # Then a bounded set of code and build files on the same raw host (all missing here),
     # and, since none was a code file, one repository-tree request.
     tree = "https://api.github.com/repos/maker/synthetic-bot/git/trees/HEAD?recursive=1"
-    assert urls[-1] == tree
-    assert 2 < len(urls) <= 2 + 8 + 1 and all(url.startswith(raw) for url in urls[:-1])
+    assert tree in urls
+    assert 2 < len(urls) <= 2 + 8 + 2
+    assert all(url.startswith(raw) or url == tree for url in urls)
     assert str(items[0].evidence[0].url) == raw + "readme.md"
     assert items[0].qty == 2
 
@@ -363,7 +364,7 @@ def test_github_without_readme_or_code_is_unavailable():
     assert "README" in captured.value.message
     readmes = len(project_page_source("https://github.com/a/b").fetch_urls)
     # README guesses, one tree request (missing here), then bounded code-file guesses.
-    assert readmes + 1 < len(fetcher.calls) <= readmes + 1 + 8
+    assert readmes + 1 < len(fetcher.calls) <= readmes + 2 + 8
 
 
 @pytest.mark.parametrize(
@@ -442,3 +443,101 @@ def test_demo_mode_does_not_fetch_project_pages():
     assert snapshot.events[0].message == "Demo job queued."
     assert snapshot.items[0].raw_name == "ESP32 development board"
     assert all(evidence == [] for evidence in (item.evidence for item in snapshot.items))
+
+
+def test_linked_bom_is_read_even_when_readme_already_names_pcb():
+    raw = "https://raw.githubusercontent.com/maker/synthetic-bot/HEAD/"
+    repo = "https://github.com/maker/synthetic-bot"
+    readme = "Carrier PCB. [Parts](docs/BOM.md) [unsafe](../../private.md)"
+    bom = "| Part | Qty | Cost |\n| MAX98357A amplifier | 1 | 250 |"
+    fetcher = FakeFetcher(
+        {
+            raw + "README.md": page(raw + "README.md", readme),
+            raw + "docs/BOM.md": page(raw + "docs/BOM.md", bom),
+        }
+    )
+
+    def handler(request):
+        body = json.loads(request.content)
+        assert "MAX98357A" in json.dumps(body)
+        return gemini(
+            [
+                {
+                    "raw_name": "MAX98357A amplifier",
+                    "qty": 1,
+                    "evidence": [
+                        {"quote": "| MAX98357A amplifier | 1 | 250 |", "observation": "BOM row"}
+                    ],
+                }
+            ]
+        )
+
+    result = extractor(fetcher, handler).extract(repo)
+    assert str(result.items[0].evidence[0].url) == raw + "docs/BOM.md"
+    assert not any("private.md" in call[0] for call in fetcher.calls)
+
+
+def test_repository_tree_finds_unlinked_bom_without_readme():
+    raw = "https://raw.githubusercontent.com/maker/synthetic-bot/HEAD/"
+    tree = "https://api.github.com/repos/maker/synthetic-bot/git/trees/HEAD?recursive=1"
+    fetcher = FakeFetcher(
+        {
+            tree: page(
+                tree,
+                json.dumps(
+                    {
+                        "tree": [
+                            {"path": "hardware/parts.csv", "type": "blob", "size": 40},
+                            {"path": "archive/BOM.md", "type": "blob", "size": 40},
+                        ]
+                    }
+                ),
+            ),
+            raw + "hardware/parts.csv": page(raw + "hardware/parts.csv", "INMP441 microphone,1"),
+        }
+    )
+    item = {
+        "raw_name": "INMP441 microphone",
+        "qty": 1,
+        "evidence": [{"quote": "INMP441 microphone,1", "observation": "BOM"}],
+    }
+    result = extractor(fetcher, lambda request: gemini([item])).extract(
+        "https://github.com/maker/synthetic-bot"
+    )
+    assert str(result.items[0].evidence[0].url).endswith("hardware/parts.csv")
+    assert not any("archive/BOM.md" in c[0] for c in fetcher.calls)
+
+
+def test_unbacked_1450_inferred_boards_do_not_become_purchase_quantity():
+    from bharat_sourcer.extraction import PartDraft, decided_part
+
+    draft = PartDraft(raw_name="120 x 45 mm PCB", qty=None, suggested_qty=1450)
+    assert decided_part(draft)["qty"] == 1
+    assert "Unsupported" in decided_part(draft)["qty_reason"]
+    stated = draft.model_copy(update={"qty": 1450})
+    assert decided_part(stated)["qty"] == 1450
+    reasoned = draft.model_copy(update={"suggested_qty": 2, "qty_reason": "One per device"})
+    assert decided_part(reasoned)["qty"] == 2
+
+
+def test_ir_transmit_library_does_not_imply_receiver():
+    from bharat_sourcer.code_evidence import scan
+
+    sender = scan("emitter.ino", "#include <IRremote.hpp>\nIrSender.begin(4);")
+    assert [part for part, *_ in sender] == ["IR LED"]
+    assert not scan("unknown.ino", "#include <IRremote.hpp>")
+    receiver = scan("capture.ino", "#include <IRremote.hpp>\nIrReceiver.begin(5);")
+    assert [part for part, *_ in receiver] == ["IR receiver module"]
+
+
+def test_repository_docs_enforce_count_and_total_text_limits():
+    from bharat_sourcer.repository_docs import repository_documents
+
+    raw = "https://raw.githubusercontent.com/maker/synthetic-bot/HEAD/"
+    links = " ".join(f"[BOM](docs/parts{i}.md)" for i in range(10))
+    fetcher = FakeFetcher(
+        {raw + f"docs/parts{i}.md": page(raw + f"docs/parts{i}.md", "x" * 1000) for i in range(10)}
+    )
+    docs = repository_documents(fetcher, "https://github.com/maker/synthetic-bot", links, 2500)
+    assert sum(len(text) for _, text in docs) == 2500
+    assert len(docs) == 3

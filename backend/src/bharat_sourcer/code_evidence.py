@@ -35,6 +35,10 @@ TREE_BYTES = 1_000_000
 MAX_TREE_ENTRIES = 5000
 # Vendored libraries, build output and docs are not the project's own code.
 SKIP_DIRS = {
+    "archive",
+    "archived",
+    "legacy",
+    "superseded",
     ".git",
     ".github",
     ".pio",
@@ -177,6 +181,14 @@ def scan(path: str, text: str) -> list[tuple[str, int, str, str]]:
         for number, line in uncommented(lines, hash_comments=False):
             match = INCLUDE.match(line)
             part = match and tables["headers"].get(basename(match.group(1)).casefold())
+            if match and basename(match.group(1)).casefold() in {"irremote.h", "irremote.hpp"}:
+                active = "\n".join(value for _, value in uncommented(lines, hash_comments=False))
+                receiver = bool(re.search(r"\b(?:IrReceiver|IRrecv)\b", active))
+                sender = bool(re.search(r"\b(?:IrSender|IRsend)\b", active))
+                if sender:
+                    hints.append(("IR LED", number, line, "uses IR transmit API"))
+                if not receiver:
+                    part = None
             if part:
                 hints.append((part, number, line, f"includes {basename(match.group(1))}"))
     elif name.endswith(".py"):
