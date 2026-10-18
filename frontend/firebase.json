@@ -3,9 +3,7 @@
     {
       "site": "bharatsourcer",
       "public": "hosting",
-      "ignore": [
-        "**/.*"
-      ],
+      "ignore": ["**/.*"],
       "rewrites": [
         {
           "source": "**",
@@ -34,9 +32,7 @@
     {
       "site": "bharatsource",
       "public": "hosting",
-      "ignore": [
-        "**/.*"
-      ],
+      "ignore": ["**/.*"],
       "redirects": [
         {
           "source": "/:path*",

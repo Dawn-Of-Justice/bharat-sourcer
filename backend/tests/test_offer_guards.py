@@ -26,7 +26,8 @@ def offer(title, **kwargs):
 
 def spec():
     return BuyableSpec(
-        origin="ai_inferred", category="connector",
+        origin="ai_inferred",
+        category="connector",
         params=[SpecParam(name="pitch", value="2.54 mm", unit="m", si_value=0.00254)],
     )
 

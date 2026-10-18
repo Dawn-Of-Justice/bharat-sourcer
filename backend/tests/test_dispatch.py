@@ -182,6 +182,7 @@ def test_sweep_is_bounded_and_flags_stale_work(monkeypatch, caplog):
 
 def test_checkpoint_continuation_queues_without_retry_backoff():
     from bharat_sourcer.dispatch import enqueue_continuation
+
     source = Source()
     jobs = JobService(Extractor(), sourcing=source)
     chat = ConversationService(jobs)
@@ -201,6 +202,7 @@ def test_checkpoint_continuation_queues_without_retry_backoff():
 
 def test_continuation_failure_and_active_lease_keep_original_retry():
     from bharat_sourcer.dispatch import enqueue_continuation
+
     jobs = JobService(Extractor())
     job, _ = jobs.create(CreateJob(url="https://youtu.be/abcdefghijk"))
     work = Work(job_id=job.job_id, kind="workflow")
@@ -213,9 +215,10 @@ def test_continuation_failure_and_active_lease_keep_original_retry():
     assert not enqueue_continuation(jobs, dispatcher, work)
     dispatcher.enqueue.assert_not_called()
 
+
 def test_http_checkpoint_acknowledges_only_after_continuation_is_queued(monkeypatch):
     calls = []
-    client, store, keys = sweep_app(monkeypatch, lambda self, key, kind, **kw: calls.append(key))
+    client, _store, keys = sweep_app(monkeypatch, lambda self, key, kind, **kw: calls.append(key))
     monkeypatch.setattr("bharat_sourcer.main.work_once", lambda *args: False)
     body = {"job_id": keys[0], "kind": "workflow"}
     response = client.post("/internal/work", json=body)
