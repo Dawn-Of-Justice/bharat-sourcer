@@ -772,7 +772,7 @@ class SourcingService:
         summary = None
         if search is not None:
             summary = SellerSearchSummary(
-                queries=search.queries,
+                queries=search.queries[:4],
                 candidate_urls=[c.url for c in search.candidates][:20],
                 sellers_checked=sum(d.status in {"ok", "no_results"} for d in search.diagnostics),
                 blocked_sellers=sorted(set(search.blocked()) | state.blocked_hosts)[:20],

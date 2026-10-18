@@ -930,3 +930,28 @@ def test_gemini_functional_response_schemas_and_context():
     assert "queries" in requests[0]["generationConfig"]["responseJsonSchema"]["properties"]
     assert "assessments" in requests[1]["generationConfig"]["responseJsonSchema"]["properties"]
     assert "every" in requests[1]["systemInstruction"]["parts"][0]["text"].lower()
+
+
+def test_exploration_queries_do_not_overflow_seller_summary():
+    class ManyQueries(Sellers):
+        def search(self, queries, limit, budget):
+            result = super().search(queries, limit, budget)
+            result.queries = [
+                "original query 1",
+                "original query 2",
+                "original query 3",
+                "original query 4",
+            ]
+            return result
+
+    buyer = FunctionalBuyer(queries=["alternative 1", "alternative 2", "alternative 3"])
+    service = SourcingService(
+        Discovery(),
+        Fetcher(),
+        judge=AcceptExact(),
+        seller_search=ManyQueries([TINNED.url], [ENAMELLED.url]),
+        buyer=buyer,
+    )
+    line = service.source_for_project(wire_line(), [wire_line()], project=PROJECT)
+    assert line.buyer.searched == ["alternative 1", "alternative 2", "alternative 3"]
+    assert len(line.seller_search.queries) == 4
