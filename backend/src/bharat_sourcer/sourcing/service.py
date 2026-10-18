@@ -45,6 +45,8 @@ from bharat_sourcer.sourcing.coordination import HostDeferred
 from bharat_sourcer.sourcing.fabrication import FabricationFinder
 from bharat_sourcer.sourcing.fetch import FetchError, SafeFetcher, validate_url
 from bharat_sourcer.sourcing.judge import Judge, review_candidates
+from bharat_sourcer.sourcing.latency import allowed as latency_allowed
+from bharat_sourcer.sourcing.latency import limit as latency_limit
 from bharat_sourcer.sourcing.listings import (
     meta_offer,
     page_images,
@@ -289,6 +291,7 @@ class SourcingService:
         spec_writer: "SpecWriter | None" = None,
         buyer: "GeminiBuyer | None" = None,
         buyer_rounds: int = 2,
+        buyer_time_budget_s: float = 120,
         carts: CartEngine | None = None,
         fabrication: FabricationFinder | None = None,
         providers: ProviderSearch | None = None,
@@ -312,6 +315,7 @@ class SourcingService:
         # AI buyer: decides unstated values and what to buy when nothing was accepted.
         self.buyer = buyer
         self.buyer_rounds = buyer_rounds
+        self.buyer_time_budget_s = buyer_time_budget_s
         # Cart engine: add-to-cart link recipes per store, decided once and cached.
         self.carts = carts
         # Made-to-order lines link fabrication services instead of searching sellers.
@@ -884,7 +888,11 @@ class SourcingService:
             ),
         )
 
-    def _buy(
+    def _buy(self, *args, **kwargs):
+        with latency_limit(self.buyer_time_budget_s):
+            return self._buy_with_deadline(*args, **kwargs)
+
+    def _buy_with_deadline(
         self,
         item,
         project_items,
@@ -902,7 +910,11 @@ class SourcingService:
         queries = []
         exploration = None
         tried = list(search.queries) if search else []
-        if self.buyer_rounds > 0 and paid_allowed() and (self.seller_search or self.providers):
+        if (
+            self.buyer_rounds > 0
+            and (paid_allowed() and latency_allowed())
+            and (self.seller_search or self.providers)
+        ):
             stages.append("buyer")
             calls += 1
             exploration = self.buyer.explore(item, spec, project, project_items, tried)
@@ -913,7 +925,7 @@ class SourcingService:
                     if query and query.casefold() not in known:
                         queries.append(query)
                         known.add(query.casefold())
-                if queries:
+                if queries and latency_allowed():
                     self._buyer_search(
                         queries,
                         spec,
@@ -925,6 +937,8 @@ class SourcingService:
                         stages,
                         search,
                     )
+                elif queries:
+                    queries = []
         note, choice_calls = self._choose_buy(
             item,
             project_items,
@@ -947,7 +961,7 @@ class SourcingService:
         for start in range(0, len(state.candidates), ASSESSMENT_BATCH):
             batch = state.candidates[start : start + ASSESSMENT_BATCH]
             response = None
-            if paid_allowed():
+            if paid_allowed() and latency_allowed():
                 stages.append("buyer")
                 calls += 1
                 response = self.buyer.assess(item, spec, project, project_items, batch)
@@ -961,7 +975,7 @@ class SourcingService:
             # truncated response into an implicit verdict for the remaining listings.
             unresolved = [i for i in range(len(batch)) if i not in by_id or i in duplicates]
             for offset in range(0, len(unresolved), 3):
-                if not paid_allowed():
+                if not (paid_allowed() and latency_allowed()):
                     break
                 indices = unresolved[offset : offset + 3]
                 stages.append("buyer")
@@ -979,6 +993,10 @@ class SourcingService:
             for index, candidate in enumerate(batch):
                 draft = None if index in duplicates else by_id.get(index)
                 assessment = functional_assessment(candidate, draft, self.buyer.model)
+                if draft is None and not latency_allowed():
+                    assessment.reason = (
+                        "Functional review deferred: the buyer time budget was exhausted."
+                    )
                 if assessment.verdict.startswith("usable") and is_accessory_for(
                     candidate.title, resolution.query
                 ):
@@ -1074,7 +1092,7 @@ class SourcingService:
         searched: list[str] = list(initial_queries)
         calls = 0
         for round_index in range(rounds + 1):
-            if not paid_allowed():
+            if not (paid_allowed() and latency_allowed()):
                 break
             stages.append("buyer")
             calls += 1
@@ -1121,7 +1139,12 @@ class SourcingService:
             queries = [
                 q.strip() for q in draft.search if q.strip() and q.strip().casefold() not in known
             ]
-            if not queries or round_index == rounds or not (self.seller_search or self.providers):
+            if (
+                not queries
+                or round_index == rounds
+                or not latency_allowed()
+                or not (self.seller_search or self.providers)
+            ):
                 break
             searched += queries[:3]
             self._buyer_search(
@@ -1131,14 +1154,22 @@ class SourcingService:
             decision_note(None, None, None, searched, self.buyer.model) if searched else None
         ), calls
 
-    def _buyer_search(
+    def _buyer_search(self, *args, **kwargs):
+        with latency_limit(45):
+            return self._buyer_search_with_deadline(*args, **kwargs)
+
+    def _buyer_search_with_deadline(
         self, queries, spec, project, resolution, fetcher, attempted, state, stages, search
     ):
         """One shared bounded round for deliberate exploration and buyer follow-ups."""
+        if not latency_allowed():
+            return
         stages.append("buyer_search")
         try:
             more = (
-                self.seller_search.search(queries[:3], self.seller_limit, self.seller_fetch_budget)
+                self.seller_search.search(
+                    queries[:3], self.seller_limit, min(4, self.seller_fetch_budget)
+                )
                 if self.seller_search
                 else SearchResult([], [], [])
             )
@@ -1148,12 +1179,12 @@ class SourcingService:
         new = self._verify_urls(
             [c.url for c in more.candidates], resolution, fetcher, attempted, state
         )
-        self._review(spec, project, resolution, new, state, stages)
-        if self.providers:
+        # Functional review below replaces a redundant strict-model pass.
+        if self.providers and latency_allowed():
             stages.append("provider_search")
             # One bounded provider query per round; never send project narrative.
             try:
-                external = self.providers.search(queries[0], self.seller_fetch_budget)
+                external = self.providers.search(queries[0], min(4, self.seller_fetch_budget))
             except Exception as exc:
                 logging.getLogger(__name__).warning(
                     "BUYER_PROVIDER_FAILED type=%s", type(exc).__name__
@@ -1168,7 +1199,6 @@ class SourcingService:
                 attempted,
                 state,
             )
-            self._review(spec, project, resolution, provider_new, state, stages)
             new.extend(provider_new)
         if search is not None:
             search.queries.extend(queries[:3])
@@ -1194,6 +1224,8 @@ class SourcingService:
         # With a judge, pages are read without a relevance gate.
         query = None if self.judge else resolution.query
         for url in urls:
+            if not latency_allowed():
+                break
             # Per stage: rejected earlier offers must not stop the next stage from fetching.
             # Variant groups have no single offer until the judge picks a variant.
             offers = [c.offer if isinstance(c, Candidate) else c for c in new]

@@ -177,6 +177,7 @@ def create_app(
                 else None,
                 buyer=GeminiBuyer(settings) if settings.buyer_enabled else None,
                 buyer_rounds=settings.buyer_search_rounds,
+                buyer_time_budget_s=settings.buyer_time_budget_s,
                 carts=CartEngine(settings, cache=shared_cache)
                 if settings.cart_engine_enabled
                 else None,

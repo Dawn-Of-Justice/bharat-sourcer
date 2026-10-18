@@ -1004,3 +1004,108 @@ def test_retry_exhaustion_leaves_visible_unknowns():
     assert buyer.attempts == 2
     assert line.buyer.assessments[0].verdict == "insufficient_evidence"
     assert line.offers[0].match.status == "exact"
+
+
+def test_assessment_cache_keys_evidence_requirements_and_returns_copies():
+    from bharat_sourcer.sourcing.listings import verify_page
+    from bharat_sourcer.sourcing.matching import build_candidate
+
+    count = []
+
+    def handler(request):
+        count.append(1)
+        result = {
+            "assessments": [
+                {
+                    "candidate_id": 0,
+                    "verdict": "insufficient_evidence",
+                    "reason": "Missing current rating",
+                }
+            ]
+        }
+        return httpx.Response(
+            200,
+            json={
+                "candidates": [
+                    {"finishReason": "STOP", "content": {"parts": [{"text": json.dumps(result)}]}}
+                ]
+            },
+        )
+
+    buyer = GeminiBuyer(
+        Settings(_env_file=None, gemini_api_key="synthetic"), transport=httpx.MockTransport(handler)
+    )
+    candidate = build_candidate(TINNED, verify_page(TINNED, None))
+    first = buyer.assess(wire_line(), WIRE, PROJECT, [wire_line()], [candidate])
+    first.assessments[0].reason = "mutated consumer copy"
+    again = buyer.assess(wire_line(), WIRE, PROJECT, [wire_line()], [candidate])
+    assert again.assessments[0].reason == "Missing current rating" and len(count) == 1
+    changed = PROJECT.model_copy(update={"power": "12 V"})
+    buyer.assess(wire_line(), WIRE, changed, [wire_line()], [candidate])
+    candidate.description += " New seller evidence"
+    buyer.assess(wire_line(), WIRE, changed, [wire_line()], [candidate])
+    assert len(count) == 3
+    buyer._assessments = {k: (0, v[1]) for k, v in buyer._assessments.items()}
+    buyer.assess(wire_line(), WIRE, changed, [wire_line()], [candidate])
+    assert len(count) == 4
+
+
+def test_buyer_transport_does_not_repeat_failed_requests():
+    calls = []
+
+    def handler(request):
+        calls.append(1)
+        return httpx.Response(503)
+
+    buyer = GeminiBuyer(
+        Settings(_env_file=None, gemini_api_key="synthetic"), transport=httpx.MockTransport(handler)
+    )
+    assert buyer.explore(wire_line(), WIRE, PROJECT, [], []) is None
+    assert len(calls) == 1
+
+
+def test_latency_deadline_preserves_original_and_does_not_leak():
+    from bharat_sourcer.sourcing.latency import allowed, limit
+
+    with limit(0):
+        assert not allowed()
+        with limit(120):
+            assert not allowed()
+    assert allowed()
+    buyer = FunctionalBuyer(queries=["not started after deadline"])
+    service = SourcingService(
+        Discovery(),
+        Fetcher(),
+        judge=AcceptExact(),
+        seller_search=Sellers([TINNED.url]),
+        buyer=buyer,
+        buyer_time_budget_s=0,
+    )
+    line = service.source_for_project(wire_line(), [wire_line()], project=PROJECT)
+    assert not buyer.explored and not buyer.assessed and not buyer.shown
+    assert line.offers[0].match.status == "exact"
+    assert line.buyer.assessments[0].verdict == "insufficient_evidence"
+
+
+def test_alternative_listing_skips_duplicate_strict_judge():
+    class CountingJudge(AcceptExact):
+        def __init__(self):
+            self.urls = []
+
+        def judge_candidates(self, spec, project, candidates):
+            self.urls.extend(c.url for c in candidates)
+            return super().judge_candidates(spec, project, candidates)
+
+    judge = CountingJudge()
+    buyer = FunctionalBuyer(queries=["enamelled copper conductor"])
+    service = SourcingService(
+        Discovery(),
+        Fetcher(),
+        judge=judge,
+        seller_search=Sellers([TINNED.url], [ENAMELLED.url]),
+        buyer=buyer,
+    )
+    line = service.source_for_project(wire_line(), [wire_line()], project=PROJECT)
+    assert judge.urls == [TINNED.url]
+    assert ENAMELLED.url in buyer.assessed
+    assert next(o for o in line.offers if str(o.url) == ENAMELLED.url).compatibility.grade == "B"

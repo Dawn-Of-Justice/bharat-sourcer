@@ -156,6 +156,9 @@ class Settings(BaseSettings):
     # `buyer_search_rounds` extra store searches. Site `buyer`, the main model.
     buyer_enabled: bool = True
     buyer_search_rounds: int = Field(default=2, ge=0, le=3)
+    buyer_time_budget_s: float = Field(default=120, ge=1, le=600)
+    buyer_request_timeout_s: float = Field(default=25, ge=1, le=60)
+    buyer_assessment_cache_ttl_s: int = Field(default=900, ge=0, le=3600)
     # Batched spec writer (sourcing/spec_writer.py): one call per job for lines without an
     # AI buying spec (jobs extracted before specs existed). Site `spec`, low thinking.
     spec_writer_enabled: bool = True

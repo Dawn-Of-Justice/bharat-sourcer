@@ -66,6 +66,28 @@ prices and stock always come from the seller's page.
 
 ## `report.lines[].buyer` (`BuyerDecision`)
 
+### Latency controls
+
+`BS_BUYER_TIME_BUDGET_S` defaults to 120 seconds for the buyer stage. This is a
+request-local scheduling deadline: no further buyer calls or page fetches start after
+it expires. Each alternative-search round has a nested 45-second deadline and requests
+at most four candidates from each discovery path. Existing in-flight synchronous I/O
+may overrun the deadline; the initial seller discovery, strict matching, and later
+research are outside this buyer-stage limit. Deferred reviews are explicitly uncertain
+and preserve prior accepted evidence.
+
+`BS_BUYER_REQUEST_TIMEOUT_S` defaults to 25 seconds per network phase. Buyer model
+requests make one HTTP attempt; missing batch verdicts can still use the bounded
+smaller-batch retry while time and paid budgets permit. Alternative candidates bypass
+the redundant strict judge and receive the contextual functional assessment instead.
+
+Complete assessment batches are cached in process memory for
+`BS_BUYER_ASSESSMENT_CACHE_TTL_S` (default 900 seconds, maximum 256 entries). Keys include
+full project/BOM requirements, listing evidence and URLs, prices/stock, model, prompt and
+generation settings. Changed inputs cause a cache miss; returned results are deep copies.
+Failed or incomplete batches are not cached. Set the TTL to zero or disable caching to
+turn this off. Cache entries do not survive process restarts or cross Cloud Run instances.
+
 | Field | Meaning |
 | --- | --- |
 | `value`, `value_reason`, `value_confidence` | The decided value, e.g. `resistance: 1k`, and why |

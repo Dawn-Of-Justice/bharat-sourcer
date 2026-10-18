@@ -17,8 +17,11 @@ come from the seller's page, and claims keep only quotes found verbatim in the l
 A substitute is offered as grade B, so the user acknowledges the changes before ordering.
 """
 
+import hashlib
 import json
 import logging
+import threading
+import time
 from typing import Literal
 
 import httpx
@@ -41,6 +44,7 @@ from bharat_sourcer.schemas import (
     VerifiedOffer,
 )
 from bharat_sourcer.sourcing.judge import compact_spec, quoted
+from bharat_sourcer.sourcing.latency import remaining
 from bharat_sourcer.sourcing.matching import Candidate
 from bharat_sourcer.sourcing.part_spec import pack_quantity, with_si
 from bharat_sourcer.usage import paid_allowed, record_usage
@@ -231,13 +235,15 @@ def project_brief(project: ProjectContext | None, items: list[BomItem], line: Bo
 class GeminiBuyer:
     def __init__(self, settings: Settings, transport: httpx.BaseTransport | None = None):
         self.settings, self.transport = settings, transport
+        self._assessments: dict[str, tuple[float, AssessmentBatch]] = {}
+        self._cache_lock = threading.Lock()
 
     @property
     def model(self) -> str:
         return site_model(self.settings, SITE)
 
     def _call(self, prompt: str, body: dict, schema: type[Model]) -> Model | None:
-        if not paid_allowed():
+        if not paid_allowed() or remaining() <= 0:
             return None
         payload = {
             "systemInstruction": {"parts": [{"text": prompt}]},
@@ -255,11 +261,15 @@ class GeminiBuyer:
             },
         }
         try:
-            with httpx.Client(timeout=60, transport=self.transport) as client:
+            with httpx.Client(
+                timeout=min(self.settings.buyer_request_timeout_s, remaining()),
+                transport=self.transport,
+            ) as client:
                 response = post_with_retry(
                     client,
                     f"https://generativelanguage.googleapis.com/v1beta/models/{self.model}:generateContent",
                     site=SITE,
+                    attempts=1,
                     headers={"x-goog-api-key": self.settings.gemini_api_key.get_secret_value()},
                     json=payload,
                 )
@@ -322,6 +332,24 @@ class GeminiBuyer:
         return draft if isinstance(draft, ExplorationDraft) else None
 
     def assess(self, line, spec, project, items, candidates) -> AssessmentBatch | None:
+        # Include full requirements, evidence, URLs, model and generation settings. Prices
+        # and stock are reapplied from current candidates, never from cached offers.
+        scope = {
+            "line": line.model_dump(mode="json"),
+            "spec": spec.model_dump(mode="json"),
+            "project": project.model_dump(mode="json") if project else None,
+            "items": [i.model_dump(mode="json") for i in items],
+            "candidates": [{"url": c.url, **c.listing(i)} for i, c in enumerate(candidates)],
+            "model": self.model,
+            "generation": site_generation(self.settings, SITE),
+            "prompt": ASSESSMENT_PROMPT,
+        }
+        key = hashlib.sha256(json.dumps(scope, sort_keys=True, default=str).encode()).hexdigest()
+        ttl = self.settings.buyer_assessment_cache_ttl_s if self.settings.cache_enabled else 0
+        with self._cache_lock:
+            cached = self._assessments.get(key)
+            if ttl and cached and cached[0] > time.monotonic():
+                return cached[1].model_copy(deep=True)
         draft = self._call(
             ASSESSMENT_PROMPT,
             {
@@ -331,7 +359,17 @@ class GeminiBuyer:
             },
             AssessmentBatch,
         )
-        return draft if isinstance(draft, AssessmentBatch) else None
+        if not isinstance(draft, AssessmentBatch):
+            return None
+        ids = [a.candidate_id for a in draft.assessments]
+        if ttl and sorted(ids) == list(range(len(candidates))):
+            with self._cache_lock:
+                now = time.monotonic()
+                self._assessments = {k: v for k, v in self._assessments.items() if v[0] > now}
+                if len(self._assessments) >= 256:
+                    self._assessments.pop(next(iter(self._assessments)))
+                self._assessments[key] = (now + ttl, draft.model_copy(deep=True))
+        return draft
 
 
 def functional_assessment(
